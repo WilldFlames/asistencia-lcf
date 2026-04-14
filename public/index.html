@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Asistencia – Liceo de Calle Fallas</title>
+<style>
+:root{--azul:#1a3a5c;--azul2:#2563a8;--verde:#16a34a;--rojo:#dc2626;--naranja:#d97706;--morado:#7c3aed;--bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--r:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+/* SCREENS */
+.fullscreen{display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;}
+.fullscreen.show{display:flex;}
+#login-screen{background:linear-gradient(135deg,#1a3a5c,#2563a8);}
+#cambiar-pass-screen{background:linear-gradient(135deg,#7c3aed,#4f46e5);}
+.auth-box{background:#fff;border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;}
+.auth-logo{font-size:42px;margin-bottom:8px;}
+.auth-box h2{font-size:18px;color:var(--azul);margin-bottom:2px;}
+.auth-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
+.auth-fg{text-align:left;margin-bottom:12px;}
+.auth-fg label{font-size:12px;font-weight:bold;color:var(--muted);display:block;margin-bottom:4px;}
+.auth-fg input{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;}
+.auth-fg input:focus{outline:none;border-color:var(--azul2);}
+.auth-btn{width:100%;padding:11px;color:#fff;border:none;border-radius:7px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:4px;}
+.auth-btn.blue{background:var(--azul);}
+.auth-btn.purple{background:var(--morado);}
+.auth-btn:hover{opacity:.88;}
+.auth-err{margin-top:10px;padding:9px;border-radius:6px;font-size:13px;display:none;}
+.auth-err.show{display:block;}
+.auth-err.danger{background:#fee2e2;color:#991b1b;}
+.auth-err.success{background:#dcfce7;color:#166534;}
+/* TOPBAR */
+.topbar{background:var(--azul);color:#fff;padding:0 18px;height:54px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2);flex-shrink:0;}
+.topbar h1{font-size:15px;font-weight:bold;}
+.topbar .sub{font-size:11px;opacity:.7;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+#usuario-label{font-size:12px;opacity:.85;}
+.btn-logout{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:12px;}
+/* NOTIF BELL */
+.notif-wrap{position:relative;cursor:pointer;}
+.notif-bell{font-size:20px;cursor:pointer;padding:4px;}
+.notif-count{position:absolute;top:-4px;right:-4px;background:var(--rojo);color:#fff;font-size:10px;font-weight:bold;padding:1px 5px;border-radius:999px;display:none;}
+.notif-count.show{display:block;}
+.notif-dropdown{position:absolute;right:0;top:34px;width:320px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:300;display:none;max-height:400px;overflow-y:auto;}
+.notif-dropdown.show{display:block;}
+.notif-item{padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
+.notif-item:last-child{border-bottom:none;}
+.notif-item.no-leida{background:#eff6ff;}
+.notif-item:hover{background:#f8fafc;}
+.notif-empty{padding:20px;text-align:center;color:var(--muted);font-size:13px;}
+.notif-header{padding:10px 14px;font-weight:bold;font-size:13px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+/* LAYOUT */
+.app-body{display:flex;flex:1;overflow:hidden;}
+/* SIDEBAR */
+.sidebar{width:215px;background:var(--azul);color:#fff;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.sidebar-section{padding:10px 16px 3px;font-size:10px;text-transform:uppercase;letter-spacing:1px;opacity:.5;font-weight:bold;}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:11px 18px;cursor:pointer;font-size:13px;border:none;background:none;color:rgba(255,255,255,.8);width:100%;text-align:left;transition:background .15s;}
+.nav-btn:hover{background:rgba(255,255,255,.1);color:#fff;}
+.nav-btn.active{background:rgba(255,255,255,.18);color:#fff;font-weight:bold;}
+.nav-btn .icon{font-size:15px;width:20px;text-align:center;}
+/* MAIN */
+.main-content{flex:1;overflow-y:auto;padding:22px 18px;}
+.page{display:none;}.page.active{display:block;}
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:16px;}
+.card h2{font-size:15px;color:var(--azul);margin-bottom:12px;}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:13px;text-align:center;}
+.stat .num{font-size:28px;font-weight:bold;color:var(--azul);}
+.stat .num.green{color:var(--verde);}.stat .num.red{color:var(--rojo);}.stat .num.orange{color:var(--naranja);}
+.stat .lbl{font-size:11px;color:var(--muted);margin-top:3px;}
+/* FORM */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+.fg{display:flex;flex-direction:column;gap:4px;}
+.fg label{font-size:12px;font-weight:bold;color:var(--muted);}
+.fg input,.fg select,.fg textarea{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:Arial,sans-serif;}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--azul2);}
+.fg textarea{resize:vertical;min-height:65px;}
+.form-actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;}
+/* BUTTONS */
+.btn{padding:8px 16px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:bold;transition:opacity .15s;}
+.btn:hover{opacity:.85;}
+.btn-primary{background:var(--azul);color:#fff;}
+.btn-success{background:var(--verde);color:#fff;}
+.btn-danger{background:var(--rojo);color:#fff;}
+.btn-orange{background:var(--naranja);color:#fff;}
+.btn-purple{background:var(--morado);color:#fff;}
+.btn-outline{background:#fff;color:var(--azul);border:1.5px solid var(--azul);}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-xs{padding:2px 8px;font-size:11px;}
+/* TABLE */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:var(--bg);padding:8px 11px;text-align:left;font-size:11px;color:var(--muted);border-bottom:2px solid var(--border);}
+td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f8fafc;}
+.empty{text-align:center;padding:32px;color:var(--muted);}
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:bold;}
+.b-admin{background:#dbeafe;color:#1e40af;}.b-prof{background:#dcfce7;color:#166534;}
+.b-guia{background:#fef9c3;color:#854d0e;}.b-orient{background:#ede9fe;color:#5b21b6;}
+.b-aux{background:#fee2e2;color:#991b1b;}.b-P{background:#dcfce7;color:#166534;}
+.b-A{background:#fee2e2;color:#991b1b;}.b-T{background:#fef9c3;color:#854d0e;}
+.b-J{background:#dbeafe;color:#1e40af;}
+/* ALERT */
+.alert{padding:10px 14px;border-radius:7px;margin-bottom:10px;font-size:13px;display:none;}
+.alert.show{display:block;}
+.alert-success{background:#dcfce7;color:#166534;border:1px solid #86efac;}
+.alert-danger{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;}
+.alert-info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.show{display:flex;}
+.modal{background:#fff;border-radius:var(--r);padding:22px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;}
+.modal h3{margin-bottom:14px;color:var(--azul);font-size:15px;}
+.modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;}
+/* ASISTENCIA */
+.asis-toggle{display:inline-flex;border-radius:6px;overflow:hidden;border:1.5px solid var(--border);}
+.asis-toggle button{padding:5px 10px;border:none;cursor:pointer;font-size:12px;font-weight:bold;background:#fff;color:var(--muted);transition:all .15s;}
+.asis-toggle button.sel-P{background:var(--verde);color:#fff;}
+.asis-toggle button.sel-A{background:var(--rojo);color:#fff;}
+.asis-toggle button.sel-T{background:var(--naranja);color:#fff;}
+/* INFORMES */
+.informe-card{border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;background:#fafafa;}
+.informe-card.no-leido{border-left:4px solid var(--azul2);}
+.informe-card.respondido{border-left:4px solid var(--verde);}
+.informe-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.informe-field label{font-size:11px;color:var(--muted);font-weight:bold;display:block;margin-bottom:2px;}
+.informe-field p{font-size:13px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:6px 10px;min-height:28px;}
+/* REPORTE */
+.reporte-materia{border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
+.ausencia-item{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.ausencia-item:last-child{border-bottom:none;}
+/* ENCARGADO */
+.enc-card{border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#fafafa;position:relative;}
+.enc-card.principal{border-left:4px solid var(--verde);}
+/* CONSULTA */
+.consulta-card{background:#fff;border:2px solid var(--azul);border-radius:var(--r);padding:20px;margin-top:12px;}
+.consulta-info p{margin-bottom:6px;font-size:14px;}
+.consulta-info strong{color:var(--azul);}
+/* SEARCH */
+.search-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.search-bar input{flex:1;min-width:160px;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;}
+/* PRINT */
+@media print{
+  .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
+  .main-content{padding:0;}
+  body{background:#fff;}
+  .print-header{text-align:center;margin-bottom:20px;}
+  .reporte-materia{page-break-inside:avoid;}
+}
+@media(max-width:700px){.sidebar{width:50px;}.nav-btn span{display:none;}.sidebar-section{display:none;}.nav-btn .icon{margin:0 auto;}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="fullscreen show">
+  <div class="auth-box">
+    <div class="auth-logo">🏫</div>
+    <h2>Liceo de Calle Fallas</h2>
+    <div class="auth-sub">Sistema de Asistencia Institucional<br/><em style="font-size:11px">Directora: Licda. Laura Cruz Jiménez</em></div>
+    <div class="auth-fg"><label>Cédula</label><input type="text" id="l-ced" placeholder="Número de cédula" onkeydown="if(event.key==='Enter')document.getElementById('l-pass').focus()"/></div>
+    <div class="auth-fg"><label>Contraseña</label><input type="password" id="l-pass" placeholder="Contraseña" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <button class="auth-btn blue" onclick="doLogin()">Ingresar</button>
+    <div id="login-err" class="auth-err danger"></div>
+  </div>
+</div>
+
+<!-- CAMBIAR CONTRASEÑA (primer ingreso) -->
+<div id="cambiar-pass-screen" class="fullscreen">
+  <div class="auth-box">
+    <div class="auth-logo">🔑</div>
+    <h2 style="color:var(--morado)">Cambiar Contraseña</h2>
+    <div class="auth-sub">Por seguridad debés cambiar tu contraseña antes de continuar.</div>
+    <div class="auth-fg"><label>Contraseña Actual</label><input type="password" id="cp-actual" placeholder="Tu contraseña actual (tu cédula)"/></div>
+    <div class="auth-fg"><label>Nueva Contraseña</label><input type="password" id="cp-nueva" placeholder="Mínimo 6 caracteres"/></div>
+    <div class="auth-fg"><label>Confirmar Nueva Contraseña</label><input type="password" id="cp-confirmar" placeholder="Repetí la nueva contraseña" onkeydown="if(event.key==='Enter')doCambiarPass()"/></div>
+    <button class="auth-btn purple" onclick="doCambiarPass()">Cambiar y Continuar</button>
+    <div id="cp-err" class="auth-err danger"></div>
+    <div id="cp-ok" class="auth-err success"></div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div><div class="topbar h1">🏫 Liceo de Calle Fallas</div><div class="sub">Sistema de Asistencia</div></div>
+  </div>
+  <div class="topbar-right">
+    <span id="usuario-label"></span>
+    <div class="notif-wrap" onclick="toggleNotif()">
+      <span class="notif-bell">🔔</span>
+      <span class="notif-count" id="notif-count">0</span>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-header">Notificaciones
+          <button class="btn-xs btn-outline" onclick="leerTodasNotif();event.stopPropagation()">Leer todas</button>
+        </div>
+        <div id="notif-lista"></div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Salir</button>
+  </div>
+</div>
+
+<div class="app-body">
+<nav class="sidebar" id="sidebar">
+  <div style="height:10px"></div>
+  <button class="nav-btn active" data-page="dashboard" onclick="goTo('dashboard')"><span class="icon">🏠</span><span>Dashboard</span></button>
+  <button class="nav-btn" data-page="mensajes" onclick="goTo('mensajes')"><span class="icon">📨</span><span>Mensajes</span></button>
+  <div class="sidebar-section" id="sec-docente" style="display:none">Docente</div>
+  <button class="nav-btn" data-page="asistencia" id="nav-asistencia" onclick="goTo('asistencia')" style="display:none"><span class="icon">✅</span><span>Asistencia</span></button>
+  <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
+  <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
+  <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
+  <button class="nav-btn" data-page="reportes" id="nav-reportes" onclick="goTo('reportes')" style="display:none"><span class="icon">📊</span><span>Reportes</span></button>
+  <div class="sidebar-section" id="sec-admin" style="display:none">Admin</div>
+  <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
+  <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
+</nav>
+
+<div class="main-content">
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="stats">
+    <div class="stat"><div class="num" id="ds-usuarios">—</div><div class="lbl">Usuarios</div></div>
+    <div class="stat"><div class="num green" id="ds-estudiantes">—</div><div class="lbl">Estudiantes</div></div>
+    <div class="stat"><div class="num orange" id="ds-asignaciones">—</div><div class="lbl">Asignaciones</div></div>
+  </div>
+  <div class="card"><h2>Bienvenido</h2><p style="font-size:14px;color:var(--muted)" id="dash-msg"></p></div>
+</div>
+
+<!-- USUARIOS -->
+<div class="page" id="page-usuarios">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <h2 style="margin:0">👥 Usuarios</h2>
+      <button class="btn btn-primary" onclick="abrirModalUsuario()">+ Nuevo</button>
+    </div>
+    <div id="alert-usuarios" class="alert"></div>
+    <div class="search-bar"><input type="text" id="buscar-usuario" placeholder="Buscar..." oninput="cargarUsuarios()"/></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Cédula</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Primer ingreso</th><th></th></tr></thead>
+      <tbody id="usuarios-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ASIGNACIONES -->
+<div class="page" id="page-asignaciones">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div class="card">
+      <h2>📚 Materias</h2>
+      <div id="alert-materias" class="alert"></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" id="nueva-materia" placeholder="Nueva materia..." style="flex:1;padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
+        <button class="btn btn-primary btn-sm" onclick="crearMateria()">+</button>
+      </div>
+      <div id="materias-lista"></div>
+    </div>
+    <div class="card">
+      <h2>🏫 Guía y Orientador por Sección</h2>
+      <div id="alert-secciones" class="alert"></div>
+      <div class="fg" style="margin-bottom:8px;">
+        <label>Nivel</label>
+        <select id="filtro-nivel-sec" onchange="cargarSeccionesAdmin()">
+          <option value="">Todos</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option>
+        </select>
+      </div>
+      <div id="secciones-lista" class="table-wrap"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <h2 style="margin:0">📋 Asignaciones Docentes</h2>
+      <button class="btn btn-primary" onclick="abrirModalAsignacion()">+ Nueva</button>
+    </div>
+    <div id="alert-asig" class="alert"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Profesor</th><th>Rol</th><th>Sección</th><th>Materia</th><th>Lecc/sem</th><th></th></tr></thead>
+      <tbody id="asig-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ESTUDIANTES -->
+<div class="page" id="page-estudiantes">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <h2 style="margin:0">🎒 Estudiantes</h2>
+      <button class="btn btn-primary" onclick="abrirModalEstudiante()">+ Nuevo</button>
+    </div>
+    <div id="alert-est" class="alert"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <select id="filtro-seccion-est" onchange="cargarEstudiantes()" style="padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;"></select>
+      <input type="text" id="buscar-est" placeholder="Buscar..." oninput="cargarEstudiantes()" style="flex:1;min-width:140px;padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>#</th><th>Cédula</th><th>Apellidos, Nombre</th><th>Sección</th><th>Nacimiento</th><th></th></tr></thead>
+      <tbody id="est-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ASISTENCIA -->
+<div class="page" id="page-asistencia">
+  <div id="asis-view-lista">
+    <div class="card"><h2>✅ Mis Asignaciones</h2><div id="mis-asig-body"></div></div>
+  </div>
+  <div id="asis-view-dia" style="display:none;">
+    <div class="card no-print">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="volverAsignaciones()">← Volver</button>
+        <h2 style="margin:0;flex:1" id="asis-titulo"></h2>
+      </div>
+      <div id="alert-asis" class="alert"></div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="fg"><label>Fecha</label><input type="date" id="asis-fecha" onchange="cargarListaDia()"/></div>
+        <div class="fg"><label>Lecciones hoy</label>
+          <select id="asis-lecciones">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            <option value="4" selected>4</option><option value="5">5</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="cargarListaDia()">🔄 Cargar</button>
+        <button class="btn btn-success" onclick="guardarAsistencia()">💾 Guardar</button>
+        <button class="btn btn-outline btn-sm" onclick="marcarTodos('P')">✅ Todos P</button>
+        <button class="btn btn-outline btn-sm" onclick="marcarTodos('A')">❌ Todos A</button>
+      </div>
+      <div id="asis-sesion-info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:13px;"></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Asistencia</th><th>Justificación</th></tr></thead>
+        <tbody id="asis-body"></tbody>
+      </table></div>
+    </div>
+    <div class="card no-print">
+      <h2>📅 Historial de Sesiones</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Fecha</th><th>Lecc.</th><th>Presentes</th><th>Ausentes</th><th>Tardías</th><th></th></tr></thead>
+        <tbody id="hist-sesiones-body"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- CONSULTA -->
+<div class="page" id="page-consulta">
+  <div class="card">
+    <h2>🔍 Consulta de Estudiante</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Ingresá la cédula del estudiante para ver su información de contacto y encargados legales.</p>
+    <div style="display:flex;gap:8px;max-width:400px;">
+      <input type="text" id="consulta-cedula" placeholder="Cédula del estudiante" style="flex:1;padding:10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;" onkeydown="if(event.key==='Enter')buscarEstudianteConsulta()"/>
+      <button class="btn btn-primary" onclick="buscarEstudianteConsulta()">🔍 Buscar</button>
+    </div>
+    <div id="consulta-resultado" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<!-- REPORTES -->
+<div class="page" id="page-reportes">
+  <div class="card no-print">
+    <h2>📊 Reporte de Asistencia</h2>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="fg"><label>Sección</label><select id="rep-seccion" onchange="cargarEstReporte()"><option value="">— Sección —</option></select></div>
+      <div class="fg"><label>Estudiante</label><select id="rep-estudiante"><option value="">— Estudiante —</option></select></div>
+      <div class="fg"><label>Desde</label><input type="date" id="rep-desde"/></div>
+      <div class="fg"><label>Hasta</label><input type="date" id="rep-hasta"/></div>
+      <button class="btn btn-primary" onclick="generarReporte()">🔍 Ver</button>
+      <button class="btn btn-success no-print" onclick="window.print()">🖨️ Imprimir</button>
+      <button class="btn btn-orange no-print" id="btn-enviar-email" onclick="enviarEmailReporte()" style="display:none">📧 Enviar a Encargado</button>
+    </div>
+    <div id="alert-rep" class="alert"></div>
+  </div>
+  <div id="reporte-contenido"></div>
+</div>
+
+<!-- MENSAJES -->
+<div class="page" id="page-mensajes">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <h2 style="margin:0">📨 Informes de Rendimiento</h2>
+      <button class="btn btn-primary" id="btn-nuevo-informe" onclick="abrirModalInforme()" style="display:none">+ Nuevo Informe</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-primary btn-sm" id="tab-inbox" onclick="verTab('inbox')">📥 Recibidos</button>
+      <button class="btn btn-outline btn-sm" id="tab-enviados" onclick="verTab('enviados')">📤 Enviados</button>
+      <button class="btn btn-outline btn-sm" id="tab-todos" onclick="verTab('todos')" style="display:none">📋 Todos</button>
+    </div>
+    <div id="mensajes-contenido"></div>
+  </div>
+</div>
+
+</div></div><!-- /main /app-body -->
+
+<!-- ═══ MODALES ═══ -->
+
+<!-- Modal Usuario -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal">
+    <h3 id="mu-titulo">Nuevo Usuario</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">⚠️ La contraseña inicial será la cédula del usuario. Deberá cambiarla al primer ingreso.</p>
+    <div class="form-grid">
+      <div class="fg"><label>Cédula *</label><input type="text" id="mu-cedula"/></div>
+      <div class="fg"><label>Nombre *</label><input type="text" id="mu-nombre"/></div>
+      <div class="fg"><label>Primer Apellido *</label><input type="text" id="mu-ap1"/></div>
+      <div class="fg"><label>Segundo Apellido *</label><input type="text" id="mu-ap2"/></div>
+      <div class="fg"><label>Email</label><input type="email" id="mu-email"/></div>
+      <div class="fg"><label>Rol *</label>
+        <select id="mu-rol">
+          <option value="profesor">Profesor</option>
+          <option value="profesor_guia">Profesor Guía</option>
+          <option value="orientador">Orientador</option>
+          <option value="auxiliar">Auxiliar Administrativo</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+    </div>
+    <div id="alert-mu" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-usuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarUsuario()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Asignación -->
+<div class="modal-overlay" id="modal-asignacion">
+  <div class="modal">
+    <h3>Nueva Asignación</h3>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Profesor *</label><select id="ma-profesor"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Sección *</label><select id="ma-seccion"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Materia *</label><select id="ma-materia"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Lecciones/semana</label>
+        <select id="ma-lecciones"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option></select>
+      </div>
+    </div>
+    <div id="alert-ma" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-asignacion')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarAsignacion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Estudiante -->
+<div class="modal-overlay" id="modal-estudiante">
+  <div class="modal">
+    <h3 id="me-titulo">Nuevo Estudiante</h3>
+    <div class="form-grid">
+      <div class="fg"><label>Cédula *</label><input type="text" id="me-cedula"/></div>
+      <div class="fg"><label>Nombre *</label><input type="text" id="me-nombre"/></div>
+      <div class="fg"><label>Primer Apellido *</label><input type="text" id="me-ap1"/></div>
+      <div class="fg"><label>Segundo Apellido *</label><input type="text" id="me-ap2"/></div>
+      <div class="fg"><label>Fecha de Nacimiento</label><input type="date" id="me-nac"/></div>
+      <div class="fg"><label>Sección</label><select id="me-seccion"><option value="">Sin sección</option></select></div>
+    </div>
+    <div id="alert-me" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-estudiante')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEstudiante()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Encargados -->
+<div class="modal-overlay" id="modal-encargados">
+  <div class="modal" style="max-width:640px;">
+    <h3 id="menc-titulo">Encargados Legales</h3>
+    <div id="alert-enc" class="alert"></div>
+    <div id="enc-lista" style="margin-bottom:14px;"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;">
+      <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;" id="enc-form-titulo">➕ Agregar Encargado</div>
+      <input type="hidden" id="enc-edit-id"/>
+      <div class="form-grid">
+        <div class="fg"><label>Nombre *</label><input type="text" id="enc-nombre"/></div>
+        <div class="fg"><label>Primer Apellido *</label><input type="text" id="enc-ap1"/></div>
+        <div class="fg"><label>Segundo Apellido</label><input type="text" id="enc-ap2"/></div>
+        <div class="fg"><label>Parentesco</label><input type="text" id="enc-parentesco" placeholder="Madre, Padre, Abuelo..."/></div>
+        <div class="fg"><label>Teléfono</label><input type="text" id="enc-tel"/></div>
+        <div class="fg"><label>Celular</label><input type="text" id="enc-cel"/></div>
+        <div class="fg"><label>Correo Electrónico</label><input type="email" id="enc-email"/></div>
+        <div class="fg"><label>Encargado Principal</label>
+          <select id="enc-principal"><option value="true">Sí</option><option value="false">No</option></select>
+        </div>
+        <div class="fg" style="grid-column:1/-1"><label>Dirección</label><input type="text" id="enc-direccion"/></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-success btn-sm" onclick="guardarEncargado()">💾 Guardar Encargado</button>
+        <button class="btn btn-outline btn-sm" onclick="limpiarFormEnc()">Limpiar</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-encargados')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cambiar Sección -->
+<div class="modal-overlay" id="modal-cambiar-seccion">
+  <div class="modal" style="max-width:400px;">
+    <h3>🔄 Cambiar Sección</h3>
+    <p id="mcs-est" style="font-size:13px;margin-bottom:12px;color:var(--muted);"></p>
+    <div class="fg"><label>Nueva Sección</label><select id="mcs-seccion"><option value="">Sin sección</option></select></div>
+    <div id="alert-mcs" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-cambiar-seccion')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarCambioSeccion()">✔ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Informe -->
+<div class="modal-overlay" id="modal-informe">
+  <div class="modal" style="max-width:620px;">
+    <h3>📋 Informe de Rendimiento del Estudiante</h3>
+    <div class="form-grid">
+      <div class="fg"><label>Sección</label><select id="mi-seccion" onchange="cargarEstInforme()"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Estudiante *</label><select id="mi-estudiante"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>Enviar a (Profesor) *</label><select id="mi-dest"><option value="">— Seleccionar —</option></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+      <div class="fg"><label>Conducta</label><select id="mi-conducta"><option>Excelente</option><option>Muy Buena</option><option>Buena</option><option>Regular</option><option>Deficiente</option></select></div>
+      <div class="fg"><label>Participación</label><select id="mi-part"><option>Excelente</option><option>Buena</option><option>Regular</option><option>Poca</option><option>Ninguna</option></select></div>
+      <div class="fg"><label>Trabajos/Tareas</label><select id="mi-trab"><option>Al día</option><option>Algunos pendientes</option><option>Muchos pendientes</option><option>No entrega</option></select></div>
+      <div class="fg"><label>Nota Estimada</label><select id="mi-nota"><option>90-100</option><option>80-89</option><option>70-79</option><option>60-69</option><option>Menos de 60</option></select></div>
+    </div>
+    <div class="fg" style="margin-top:10px;"><label>Recomendaciones</label><textarea id="mi-recom"></textarea></div>
+    <div class="fg" style="margin-top:8px;"><label>Observaciones</label><textarea id="mi-obs"></textarea></div>
+    <div id="alert-mi" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-informe')">Cancelar</button>
+      <button class="btn btn-primary" onclick="enviarInforme()">📤 Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Responder -->
+<div class="modal-overlay" id="modal-responder">
+  <div class="modal" style="max-width:620px;">
+    <h3 id="mr-titulo">Responder Informe</h3>
+    <div id="mr-detalle" style="margin-bottom:12px;"></div>
+    <div class="fg" id="mr-resp-wrap"><label>Respuesta</label><textarea id="mr-resp" style="min-height:90px;"></textarea></div>
+    <div id="alert-mr" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-responder')">Cerrar</button>
+      <button class="btn btn-success" id="btn-resp" onclick="enviarRespuesta()">✔ Enviar Respuesta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Justificar -->
+<div class="modal-overlay" id="modal-jus">
+  <div class="modal" style="max-width:400px;">
+    <h3>📝 Justificar</h3>
+    <input type="hidden" id="jus-id"/>
+    <div id="jus-info" style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:13px;"></div>
+    <div class="fg"><label>Estado</label>
+      <select id="jus-estado"><option value="true">✅ Justificada</option><option value="false">❌ No justificada</option></select>
+    </div>
+    <div class="fg" style="margin-top:8px;"><label>Motivo</label><textarea id="jus-motivo"></textarea></div>
+    <div id="alert-jus" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-jus')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarJus()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════
+//  GLOBALS
+// ════════════════════════════════════
+let ME=null;
+let asigActiva=null;
+let registrosAsist=[];
+let editIdU=null,editIdE=null,encEstId=null,cambSecEstId=null,informeRespId=null;
+let reporteEstId=null;
+let allSecciones=[],allMaterias=[],allProfesores=[];
+
+// ════════════════════════════════════
+//  API
+// ════════════════════════════════════
+async function api(url,method="GET",body=null){
+  const opts={method,headers:{"Content-Type":"application/json"}};
+  if(body) opts.body=JSON.stringify(body);
+  const r=await fetch(url,opts);
+  const d=await r.json();
+  if(r.status===401&&!url.includes("/auth/")){
+    document.getElementById("login-screen").classList.add("show");
+    return null;
+  }
+  if(!r.ok) throw new Error(d.error||"Error");
+  return d;
+}
+function sa(id,msg,type="success"){
+  const el=document.getElementById(id);if(!el)return;
+  el.className="alert show alert-"+type;el.textContent=msg;
+  setTimeout(()=>{el.className="alert";},4500);
+}
+const fmtF=d=>{if(!d)return"—";return new Date(d+"T12:00:00").toLocaleDateString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric"});};
+const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
+const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor"};
+const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof"};
+
+// ════════════════════════════════════
+//  AUTH
+// ════════════════════════════════════
+async function doLogin(){
+  const ced=document.getElementById("l-ced").value.trim();
+  const pas=document.getElementById("l-pass").value;
+  const errEl=document.getElementById("login-err");
+  errEl.style.display="none";
+  try{
+    const d=await api("/api/auth/login","POST",{cedula:ced,password:pas});
+    if(!d)return;
+    ME=d.usuario;
+    document.getElementById("login-screen").classList.remove("show");
+    if(ME.primer_login){
+      document.getElementById("cambiar-pass-screen").classList.add("show");
+    } else {
+      iniciarApp();
+    }
+  }catch(e){errEl.style.display="block";errEl.textContent=e.message;}
+}
+
+async function doCambiarPass(){
+  const actual=document.getElementById("cp-actual").value;
+  const nueva=document.getElementById("cp-nueva").value;
+  const conf=document.getElementById("cp-confirmar").value;
+  const errEl=document.getElementById("cp-err");
+  const okEl=document.getElementById("cp-ok");
+  errEl.style.display="none";okEl.style.display="none";
+  if(nueva!==conf){errEl.style.display="block";errEl.textContent="Las contraseñas no coinciden.";return;}
+  try{
+    await api("/api/auth/cambiar-password","POST",{password_actual:actual,password_nuevo:nueva});
+    okEl.style.display="block";okEl.textContent="✅ Contraseña cambiada. Ingresando...";
+    ME.primer_login=false;
+    setTimeout(()=>{
+      document.getElementById("cambiar-pass-screen").classList.remove("show");
+      iniciarApp();
+    },1200);
+  }catch(e){errEl.style.display="block";errEl.textContent=e.message;}
+}
+
+async function doLogout(){
+  await api("/api/auth/logout","POST");
+  ME=null;
+  document.getElementById("l-ced").value="";
+  document.getElementById("l-pass").value="";
+  document.getElementById("login-screen").classList.add("show");
+}
+
+// ════════════════════════════════════
+//  NAV
+// ════════════════════════════════════
+function goTo(page){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("page-"+page).classList.add("active");
+  const btn=document.querySelector(`[data-page="${page}"]`);
+  if(btn)btn.classList.add("active");
+  if(page==="dashboard")   cargarDashboard();
+  if(page==="usuarios")    cargarUsuarios();
+  if(page==="asignaciones"){cargarMateriasList();cargarSeccionesAdmin();cargarAsignaciones();}
+  if(page==="estudiantes") {cargarEstudiantes();poblarSel("filtro-seccion-est",false,"Todas las secciones");}
+  if(page==="asistencia")  cargarMisAsig();
+  if(page==="consulta")    document.getElementById("consulta-cedula").focus();
+  if(page==="reportes")    initReportes();
+  if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
+}
+
+// ════════════════════════════════════
+//  INIT APP
+// ════════════════════════════════════
+async function iniciarApp(){
+  document.getElementById("usuario-label").textContent=`${ME.primer_apellido} ${ME.nombre} (${RLBL[ME.rol]})`;
+  const docentes=["admin","profesor","profesor_guia","orientador"];
+  const canRep=["admin","auxiliar","orientador","profesor_guia"];
+  const canEst=["admin","auxiliar","orientador","profesor_guia"];
+  const canMsg=["profesor_guia","orientador"];
+  if(docentes.includes(ME.rol)){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-asistencia").style.display="";
+    document.getElementById("nav-consulta").style.display="";
+  }
+  if(canEst.includes(ME.rol)){
+    document.getElementById("sec-gestion").style.display="";
+    document.getElementById("nav-estudiantes").style.display="";
+  }
+  if(canRep.includes(ME.rol)){
+    document.getElementById("sec-gestion").style.display="";
+    document.getElementById("nav-reportes").style.display="";
+  }
+  if(ME.rol==="admin"){
+    document.getElementById("sec-admin").style.display="";
+    document.getElementById("nav-usuarios").style.display="";
+    document.getElementById("nav-asignaciones").style.display="";
+    document.getElementById("nav-consulta").style.display="";
+  }
+  if(ME.rol==="auxiliar") document.getElementById("nav-consulta").style.display="";
+  if(canMsg.includes(ME.rol)) document.getElementById("btn-nuevo-informe").style.display="";
+  if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
+  await cargarCatalogos();
+  verificarNotif();
+  setInterval(verificarNotif,60000);
+  cargarDashboard();
+}
+
+async function cargarCatalogos(){
+  const [secs,mats,profs]=await Promise.all([api("/api/admin/secciones"),api("/api/admin/materias"),api("/api/admin/profesores")]);
+  if(secs) allSecciones=secs;
+  if(mats) allMaterias=mats;
+  if(profs) allProfesores=profs;
+  poblarSel("ma-seccion",true,"— Seleccionar —");
+  poblarSel("me-seccion",false,"Sin sección");
+  poblarSel("rep-seccion",false,"— Sección —");
+  poblarSel("mi-seccion",false,"— Sección —");
+  poblarSel("mcs-seccion",false,"Sin sección");
+  const sp=document.getElementById("ma-profesor");
+  if(sp) sp.innerHTML='<option value="">— Seleccionar —</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]})</option>`).join("");
+  const sm=document.getElementById("ma-materia");
+  if(sm) sm.innerHTML='<option value="">— Seleccionar —</option>'+allMaterias.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join("");
+  const sd=document.getElementById("mi-dest");
+  if(sd) sd.innerHTML='<option value="">— Seleccionar —</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]})</option>`).join("");
+}
+
+function poblarSel(id,groupByLevel,emptyLabel){
+  const sel=document.getElementById(id);if(!sel)return;
+  if(!groupByLevel){
+    sel.innerHTML=`<option value="">${emptyLabel}</option>`+allSecciones.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+  } else {
+    const noms=["Sétimo","Octavo","Noveno","Décimo","Undécimo"];
+    let html=`<option value="">${emptyLabel}</option>`;
+    [7,8,9,10,11].forEach((n,i)=>{
+      const ss=allSecciones.filter(s=>s.nivel===n);
+      if(ss.length) html+=`<optgroup label="${noms[i]}">`+ss.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("")+"</optgroup>";
+    });
+    sel.innerHTML=html;
+  }
+}
+
+// ════════════════════════════════════
+//  NOTIFICACIONES
+// ════════════════════════════════════
+async function verificarNotif(){
+  const d=await api("/api/notificaciones/no-leidas");
+  if(!d)return;
+  const cnt=document.getElementById("notif-count");
+  if(d.count>0){cnt.classList.add("show");cnt.textContent=d.count;}
+  else{cnt.classList.remove("show");}
+}
+
+function toggleNotif(){
+  const dd=document.getElementById("notif-dropdown");
+  dd.classList.toggle("show");
+  if(dd.classList.contains("show")) cargarNotifLista();
+}
+
+async function cargarNotifLista(){
+  const rows=await api("/api/notificaciones");
+  if(!rows)return;
+  const div=document.getElementById("notif-lista");
+  if(!rows.length){div.innerHTML='<div class="notif-empty">Sin notificaciones</div>';return;}
+  div.innerHTML=rows.map(n=>`<div class="notif-item ${!n.leida?'no-leida':''}" onclick="leerNotif(${n.id},this)">
+    <div style="font-size:12px;color:var(--muted);">${fmtTS(n.created_at)}</div>
+    <div style="margin-top:3px;">${n.mensaje}</div>
+  </div>`).join("");
+}
+
+async function leerNotif(id,el){
+  await api(`/api/notificaciones/${id}/leer`,"PUT");
+  el.classList.remove("no-leida");
+  verificarNotif();
+}
+
+async function leerTodasNotif(){
+  await api("/api/notificaciones/leer-todas","PUT");
+  document.getElementById("notif-count").classList.remove("show");
+  cargarNotifLista();
+}
+
+document.addEventListener("click",e=>{
+  const dd=document.getElementById("notif-dropdown");
+  if(dd?.classList.contains("show")&&!dd.contains(e.target)&&!e.target.closest(".notif-wrap")){
+    dd.classList.remove("show");
+  }
+});
+
+// ════════════════════════════════════
+//  DASHBOARD
+// ════════════════════════════════════
+async function cargarDashboard(){
+  try{
+    const [u,e,a]=await Promise.all([api("/api/admin/usuarios"),api("/api/estudiantes"),api("/api/admin/asignaciones")]);
+    if(u) document.getElementById("ds-usuarios").textContent=u.filter(x=>x.activo).length;
+    if(e) document.getElementById("ds-estudiantes").textContent=e.length;
+    if(a) document.getElementById("ds-asignaciones").textContent=a.length;
+  }catch{}
+  const dias=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  const hoy=new Date();
+  document.getElementById("dash-msg").textContent=`Bienvenido/a, ${ME.nombre} ${ME.primer_apellido}. Rol: ${RLBL[ME.rol]}. Hoy es ${dias[hoy.getDay()]} ${hoy.toLocaleDateString("es-CR",{day:"numeric",month:"long",year:"numeric"})}.`;
+}
+
+// ════════════════════════════════════
+//  USUARIOS
+// ════════════════════════════════════
+async function cargarUsuarios(){
+  const q=document.getElementById("buscar-usuario")?.value||"";
+  const rows=await api("/api/admin/usuarios");
+  if(!rows)return;
+  const f=q?rows.filter(u=>u.cedula.includes(q)||u.primer_apellido.toLowerCase().includes(q.toLowerCase())||u.nombre.toLowerCase().includes(q.toLowerCase())):rows;
+  const tbody=document.getElementById("usuarios-body");
+  if(!f.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin usuarios</td></tr>`;return;}
+  tbody.innerHTML=f.map(u=>`<tr>
+    <td><code>${u.cedula}</code></td>
+    <td>${u.primer_apellido} ${u.segundo_apellido}, ${u.nombre}</td>
+    <td><span class="badge ${RBDG[u.rol]}">${RLBL[u.rol]}</span></td>
+    <td><span class="badge ${u.activo?"b-prof":"b-aux"}">${u.activo?"Activo":"Inactivo"}</span></td>
+    <td>${u.primer_login?'<span class="badge b-aux">Pendiente</span>':'<span class="badge b-prof">OK</span>'}</td>
+    <td style="white-space:nowrap;">
+      <button class="btn btn-outline btn-xs" onclick="editarUsuario(${u.id})">✏️</button>
+      <button class="btn btn-orange btn-xs" onclick="resetPass(${u.id},'${u.nombre} ${u.primer_apellido}')" title="Reiniciar contraseña">🔑</button>
+    </td>
+  </tr>`).join("");
+}
+
+function abrirModalUsuario(){
+  editIdU=null;
+  document.getElementById("mu-titulo").textContent="Nuevo Usuario";
+  document.getElementById("mu-cedula").disabled=false;
+  ["mu-cedula","mu-nombre","mu-ap1","mu-ap2","mu-email"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("mu-rol").value="profesor";
+  document.getElementById("modal-usuario").classList.add("show");
+}
+
+async function editarUsuario(id){
+  const rows=await api("/api/admin/usuarios");
+  const u=rows?.find(r=>r.id===id);
+  if(!u)return;
+  editIdU=id;
+  document.getElementById("mu-titulo").textContent="Editar Usuario";
+  document.getElementById("mu-cedula").value=u.cedula;
+  document.getElementById("mu-cedula").disabled=true;
+  document.getElementById("mu-nombre").value=u.nombre;
+  document.getElementById("mu-ap1").value=u.primer_apellido;
+  document.getElementById("mu-ap2").value=u.segundo_apellido;
+  document.getElementById("mu-email").value=u.email||"";
+  document.getElementById("mu-rol").value=u.rol;
+  document.getElementById("modal-usuario").classList.add("show");
+}
+
+async function guardarUsuario(){
+  const cedula=document.getElementById("mu-cedula").value.trim();
+  const nombre=document.getElementById("mu-nombre").value.trim();
+  const ap1=document.getElementById("mu-ap1").value.trim();
+  const ap2=document.getElementById("mu-ap2").value.trim();
+  const email=document.getElementById("mu-email").value.trim();
+  const rol=document.getElementById("mu-rol").value;
+  if(!nombre||!ap1||!ap2||!rol){sa("alert-mu","Todos los campos son obligatorios.","danger");return;}
+  try{
+    if(editIdU){
+      await api(`/api/admin/usuarios/${editIdU}`,"PUT",{nombre,primer_apellido:ap1,segundo_apellido:ap2,email,rol,activo:true});
+    }else{
+      if(!cedula){sa("alert-mu","La cédula es requerida.","danger");return;}
+      await api("/api/admin/usuarios","POST",{cedula,nombre,primer_apellido:ap1,segundo_apellido:ap2,email,rol});
+    }
+    cerrarModal("modal-usuario");
+    cargarUsuarios();
+    sa("alert-usuarios",editIdU?"✅ Usuario actualizado.":"✅ Usuario creado. Contraseña inicial: su cédula.","success");
+    await cargarCatalogos();
+  }catch(e){sa("alert-mu",e.message,"danger");}
+}
+
+async function resetPass(id,nombre){
+  if(!confirm(`¿Reiniciar la contraseña de ${nombre}? La nueva contraseña será su cédula y deberá cambiarla al ingresar.`))return;
+  try{
+    const r=await api(`/api/admin/usuarios/${id}/reset-password`,"PUT");
+    sa("alert-usuarios","🔑 "+r.mensaje,"success");
+    cargarUsuarios();
+  }catch(e){sa("alert-usuarios",e.message,"danger");}
+}
+
+// ════════════════════════════════════
+//  MATERIAS
+// ════════════════════════════════════
+async function cargarMateriasList(){
+  const rows=await api("/api/admin/materias");
+  if(!rows)return;
+  const div=document.getElementById("materias-lista");
+  div.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Materia</th><th></th></tr></thead><tbody>
+    ${rows.map(m=>`<tr><td>${m.nombre}</td><td><button class="btn btn-danger btn-xs" onclick="eliminarMateria(${m.id},'${m.nombre}')">🗑️</button></td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+async function crearMateria(){
+  const nombre=document.getElementById("nueva-materia").value.trim();
+  if(!nombre){sa("alert-materias","Ingresá el nombre.","danger");return;}
+  try{await api("/api/admin/materias","POST",{nombre});document.getElementById("nueva-materia").value="";await cargarCatalogos();cargarMateriasList();}
+  catch(e){sa("alert-materias",e.message,"danger");}
+}
+async function eliminarMateria(id,n){
+  if(!confirm(`¿Eliminar "${n}"?`))return;
+  await api(`/api/admin/materias/${id}`,"DELETE");
+  await cargarCatalogos();cargarMateriasList();
+}
+
+// ════════════════════════════════════
+//  SECCIONES ADMIN
+// ════════════════════════════════════
+async function cargarSeccionesAdmin(){
+  const nivel=document.getElementById("filtro-nivel-sec")?.value||"";
+  const rows=await api("/api/admin/secciones");
+  if(!rows)return;
+  const f=nivel?rows.filter(s=>s.nivel==nivel):rows;
+  const opts='<option value="">—</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre}</option>`).join("");
+  const oOpts='<option value="">—</option>'+allProfesores.filter(p=>["orientador","profesor_guia"].includes(p.rol)).map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre}</option>`).join("");
+  const div=document.getElementById("secciones-lista");
+  div.innerHTML=`<table><thead><tr><th>Sección</th><th>Prof. Guía</th><th>Orientador</th><th></th></tr></thead><tbody>
+    ${f.map(s=>`<tr>
+      <td><strong>${s.nombre}</strong></td>
+      <td><select class="sg-sel" data-id="${s.id}" style="font-size:12px;padding:3px;border:1px solid var(--border);border-radius:5px;">${opts}</select></td>
+      <td><select class="so-sel" data-id="${s.id}" style="font-size:12px;padding:3px;border:1px solid var(--border);border-radius:5px;">${oOpts}</select></td>
+      <td><button class="btn btn-success btn-xs" onclick="guardarSec(${s.id})">✔</button></td>
+    </tr>`).join("")}
+  </tbody></table>`;
+  f.forEach(s=>{
+    if(s.guia_id){
+      const sel=document.querySelector(`.sg-sel[data-id="${s.id}"]`);
+      if(sel) sel.value=s.guia_id;
+    }
+  });
+}
+
+async function guardarSec(id){
+  const guia=document.querySelector(`.sg-sel[data-id="${id}"]`)?.value;
+  const orient=document.querySelector(`.so-sel[data-id="${id}"]`)?.value;
+  try{
+    if(guia) await api(`/api/admin/secciones/${id}/guia`,"PUT",{profesor_id:+guia});
+    if(orient) await api(`/api/admin/secciones/${id}/orientador`,"POST",{orientador_id:+orient});
+    sa("alert-secciones","✅ Guardado.","success");
+    await cargarCatalogos();cargarSeccionesAdmin();
+  }catch(e){sa("alert-secciones",e.message,"danger");}
+}
+
+// ════════════════════════════════════
+//  ASIGNACIONES
+// ════════════════════════════════════
+async function cargarAsignaciones(){
+  const rows=await api("/api/admin/asignaciones");
+  if(!rows)return;
+  const tbody=document.getElementById("asig-body");
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin asignaciones</td></tr>`;return;}
+  tbody.innerHTML=rows.map(a=>`<tr>
+    <td>${a.prof_ap1} ${a.prof_nombre}</td>
+    <td><span class="badge ${RBDG[a.prof_rol]}">${RLBL[a.prof_rol]}</span></td>
+    <td><strong>${a.seccion_nombre}</strong></td>
+    <td>${a.materia_nombre}</td>
+    <td>${a.lecciones_semana}</td>
+    <td><button class="btn btn-danger btn-xs" onclick="eliminarAsig(${a.id})">🗑️</button></td>
+  </tr>`).join("");
+}
+function abrirModalAsignacion(){document.getElementById("modal-asignacion").classList.add("show");}
+async function guardarAsignacion(){
+  const pid=document.getElementById("ma-profesor").value;
+  const sid=document.getElementById("ma-seccion").value;
+  const mid=document.getElementById("ma-materia").value;
+  const lecc=document.getElementById("ma-lecciones").value;
+  if(!pid||!sid||!mid){sa("alert-ma","Todos los campos son requeridos.","danger");return;}
+  try{await api("/api/admin/asignaciones","POST",{profesor_id:+pid,seccion_id:+sid,materia_id:+mid,lecciones_semana:+lecc});cerrarModal("modal-asignacion");cargarAsignaciones();}
+  catch(e){sa("alert-ma",e.message,"danger");}
+}
+async function eliminarAsig(id){
+  if(!confirm("¿Eliminar esta asignación?"))return;
+  await api(`/api/admin/asignaciones/${id}`,"DELETE");cargarAsignaciones();
+}
+
+// ════════════════════════════════════
+//  ESTUDIANTES
+// ════════════════════════════════════
+async function cargarEstudiantes(){
+  const sid=document.getElementById("filtro-seccion-est")?.value||"";
+  const q=document.getElementById("buscar-est")?.value||"";
+  let url="/api/estudiantes?";
+  if(sid) url+=`seccion_id=${sid}&`;
+  if(q) url+=`q=${encodeURIComponent(q)}`;
+  const rows=await api(url);if(!rows)return;
+  const tbody=document.getElementById("est-body");
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin estudiantes</td></tr>`;return;}
+  const isAux=["admin","auxiliar"].includes(ME.rol);
+  tbody.innerHTML=rows.map((e,i)=>`<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td><code>${e.cedula}</code></td>
+    <td>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+    <td>${e.seccion_nombre||"—"}</td>
+    <td>${fmtF(e.fecha_nacimiento)}</td>
+    <td style="white-space:nowrap;">
+      ${isAux?`<button class="btn btn-outline btn-xs" onclick="editarEstudiante(${e.id})">✏️</button>
+               <button class="btn btn-purple btn-xs" onclick="abrirEncargados(${e.id},'${e.nombre} ${e.primer_apellido}')">👨‍👩‍👧</button>
+               <button class="btn btn-orange btn-xs" onclick="abrirCambioSec(${e.id},'${e.nombre} ${e.primer_apellido}','${e.seccion_nombre||"Sin sección"}')">🔄</button>
+               <button class="btn btn-danger btn-xs" onclick="eliminarEst(${e.id},'${e.nombre}')">🗑️</button>`:""}
+    </td>
+  </tr>`).join("");
+}
+
+function abrirModalEstudiante(){
+  editIdE=null;
+  document.getElementById("me-titulo").textContent="Nuevo Estudiante";
+  document.getElementById("me-cedula").disabled=false;
+  ["me-cedula","me-nombre","me-ap1","me-ap2","me-nac"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("me-seccion").value="";
+  document.getElementById("modal-estudiante").classList.add("show");
+}
+
+async function editarEstudiante(id){
+  const rows=await api(`/api/estudiantes?`);
+  // find by loading all
+  const all=await api("/api/estudiantes");
+  const e=all?.find(r=>r.id===id);if(!e)return;
+  editIdE=id;
+  document.getElementById("me-titulo").textContent="Editar Estudiante";
+  document.getElementById("me-cedula").value=e.cedula;
+  document.getElementById("me-cedula").disabled=true;
+  document.getElementById("me-nombre").value=e.nombre;
+  document.getElementById("me-ap1").value=e.primer_apellido;
+  document.getElementById("me-ap2").value=e.segundo_apellido;
+  document.getElementById("me-nac").value=e.fecha_nacimiento?e.fecha_nacimiento.slice(0,10):"";
+  document.getElementById("me-seccion").value=e.seccion_id||"";
+  document.getElementById("modal-estudiante").classList.add("show");
+}
+
+async function guardarEstudiante(){
+  const cedula=document.getElementById("me-cedula").value.trim();
+  const nombre=document.getElementById("me-nombre").value.trim();
+  const ap1=document.getElementById("me-ap1").value.trim();
+  const ap2=document.getElementById("me-ap2").value.trim();
+  const nac=document.getElementById("me-nac").value;
+  const sid=document.getElementById("me-seccion").value||null;
+  if(!nombre||!ap1||!ap2){sa("alert-me","Nombre y apellidos son requeridos.","danger");return;}
+  try{
+    if(editIdE) await api(`/api/estudiantes/${editIdE}`,"PUT",{nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null});
+    else{
+      if(!cedula){sa("alert-me","La cédula es requerida.","danger");return;}
+      await api("/api/estudiantes","POST",{cedula,nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,seccion_id:sid});
+    }
+    cerrarModal("modal-estudiante");cargarEstudiantes();
+    sa("alert-est","✅ Estudiante guardado.","success");
+  }catch(e){sa("alert-me",e.message,"danger");}
+}
+
+async function eliminarEst(id,n){
+  if(!confirm(`¿Dar de baja a "${n}"?`))return;
+  await api(`/api/estudiantes/${id}`,"DELETE");cargarEstudiantes();
+}
+
+// ── CAMBIAR SECCIÓN ──────────────────
+function abrirCambioSec(id,nombre,secActual){
+  cambSecEstId=id;
+  document.getElementById("mcs-est").textContent=`Estudiante: ${nombre} | Sección actual: ${secActual}`;
+  poblarSel("mcs-seccion",false,"Sin sección");
+  document.getElementById("modal-cambiar-seccion").classList.add("show");
+}
+
+async function confirmarCambioSeccion(){
+  const sid=document.getElementById("mcs-seccion").value||null;
+  try{
+    await api(`/api/estudiantes/${cambSecEstId}/seccion`,"PUT",{seccion_id:sid?+sid:null});
+    cerrarModal("modal-cambiar-seccion");
+    cargarEstudiantes();
+    sa("alert-est","✅ Sección actualizada. Los profesores de la nueva sección fueron notificados.","success");
+  }catch(e){sa("alert-mcs",e.message,"danger");}
+}
+
+// ── ENCARGADOS ────────────────────────
+function abrirEncargados(estId,nombre){
+  encEstId=estId;
+  document.getElementById("menc-titulo").textContent=`Encargados — ${nombre}`;
+  limpiarFormEnc();
+  cargarEncargadosLista();
+  document.getElementById("modal-encargados").classList.add("show");
+}
+
+async function cargarEncargadosLista(){
+  const rows=await api(`/api/encargados/estudiante/${encEstId}`);if(!rows)return;
+  const div=document.getElementById("enc-lista");
+  if(!rows.length){div.innerHTML='<div style="color:var(--muted);font-size:13px;margin-bottom:8px;">Sin encargados registrados.</div>';return;}
+  div.innerHTML=rows.map(e=>`
+    <div class="enc-card ${e.es_principal?'principal':''}">
+      ${e.es_principal?'<span class="badge b-prof" style="position:absolute;top:8px;right:8px;">Principal</span>':""}
+      <strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
+      ${e.parentesco?`<span style="color:var(--muted);font-size:12px"> · ${e.parentesco}</span>`:""}
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+        ${e.telefono?`📞 ${e.telefono}  `:""}${e.celular?`📱 ${e.celular}  `:""}${e.email?`✉️ ${e.email}  `:""}
+        ${e.direccion?`<br/>📍 ${e.direccion}`:""}
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        <button class="btn btn-outline btn-xs" onclick="editarEncargado(${e.id})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarEncargado(${e.id})">🗑️</button>
+      </div>
+    </div>`).join("");
+}
+
+async function editarEncargado(id){
+  const rows=await api(`/api/encargados/estudiante/${encEstId}`);
+  const e=rows?.find(r=>r.id===id);if(!e)return;
+  document.getElementById("enc-edit-id").value=id;
+  document.getElementById("enc-form-titulo").textContent="✏️ Editando Encargado";
+  document.getElementById("enc-nombre").value=e.nombre;
+  document.getElementById("enc-ap1").value=e.primer_apellido;
+  document.getElementById("enc-ap2").value=e.segundo_apellido;
+  document.getElementById("enc-parentesco").value=e.parentesco;
+  document.getElementById("enc-tel").value=e.telefono;
+  document.getElementById("enc-cel").value=e.celular;
+  document.getElementById("enc-email").value=e.email;
+  document.getElementById("enc-direccion").value=e.direccion;
+  document.getElementById("enc-principal").value=String(e.es_principal);
+}
+
+async function guardarEncargado(){
+  const eid=document.getElementById("enc-edit-id").value;
+  const data={
+    estudiante_id:encEstId,
+    nombre:document.getElementById("enc-nombre").value.trim(),
+    primer_apellido:document.getElementById("enc-ap1").value.trim(),
+    segundo_apellido:document.getElementById("enc-ap2").value.trim(),
+    parentesco:document.getElementById("enc-parentesco").value.trim(),
+    telefono:document.getElementById("enc-tel").value.trim(),
+    celular:document.getElementById("enc-cel").value.trim(),
+    email:document.getElementById("enc-email").value.trim(),
+    direccion:document.getElementById("enc-direccion").value.trim(),
+    es_principal:document.getElementById("enc-principal").value==="true"
+  };
+  if(!data.nombre||!data.primer_apellido){sa("alert-enc","Nombre y primer apellido son requeridos.","danger");return;}
+  try{
+    if(eid) await api(`/api/encargados/${eid}`,"PUT",data);
+    else await api("/api/encargados","POST",data);
+    limpiarFormEnc();cargarEncargadosLista();
+    sa("alert-enc","✅ Encargado guardado.","success");
+  }catch(e){sa("alert-enc",e.message,"danger");}
+}
+
+async function eliminarEncargado(id){
+  if(!confirm("¿Eliminar este encargado?"))return;
+  await api(`/api/encargados/${id}`,"DELETE");
+  cargarEncargadosLista();
+}
+
+function limpiarFormEnc(){
+  document.getElementById("enc-edit-id").value="";
+  document.getElementById("enc-form-titulo").textContent="➕ Agregar Encargado";
+  ["enc-nombre","enc-ap1","enc-ap2","enc-parentesco","enc-tel","enc-cel","enc-email","enc-direccion"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("enc-principal").value="true";
+}
+
+// ════════════════════════════════════
+//  CONSULTA
+// ════════════════════════════════════
+async function buscarEstudianteConsulta(){
+  const cedula=document.getElementById("consulta-cedula").value.trim();
+  if(!cedula)return;
+  const div=document.getElementById("consulta-resultado");
+  div.innerHTML='<div style="color:var(--muted);font-size:13px;">Buscando...</div>';
+  try{
+    const d=await api(`/api/estudiantes/consulta/${cedula}`);if(!d)return;
+    const encs=d.encargados||[];
+    div.innerHTML=`
+      <div class="consulta-card">
+        <div style="font-size:18px;font-weight:bold;color:var(--azul);margin-bottom:8px;">${d.primer_apellido} ${d.segundo_apellido}, ${d.nombre}</div>
+        <div class="consulta-info">
+          <p><strong>Cédula:</strong> ${d.cedula}</p>
+          <p><strong>Sección:</strong> ${d.seccion_nombre||"Sin asignar"}</p>
+          <p><strong>Fecha de Nacimiento:</strong> ${fmtF(d.fecha_nacimiento)}</p>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="font-weight:bold;color:var(--azul);margin-bottom:8px;">👨‍👩‍👧 Encargados Legales</div>
+          ${encs.length?encs.map(e=>`
+            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#f8fafc;">
+              <div style="font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}
+                ${e.parentesco?`<span style="font-size:12px;color:var(--muted);font-weight:normal"> · ${e.parentesco}</span>`:""}
+                ${e.es_principal?'<span class="badge b-prof" style="margin-left:6px;">Principal</span>':""}
+              </div>
+              <div style="font-size:13px;color:var(--muted);margin-top:6px;">
+                ${e.telefono?`📞 <strong>${e.telefono}</strong>  `:""}
+                ${e.celular?`📱 <strong>${e.celular}</strong>  `:""}
+                ${e.email?`✉️ ${e.email}`:""}
+                ${e.direccion?`<br/>📍 ${e.direccion}`:""}
+              </div>
+            </div>`).join(""):"<div style='color:var(--muted);font-size:13px;'>Sin encargados registrados.</div>"}
+        </div>
+      </div>`;
+  }catch(e){div.innerHTML=`<div style="color:var(--rojo);font-size:13px;">❌ ${e.message}</div>`;}
+}
+
+// ════════════════════════════════════
+//  ASISTENCIA
+// ════════════════════════════════════
+async function cargarMisAsig(){
+  document.getElementById("asis-view-lista").style.display="";
+  document.getElementById("asis-view-dia").style.display="none";
+  const rows=await api("/api/asistencia/mis-asignaciones");if(!rows)return;
+  const div=document.getElementById("mis-asig-body");
+  if(!rows.length){div.innerHTML='<div class="empty">Sin asignaciones registradas. Contactá al administrador.</div>';return;}
+  const noms=["Sétimo","Octavo","Noveno","Décimo","Undécimo"];
+  let html="";
+  [7,8,9,10,11].forEach((n,i)=>{
+    const ss=rows.filter(r=>r.nivel===n);if(!ss.length)return;
+    html+=`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:bold;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">${noms[i]}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
+      ${ss.map(a=>`<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:13px;cursor:pointer;" onclick="abrirAsistencia(${a.id},'${a.seccion_nombre} — ${a.materia_nombre}')">
+        <div style="font-weight:bold;font-size:14px;color:var(--azul)">${a.seccion_nombre}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${a.materia_nombre}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px">${a.lecciones_semana} lecc/sem · ${a.sesiones_total} sesiones</div>
+        <div style="margin-top:8px;"><span class="btn btn-primary btn-sm">📋 Pasar Lista</span></div>
+      </div>`).join("")}
+      </div></div>`;
+  });
+  div.innerHTML=html;
+}
+
+async function abrirAsistencia(id,titulo){
+  asigActiva=id;
+  document.getElementById("asis-titulo").textContent=titulo;
+  document.getElementById("asis-view-lista").style.display="none";
+  document.getElementById("asis-view-dia").style.display="";
+  const hoy=new Date().toISOString().slice(0,10);
+  document.getElementById("asis-fecha").value=hoy;
+  document.getElementById("asis-fecha").max=hoy;
+  await cargarListaDia();
+  await cargarHistSesiones();
+}
+
+function volverAsignaciones(){
+  asigActiva=null;
+  document.getElementById("asis-view-lista").style.display="";
+  document.getElementById("asis-view-dia").style.display="none";
+}
+
+async function cargarListaDia(){
+  const fecha=document.getElementById("asis-fecha").value;
+  if(!fecha||!asigActiva)return;
+  const d=await api(`/api/asistencia/${asigActiva}/${fecha}`);if(!d)return;
+  const info=document.getElementById("asis-sesion-info");
+  if(d.sesion){
+    info.style.display="";
+    info.innerHTML=`📅 Sesión guardada: <strong>${d.sesion.lecciones} lección${d.sesion.lecciones>1?"es":""}</strong>`;
+    document.getElementById("asis-lecciones").value=d.sesion.lecciones;
+  }else{info.style.display="none";}
+  registrosAsist=d.estudiantes.map(e=>({...e}));
+  renderTablaAsist();
+}
+
+function renderTablaAsist(){
+  const tbody=document.getElementById("asis-body");
+  if(!registrosAsist.length){tbody.innerHTML=`<tr><td colspan="4" class="empty">No hay estudiantes en esta sección</td></tr>`;return;}
+  tbody.innerHTML=registrosAsist.map((e,i)=>`<tr>
+    <td style="color:var(--muted);font-size:11px">${i+1}</td>
+    <td style="font-size:13px">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+    <td>
+      <div class="asis-toggle">
+        <button onclick="setE(${e.id},'P')" class="${e.estado==='P'?'sel-P':''}">P</button>
+        <button onclick="setE(${e.id},'A')" class="${e.estado==='A'?'sel-A':''}">A</button>
+        <button onclick="setE(${e.id},'T')" class="${e.estado==='T'?'sel-T':''}">T</button>
+      </div>
+    </td>
+    <td>${e.estado!=='P'&&e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${e.primer_apellido} ${e.nombre}','${e.estado}')">
+        ${e.justificada?"✅ Justificada":"📝 Justificar"}</button>`:"—"}</td>
+  </tr>`).join("");
+}
+
+function setE(id,estado){
+  const r=registrosAsist.find(x=>x.id===id);
+  if(r) r.estado=estado;
+  renderTablaAsist();
+}
+
+function marcarTodos(estado){
+  registrosAsist.forEach(r=>r.estado=estado);
+  renderTablaAsist();
+}
+
+async function guardarAsistencia(){
+  const fecha=document.getElementById("asis-fecha").value;
+  const lecc=parseInt(document.getElementById("asis-lecciones").value);
+  if(!fecha||!asigActiva){sa("alert-asis","Seleccioná una fecha.","danger");return;}
+  if(!registrosAsist.length){sa("alert-asis","No hay estudiantes.","danger");return;}
+  try{
+    await api("/api/asistencia","POST",{asignacion_id:asigActiva,fecha,lecciones:lecc,registros:registrosAsist.map(e=>({estudiante_id:e.id,estado:e.estado}))});
+    sa("alert-asis","✅ Lista guardada.","success");
+    await cargarListaDia();await cargarHistSesiones();
+  }catch(e){sa("alert-asis",e.message,"danger");}
+}
+
+async function cargarHistSesiones(){
+  const rows=await api(`/api/asistencia/historial/${asigActiva}`);if(!rows)return;
+  const tbody=document.getElementById("hist-sesiones-body");
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin sesiones</td></tr>`;return;}
+  tbody.innerHTML=rows.map(s=>`<tr>
+    <td>${fmtF(s.fecha)}</td><td>${s.lecciones}</td>
+    <td>${s.total_presentes||0}</td><td>${s.total_ausentes||0}</td><td>${s.total_tardias||0}</td>
+    <td style="white-space:nowrap;">
+      <button class="btn btn-outline btn-xs" onclick="verSesion('${s.fecha}',${s.lecciones})">Ver</button>
+      <button class="btn btn-danger btn-xs" onclick="elimSesion(${s.id})">🗑️</button>
+    </td>
+  </tr>`).join("");
+}
+
+async function verSesion(fecha,lecc){
+  document.getElementById("asis-fecha").value=fecha;
+  document.getElementById("asis-lecciones").value=lecc;
+  await cargarListaDia();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+async function elimSesion(id){
+  if(!confirm("¿Eliminar esta sesión?"))return;
+  await api(`/api/asistencia/sesion/${id}`,"DELETE");
+  await cargarHistSesiones();await cargarListaDia();
+}
+
+function abrirJus(id,nombre,estado){
+  document.getElementById("jus-id").value=id;
+  document.getElementById("jus-info").textContent=`${nombre} — ${estado==='A'?'Ausente':'Tardía'}`;
+  document.getElementById("jus-motivo").value="";
+  document.getElementById("modal-jus").classList.add("show");
+}
+
+async function guardarJus(){
+  const id=document.getElementById("jus-id").value;
+  const jus=document.getElementById("jus-estado").value==="true";
+  const motivo=document.getElementById("jus-motivo").value.trim();
+  try{
+    await api(`/api/asistencia/justificar/${id}`,"PUT",{justificada:jus,motivo});
+    cerrarModal("modal-jus");sa("alert-asis","✅ Justificación guardada.","success");await cargarListaDia();
+  }catch(e){sa("alert-jus",e.message,"danger");}
+}
+
+// ════════════════════════════════════
+//  REPORTES
+// ════════════════════════════════════
+async function initReportes(){
+  const secs=await api("/api/reportes/mis-secciones");if(!secs)return;
+  const sel=document.getElementById("rep-seccion");
+  sel.innerHTML='<option value="">— Sección —</option>'+secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+  const hoy=new Date().toISOString().slice(0,10);
+  document.getElementById("rep-hasta").value=hoy;
+  const ini=new Date();ini.setMonth(ini.getMonth()-3);
+  document.getElementById("rep-desde").value=ini.toISOString().slice(0,10);
+}
+
+async function cargarEstReporte(){
+  const sid=document.getElementById("rep-seccion").value;if(!sid)return;
+  const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);if(!rows)return;
+  document.getElementById("rep-estudiante").innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+}
+
+async function generarReporte(){
+  const eid=document.getElementById("rep-estudiante").value;
+  const desde=document.getElementById("rep-desde").value;
+  const hasta=document.getElementById("rep-hasta").value;
+  if(!eid){alert("Seleccioná un estudiante.");return;}
+  reporteEstId=eid;
+  let url=`/api/reportes/estudiante/${eid}?`;
+  if(desde) url+=`desde=${desde}&`;
+  if(hasta) url+=`hasta=${hasta}`;
+  const d=await api(url);if(!d)return;
+  const e=d.estudiante;
+  const canEmail=["admin","orientador","profesor_guia"].includes(ME.rol);
+  document.getElementById("btn-enviar-email").style.display=canEmail?"":"none";
+  let totalA=0,totalJ=0,totalT=0,totalL=0;
+  d.materias.forEach(m=>{totalA+=(parseInt(m.ausencias)||0);totalJ+=(parseInt(m.justificadas)||0);totalT+=(parseInt(m.tardias)||0);totalL+=(parseInt(m.total_lecciones)||0);});
+  document.getElementById("reporte-contenido").innerHTML=`
+    <div id="print-header" style="text-align:center;margin-bottom:16px;display:none;">
+      <h2>Liceo de Calle Fallas</h2>
+      <p style="font-size:12px;">Directora: Licda. Laura Cruz Jiménez</p>
+      <h3>Reporte de Asistencia</h3>
+    </div>
+    <div class="card">
+      <div style="margin-bottom:14px;">
+        <div style="font-size:17px;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
+        <div style="font-size:13px;color:var(--muted);">Cédula: ${e.cedula} · Sección: ${e.seccion_nombre||"—"} · Nac.: ${fmtF(e.fecha_nacimiento)}</div>
+        ${desde||hasta?`<div style="font-size:12px;color:var(--muted);">Período: ${desde?fmtF(desde):"inicio"} al ${hasta?fmtF(hasta):"hoy"}</div>`:""}
+      </div>
+      <div class="stats" style="margin-bottom:14px;">
+        <div class="stat"><div class="num">${totalL}</div><div class="lbl">Lecciones</div></div>
+        <div class="stat"><div class="num red">${totalA}</div><div class="lbl">Ausencias</div></div>
+        <div class="stat"><div class="num green">${totalJ}</div><div class="lbl">Justificadas</div></div>
+        <div class="stat"><div class="num orange">${totalT}</div><div class="lbl">Tardías</div></div>
+        <div class="stat"><div class="num ${totalL>0&&(totalA/totalL*100)>20?'red':'green'}">${totalL>0?Math.round(totalA/totalL*100):0}%</div><div class="lbl">% Ausencias</div></div>
+      </div>
+      ${d.materias.map(m=>`
+        <div class="reporte-materia">
+          <h4>${m.materia} <small style="font-weight:normal;color:var(--muted);">— ${m.prof_ap1} ${m.prof_nombre}</small></h4>
+          <div style="display:flex;gap:14px;font-size:13px;margin-bottom:8px;flex-wrap:wrap;">
+            <span>📚 ${m.total_lecciones||0} lecc.</span>
+            <span style="color:var(--rojo)">❌ ${m.ausencias||0} ausencias</span>
+            <span style="color:var(--verde)">✅ ${m.justificadas||0} justificadas</span>
+            <span style="color:var(--naranja)">⏰ ${m.tardias||0} tardías</span>
+          </div>
+          ${m.detalle&&m.detalle.length?m.detalle.map(det=>`
+            <div class="ausencia-item">
+              <span class="badge ${det.estado==='A'?'b-A':'b-T'}">${det.estado==='A'?'A':'T'}</span>
+              <span>${fmtF(det.fecha)}</span>
+              <span style="color:var(--muted)">${det.lecciones} lecc.</span>
+              ${det.justificada?'<span class="badge b-J">✅ Justif.</span>':""}
+              ${det.motivo?`<span style="color:var(--muted);font-style:italic;font-size:12px">${det.motivo}</span>`:""}
+            </div>`).join(""):"<div style='font-size:12px;color:var(--muted);'>Sin ausencias ni tardías.</div>"}
+        </div>`).join("")}
+      <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:12px;">
+        Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
+      </div>
+    </div>`;
+  document.getElementById("print-header").style.display="block";
+}
+
+async function enviarEmailReporte(){
+  const desde=document.getElementById("rep-desde").value;
+  const hasta=document.getElementById("rep-hasta").value;
+  if(!reporteEstId){alert("Generá el reporte primero.");return;}
+  try{
+    sa("alert-rep","Enviando correo...","info");
+    const r=await api(`/api/reportes/enviar-email/${reporteEstId}`,"POST",{desde,hasta});
+    if(r) sa("alert-rep",`✅ Correo enviado a: ${r.enviado_a?.join(", ")||"encargados"}. ","success");
+  }catch(e){sa("alert-rep","❌ "+e.message,"danger");}
+}
+
+// ════════════════════════════════════
+//  MENSAJES
+// ════════════════════════════════════
+function initMensajes(){
+  if(["profesor_guia","orientador"].includes(ME.rol)) document.getElementById("btn-nuevo-informe").style.display="";
+  if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
+}
+
+async function verTab(tipo){
+  ["inbox","enviados","todos"].forEach(t=>{
+    const b=document.getElementById("tab-"+t);
+    if(b) b.className=t===tipo?"btn btn-primary btn-sm":"btn btn-outline btn-sm";
+  });
+  await cargarMensajes(tipo);
+}
+
+async function cargarMensajes(tipo){
+  const url=tipo==="inbox"?"/api/mensajes/inbox":tipo==="enviados"?"/api/mensajes/enviados":"/api/mensajes/todos";
+  const rows=await api(url);if(!rows)return;
+  const div=document.getElementById("mensajes-contenido");
+  if(!rows.length){div.innerHTML='<div class="empty">Sin mensajes</div>';return;}
+  div.innerHTML=rows.map(inf=>`
+    <div class="informe-card ${!inf.leido&&tipo==="inbox"?"no-leido":""} ${inf.respondido?"respondido":""}">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:8px;">
+        <div>
+          <strong>${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}</strong>
+          <span style="color:var(--muted);font-size:12px"> · ${inf.seccion_nombre||"—"}</span>
+        </div>
+        <span style="font-size:12px;color:var(--muted)">${fmtTS(inf.created_at)}</span>
+      </div>
+      <div style="font-size:12px;margin-bottom:8px;color:var(--muted)">
+        ${tipo==="inbox"||tipo==="todos"?`De: <strong>${inf.remit_ap1} ${inf.remit_nombre}</strong>`:``}
+        ${tipo==="enviados"?`Para: <strong>${inf.dest_ap1} ${inf.dest_nombre}</strong>`:``}
+        ${tipo==="todos"?` → <strong>${inf.dest_ap1} ${inf.dest_nombre}</strong>`:""}
+      </div>
+      <div class="informe-row">
+        <div class="informe-field"><label>Conducta</label><p>${inf.conducta||"—"}</p></div>
+        <div class="informe-field"><label>Participación</label><p>${inf.participacion||"—"}</p></div>
+        <div class="informe-field"><label>Trabajos</label><p>${inf.trabajos||"—"}</p></div>
+        <div class="informe-field"><label>Nota Estimada</label><p>${inf.nota_estimada||"—"}</p></div>
+      </div>
+      ${inf.recomendaciones?`<div class="informe-field" style="margin-bottom:6px;"><label>Recomendaciones</label><p>${inf.recomendaciones}</p></div>`:""}
+      ${inf.observaciones?`<div class="informe-field" style="margin-bottom:6px;"><label>Observaciones</label><p>${inf.observaciones}</p></div>`:""}
+      ${inf.respondido?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:10px;margin-top:8px;font-size:13px;">
+        <strong>✅ Respuesta (${fmtTS(inf.fecha_respuesta)}):</strong><br/>${inf.respuesta}</div>`:""}
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+        ${tipo==="inbox"&&!inf.respondido?`<button class="btn btn-success btn-sm" onclick="abrirResponder(${inf.id},'${inf.est_ap1} ${inf.est_nombre}',false)">✉️ Responder</button>`:""}
+        ${tipo==="inbox"&&inf.respondido?`<button class="btn btn-outline btn-sm" onclick="abrirResponder(${inf.id},'${inf.est_ap1} ${inf.est_nombre}',true)">👁️ Ver</button>`:""}
+        ${!inf.leido&&tipo==="inbox"?`<button class="btn btn-outline btn-sm" onclick="marcarLeido(${inf.id})">✔ Leído</button>`:""}
+      </div>
+    </div>`).join("");
+}
+
+function abrirModalInforme(){
+  ["mi-recom","mi-obs"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("mi-seccion").value="";
+  document.getElementById("mi-estudiante").innerHTML='<option value="">— Seleccionar —</option>';
+  document.getElementById("modal-informe").classList.add("show");
+}
+
+async function cargarEstInforme(){
+  const sid=document.getElementById("mi-seccion").value;if(!sid)return;
+  const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);if(!rows)return;
+  document.getElementById("mi-estudiante").innerHTML='<option value="">— Seleccionar —</option>'+rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+}
+
+async function enviarInforme(){
+  const did=document.getElementById("mi-dest").value;
+  const eid=document.getElementById("mi-estudiante").value;
+  if(!did||!eid){sa("alert-mi","Seleccioná el estudiante y el destinatario.","danger");return;}
+  try{
+    await api("/api/mensajes","POST",{
+      destinatario_id:+did,estudiante_id:+eid,
+      conducta:document.getElementById("mi-conducta").value,
+      participacion:document.getElementById("mi-part").value,
+      trabajos:document.getElementById("mi-trab").value,
+      nota_estimada:document.getElementById("mi-nota").value,
+      recomendaciones:document.getElementById("mi-recom").value,
+      observaciones:document.getElementById("mi-obs").value
+    });
+    cerrarModal("modal-informe");verTab("enviados");
+  }catch(e){sa("alert-mi",e.message,"danger");}
+}
+
+function abrirResponder(id,nombre,soloVer){
+  informeRespId=id;
+  document.getElementById("mr-titulo").textContent=(soloVer?"Ver":"Responder")+" — "+nombre;
+  document.getElementById("mr-resp").value="";
+  document.getElementById("mr-resp-wrap").style.display=soloVer?"none":"";
+  document.getElementById("btn-resp").style.display=soloVer?"none":"";
+  document.getElementById("modal-responder").classList.add("show");
+}
+
+async function enviarRespuesta(){
+  const resp=document.getElementById("mr-resp").value.trim();
+  if(!resp){sa("alert-mr","Escribí una respuesta.","danger");return;}
+  try{
+    await api(`/api/mensajes/${informeRespId}/responder`,"PUT",{respuesta:resp});
+    cerrarModal("modal-responder");cargarMensajes("inbox");verificarNotif();
+  }catch(e){sa("alert-mr",e.message,"danger");}
+}
+
+async function marcarLeido(id){
+  await api(`/api/mensajes/${id}/leer`,"PUT");
+  cargarMensajes("inbox");
+}
+
+// ════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════
+function cerrarModal(id){document.getElementById(id).classList.remove("show");}
+document.querySelectorAll(".modal-overlay").forEach(o=>{
+  o.addEventListener("click",e=>{if(e.target===o)o.classList.remove("show");});
+});
+
+// ════════════════════════════════════
+//  INIT
+// ════════════════════════════════════
+(async()=>{
+  const d=await api("/api/auth/me");
+  if(d?.autenticado){
+    ME=d.usuario;
+    document.getElementById("login-screen").classList.remove("show");
+    if(ME.primer_login){
+      document.getElementById("cambiar-pass-screen").classList.add("show");
+    }else{
+      iniciarApp();
+    }
+  }else{
+    document.getElementById("login-screen").classList.add("show");
+    setTimeout(()=>document.getElementById("l-ced").focus(),100);
+  }
+})();
+</script>
+</body>
+</html>
