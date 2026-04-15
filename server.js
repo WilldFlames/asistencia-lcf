@@ -9,13 +9,20 @@ const { requireAuth } = require("./middleware/auth");
 const app  = express();
 const PORT = process.env.PORT || 3002;
 
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(session({
   store: new pgSession({ pool, createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || "lcf-asistencia-secret-2024",
-  resave: false,
+  resave: true,
   saveUninitialized: false,
-  cookie: { maxAge: 10 * 60 * 60 * 1000, secure: process.env.NODE_ENV === "production" }
+  proxy: true,
+  cookie: {
+    maxAge: 10 * 60 * 60 * 1000,
+    secure: true,
+    sameSite: 'none',
+    httpOnly: true
+  }
 }));
 
 app.use("/api/auth",           require("./routes/auth"));
