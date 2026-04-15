@@ -168,23 +168,27 @@ async function initDB() {
     `);
 
     // ── MIGRACIONES ────────────────────────────────────────────────────────────
-    // Agregar columna lecciones_ausentes si no existe
+    await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS lecciones_ausentes INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_login BOOLEAN DEFAULT true`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
+    // Actualizar UNIQUE de asignaciones para incluir subgrupo
+    await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_profesor_id_seccion_id_materia_id_key`);
     await client.query(`
-      ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS lecciones_ausentes INTEGER DEFAULT NULL
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'asignaciones_unique_subgrupo'
+        ) THEN
+          ALTER TABLE asignaciones ADD CONSTRAINT asignaciones_unique_subgrupo
+          UNIQUE(profesor_id, seccion_id, materia_id, subgrupo);
+        END IF;
+      END $$;
     `);
-    // Agregar columna primer_login si no existe
-    await client.query(`
-      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_login BOOLEAN DEFAULT true
-    `);
-    // Actualizar CHECK de infracciones para incluir nuevos tipos
-    await client.query(`
-      ALTER TABLE infracciones DROP CONSTRAINT IF EXISTS infracciones_tipo_check
-    `);
-    await client.query(`
-      ALTER TABLE infracciones ADD CONSTRAINT infracciones_tipo_check
-      CHECK(tipo IN ('muy_leve','leve','grave','muy_grave','gravisima'))
-    `);
-    // Agregar nuevas infracciones si no existen
+    // Actualizar CHECK de infracciones
+    await client.query(`ALTER TABLE infracciones DROP CONSTRAINT IF EXISTS infracciones_tipo_check`);
+    await client.query(`ALTER TABLE infracciones ADD CONSTRAINT infracciones_tipo_check CHECK(tipo IN ('muy_leve','leve','grave','muy_grave','gravisima'))`);
+
+    // Nuevas infracciones
     const infMuyGrave = await client.query("SELECT COUNT(*) AS c FROM infracciones WHERE tipo='muy_grave'");
     if (parseInt(infMuyGrave.rows[0].c) === 0) {
       const nuevas = [
@@ -211,6 +215,9 @@ async function initDB() {
       }
       console.log("✅ Nuevas infracciones cargadas");
     }
+    // Nuevas materias
+    await client.query("INSERT INTO materias (nombre) VALUES ('Inglés Conversacional') ON CONFLICT DO NOTHING");
+    await client.query("INSERT INTO materias (nombre) VALUES ('Diseño Publicitario') ON CONFLICT DO NOTHING");
 
     // Admin por defecto
     const adminEx = await client.query("SELECT id FROM usuarios WHERE rol='admin' LIMIT 1");

@@ -6,7 +6,7 @@ const { requireDocente } = require("../middleware/auth");
 router.get("/mis-asignaciones", requireDocente, async (req, res) => {
   const uid = req.session.usuario.id;
   const r = await pool.query(`
-    SELECT a.id, a.lecciones_semana,
+    SELECT a.id, a.lecciones_semana, a.subgrupo,
       s.nombre AS seccion_nombre, s.nivel,
       m.nombre AS materia_nombre,
       (SELECT COUNT(*) FROM sesiones_asistencia sa WHERE sa.asignacion_id=a.id) AS sesiones_total
@@ -20,27 +20,32 @@ router.get("/mis-asignaciones", requireDocente, async (req, res) => {
 });
 
 // ── OBTENER ASISTENCIA DE UNA SESIÓN ─────────────────────────────────────────
-// GET /asistencia/:asignacion_id/:fecha
 router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   const { asignacion_id, fecha } = req.params;
 
-  // Buscar sesión existente
   const sesR = await pool.query(
     "SELECT * FROM sesiones_asistencia WHERE asignacion_id=$1 AND fecha=$2",
     [asignacion_id, fecha]
   );
 
-  // Estudiantes de la sección
+  // Obtener sección y subgrupo de la asignación
   const asigR = await pool.query(
-    "SELECT seccion_id FROM asignaciones WHERE id=$1", [asignacion_id]
+    "SELECT seccion_id, subgrupo FROM asignaciones WHERE id=$1", [asignacion_id]
   );
   if (!asigR.rows.length) return res.status(404).json({ error:"Asignación no encontrada" });
 
-  const estR = await pool.query(`
-    SELECT id, cedula, nombre, primer_apellido, segundo_apellido
-    FROM estudiantes WHERE seccion_id=$1 AND activo=true
-    ORDER BY primer_apellido, segundo_apellido, nombre
-  `, [asigR.rows[0].seccion_id]);
+  const { seccion_id, subgrupo } = asigR.rows[0];
+
+  // Filtrar estudiantes por subgrupo si aplica
+  let estQuery = `SELECT id, cedula, nombre, primer_apellido, segundo_apellido
+    FROM estudiantes WHERE seccion_id=$1 AND activo=true`;
+  const estParams = [seccion_id];
+  if (subgrupo) {
+    estParams.push(subgrupo);
+    estQuery += ` AND subgrupo=$${estParams.length}`;
+  }
+  estQuery += ` ORDER BY primer_apellido, segundo_apellido, nombre`;
+  const estR = await pool.query(estQuery, estParams);
 
   if (!sesR.rows.length) {
     // Sesión vacía, todos presentes por defecto

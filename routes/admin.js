@@ -121,11 +121,11 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
 });
 
 router.post("/asignaciones", onlyAdmin, async (req, res) => {
-  const { profesor_id, seccion_id, materia_id, lecciones_semana } = req.body;
+  const { profesor_id, seccion_id, materia_id, lecciones_semana, subgrupo } = req.body;
   if (!profesor_id||!seccion_id||!materia_id) return res.status(400).json({ error: "Datos incompletos" });
   try {
-    const r = await pool.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana) VALUES ($1,$2,$3,$4) RETURNING id`,
-      [profesor_id,seccion_id,materia_id,lecciones_semana||4]);
+    const r = await pool.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupo||null]);
     res.json({ ok:true, id:r.rows[0].id });
   } catch(e) {
     if (e.message.includes("unique")) return res.status(409).json({ error: "Asignación ya existe" });

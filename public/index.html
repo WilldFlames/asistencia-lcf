@@ -517,6 +517,14 @@ tr:hover td{background:#f8fafc;}
       <div class="fg"><label>Lecciones/semana</label>
         <select id="ma-lecciones"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option></select>
       </div>
+      <div class="fg">
+        <label>Subgrupo <small style="color:var(--muted)">(solo para materias con A/B)</small></label>
+        <select id="ma-subgrupo">
+          <option value="">Sin subgrupo</option>
+          <option value="A">Grupo A</option>
+          <option value="B">Grupo B</option>
+        </select>
+      </div>
     </div>
     <div id="alert-ma" class="alert"></div>
     <div class="modal-actions">
@@ -536,7 +544,15 @@ tr:hover td{background:#f8fafc;}
       <div class="fg"><label>Primer Apellido *</label><input type="text" id="me-ap1"/></div>
       <div class="fg"><label>Segundo Apellido *</label><input type="text" id="me-ap2"/></div>
       <div class="fg"><label>Fecha de Nacimiento</label><input type="date" id="me-nac"/></div>
-      <div class="fg"><label>Sección</label><select id="me-seccion"><option value="">Sin sección</option></select></div>
+      <div class="fg"><label>Sección</label><select id="me-seccion" onchange="actualizarSubgrupoEst()"><option value="">Sin sección</option></select></div>
+      <div class="fg" id="me-subgrupo-wrap" style="display:none;">
+        <label>Subgrupo <small style="color:var(--muted)">(para materias A/B)</small></label>
+        <select id="me-subgrupo">
+          <option value="">Sin subgrupo</option>
+          <option value="A">Grupo A</option>
+          <option value="B">Grupo B</option>
+        </select>
+      </div>
     </div>
     <div id="alert-me" class="alert"></div>
     <div class="modal-actions">
@@ -704,11 +720,30 @@ function sa(id,msg,type="success"){
 }
 const fmtF=d=>{
   if(!d) return "—";
-  // PostgreSQL puede devolver fecha como "2026-04-15T00:00:00.000Z" o "2026-04-15"
   const s = typeof d === 'string' ? d.slice(0,10) : new Date(d).toISOString().slice(0,10);
   const [y,m,dia] = s.split("-");
   return `${dia}/${m}/${y}`;
 };
+
+// Detectar período según fecha
+function detectarPeriodo(fechaStr) {
+  const PERIODOS = [
+    { nombre: "I Período", desde: "2026-02-23", hasta: "2026-07-03" },
+    { nombre: "II Período", desde: "2026-07-20", hasta: "2026-12-09" },
+  ];
+  if (!fechaStr) {
+    const hoy = new Date().toISOString().slice(0,10);
+    fechaStr = hoy;
+  }
+  for (const p of PERIODOS) {
+    if (fechaStr >= p.desde && fechaStr <= p.hasta) return p.nombre;
+  }
+  return "Período Lectivo";
+}
+
+// Materias que usan subgrupo A/B
+const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
+const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
 const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor"};
 const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof"};
@@ -1070,7 +1105,7 @@ async function cargarAsignaciones(){
     <td>${a.prof_ap1} ${a.prof_nombre}</td>
     <td><span class="badge ${RBDG[a.prof_rol]}">${RLBL[a.prof_rol]}</span></td>
     <td><strong>${a.seccion_nombre}</strong></td>
-    <td>${a.materia_nombre}</td>
+    <td>${a.materia_nombre}${a.subgrupo?` <span class="badge b-guia">Grupo ${a.subgrupo}</span>`:""}</td>
     <td>${a.lecciones_semana}</td>
     <td><button class="btn btn-danger btn-xs" onclick="eliminarAsig(${a.id})">🗑️</button></td>
   </tr>`).join("");
@@ -1081,8 +1116,9 @@ async function guardarAsignacion(){
   const sid=document.getElementById("ma-seccion").value;
   const mid=document.getElementById("ma-materia").value;
   const lecc=document.getElementById("ma-lecciones").value;
+  const subgrupo=document.getElementById("ma-subgrupo").value||null;
   if(!pid||!sid||!mid){sa("alert-ma","Todos los campos son requeridos.","danger");return;}
-  try{await api("/api/admin/asignaciones","POST",{profesor_id:+pid,seccion_id:+sid,materia_id:+mid,lecciones_semana:+lecc});cerrarModal("modal-asignacion");cargarAsignaciones();}
+  try{await api("/api/admin/asignaciones","POST",{profesor_id:+pid,seccion_id:+sid,materia_id:+mid,lecciones_semana:+lecc,subgrupo});cerrarModal("modal-asignacion");cargarAsignaciones();}
   catch(e){sa("alert-ma",e.message,"danger");}
 }
 async function eliminarAsig(id){
@@ -1118,18 +1154,23 @@ async function cargarEstudiantes(){
   </tr>`).join("");
 }
 
+function actualizarSubgrupoEst(){
+  const sid=document.getElementById("me-seccion").value;
+  document.getElementById("me-subgrupo-wrap").style.display=sid?"":"none";
+}
+
 function abrirModalEstudiante(){
   editIdE=null;
   document.getElementById("me-titulo").textContent="Nuevo Estudiante";
   document.getElementById("me-cedula").disabled=false;
   ["me-cedula","me-nombre","me-ap1","me-ap2","me-nac"].forEach(id=>document.getElementById(id).value="");
   document.getElementById("me-seccion").value="";
+  document.getElementById("me-subgrupo").value="";
+  document.getElementById("me-subgrupo-wrap").style.display="none";
   document.getElementById("modal-estudiante").classList.add("show");
 }
 
 async function editarEstudiante(id){
-  const rows=await api(`/api/estudiantes?`);
-  // find by loading all
   const all=await api("/api/estudiantes");
   const e=all?.find(r=>r.id===id);if(!e)return;
   editIdE=id;
@@ -1141,6 +1182,8 @@ async function editarEstudiante(id){
   document.getElementById("me-ap2").value=e.segundo_apellido;
   document.getElementById("me-nac").value=e.fecha_nacimiento?e.fecha_nacimiento.slice(0,10):"";
   document.getElementById("me-seccion").value=e.seccion_id||"";
+  document.getElementById("me-subgrupo").value=e.subgrupo||"";
+  document.getElementById("me-subgrupo-wrap").style.display=e.seccion_id?"":"none";
   document.getElementById("modal-estudiante").classList.add("show");
 }
 
@@ -1151,12 +1194,13 @@ async function guardarEstudiante(){
   const ap2=document.getElementById("me-ap2").value.trim();
   const nac=document.getElementById("me-nac").value;
   const sid=document.getElementById("me-seccion").value||null;
+  const subgrupo=document.getElementById("me-subgrupo").value||null;
   if(!nombre||!ap1||!ap2){sa("alert-me","Nombre y apellidos son requeridos.","danger");return;}
   try{
-    if(editIdE) await api(`/api/estudiantes/${editIdE}`,"PUT",{nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null});
+    if(editIdE) await api(`/api/estudiantes/${editIdE}`,"PUT",{nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,subgrupo});
     else{
       if(!cedula){sa("alert-me","La cédula es requerida.","danger");return;}
-      await api("/api/estudiantes","POST",{cedula,nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,seccion_id:sid});
+      await api("/api/estudiantes","POST",{cedula,nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,seccion_id:sid,subgrupo});
     }
     cerrarModal("modal-estudiante");cargarEstudiantes();
     sa("alert-est","✅ Estudiante guardado.","success");
@@ -1323,7 +1367,7 @@ async function cargarMisAsig(){
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
       ${ss.map(a=>`<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:13px;cursor:pointer;" onclick="abrirAsistencia(${a.id},'${a.seccion_nombre} — ${a.materia_nombre}')">
         <div style="font-weight:bold;font-size:14px;color:var(--azul)">${a.seccion_nombre}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">${a.materia_nombre}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${a.materia_nombre}${a.subgrupo?` — Grupo ${a.subgrupo}`:""}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:5px">${a.lecciones_semana} lecc/sem · ${a.sesiones_total} sesiones</div>
         <div style="margin-top:8px;"><span class="btn btn-primary btn-sm">📋 Pasar Lista</span></div>
       </div>`).join("")}
@@ -1501,14 +1545,17 @@ async function generarReporte(){
   d.materias.forEach(m=>{totalA+=(parseInt(m.ausencias)||0);totalJ+=(parseInt(m.justificadas)||0);totalT+=(parseInt(m.tardias)||0);totalL+=(parseInt(m.total_lecciones)||0);});
   document.getElementById("reporte-contenido").innerHTML=`
     <div id="print-header" style="text-align:center;margin-bottom:16px;display:none;">
-      <h2>Liceo de Calle Fallas</h2>
-      <p style="font-size:12px;">Directora: Licda. Laura Cruz Jiménez</p>
-      <h3>Reporte de Asistencia</h3>
+      <p style="font-size:12px;margin:0;">Ministerio de Educación Pública</p>
+      <h2 style="font-size:16px;margin:4px 0;">Liceo de Calle Fallas</h2>
+      <p style="font-size:12px;margin:0;">Directora: Licda. Laura Cruz Jiménez</p>
+      <h3 style="font-size:14px;margin:8px 0 2px;">Reporte de Asistencia</h3>
     </div>
     <div class="card">
       <div style="margin-bottom:14px;">
+        <div style="font-size:12px;text-align:center;color:var(--muted);margin-bottom:6px;">Ministerio de Educación Pública · Liceo de Calle Fallas · Directora: Licda. Laura Cruz Jiménez</div>
         <div style="font-size:17px;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
         <div style="font-size:13px;color:var(--muted);">Cédula: ${e.cedula} · Sección: ${e.seccion_nombre||"—"} · Nac.: ${fmtF(e.fecha_nacimiento)}</div>
+        <div style="font-size:13px;color:var(--azul);font-weight:bold;">${detectarPeriodo(desde||hasta||null)}</div>
         ${desde||hasta?`<div style="font-size:12px;color:var(--muted);">Período: ${desde?fmtF(desde):"inicio"} al ${hasta?fmtF(hasta):"hoy"}</div>`:""}
       </div>
       <div class="stats" style="margin-bottom:14px;">
@@ -1551,7 +1598,26 @@ async function generarReporte(){
       <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:12px;">
         Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;" class="no-print" id="rep-firmas" style="display:none;">
+      </div>
     </div>`;
+
+  // Agregar firmas para impresión
+  setTimeout(()=>{
+    const card = document.querySelector("#reporte-contenido .card");
+    if(card){
+      const firmas = document.createElement("div");
+      firmas.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;";
+      firmas.innerHTML=`
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma del Profesor Guía / Orientador
+        </div>
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma del Encargado Legal
+        </div>`;
+      card.appendChild(firmas);
+    }
+  }, 100);
   document.getElementById("print-header").style.display="block";
 }
 
@@ -1889,7 +1955,10 @@ async function imprimirConducta(){
       </div>
 
       <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;flex-wrap:wrap;gap:8px;">
-        <div><strong>Estudiante:</strong> ${titulo.replace("Conducta — ","")}</div>
+        <div>
+          <div><strong>Estudiante:</strong> ${titulo.replace("Conducta — ","")}</div>
+          <div><strong>Período:</strong> ${detectarPeriodo(null)}</div>
+        </div>
         <div style="background:${nota>=80?'#dcfce7':nota>=60?'#fef9c3':'#fee2e2'};padding:6px 16px;border-radius:8px;font-weight:bold;font-size:18px;">
           Nota de Conducta: ${nota}
         </div>
@@ -1931,7 +2000,7 @@ async function imprimirConducta(){
           Firma del Profesor Guía
         </div>
         <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
-          Firma del Estudiante
+          Firma del Encargado Legal
         </div>
       </div>
     </div>`;
@@ -1942,7 +2011,10 @@ async function imprimirConducta(){
   style.innerHTML = `@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
   document.head.appendChild(style);
   window.print();
-  setTimeout(()=>{ const s=document.getElementById("print-style-conducta"); if(s)s.remove(); }, 1000);
+  setTimeout(()=>{
+    const s=document.getElementById("print-style-conducta"); if(s)s.remove();
+    printArea.innerHTML="";
+  }, 1500);
 }
 
 // ════════════════════════════════════

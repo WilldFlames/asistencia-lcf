@@ -31,12 +31,12 @@ router.get("/consulta/:cedula", requireAuth, async (req, res) => {
 
 // ── CREAR ─────────────────────────────────────────────────────
 router.post("/", canManage, async (req, res) => {
-  const { cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, seccion_id } = req.body;
+  const { cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, seccion_id, subgrupo } = req.body;
   if (!cedula||!nombre||!primer_apellido||!segundo_apellido)
     return res.status(400).json({ error: "Datos incompletos" });
   try {
-    const r = await pool.query(`INSERT INTO estudiantes (cedula,nombre,primer_apellido,segundo_apellido,fecha_nacimiento,seccion_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-      [cedula.trim(),nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,seccion_id||null]);
+    const r = await pool.query(`INSERT INTO estudiantes (cedula,nombre,primer_apellido,segundo_apellido,fecha_nacimiento,seccion_id,subgrupo) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [cedula.trim(),nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,seccion_id||null,subgrupo||null]);
     res.json({ ok:true, id:r.rows[0].id });
   } catch(e) {
     if (e.message.includes("unique")) return res.status(409).json({ error: "Cédula ya registrada" });
@@ -46,9 +46,9 @@ router.post("/", canManage, async (req, res) => {
 
 // ── EDITAR (solo auxiliar/admin) ─────────────────────────────
 router.put("/:id", canManage, async (req, res) => {
-  const { nombre, primer_apellido, segundo_apellido, fecha_nacimiento } = req.body;
-  await pool.query(`UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,fecha_nacimiento=$4 WHERE id=$5`,
-    [nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,req.params.id]);
+  const { nombre, primer_apellido, segundo_apellido, fecha_nacimiento, subgrupo } = req.body;
+  await pool.query(`UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,fecha_nacimiento=$4,subgrupo=$5 WHERE id=$6`,
+    [nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,subgrupo||null,req.params.id]);
   res.json({ ok:true });
 });
 
