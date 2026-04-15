@@ -167,6 +167,16 @@ async function initDB() {
       );
     `);
 
+    // ── MIGRACIONES ────────────────────────────────────────────────────────────
+    // Agregar columna lecciones_ausentes si no existe
+    await client.query(`
+      ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS lecciones_ausentes INTEGER DEFAULT NULL
+    `);
+    // Agregar columna primer_login si no existe
+    await client.query(`
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_login BOOLEAN DEFAULT true
+    `);
+
     // Admin por defecto
     const adminEx = await client.query("SELECT id FROM usuarios WHERE rol='admin' LIMIT 1");
     if (adminEx.rows.length === 0) {
