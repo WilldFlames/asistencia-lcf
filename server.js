@@ -15,7 +15,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || "lcf-asistencia-secret-2024",
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 10 * 60 * 60 * 1000, secure: process.env.NODE_ENV === "production" }
+ cookie: { maxAge: 10 * 60 * 60 * 1000, secure: true, sameSite: 'none' }
 }));
 
 app.use("/api/auth",           require("./routes/auth"));
