@@ -1420,7 +1420,7 @@ async function enviarEmailReporte(){
   try{
     sa("alert-rep","Enviando correo...","info");
     const r=await api(`/api/reportes/enviar-email/${reporteEstId}`,"POST",{desde,hasta});
-    if(r) sa("alert-rep",`✅ Correo enviado a: ${r.enviado_a?.join(", ")||"encargados"}. ","success");
+    if(r) sa("alert-rep","✅ Correo enviado a: "+(r.enviado_a?.join(", ")||"encargados")+".","success");
   }catch(e){sa("alert-rep","❌ "+e.message,"danger");}
 }
 
