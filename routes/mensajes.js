@@ -57,7 +57,7 @@ router.get("/todos", requireRol("admin"), async (req, res) => {
 });
 
 // ── ENVIAR INFORME ────────────────────────────────────────────────────────────
-router.post("/", requireRol("profesor_guia","orientador"), async (req, res) => {
+router.post("/", requireRol("profesor_guia","orientador","auxiliar"), async (req, res) => {
   const remitente_id = req.session.usuario.id;
   const { destinatario_id, estudiante_id, conducta, participacion, trabajos, nota_estimada, recomendaciones, observaciones } = req.body;
   if (!destinatario_id||!estudiante_id) return res.status(400).json({ error:"Datos incompletos" });

@@ -16,10 +16,15 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
   const r = await pool.query(`
     SELECT m.nombre AS materia, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1,
       SUM(sa.lecciones) AS total_lecciones,
-      SUM(sa.lecciones) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
-      SUM(sa.lecciones) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
+      SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
+      SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
       SUM(sa.lecciones) FILTER (WHERE a.estado='T') AS tardias,
-      JSON_AGG(JSON_BUILD_OBJECT('fecha',sa.fecha,'lecciones',sa.lecciones,'estado',a.estado,'justificada',a.justificada,'motivo',a.motivo,'asistencia_id',a.id) ORDER BY sa.fecha) FILTER (WHERE a.estado IN ('A','T')) AS detalle
+      JSON_AGG(JSON_BUILD_OBJECT(
+        'fecha',sa.fecha,'lecciones',sa.lecciones,
+        'lecciones_ausentes',a.lecciones_ausentes,
+        'estado',a.estado,'justificada',a.justificada,
+        'motivo',a.motivo,'asistencia_id',a.id
+      ) ORDER BY sa.fecha) FILTER (WHERE a.estado IN ('A','T')) AS detalle
     FROM asistencia a
     JOIN sesiones_asistencia sa ON sa.id=a.sesion_id
     JOIN asignaciones asig ON asig.id=sa.asignacion_id
@@ -29,8 +34,18 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
     GROUP BY m.nombre, u.nombre, u.primer_apellido ORDER BY m.nombre
   `, params);
 
+  // Observaciones del período
+  let obsFilter = ""; const obsParams = [req.params.id];
+  if (desde) { obsParams.push(desde); obsFilter += ` AND o.fecha >= $${obsParams.length}`; }
+  if (hasta) { obsParams.push(hasta); obsFilter += ` AND o.fecha <= $${obsParams.length}`; }
+  const obsR = await pool.query(`
+    SELECT o.*, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
+    FROM observaciones_diarias o JOIN usuarios u ON u.id=o.usuario_id
+    WHERE o.estudiante_id=$1 ${obsFilter} ORDER BY o.fecha DESC
+  `, obsParams);
+
   const encR = await pool.query("SELECT * FROM encargados WHERE estudiante_id=$1 ORDER BY es_principal DESC", [req.params.id]);
-  res.json({ estudiante: estR.rows[0], materias: r.rows, encargados: encR.rows });
+  res.json({ estudiante: estR.rows[0], materias: r.rows, encargados: encR.rows, observaciones: obsR.rows });
 });
 
 // ── ENVIAR REPORTE POR CORREO ─────────────────────────────────

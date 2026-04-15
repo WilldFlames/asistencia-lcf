@@ -102,13 +102,41 @@ async function initDB() {
       );
 
       CREATE TABLE IF NOT EXISTS asistencia (
-        id            SERIAL PRIMARY KEY,
-        sesion_id     INTEGER REFERENCES sesiones_asistencia(id) ON DELETE CASCADE,
-        estudiante_id INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
-        estado        TEXT NOT NULL CHECK(estado IN ('P','A','T')),
-        justificada   BOOLEAN DEFAULT false,
-        motivo        TEXT DEFAULT '',
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        sesion_id         INTEGER REFERENCES sesiones_asistencia(id) ON DELETE CASCADE,
+        estudiante_id     INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
+        estado            TEXT NOT NULL CHECK(estado IN ('P','A','T')),
+        lecciones_ausentes INTEGER DEFAULT NULL,
+        justificada       BOOLEAN DEFAULT false,
+        motivo            TEXT DEFAULT '',
         UNIQUE(sesion_id, estudiante_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS observaciones_diarias (
+        id            SERIAL PRIMARY KEY,
+        estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        usuario_id    INTEGER NOT NULL REFERENCES usuarios(id),
+        fecha         DATE NOT NULL,
+        observacion   TEXT NOT NULL,
+        created_at    TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS infracciones (
+        id          SERIAL PRIMARY KEY,
+        tipo        TEXT NOT NULL CHECK(tipo IN ('muy_leve','leve','grave')),
+        puntos      INTEGER NOT NULL,
+        descripcion TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS boletas_conducta (
+        id               SERIAL PRIMARY KEY,
+        estudiante_id    INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        infraccion_id    INTEGER NOT NULL REFERENCES infracciones(id),
+        asignacion_id    INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        registrado_por   INTEGER NOT NULL REFERENCES usuarios(id),
+        fecha            DATE NOT NULL,
+        observacion      TEXT DEFAULT '',
+        created_at       TIMESTAMP DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS informes (
@@ -166,6 +194,39 @@ async function initDB() {
     // Materias
     for (const m of MATERIAS_DEFAULT) {
       await client.query("INSERT INTO materias (nombre) VALUES ($1) ON CONFLICT DO NOTHING", [m]);
+    }
+
+    // Infracciones pre-cargadas
+    const infCount = await client.query("SELECT COUNT(*) AS c FROM infracciones");
+    if (parseInt(infCount.rows[0].c) === 0) {
+      const infracciones = [
+        // MUY LEVES - 5 puntos
+        { tipo:'muy_leve', puntos:5, desc:'Uso incorrecto del uniforme.' },
+        { tipo:'muy_leve', puntos:5, desc:'Uso de accesorios personales no autorizados según las disposiciones establecidas por el centro educativo.' },
+        { tipo:'muy_leve', puntos:5, desc:'Incumplimiento de las normas de presentación personal establecidas por el centro educativo.' },
+        // LEVES - 10 puntos
+        { tipo:'leve', puntos:10, desc:'Uso del cuaderno de comunicaciones para acciones diferentes al objetivo para el cual fue establecido.' },
+        { tipo:'leve', puntos:10, desc:'No informar a los encargados legales sobre la existencia de comunicaciones remitidas al hogar.' },
+        { tipo:'leve', puntos:10, desc:'Interrupciones al proceso de aprendizaje en espacios educativos.' },
+        { tipo:'leve', puntos:10, desc:'Fuga de las lecciones y de actividades curriculares o cocurriculares programadas por el centro educativo.' },
+        { tipo:'leve', puntos:10, desc:'Ausencias injustificadas a actividades debidamente convocadas.' },
+        // GRAVES - 20 puntos
+        { tipo:'grave', puntos:20, desc:'Daño contra los bienes del centro educativo (ornato, equipo tecnológico, herramientas, mobiliario, infraestructura u otros activos).' },
+        { tipo:'grave', puntos:20, desc:'Sustracción de bienes del centro educativo o bienes personales de los miembros de la comunidad educativa.' },
+        { tipo:'grave', puntos:20, desc:'Uso sin consentimiento de las pertenencias de personas integrantes de la comunidad educativa.' },
+        { tipo:'grave', puntos:20, desc:'Uso del lenguaje vulgar o soez, así como trato irrespetuoso hacia el director, personal docente, estudiantes, encargados legales u otros miembros de la comunidad educativa.' },
+        { tipo:'grave', puntos:20, desc:'Colocar letreros, dibujos o gráficos no autorizados en la infraestructura, mobiliario u otros bienes del centro educativo.' },
+        { tipo:'grave', puntos:20, desc:'Alterar, falsificar o plagiar pruebas o cualquier otro tipo de trabajo académico.' },
+        { tipo:'grave', puntos:20, desc:'Sustraer, reproducir, distribuir o divulgar las pruebas antes de su aplicación.' },
+        { tipo:'grave', puntos:20, desc:'Portar, consumir, fumar o vapear cigarrillos, sistemas electrónicos de administración de nicotina (SEAN) o dispositivos similares.' },
+        { tipo:'grave', puntos:20, desc:'Portar o ingerir bebidas con contenido alcohólico.' },
+        { tipo:'grave', puntos:20, desc:'Ingresar al centro educativo en estado de ebriedad o bajo signos de ingesta de bebidas alcohólicas u otras sustancias psicoactivas.' },
+        { tipo:'grave', puntos:20, desc:'Uso de dispositivos móviles u otros medios tecnológicos que interfieran en el proceso de aprendizaje sin autorización de la persona docente.' },
+      ];
+      for (const inf of infracciones) {
+        await client.query("INSERT INTO infracciones (tipo, puntos, descripcion) VALUES ($1,$2,$3)", [inf.tipo, inf.puntos, inf.desc]);
+      }
+      console.log("✅ Infracciones de conducta cargadas");
     }
 
     console.log("✅ Base de datos lista");

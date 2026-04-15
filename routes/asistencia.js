@@ -60,6 +60,7 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   const estudiantes = estR.rows.map(e => ({
     ...e,
     estado: asistMap[e.id]?.estado || "P",
+    lecciones_ausentes: asistMap[e.id]?.lecciones_ausentes || null,
     justificada: asistMap[e.id]?.justificada || false,
     motivo: asistMap[e.id]?.motivo || "",
     asistencia_id: asistMap[e.id]?.id || null
@@ -69,7 +70,6 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
 });
 
 // ── GUARDAR ASISTENCIA ────────────────────────────────────────────────────────
-// POST /asistencia  { asignacion_id, fecha, lecciones, registros:[{estudiante_id, estado}] }
 router.post("/", requireDocente, async (req, res) => {
   const { asignacion_id, fecha, lecciones, registros } = req.body;
   if (!asignacion_id||!fecha||!lecciones||!registros)
@@ -79,7 +79,6 @@ router.post("/", requireDocente, async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Crear o actualizar sesión
     const sesR = await client.query(`
       INSERT INTO sesiones_asistencia (asignacion_id, fecha, lecciones)
       VALUES ($1,$2,$3)
@@ -88,13 +87,14 @@ router.post("/", requireDocente, async (req, res) => {
     `, [asignacion_id, fecha, lecciones]);
     const sesion_id = sesR.rows[0].id;
 
-    // Insertar/actualizar cada registro
     for (const r of registros) {
+      // lecciones_ausentes: si es Ausente y no se especifica, usar total de lecciones
+      const lecAus = r.estado === 'A' ? (r.lecciones_ausentes || lecciones) : null;
       await client.query(`
-        INSERT INTO asistencia (sesion_id, estudiante_id, estado, justificada, motivo)
-        VALUES ($1,$2,$3,false,'')
-        ON CONFLICT (sesion_id, estudiante_id) DO UPDATE SET estado=$3
-      `, [sesion_id, r.estudiante_id, r.estado]);
+        INSERT INTO asistencia (sesion_id, estudiante_id, estado, lecciones_ausentes, justificada, motivo)
+        VALUES ($1,$2,$3,$4,false,'')
+        ON CONFLICT (sesion_id, estudiante_id) DO UPDATE SET estado=$3, lecciones_ausentes=$4
+      `, [sesion_id, r.estudiante_id, r.estado, lecAus]);
     }
 
     await client.query("COMMIT");

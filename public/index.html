@@ -211,6 +211,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="mensajes" onclick="goTo('mensajes')"><span class="icon">📨</span><span>Mensajes</span></button>
   <div class="sidebar-section" id="sec-docente" style="display:none">Docente</div>
   <button class="nav-btn" data-page="asistencia" id="nav-asistencia" onclick="goTo('asistencia')" style="display:none"><span class="icon">✅</span><span>Asistencia</span></button>
+  <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
   <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
@@ -331,7 +332,7 @@ tr:hover td{background:#f8fafc;}
       </div>
       <div id="asis-sesion-info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:13px;"></div>
       <div class="table-wrap"><table>
-        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Asistencia</th><th>Justificación</th></tr></thead>
+        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Asistencia</th><th>Justificación</th><th>📝</th></tr></thead>
         <tbody id="asis-body"></tbody>
       </table></div>
     </div>
@@ -374,6 +375,84 @@ tr:hover td{background:#f8fafc;}
     <div id="alert-rep" class="alert"></div>
   </div>
   <div id="reporte-contenido"></div>
+</div>
+
+<!-- CONDUCTA -->
+<div class="page" id="page-conducta">
+  <div id="conducta-view-lista">
+    <div class="card">
+      <h2>📋 Conducta Estudiantil — REAC</h2>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="fg"><label>Sección</label><select id="cond-seccion" onchange="cargarEstConducta()"><option value="">— Seleccionar —</option></select></div>
+        <div class="fg"><label>Estudiante</label><select id="cond-estudiante"><option value="">— Seleccionar —</option></select></div>
+        <button class="btn btn-primary" onclick="verConductaEstudiante()">🔍 Ver Conducta</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="conducta-view-detalle" style="display:none;">
+    <div class="card no-print">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="volverConducta()">← Volver</button>
+        <h2 style="margin:0;flex:1" id="cond-titulo"></h2>
+        <button class="btn btn-success no-print" onclick="window.print()">🖨️ Imprimir</button>
+      </div>
+      <div id="alert-cond" class="alert"></div>
+
+      <!-- Nota actual -->
+      <div id="cond-nota-card" style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;border-radius:var(--r);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div id="cond-nota-num" style="font-size:42px;font-weight:bold;"></div>
+          <div style="font-size:12px;opacity:.8;">Nota de Conducta</div>
+        </div>
+        <div>
+          <div id="cond-nota-estado" style="font-size:16px;font-weight:bold;"></div>
+          <div id="cond-puntos-rebajados" style="font-size:13px;opacity:.8;"></div>
+        </div>
+      </div>
+
+      <!-- Nueva boleta -->
+      <div style="border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px;background:#f8fafc;">
+        <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;">➕ Registrar Nueva Boleta</div>
+        <div class="form-grid">
+          <div class="fg" style="grid-column:1/-1">
+            <label>Tipo de Falta</label>
+            <select id="cond-tipo-falta" onchange="filtrarInfracciones()">
+              <option value="">Todos los tipos</option>
+              <option value="muy_leve">Muy Leve (-5 pts)</option>
+              <option value="leve">Leve (-10 pts)</option>
+              <option value="grave">Grave (-20 pts)</option>
+            </select>
+          </div>
+          <div class="fg" style="grid-column:1/-1">
+            <label>Infracción *</label>
+            <select id="cond-infraccion">
+              <option value="">— Seleccionar infracción —</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Materia (opcional)</label>
+            <select id="cond-asignacion"><option value="">— Sin materia específica —</option></select>
+          </div>
+          <div class="fg">
+            <label>Fecha *</label>
+            <input type="date" id="cond-fecha"/>
+          </div>
+          <div class="fg" style="grid-column:1/-1">
+            <label>Observación adicional</label>
+            <input type="text" id="cond-obs" placeholder="Detalles adicionales de la falta..."/>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-danger" onclick="registrarBoleta()">📋 Registrar Boleta</button>
+        </div>
+      </div>
+
+      <!-- Lista de boletas -->
+      <h2>📄 Boletas Registradas</h2>
+      <div id="cond-boletas-lista"></div>
+    </div>
+  </div>
 </div>
 
 <!-- MENSAJES -->
@@ -551,6 +630,27 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- Modal Observaciones -->
+<div class="modal-overlay" id="modal-obs">
+  <div class="modal" style="max-width:500px;">
+    <h3 id="mobs-titulo">Observaciones del Estudiante</h3>
+    <input type="hidden" id="mobs-est-id"/>
+    <input type="hidden" id="mobs-fecha"/>
+    <div id="mobs-lista" style="margin-bottom:14px;max-height:200px;overflow-y:auto;"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;">
+      <div class="fg">
+        <label>Nueva Observación</label>
+        <textarea id="mobs-texto" placeholder="Escribí la observación para este estudiante..." style="min-height:80px;"></textarea>
+      </div>
+    </div>
+    <div id="alert-mobs" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-obs')">Cerrar</button>
+      <button class="btn btn-primary" onclick="guardarObservacion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Justificar -->
 <div class="modal-overlay" id="modal-jus">
   <div class="modal" style="max-width:400px;">
@@ -667,6 +767,7 @@ function goTo(page){
   if(page==="asignaciones"){cargarMateriasList();cargarSeccionesAdmin();cargarAsignaciones();}
   if(page==="estudiantes") {cargarEstudiantes();poblarSel("filtro-seccion-est",false,"Todas las secciones");}
   if(page==="asistencia")  cargarMisAsig();
+  if(page==="conducta")    initConducta();
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
   if(page==="reportes")    initReportes();
   if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
@@ -680,11 +781,16 @@ async function iniciarApp(){
   const docentes=["admin","profesor","profesor_guia","orientador"];
   const canRep=["admin","auxiliar","orientador","profesor_guia"];
   const canEst=["admin","auxiliar","orientador","profesor_guia"];
-  const canMsg=["profesor_guia","orientador"];
+  const canMsg=["profesor_guia","orientador","auxiliar"];
+  const canConducta=["admin","profesor_guia","orientador","auxiliar"];
   if(docentes.includes(ME.rol)){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-asistencia").style.display="";
     document.getElementById("nav-consulta").style.display="";
+  }
+  if(canConducta.includes(ME.rol)){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-conducta").style.display="";
   }
   if(canEst.includes(ME.rol)){
     document.getElementById("sec-gestion").style.display="";
@@ -1252,7 +1358,9 @@ async function cargarListaDia(){
 
 function renderTablaAsist(){
   const tbody=document.getElementById("asis-body");
-  if(!registrosAsist.length){tbody.innerHTML=`<tr><td colspan="4" class="empty">No hay estudiantes en esta sección</td></tr>`;return;}
+  if(!registrosAsist.length){tbody.innerHTML=`<tr><td colspan="5" class="empty">No hay estudiantes en esta sección</td></tr>`;return;}
+  const fecha=document.getElementById("asis-fecha").value;
+  const totalLecc=parseInt(document.getElementById("asis-lecciones").value)||4;
   tbody.innerHTML=registrosAsist.map((e,i)=>`<tr>
     <td style="color:var(--muted);font-size:11px">${i+1}</td>
     <td style="font-size:13px">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
@@ -1262,16 +1370,29 @@ function renderTablaAsist(){
         <button onclick="setE(${e.id},'A')" class="${e.estado==='A'?'sel-A':''}">A</button>
         <button onclick="setE(${e.id},'T')" class="${e.estado==='T'?'sel-T':''}">T</button>
       </div>
+      ${e.estado==='A'?`<div style="margin-top:4px;display:flex;align-items:center;gap:4px;font-size:12px;">
+        <span style="color:var(--muted)">Lecc. ausente:</span>
+        <select onchange="setLeccAus(${e.id},this.value)" style="padding:2px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;">
+          ${Array.from({length:totalLecc},(_,k)=>k+1).map(n=>`<option value="${n}" ${(e.lecciones_ausentes||totalLecc)==n?'selected':''}>${n}</option>`).join('')}
+        </select>
+        <span style="color:var(--muted)">de ${totalLecc}</span>
+      </div>`:''}
     </td>
     <td>${e.estado!=='P'&&e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${e.primer_apellido} ${e.nombre}','${e.estado}')">
-        ${e.justificada?"✅ Justificada":"📝 Justificar"}</button>`:"—"}</td>
+        ${e.justificada?"✅ Justif.":"📝 Justif."}</button>`:"—"}</td>
+    <td><button class="btn btn-outline btn-xs" onclick="abrirObservaciones(${e.id},'${e.primer_apellido} ${e.nombre}','${fecha}')" title="Observaciones">📝</button></td>
   </tr>`).join("");
 }
 
 function setE(id,estado){
   const r=registrosAsist.find(x=>x.id===id);
-  if(r) r.estado=estado;
+  if(r){ r.estado=estado; if(estado!=='A') r.lecciones_ausentes=null; }
   renderTablaAsist();
+}
+
+function setLeccAus(id,val){
+  const r=registrosAsist.find(x=>x.id===id);
+  if(r) r.lecciones_ausentes=parseInt(val);
 }
 
 function marcarTodos(estado){
@@ -1285,7 +1406,8 @@ async function guardarAsistencia(){
   if(!fecha||!asigActiva){sa("alert-asis","Seleccioná una fecha.","danger");return;}
   if(!registrosAsist.length){sa("alert-asis","No hay estudiantes.","danger");return;}
   try{
-    await api("/api/asistencia","POST",{asignacion_id:asigActiva,fecha,lecciones:lecc,registros:registrosAsist.map(e=>({estudiante_id:e.id,estado:e.estado}))});
+    await api("/api/asistencia","POST",{asignacion_id:asigActiva,fecha,lecciones:lecc,
+      registros:registrosAsist.map(e=>({estudiante_id:e.id,estado:e.estado,lecciones_ausentes:e.lecciones_ausentes||null}))});
     sa("alert-asis","✅ Lista guardada.","success");
     await cargarListaDia();await cargarHistSesiones();
   }catch(e){sa("alert-asis",e.message,"danger");}
@@ -1393,7 +1515,7 @@ async function generarReporte(){
           <h4>${m.materia} <small style="font-weight:normal;color:var(--muted);">— ${m.prof_ap1} ${m.prof_nombre}</small></h4>
           <div style="display:flex;gap:14px;font-size:13px;margin-bottom:8px;flex-wrap:wrap;">
             <span>📚 ${m.total_lecciones||0} lecc.</span>
-            <span style="color:var(--rojo)">❌ ${m.ausencias||0} ausencias</span>
+            <span style="color:var(--rojo)">❌ ${m.ausencias||0} lecc. ausentes</span>
             <span style="color:var(--verde)">✅ ${m.justificadas||0} justificadas</span>
             <span style="color:var(--naranja)">⏰ ${m.tardias||0} tardías</span>
           </div>
@@ -1401,11 +1523,23 @@ async function generarReporte(){
             <div class="ausencia-item">
               <span class="badge ${det.estado==='A'?'b-A':'b-T'}">${det.estado==='A'?'A':'T'}</span>
               <span>${fmtF(det.fecha)}</span>
-              <span style="color:var(--muted)">${det.lecciones} lecc.</span>
+              <span style="color:var(--muted)">${det.estado==='A'?(det.lecciones_ausentes||det.lecciones)+' lecc.':det.lecciones+' lecc.'}</span>
               ${det.justificada?'<span class="badge b-J">✅ Justif.</span>':""}
               ${det.motivo?`<span style="color:var(--muted);font-style:italic;font-size:12px">${det.motivo}</span>`:""}
             </div>`).join(""):"<div style='font-size:12px;color:var(--muted);'>Sin ausencias ni tardías.</div>"}
         </div>`).join("")}
+
+      ${d.observaciones&&d.observaciones.length?`
+        <div class="reporte-materia" style="border-color:var(--azul2);">
+          <h4 style="color:var(--azul2);">📝 Observaciones del Período</h4>
+          ${d.observaciones.map(o=>`
+            <div class="ausencia-item">
+              <span style="color:var(--muted);min-width:80px;font-size:12px;">${fmtF(o.fecha)}</span>
+              <span style="flex:1;font-size:13px;">${o.observacion}</span>
+              <span style="font-size:11px;color:var(--muted)">${o.prof_ap1} ${o.prof_nombre}</span>
+            </div>`).join("")}
+        </div>`:""}
+
       <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:12px;">
         Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
       </div>
@@ -1428,7 +1562,7 @@ async function enviarEmailReporte(){
 //  MENSAJES
 // ════════════════════════════════════
 function initMensajes(){
-  if(["profesor_guia","orientador"].includes(ME.rol)) document.getElementById("btn-nuevo-informe").style.display="";
+  if(["profesor_guia","orientador","auxiliar"].includes(ME.rol)) document.getElementById("btn-nuevo-informe").style.display="";
   if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
 }
 
@@ -1543,6 +1677,183 @@ async function enviarRespuesta(){
 async function marcarLeido(id){
   await api(`/api/mensajes/${id}/leer`,"PUT");
   cargarMensajes("inbox");
+}
+
+// ════════════════════════════════════
+//  OBSERVACIONES DIARIAS
+// ════════════════════════════════════
+async function abrirObservaciones(estId, nombre, fecha){
+  document.getElementById("mobs-est-id").value = estId;
+  document.getElementById("mobs-fecha").value  = fecha;
+  document.getElementById("mobs-titulo").textContent = `Observaciones — ${nombre}`;
+  document.getElementById("mobs-texto").value = "";
+  document.getElementById("alert-mobs").className = "alert";
+  await cargarObsLista(estId, fecha);
+  document.getElementById("modal-obs").classList.add("show");
+}
+
+async function cargarObsLista(estId, fecha){
+  const rows = await api(`/api/observaciones/estudiante/${estId}/fecha/${fecha}`);
+  if(!rows) return;
+  const div = document.getElementById("mobs-lista");
+  if(!rows.length){ div.innerHTML='<div style="color:var(--muted);font-size:13px;margin-bottom:8px;">Sin observaciones para esta fecha.</div>'; return; }
+  div.innerHTML = rows.map(o=>`
+    <div style="border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:6px;background:#f8fafc;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">${o.prof_ap1} ${o.prof_nombre}</div>
+      <div style="font-size:13px;">${o.observacion}</div>
+      <button class="btn btn-danger btn-xs" style="margin-top:6px;" onclick="eliminarObs(${o.id},${estId},'${fecha}')">🗑️</button>
+    </div>`).join("");
+}
+
+async function guardarObservacion(){
+  const estId = document.getElementById("mobs-est-id").value;
+  const fecha  = document.getElementById("mobs-fecha").value;
+  const texto  = document.getElementById("mobs-texto").value.trim();
+  if(!texto){ sa("alert-mobs","Escribí una observación.","danger"); return; }
+  try{
+    await api("/api/observaciones","POST",{estudiante_id:+estId, fecha, observacion:texto});
+    document.getElementById("mobs-texto").value = "";
+    await cargarObsLista(estId, fecha);
+    sa("alert-mobs","✅ Observación guardada.","success");
+  }catch(e){ sa("alert-mobs",e.message,"danger"); }
+}
+
+async function eliminarObs(id, estId, fecha){
+  if(!confirm("¿Eliminar esta observación?")) return;
+  await api(`/api/observaciones/${id}`,"DELETE");
+  await cargarObsLista(estId, fecha);
+}
+
+// ════════════════════════════════════
+//  CONDUCTA — REAC
+// ════════════════════════════════════
+let allInfracciones = [];
+let condEstudianteActual = null;
+let condSeccionActual = null;
+
+async function initConducta(){
+  document.getElementById("conducta-view-lista").style.display="";
+  document.getElementById("conducta-view-detalle").style.display="none";
+  const secs = await api("/api/reportes/mis-secciones");
+  if(!secs) return;
+  const sel = document.getElementById("cond-seccion");
+  sel.innerHTML='<option value="">— Seleccionar —</option>'+secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+  // Cargar infracciones
+  const infs = await api("/api/conducta/infracciones");
+  if(infs) allInfracciones = infs;
+}
+
+async function cargarEstConducta(){
+  const sid = document.getElementById("cond-seccion").value;
+  if(!sid) return;
+  const rows = await api(`/api/reportes/seccion/${sid}/estudiantes`);
+  if(!rows) return;
+  document.getElementById("cond-estudiante").innerHTML=
+    '<option value="">— Seleccionar estudiante —</option>'+
+    rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+}
+
+async function verConductaEstudiante(){
+  const eid = document.getElementById("cond-estudiante").value;
+  const sid = document.getElementById("cond-seccion").value;
+  if(!eid){ alert("Seleccioná un estudiante."); return; }
+  condEstudianteActual = eid;
+  condSeccionActual    = sid;
+  const sel = document.getElementById("cond-estudiante");
+  const nombre = sel.options[sel.selectedIndex].text;
+  document.getElementById("cond-titulo").textContent = `Conducta — ${nombre}`;
+  document.getElementById("cond-fecha").value = new Date().toISOString().slice(0,10);
+  // Cargar asignaciones de la sección para el selector de materia
+  const asigs = await api(`/api/conducta/mis-asignaciones/${sid}`);
+  if(asigs){
+    document.getElementById("cond-asignacion").innerHTML=
+      '<option value="">— Sin materia específica —</option>'+
+      asigs.map(a=>`<option value="${a.id}">${a.materia_nombre} — ${a.prof_ap1} ${a.prof_nombre}</option>`).join("");
+  }
+  filtrarInfracciones();
+  document.getElementById("conducta-view-lista").style.display="none";
+  document.getElementById("conducta-view-detalle").style.display="";
+  await cargarBoletasLista();
+}
+
+function filtrarInfracciones(){
+  const tipo = document.getElementById("cond-tipo-falta").value;
+  const filtrado = tipo ? allInfracciones.filter(i=>i.tipo===tipo) : allInfracciones;
+  const tipLabel = {muy_leve:"Muy Leve (-5 pts)", leve:"Leve (-10 pts)", grave:"Grave (-20 pts)"};
+  document.getElementById("cond-infraccion").innerHTML=
+    '<option value="">— Seleccionar infracción —</option>'+
+    filtrado.map(i=>`<option value="${i.id}">[${tipLabel[i.tipo]}] ${i.descripcion}</option>`).join("");
+}
+
+async function registrarBoleta(){
+  const infId   = document.getElementById("cond-infraccion").value;
+  const asigId  = document.getElementById("cond-asignacion").value;
+  const fecha   = document.getElementById("cond-fecha").value;
+  const obs     = document.getElementById("cond-obs").value.trim();
+  if(!infId || !fecha){ sa("alert-cond","Seleccioná una infracción y la fecha.","danger"); return; }
+  try{
+    await api("/api/conducta","POST",{
+      estudiante_id: +condEstudianteActual,
+      infraccion_id: +infId,
+      asignacion_id: asigId ? +asigId : null,
+      fecha, observacion: obs
+    });
+    document.getElementById("cond-obs").value = "";
+    sa("alert-cond","✅ Boleta registrada.","success");
+    await cargarBoletasLista();
+  }catch(e){ sa("alert-cond",e.message,"danger"); }
+}
+
+async function cargarBoletasLista(){
+  const d = await api(`/api/conducta/estudiante/${condEstudianteActual}`);
+  if(!d) return;
+
+  // Actualizar nota card
+  const nota = d.notaConducta;
+  document.getElementById("cond-nota-num").textContent = nota;
+  document.getElementById("cond-puntos-rebajados").textContent = `Puntos rebajados: ${d.totalRebajado} de 100`;
+  const estadoEl = document.getElementById("cond-nota-estado");
+  if(nota >= 90)       { estadoEl.textContent="⭐ Excelente"; }
+  else if(nota >= 80)  { estadoEl.textContent="✅ Muy Buena"; }
+  else if(nota >= 70)  { estadoEl.textContent="🟡 Buena"; }
+  else if(nota >= 60)  { estadoEl.textContent="🟠 Regular"; }
+  else                 { estadoEl.textContent="🔴 Deficiente"; }
+
+  const div = document.getElementById("cond-boletas-lista");
+  if(!d.boletas.length){ div.innerHTML='<div class="empty">Sin boletas registradas.</div>'; return; }
+
+  const tipBadge={muy_leve:"b-prof",leve:"b-guia",grave:"b-aux"};
+  const tipLabel={muy_leve:"Muy Leve",leve:"Leve",grave:"Grave"};
+
+  div.innerHTML = d.boletas.map(b=>`
+    <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#fafafa;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span class="badge ${tipBadge[b.infraccion_tipo]}">${tipLabel[b.infraccion_tipo]}</span>
+          <span style="font-weight:bold;color:var(--rojo)">-${b.puntos} pts</span>
+          ${b.materia_nombre?`<span style="font-size:12px;color:var(--muted)">${b.materia_nombre} — ${b.prof_ap1} ${b.prof_nombre}</span>`:""}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:var(--muted)">${fmtF(b.fecha)}</span>
+          <button class="btn btn-danger btn-xs" onclick="eliminarBoleta(${b.id})">🗑️</button>
+        </div>
+      </div>
+      <div style="font-size:13px;">${b.infraccion_desc}</div>
+      ${b.observacion?`<div style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic;">📝 ${b.observacion}</div>`:""}
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Registrado por: ${b.reg_ap1} ${b.reg_nombre}</div>
+    </div>`).join("");
+}
+
+async function eliminarBoleta(id){
+  if(!confirm("¿Eliminar esta boleta de conducta?")) return;
+  await api(`/api/conducta/${id}`,"DELETE");
+  await cargarBoletasLista();
+}
+
+function volverConducta(){
+  condEstudianteActual = null;
+  document.getElementById("conducta-view-lista").style.display="";
+  document.getElementById("conducta-view-detalle").style.display="none";
 }
 
 // ════════════════════════════════════

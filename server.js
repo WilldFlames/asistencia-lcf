@@ -33,6 +33,8 @@ app.use("/api/asistencia",     requireAuth, require("./routes/asistencia"));
 app.use("/api/reportes",       requireAuth, require("./routes/reportes"));
 app.use("/api/mensajes",       requireAuth, require("./routes/mensajes"));
 app.use("/api/notificaciones", requireAuth, require("./routes/notificaciones"));
+app.use("/api/observaciones",  requireAuth, require("./routes/observaciones"));
+app.use("/api/conducta",       requireAuth, require("./routes/conducta"));
 
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
