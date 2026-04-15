@@ -102,7 +102,7 @@ async function initDB() {
       );
 
       CREATE TABLE IF NOT EXISTS asistencia (
-        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        id                SERIAL PRIMARY KEY,
         sesion_id         INTEGER REFERENCES sesiones_asistencia(id) ON DELETE CASCADE,
         estudiante_id     INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
         estado            TEXT NOT NULL CHECK(estado IN ('P','A','T')),
