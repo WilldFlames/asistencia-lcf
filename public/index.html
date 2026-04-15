@@ -1445,7 +1445,14 @@ async function cargarMensajes(tipo){
   const rows=await api(url);if(!rows)return;
   const div=document.getElementById("mensajes-contenido");
   if(!rows.length){div.innerHTML='<div class="empty">Sin mensajes</div>';return;}
-  div.innerHTML=rows.map(inf=>`
+
+  // Guardar datos en memoria para evitar problemas con caracteres especiales en onclick
+  window._informesData = {};
+  rows.forEach(inf => { window._informesData[inf.id] = inf; });
+
+  div.innerHTML=rows.map(inf=>{
+    const nombreEst = `${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}`;
+    return `
     <div class="informe-card ${!inf.leido&&tipo==="inbox"?"no-leido":""} ${inf.respondido?"respondido":""}">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:8px;">
         <div>
@@ -1470,11 +1477,12 @@ async function cargarMensajes(tipo){
       ${inf.respondido?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:10px;margin-top:8px;font-size:13px;">
         <strong>✅ Respuesta (${fmtTS(inf.fecha_respuesta)}):</strong><br/>${inf.respuesta}</div>`:""}
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-        ${tipo==="inbox"&&!inf.respondido?`<button class="btn btn-success btn-sm" onclick="abrirResponder(${inf.id},'${inf.est_ap1} ${inf.est_nombre}',false)">✉️ Responder</button>`:""}
-        ${tipo==="inbox"&&inf.respondido?`<button class="btn btn-outline btn-sm" onclick="abrirResponder(${inf.id},'${inf.est_ap1} ${inf.est_nombre}',true)">👁️ Ver</button>`:""}
+        ${tipo==="inbox"&&!inf.respondido?`<button class="btn btn-success btn-sm" onclick="abrirResponderById(${inf.id},false)">✉️ Responder</button>`:""}
+        ${tipo==="inbox"&&inf.respondido?`<button class="btn btn-outline btn-sm" onclick="abrirResponderById(${inf.id},true)">👁️ Ver</button>`:""}
         ${!inf.leido&&tipo==="inbox"?`<button class="btn btn-outline btn-sm" onclick="marcarLeido(${inf.id})">✔ Leído</button>`:""}
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 function abrirModalInforme(){
@@ -1506,6 +1514,12 @@ async function enviarInforme(){
     });
     cerrarModal("modal-informe");verTab("enviados");
   }catch(e){sa("alert-mi",e.message,"danger");}
+}
+
+function abrirResponderById(id, soloVer){
+  const inf = window._informesData && window._informesData[id];
+  const nombre = inf ? `${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}` : "Estudiante";
+  abrirResponder(id, nombre, soloVer);
 }
 
 function abrirResponder(id,nombre,soloVer){
