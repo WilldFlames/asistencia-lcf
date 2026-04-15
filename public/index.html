@@ -395,7 +395,7 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="volverConducta()">← Volver</button>
         <h2 style="margin:0;flex:1" id="cond-titulo"></h2>
-        <button class="btn btn-success no-print" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn btn-success no-print" onclick="imprimirConducta()">🖨️ Imprimir Informe</button>
       </div>
       <div id="alert-cond" class="alert"></div>
 
@@ -422,6 +422,8 @@ tr:hover td{background:#f8fafc;}
               <option value="muy_leve">Muy Leve (-5 pts)</option>
               <option value="leve">Leve (-10 pts)</option>
               <option value="grave">Grave (-20 pts)</option>
+              <option value="muy_grave">Muy Grave (-35 pts)</option>
+              <option value="gravisima">Gravísima (-50 pts)</option>
             </select>
           </div>
           <div class="fg" style="grid-column:1/-1">
@@ -700,7 +702,13 @@ function sa(id,msg,type="success"){
   el.className="alert show alert-"+type;el.textContent=msg;
   setTimeout(()=>{el.className="alert";},4500);
 }
-const fmtF=d=>{if(!d)return"—";return new Date(d+"T12:00:00").toLocaleDateString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric"});};
+const fmtF=d=>{
+  if(!d) return "—";
+  // PostgreSQL puede devolver fecha como "2026-04-15T00:00:00.000Z" o "2026-04-15"
+  const s = typeof d === 'string' ? d.slice(0,10) : new Date(d).toISOString().slice(0,10);
+  const [y,m,dia] = s.split("-");
+  return `${dia}/${m}/${y}`;
+};
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
 const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor"};
 const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof"};
@@ -1779,7 +1787,7 @@ async function verConductaEstudiante(){
 function filtrarInfracciones(){
   const tipo = document.getElementById("cond-tipo-falta").value;
   const filtrado = tipo ? allInfracciones.filter(i=>i.tipo===tipo) : allInfracciones;
-  const tipLabel = {muy_leve:"Muy Leve (-5 pts)", leve:"Leve (-10 pts)", grave:"Grave (-20 pts)"};
+  const tipLabel = {muy_leve:"Muy Leve (-5 pts)", leve:"Leve (-10 pts)", grave:"Grave (-20 pts)", muy_grave:"Muy Grave (-35 pts)", gravisima:"Gravísima (-50 pts)"};
   document.getElementById("cond-infraccion").innerHTML=
     '<option value="">— Seleccionar infracción —</option>'+
     filtrado.map(i=>`<option value="${i.id}">[${tipLabel[i.tipo]}] ${i.descripcion}</option>`).join("");
@@ -1822,8 +1830,8 @@ async function cargarBoletasLista(){
   const div = document.getElementById("cond-boletas-lista");
   if(!d.boletas.length){ div.innerHTML='<div class="empty">Sin boletas registradas.</div>'; return; }
 
-  const tipBadge={muy_leve:"b-prof",leve:"b-guia",grave:"b-aux"};
-  const tipLabel={muy_leve:"Muy Leve",leve:"Leve",grave:"Grave"};
+  const tipBadge={muy_leve:"b-prof",leve:"b-guia",grave:"b-aux",muy_grave:"b-orient",gravisima:"b-admin"};
+  const tipLabel={muy_leve:"Muy Leve",leve:"Leve",grave:"Grave",muy_grave:"Muy Grave",gravisima:"Gravísima"};
 
   div.innerHTML = d.boletas.map(b=>`
     <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#fafafa;">
@@ -1854,6 +1862,87 @@ function volverConducta(){
   condEstudianteActual = null;
   document.getElementById("conducta-view-lista").style.display="";
   document.getElementById("conducta-view-detalle").style.display="none";
+}
+
+async function imprimirConducta(){
+  const d = await api(`/api/conducta/estudiante/${condEstudianteActual}`);
+  if(!d) return;
+  const titulo = document.getElementById("cond-titulo").textContent;
+  const nota = d.notaConducta;
+  const tipLabel={muy_leve:"Muy Leve",leve:"Leve",grave:"Grave",muy_grave:"Muy Grave",gravisima:"Gravísima"};
+  const tipPts={muy_leve:5,leve:10,grave:20,muy_grave:35,gravisima:50};
+
+  const printArea = document.getElementById("print-boleta-area") || (() => {
+    const el = document.createElement("div");
+    el.id = "print-boleta-area";
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+      <div style="text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px;">
+        <p style="font-size:13px;margin:2px 0;">Ministerio de Educación Pública</p>
+        <p style="font-size:14px;font-weight:bold;margin:2px 0;">Liceo de Calle Fallas</p>
+        <h2 style="font-size:16px;margin:8px 0 2px;">INFORME DE CONDUCTA</h2>
+        <p style="font-size:12px;color:#555;">Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}</p>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;flex-wrap:wrap;gap:8px;">
+        <div><strong>Estudiante:</strong> ${titulo.replace("Conducta — ","")}</div>
+        <div style="background:${nota>=80?'#dcfce7':nota>=60?'#fef9c3':'#fee2e2'};padding:6px 16px;border-radius:8px;font-weight:bold;font-size:18px;">
+          Nota de Conducta: ${nota}
+        </div>
+      </div>
+
+      ${d.boletas.length===0?'<p style="color:#666;text-align:center;padding:20px;">Sin boletas registradas.</p>':`
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
+        <thead>
+          <tr style="background:#1a3a5c;color:#fff;">
+            <th style="padding:7px 10px;text-align:left;">Fecha</th>
+            <th style="padding:7px 10px;text-align:left;">Tipo</th>
+            <th style="padding:7px 10px;text-align:center;">Pts.</th>
+            <th style="padding:7px 10px;text-align:left;">Materia</th>
+            <th style="padding:7px 10px;text-align:left;">Infracción</th>
+            <th style="padding:7px 10px;text-align:left;">Observación</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${d.boletas.map((b,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'};">
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${fmtF(b.fecha)}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${tipLabel[b.infraccion_tipo]||b.infraccion_tipo}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;color:#dc2626;font-weight:bold;">-${b.puntos}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${b.materia_nombre||"—"}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${b.infraccion_desc}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${b.observacion||"—"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      `}
+
+      <div style="border:2px solid #1a3a5c;padding:10px 16px;display:flex;gap:30px;font-size:13px;font-weight:bold;margin-bottom:24px;flex-wrap:wrap;">
+        <span>Total de boletas: ${d.boletas.length}</span>
+        <span>Puntos rebajados: ${d.totalRebajado}</span>
+        <span>NOTA DE CONDUCTA: ${nota} / 100</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma del Profesor Guía
+        </div>
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma del Estudiante
+        </div>
+      </div>
+    </div>`;
+
+  // Usar print area para imprimir
+  const style = document.createElement("style");
+  style.id = "print-style-conducta";
+  style.innerHTML = `@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(()=>{ const s=document.getElementById("print-style-conducta"); if(s)s.remove(); }, 1000);
 }
 
 // ════════════════════════════════════
