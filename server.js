@@ -9,6 +9,7 @@ const { requireAuth } = require("./middleware/auth");
 const app  = express();
 const PORT = process.env.PORT || 3002;
 
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(session({
   store: new pgSession({ pool, createTableIfMissing: true }),
