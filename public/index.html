@@ -312,10 +312,11 @@ tr:hover td{background:#f8fafc;}
   </div>
   <div id="asis-view-dia" style="display:none;">
     <div class="card no-print">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="volverAsignaciones()">← Volver</button>
         <h2 style="margin:0;flex:1" id="asis-titulo"></h2>
       </div>
+      <div id="asis-seccion-info" style="font-size:12px;color:var(--muted);margin-bottom:10px;padding-left:2px;"></div>
       <div id="alert-asis" class="alert"></div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
         <div class="fg"><label>Fecha</label><input type="date" id="asis-fecha" onchange="cargarListaDia()"/></div>
@@ -462,13 +463,14 @@ tr:hover td{background:#f8fafc;}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <h2 style="margin:0">📨 Informes de Rendimiento</h2>
-      <button class="btn btn-primary" id="btn-nuevo-informe" onclick="abrirModalInforme()" style="display:none">+ Nuevo Informe</button>
+      <button class="btn btn-primary" id="btn-nuevo-informe" onclick="abrirModalInforme()" style="display:none">📋 Solicitar Informe</button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button class="btn btn-primary btn-sm" id="tab-inbox" onclick="verTab('inbox')">📥 Recibidos</button>
       <button class="btn btn-outline btn-sm" id="tab-enviados" onclick="verTab('enviados')">📤 Enviados</button>
       <button class="btn btn-outline btn-sm" id="tab-todos" onclick="verTab('todos')" style="display:none">📋 Todos</button>
     </div>
+    <div id="alert-mensajes" class="alert"></div>
     <div id="mensajes-contenido"></div>
   </div>
 </div>
@@ -616,26 +618,29 @@ tr:hover td{background:#f8fafc;}
 
 <!-- Modal Informe -->
 <div class="modal-overlay" id="modal-informe">
-  <div class="modal" style="max-width:620px;">
-    <h3>📋 Informe de Rendimiento del Estudiante</h3>
+  <div class="modal" style="max-width:480px;">
+    <h3>📋 Solicitar Informe de Rendimiento</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+      El informe será enviado a los profesores de la sección para que cada uno lo complete y lo devuelva.
+    </p>
     <div class="form-grid">
-      <div class="fg"><label>Sección</label><select id="mi-seccion" onchange="cargarEstInforme()"><option value="">— Seleccionar —</option></select></div>
-      <div class="fg"><label>Estudiante *</label><select id="mi-estudiante"><option value="">— Seleccionar —</option></select></div>
-      <div class="fg" style="grid-column:1/-1"><label>Enviar a (Profesor) *</label><select id="mi-dest"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Sección *</label>
+        <select id="mi-seccion" onchange="cargarEstInforme()">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="fg"><label>Estudiante *</label>
+        <select id="mi-estudiante"><option value="">— Seleccionar —</option></select>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Observaciones para los profesores (opcional)</label>
+        <textarea id="mi-obs" placeholder="Ej: Por favor indicar rendimiento del último mes..." style="min-height:70px;"></textarea>
+      </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
-      <div class="fg"><label>Conducta</label><select id="mi-conducta"><option>Excelente</option><option>Muy Buena</option><option>Buena</option><option>Regular</option><option>Deficiente</option></select></div>
-      <div class="fg"><label>Participación</label><select id="mi-part"><option>Excelente</option><option>Buena</option><option>Regular</option><option>Poca</option><option>Ninguna</option></select></div>
-      <div class="fg"><label>Trabajos/Tareas</label><select id="mi-trab"><option>Al día</option><option>Algunos pendientes</option><option>Muchos pendientes</option><option>No entrega</option></select></div>
-      <div class="fg"><label>Nota Estimada</label><select id="mi-nota"><option>90-100</option><option>80-89</option><option>70-79</option><option>60-69</option><option>Menos de 60</option></select></div>
-    </div>
-    <div class="fg" style="margin-top:10px;"><label>Recomendaciones</label><textarea id="mi-recom"></textarea></div>
-    <div class="fg" style="margin-top:8px;"><label>Observaciones</label><textarea id="mi-obs"></textarea></div>
     <div id="alert-mi" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-informe')">Cancelar</button>
-      <button class="btn btn-orange" onclick="enviarInformeTodos()">📤 Enviar a TODOS los profesores</button>
-      <button class="btn btn-primary" onclick="enviarInforme()">📤 Enviar a uno</button>
+      <button class="btn btn-primary" onclick="enviarInformeTodos()">📤 Enviar solicitud a todos los profesores</button>
     </div>
   </div>
 </div>
@@ -1455,11 +1460,28 @@ async function cargarMisAsig(){
 async function abrirAsistencia(id,titulo){
   asigActiva=id;
   document.getElementById("asis-titulo").textContent=titulo;
+  document.getElementById("asis-seccion-info").textContent="";
   document.getElementById("asis-view-lista").style.display="none";
   document.getElementById("asis-view-dia").style.display="";
   const hoy=new Date().toISOString().slice(0,10);
   document.getElementById("asis-fecha").value=hoy;
   document.getElementById("asis-fecha").max=hoy;
+
+  // Cargar info de guía y orientador de la sección
+  try{
+    const asig = (await api("/api/asistencia/mis-asignaciones"))?.find(a=>a.id===id);
+    if(asig){
+      const secs = await api("/api/admin/secciones");
+      const sec = secs?.find(s=>s.nombre===asig.seccion_nombre);
+      if(sec){
+        const partes = [];
+        if(sec.guia_nombre) partes.push(`👨‍🏫 Prof. Guía: ${sec.guia_nombre} ${sec.guia_ap1||""} ${sec.guia_ap2||""}`);
+        if(sec.orient_nombre) partes.push(`🧭 Orientador: ${sec.orient_nombre} ${sec.orient_ap1||""} ${sec.orient_ap2||""}`);
+        if(partes.length) document.getElementById("asis-seccion-info").textContent=partes.join("   ·   ");
+      }
+    }
+  }catch(e){}
+
   await cargarListaDia();
   await cargarHistSesiones();
 }
@@ -1742,22 +1764,16 @@ async function cargarMensajes(tipo){
         <div>
           <strong>${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}</strong>
           <span style="color:var(--muted);font-size:12px"> · ${inf.seccion_nombre||"—"}</span>
+          ${inf.respondido?'<span class="badge b-guia" style="margin-left:6px;">✅ Respondido</span>':'<span class="badge b-aux" style="margin-left:6px;">⏳ Pendiente</span>'}
         </div>
         <span style="font-size:12px;color:var(--muted)">${fmtTS(inf.created_at)}</span>
       </div>
       <div style="font-size:12px;margin-bottom:8px;color:var(--muted)">
-        ${tipo==="inbox"||tipo==="todos"?`De: <strong>${inf.remit_ap1} ${inf.remit_nombre}</strong>`:``}
-        ${tipo==="enviados"?`Para: <strong>${inf.dest_ap1} ${inf.dest_nombre}</strong>`:``}
+        ${tipo==="inbox"||tipo==="todos"?`Solicitado por: <strong>${inf.remit_ap1} ${inf.remit_nombre}</strong>`:``}
+        ${tipo==="enviados"?`Enviado a: <strong>${inf.dest_ap1} ${inf.dest_nombre}</strong>`:``}
         ${tipo==="todos"?` → <strong>${inf.dest_ap1} ${inf.dest_nombre}</strong>`:""}
       </div>
-      <div class="informe-row">
-        <div class="informe-field"><label>Conducta</label><p>${inf.conducta||"—"}</p></div>
-        <div class="informe-field"><label>Participación</label><p>${inf.participacion||"—"}</p></div>
-        <div class="informe-field"><label>Trabajos</label><p>${inf.trabajos||"—"}</p></div>
-        <div class="informe-field"><label>Nota Estimada</label><p>${inf.nota_estimada||"—"}</p></div>
-      </div>
-      ${inf.recomendaciones?`<div class="informe-field" style="margin-bottom:6px;"><label>Recomendaciones</label><p>${inf.recomendaciones}</p></div>`:""}
-      ${inf.observaciones?`<div class="informe-field" style="margin-bottom:6px;"><label>Observaciones</label><p>${inf.observaciones}</p></div>`:""}
+      ${inf.observaciones?`<div style="font-size:12px;background:#f8fafc;border-radius:6px;padding:8px;margin-bottom:8px;color:var(--muted)">📝 ${inf.observaciones}</div>`:""}
       ${inf.respondido?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:10px;margin-top:8px;font-size:13px;">
         <strong>✅ Respuesta (${fmtTS(inf.fecha_respuesta)}):</strong>
         ${inf.resp_asistencia?`<div><strong>Asistencia:</strong> ${inf.resp_asistencia}</div>`:""}
@@ -1856,20 +1872,15 @@ async function enviarRespuesta(){
 async function enviarInformeTodos(){
   const eid=document.getElementById("mi-estudiante").value;
   const sid=document.getElementById("mi-seccion").value;
+  const obs=document.getElementById("mi-obs")?.value||"";
   if(!eid||!sid){sa("alert-mi","Seleccioná la sección y el estudiante.","danger");return;}
-  const conducta=document.getElementById("mi-conducta").value;
-  const participacion=document.getElementById("mi-part").value;
-  const trabajos=document.getElementById("mi-trab").value;
-  const nota_estimada=document.getElementById("mi-nota").value;
-  const recomendaciones=document.getElementById("mi-recom").value;
-  const observaciones=document.getElementById("mi-obs").value;
   try{
     const r=await api("/api/mensajes/masivo","POST",{
-      seccion_id:+sid,estudiante_id:+eid,
-      conducta,participacion,trabajos,nota_estimada,recomendaciones,observaciones
+      seccion_id:+sid, estudiante_id:+eid, observaciones:obs
     });
     cerrarModal("modal-informe");
-    sa("alert-rep",`✅ Informe enviado a ${r.enviados} profesor${r.enviados!==1?"es":""}.`,"success");
+    document.getElementById("mi-obs").value="";
+    sa("alert-mensajes","✅ Solicitud enviada a "+r.enviados+" profesor"+(r.enviados!==1?"es":"")+" — esperá sus respuestas.","success");
     verTab("enviados");
   }catch(e){sa("alert-mi",e.message,"danger");}
 }

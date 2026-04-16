@@ -77,8 +77,8 @@ router.delete("/materias/:id", onlyAdmin, async (req, res) => {
 router.get("/secciones", async (req, res) => {
   const r = await pool.query(`
     SELECT s.*,
-      u.nombre AS guia_nombre, u.primer_apellido AS guia_ap1, u.id AS guia_id,
-      o.id AS orient_id, o.nombre AS orient_nombre, o.primer_apellido AS orient_ap1
+      u.nombre AS guia_nombre, u.primer_apellido AS guia_ap1, u.segundo_apellido AS guia_ap2, u.id AS guia_id,
+      o.id AS orient_id, o.nombre AS orient_nombre, o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2
     FROM secciones s
     LEFT JOIN seccion_guia sg ON sg.seccion_id=s.id
     LEFT JOIN usuarios u ON u.id=sg.profesor_id
