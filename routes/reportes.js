@@ -149,15 +149,19 @@ router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
 // ── SECCIONES ACCESIBLES ──────────────────────────────────────
 router.get("/mis-secciones", requireAuth, async (req, res) => {
   const u = req.session.usuario;
+  const fx = u.funciones_extra || [];
+  const esGuia      = u.rol === "profesor_guia" || fx.includes("profesor_guia");
+  const esOrientador= u.rol === "orientador"    || fx.includes("orientador");
+
   if (u.rol === "admin" || u.rol === "auxiliar") {
     const r = await pool.query("SELECT * FROM secciones ORDER BY nivel, nombre");
     return res.json(r.rows);
   }
-  if (u.rol === "profesor_guia") {
-    const r = await pool.query("SELECT s.* FROM secciones s JOIN seccion_guia sg ON sg.seccion_id=s.id WHERE sg.profesor_id=$1", [u.id]);
+  if (esGuia) {
+    const r = await pool.query("SELECT s.* FROM secciones s JOIN seccion_guia sg ON sg.seccion_id=s.id WHERE sg.profesor_id=$1 ORDER BY s.nivel,s.nombre", [u.id]);
     return res.json(r.rows);
   }
-  if (u.rol === "orientador") {
+  if (esOrientador) {
     const r = await pool.query("SELECT DISTINCT s.* FROM secciones s JOIN seccion_orientador so ON so.seccion_id=s.id WHERE so.orientador_id=$1 ORDER BY s.nivel,s.nombre", [u.id]);
     return res.json(r.rows);
   }
