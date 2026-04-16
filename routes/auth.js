@@ -11,11 +11,27 @@ router.post("/login", async (req, res) => {
     const user = r.rows[0];
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: "Cédula o contraseña incorrectos" });
+
+    // Verificar función extra: guía O orientador (no ambas)
+    const esGuia = await pool.query("SELECT 1 FROM seccion_guia WHERE profesor_id=$1 LIMIT 1", [user.id]);
+    const funciones_extra = [];
+    if (esGuia.rows.length > 0) {
+      funciones_extra.push("profesor_guia");
+    } else {
+      // Solo verificar orientador si no es guía
+      const esOrientador = await pool.query("SELECT 1 FROM seccion_orientador WHERE orientador_id=$1 LIMIT 1", [user.id]);
+      if (esOrientador.rows.length > 0) funciones_extra.push("orientador");
+    }
+
     req.session.usuario = {
-      id: user.id, cedula: user.cedula,
-      nombre: user.nombre, primer_apellido: user.primer_apellido,
+      id: user.id,
+      cedula: user.cedula,
+      nombre: user.nombre,
+      primer_apellido: user.primer_apellido,
       segundo_apellido: user.segundo_apellido,
-      rol: user.rol, primer_login: user.primer_login
+      rol: user.rol,
+      primer_login: user.primer_login,
+      funciones_extra  // roles adicionales por asignación de sección
     };
     res.json({ ok: true, usuario: req.session.usuario });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -32,7 +48,6 @@ router.get("/me", (req, res) => {
   res.json({ autenticado: false });
 });
 
-// Cambiar contraseña (primer login o voluntario)
 router.post("/cambiar-password", async (req, res) => {
   if (!req.session?.usuario) return res.status(401).json({ error: "No autorizado" });
   const { password_actual, password_nuevo } = req.body;

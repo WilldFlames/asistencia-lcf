@@ -150,6 +150,13 @@ async function initDB() {
         nota_estimada   TEXT DEFAULT '',
         recomendaciones TEXT DEFAULT '',
         observaciones   TEXT DEFAULT '',
+        -- Campos de respuesta estructurada
+        resp_asistencia       TEXT DEFAULT '',
+        resp_trabajo_cotidiano TEXT DEFAULT '',
+        resp_tareas           TEXT DEFAULT '',
+        resp_examenes         TEXT DEFAULT '',
+        resp_comportamiento   TEXT DEFAULT '',
+        resp_observaciones    TEXT DEFAULT '',
         respuesta       TEXT DEFAULT '',
         respondido      BOOLEAN DEFAULT false,
         fecha_respuesta TIMESTAMP,
@@ -169,6 +176,13 @@ async function initDB() {
 
     // ── MIGRACIONES ────────────────────────────────────────────────────────────
     await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS lecciones_ausentes INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_asistencia TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_trabajo_cotidiano TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_tareas TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_examenes TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_comportamiento TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_observaciones TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS justificacion_cambio_seccion TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_login BOOLEAN DEFAULT true`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);

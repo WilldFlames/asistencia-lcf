@@ -322,7 +322,7 @@ tr:hover td{background:#f8fafc;}
         <div class="fg"><label>Lecciones hoy</label>
           <select id="asis-lecciones">
             <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-            <option value="4" selected>4</option><option value="5">5</option>
+            <option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
           </select>
         </div>
         <button class="btn btn-primary" onclick="cargarListaDia()">🔄 Cargar</button>
@@ -597,14 +597,19 @@ tr:hover td{background:#f8fafc;}
 
 <!-- Modal Cambiar Sección -->
 <div class="modal-overlay" id="modal-cambiar-seccion">
-  <div class="modal" style="max-width:400px;">
+  <div class="modal" style="max-width:440px;">
     <h3>🔄 Cambiar Sección</h3>
     <p id="mcs-est" style="font-size:13px;margin-bottom:12px;color:var(--muted);"></p>
     <div class="fg"><label>Nueva Sección</label><select id="mcs-seccion"><option value="">Sin sección</option></select></div>
+    <div class="fg" style="margin-top:10px;">
+      <label>Justificación del cambio *</label>
+      <textarea id="mcs-justificacion" placeholder="Indique el motivo del traslado de sección..." style="min-height:80px;"></textarea>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:4px;">⚠️ Se notificará automáticamente a todos los profesores de ambas secciones.</p>
     <div id="alert-mcs" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-cambiar-seccion')">Cancelar</button>
-      <button class="btn btn-primary" onclick="confirmarCambioSeccion()">✔ Confirmar</button>
+      <button class="btn btn-primary" onclick="confirmarCambioSeccion()">✔ Confirmar Traslado</button>
     </div>
   </div>
 </div>
@@ -629,17 +634,67 @@ tr:hover td{background:#f8fafc;}
     <div id="alert-mi" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-informe')">Cancelar</button>
-      <button class="btn btn-primary" onclick="enviarInforme()">📤 Enviar</button>
+      <button class="btn btn-orange" onclick="enviarInformeTodos()">📤 Enviar a TODOS los profesores</button>
+      <button class="btn btn-primary" onclick="enviarInforme()">📤 Enviar a uno</button>
     </div>
   </div>
 </div>
 
 <!-- Modal Responder -->
 <div class="modal-overlay" id="modal-responder">
-  <div class="modal" style="max-width:620px;">
-    <h3 id="mr-titulo">Responder Informe</h3>
+  <div class="modal" style="max-width:660px;">
+    <h3 id="mr-titulo">Responder Informe de Rendimiento</h3>
     <div id="mr-detalle" style="margin-bottom:12px;"></div>
-    <div class="fg" id="mr-resp-wrap"><label>Respuesta</label><textarea id="mr-resp" style="min-height:90px;"></textarea></div>
+    <div id="mr-resp-wrap">
+      <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;">📝 Informe de Rendimiento del Estudiante</div>
+      <div class="form-grid">
+        <div class="fg"><label>Asistencia</label>
+          <select id="mr-asistencia">
+            <option value="">— Sin información —</option>
+            <option>Excelente (0-3 ausencias)</option>
+            <option>Buena (4-6 ausencias)</option>
+            <option>Regular (7-10 ausencias)</option>
+            <option>Deficiente (más de 10 ausencias)</option>
+          </select>
+        </div>
+        <div class="fg"><label>Trabajo Cotidiano</label>
+          <select id="mr-trabajo">
+            <option value="">— Sin información —</option>
+            <option>Excelente</option><option>Muy Bueno</option>
+            <option>Bueno</option><option>Regular</option><option>Deficiente</option>
+          </select>
+        </div>
+        <div class="fg"><label>Tareas</label>
+          <select id="mr-tareas">
+            <option value="">— Sin información —</option>
+            <option>Al día y completas</option>
+            <option>Algunas pendientes</option>
+            <option>Muchas pendientes</option>
+            <option>No entrega</option>
+          </select>
+        </div>
+        <div class="fg"><label>Exámenes / Proyectos</label>
+          <select id="mr-examenes">
+            <option value="">— Sin información —</option>
+            <option>Excelente rendimiento</option>
+            <option>Buen rendimiento</option>
+            <option>Rendimiento regular</option>
+            <option>Bajo rendimiento</option>
+            <option>No presentó</option>
+          </select>
+        </div>
+        <div class="fg"><label>Comportamiento</label>
+          <select id="mr-comportamiento">
+            <option value="">— Sin información —</option>
+            <option>Excelente</option><option>Muy Bueno</option>
+            <option>Bueno</option><option>Regular</option><option>Deficiente</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg" style="margin-top:10px;"><label>Observaciones adicionales</label>
+        <textarea id="mr-obs-resp" placeholder="Observaciones del profesor sobre el estudiante..." style="min-height:70px;"></textarea>
+      </div>
+    </div>
     <div id="alert-mr" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-responder')">Cerrar</button>
@@ -693,6 +748,17 @@ tr:hover td{background:#f8fafc;}
 // ════════════════════════════════════
 let ME=null;
 let asigActiva=null;
+
+// Verificar si el usuario tiene un rol o función extra
+function tieneRol(rol) {
+  if (!ME) return false;
+  if (ME.rol === rol) return true;
+  if (ME.funciones_extra && ME.funciones_extra.includes(rol)) return true;
+  return false;
+}
+function tieneAlgunRol(...roles) {
+  return roles.some(r => tieneRol(r));
+}
 let registrosAsist=[];
 let editIdU=null,editIdE=null,encEstId=null,cambSecEstId=null,informeRespId=null;
 let reporteEstId=null;
@@ -820,27 +886,24 @@ function goTo(page){
 //  INIT APP
 // ════════════════════════════════════
 async function iniciarApp(){
-  document.getElementById("usuario-label").textContent=`${ME.primer_apellido} ${ME.nombre} (${RLBL[ME.rol]})`;
-  const docentes=["admin","profesor","profesor_guia","orientador"];
-  const canRep=["admin","auxiliar","orientador","profesor_guia"];
-  const canEst=["admin","auxiliar","orientador","profesor_guia"];
-  const canMsg=["profesor_guia","orientador","auxiliar"];
-  const canConducta=["admin","profesor_guia","orientador","auxiliar"];
-  if(docentes.includes(ME.rol)){
+  // Mostrar rol base + funciones extra
+  const rolesExtra = ME.funciones_extra && ME.funciones_extra.length
+    ? " + " + ME.funciones_extra.map(r=>RLBL[r]||r).join(", ")
+    : "";
+  document.getElementById("usuario-label").textContent=`${ME.primer_apellido} ${ME.nombre} (${RLBL[ME.rol]}${rolesExtra})`;
+  // Usar tieneAlgunRol para roles base + funciones extra (guía/orientador por asignación)
+  if(tieneAlgunRol("admin","profesor","profesor_guia","orientador")){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-asistencia").style.display="";
     document.getElementById("nav-consulta").style.display="";
   }
-  if(canConducta.includes(ME.rol)){
+  if(tieneAlgunRol("admin","profesor_guia","orientador","auxiliar")){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-conducta").style.display="";
   }
-  if(canEst.includes(ME.rol)){
+  if(tieneAlgunRol("admin","auxiliar","orientador","profesor_guia")){
     document.getElementById("sec-gestion").style.display="";
     document.getElementById("nav-estudiantes").style.display="";
-  }
-  if(canRep.includes(ME.rol)){
-    document.getElementById("sec-gestion").style.display="";
     document.getElementById("nav-reportes").style.display="";
   }
   if(ME.rol==="admin"){
@@ -850,9 +913,9 @@ async function iniciarApp(){
     document.getElementById("nav-consulta").style.display="";
   }
   if(ME.rol==="auxiliar") document.getElementById("nav-consulta").style.display="";
-  if(canMsg.includes(ME.rol)) document.getElementById("btn-nuevo-informe").style.display="";
+  if(tieneAlgunRol("profesor_guia","orientador","auxiliar")) document.getElementById("btn-nuevo-informe").style.display="";
   if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
-  await cargarCatalogos();
+    await cargarCatalogos();
   verificarNotif();
   setInterval(verificarNotif,60000);
   cargarDashboard();
@@ -1063,21 +1126,30 @@ async function cargarSeccionesAdmin(){
   const rows=await api("/api/admin/secciones");
   if(!rows)return;
   const f=nivel?rows.filter(s=>s.nivel==nivel):rows;
-  const opts='<option value="">—</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre}</option>`).join("");
-  const oOpts='<option value="">—</option>'+allProfesores.filter(p=>["orientador","profesor_guia"].includes(p.rol)).map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre}</option>`).join("");
+
+  // Todos los profesores disponibles para guía y orientador
+  const opts='<option value="">—</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]})</option>`).join("");
+
   const div=document.getElementById("secciones-lista");
   div.innerHTML=`<table><thead><tr><th>Sección</th><th>Prof. Guía</th><th>Orientador</th><th></th></tr></thead><tbody>
     ${f.map(s=>`<tr>
       <td><strong>${s.nombre}</strong></td>
       <td><select class="sg-sel" data-id="${s.id}" style="font-size:12px;padding:3px;border:1px solid var(--border);border-radius:5px;">${opts}</select></td>
-      <td><select class="so-sel" data-id="${s.id}" style="font-size:12px;padding:3px;border:1px solid var(--border);border-radius:5px;">${oOpts}</select></td>
+      <td><select class="so-sel" data-id="${s.id}" style="font-size:12px;padding:3px;border:1px solid var(--border);border-radius:5px;">${opts}</select></td>
       <td><button class="btn btn-success btn-xs" onclick="guardarSec(${s.id})">✔</button></td>
     </tr>`).join("")}
   </tbody></table>`;
+
+  // Preseleccionar guías actuales
   f.forEach(s=>{
     if(s.guia_id){
       const sel=document.querySelector(`.sg-sel[data-id="${s.id}"]`);
       if(sel) sel.value=s.guia_id;
+    }
+    // Preseleccionar orientador actual usando orient_id
+    if(s.orient_id){
+      const selO=document.querySelector(`.so-sel[data-id="${s.id}"]`);
+      if(selO) selO.value=s.orient_id;
     }
   });
 }
@@ -1088,8 +1160,9 @@ async function guardarSec(id){
   try{
     if(guia) await api(`/api/admin/secciones/${id}/guia`,"PUT",{profesor_id:+guia});
     if(orient) await api(`/api/admin/secciones/${id}/orientador`,"POST",{orientador_id:+orient});
-    sa("alert-secciones","✅ Guardado.","success");
-    await cargarCatalogos();cargarSeccionesAdmin();
+    sa("alert-secciones","✅ Guardado. Si asignaste nuevos roles, el usuario debe cerrar sesión y volver a entrar para verlos.","success");
+    await cargarCatalogos();
+    cargarSeccionesAdmin();
   }catch(e){sa("alert-secciones",e.message,"danger");}
 }
 
@@ -1138,7 +1211,7 @@ async function cargarEstudiantes(){
   const rows=await api(url);if(!rows)return;
   const tbody=document.getElementById("est-body");
   if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin estudiantes</td></tr>`;return;}
-  const isAux=["admin","auxiliar"].includes(ME.rol);
+  const isAux=tieneAlgunRol("admin","auxiliar");
   tbody.innerHTML=rows.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
@@ -1222,11 +1295,14 @@ function abrirCambioSec(id,nombre,secActual){
 
 async function confirmarCambioSeccion(){
   const sid=document.getElementById("mcs-seccion").value||null;
+  const justificacion=document.getElementById("mcs-justificacion").value.trim();
+  if(!justificacion){sa("alert-mcs","La justificación del cambio es obligatoria.","danger");return;}
   try{
-    await api(`/api/estudiantes/${cambSecEstId}/seccion`,"PUT",{seccion_id:sid?+sid:null});
+    await api(`/api/estudiantes/${cambSecEstId}/seccion`,"PUT",{seccion_id:sid?+sid:null,justificacion});
     cerrarModal("modal-cambiar-seccion");
+    document.getElementById("mcs-justificacion").value="";
     cargarEstudiantes();
-    sa("alert-est","✅ Sección actualizada. Los profesores de la nueva sección fueron notificados.","success");
+    sa("alert-est","✅ Traslado registrado. Profesores de ambas secciones fueron notificados.","success");
   }catch(e){sa("alert-mcs",e.message,"danger");}
 }
 
@@ -1636,7 +1712,7 @@ async function enviarEmailReporte(){
 //  MENSAJES
 // ════════════════════════════════════
 function initMensajes(){
-  if(["profesor_guia","orientador","auxiliar"].includes(ME.rol)) document.getElementById("btn-nuevo-informe").style.display="";
+  if(tieneAlgunRol("profesor_guia","orientador","auxiliar")) document.getElementById("btn-nuevo-informe").style.display="";
   if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
 }
 
@@ -1683,11 +1759,19 @@ async function cargarMensajes(tipo){
       ${inf.recomendaciones?`<div class="informe-field" style="margin-bottom:6px;"><label>Recomendaciones</label><p>${inf.recomendaciones}</p></div>`:""}
       ${inf.observaciones?`<div class="informe-field" style="margin-bottom:6px;"><label>Observaciones</label><p>${inf.observaciones}</p></div>`:""}
       ${inf.respondido?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:10px;margin-top:8px;font-size:13px;">
-        <strong>✅ Respuesta (${fmtTS(inf.fecha_respuesta)}):</strong><br/>${inf.respuesta}</div>`:""}
+        <strong>✅ Respuesta (${fmtTS(inf.fecha_respuesta)}):</strong>
+        ${inf.resp_asistencia?`<div><strong>Asistencia:</strong> ${inf.resp_asistencia}</div>`:""}
+        ${inf.resp_trabajo_cotidiano?`<div><strong>Trabajo Cotidiano:</strong> ${inf.resp_trabajo_cotidiano}</div>`:""}
+        ${inf.resp_tareas?`<div><strong>Tareas:</strong> ${inf.resp_tareas}</div>`:""}
+        ${inf.resp_examenes?`<div><strong>Exámenes/Proyectos:</strong> ${inf.resp_examenes}</div>`:""}
+        ${inf.resp_comportamiento?`<div><strong>Comportamiento:</strong> ${inf.resp_comportamiento}</div>`:""}
+        ${inf.resp_observaciones?`<div><strong>Observaciones:</strong> ${inf.resp_observaciones}</div>`:""}
+      </div>`:""}
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
         ${tipo==="inbox"&&!inf.respondido?`<button class="btn btn-success btn-sm" onclick="abrirResponderById(${inf.id},false)">✉️ Responder</button>`:""}
         ${tipo==="inbox"&&inf.respondido?`<button class="btn btn-outline btn-sm" onclick="abrirResponderById(${inf.id},true)">👁️ Ver</button>`:""}
         ${!inf.leido&&tipo==="inbox"?`<button class="btn btn-outline btn-sm" onclick="marcarLeido(${inf.id})">✔ Leído</button>`:""}
+        ${(tipo==="enviados"||tipo==="todos")&&inf.respondido?`<button class="btn btn-success btn-sm" onclick="imprimirInformeCompilado(${inf.id})">🖨️ Imprimir</button>`:""}
       </div>
     </div>`;
   }).join("");
@@ -1727,25 +1811,67 @@ async function enviarInforme(){
 function abrirResponderById(id, soloVer){
   const inf = window._informesData && window._informesData[id];
   const nombre = inf ? `${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}` : "Estudiante";
-  abrirResponder(id, nombre, soloVer);
+  abrirResponder(id, nombre, soloVer, inf);
 }
 
-function abrirResponder(id,nombre,soloVer){
+function abrirResponder(id,nombre,soloVer,inf=null){
   informeRespId=id;
-  document.getElementById("mr-titulo").textContent=(soloVer?"Ver":"Responder")+" — "+nombre;
-  document.getElementById("mr-resp").value="";
+  document.getElementById("mr-titulo").textContent=(soloVer?"Informe de":"Responder Informe —")+" "+nombre;
   document.getElementById("mr-resp-wrap").style.display=soloVer?"none":"";
   document.getElementById("btn-resp").style.display=soloVer?"none":"";
+  // Limpiar o cargar campos
+  ["mr-asistencia","mr-trabajo","mr-tareas","mr-examenes","mr-comportamiento"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value = (inf && inf[id.replace("mr-","resp_").replace("trabajo","trabajo_cotidiano")])||"";
+  });
+  const obsEl=document.getElementById("mr-obs-resp");
+  if(obsEl) obsEl.value=(inf?.resp_observaciones)||"";
   document.getElementById("modal-responder").classList.add("show");
 }
 
 async function enviarRespuesta(){
-  const resp=document.getElementById("mr-resp").value.trim();
-  if(!resp){sa("alert-mr","Escribí una respuesta.","danger");return;}
+  const asistencia=document.getElementById("mr-asistencia")?.value||"";
+  const trabajo=document.getElementById("mr-trabajo")?.value||"";
+  const tareas=document.getElementById("mr-tareas")?.value||"";
+  const examenes=document.getElementById("mr-examenes")?.value||"";
+  const comportamiento=document.getElementById("mr-comportamiento")?.value||"";
+  const obs=document.getElementById("mr-obs-resp")?.value||"";
+  if(!asistencia&&!trabajo&&!tareas&&!examenes&&!comportamiento&&!obs){
+    sa("alert-mr","Completá al menos un campo de la respuesta.","danger");return;
+  }
   try{
-    await api(`/api/mensajes/${informeRespId}/responder`,"PUT",{respuesta:resp});
+    await api(`/api/mensajes/${informeRespId}/responder`,"PUT",{
+      resp_asistencia:asistencia,
+      resp_trabajo_cotidiano:trabajo,
+      resp_tareas:tareas,
+      resp_examenes:examenes,
+      resp_comportamiento:comportamiento,
+      resp_observaciones:obs
+    });
     cerrarModal("modal-responder");cargarMensajes("inbox");verificarNotif();
+    sa("alert-rep","✅ Respuesta enviada.","success");
   }catch(e){sa("alert-mr",e.message,"danger");}
+}
+
+async function enviarInformeTodos(){
+  const eid=document.getElementById("mi-estudiante").value;
+  const sid=document.getElementById("mi-seccion").value;
+  if(!eid||!sid){sa("alert-mi","Seleccioná la sección y el estudiante.","danger");return;}
+  const conducta=document.getElementById("mi-conducta").value;
+  const participacion=document.getElementById("mi-part").value;
+  const trabajos=document.getElementById("mi-trab").value;
+  const nota_estimada=document.getElementById("mi-nota").value;
+  const recomendaciones=document.getElementById("mi-recom").value;
+  const observaciones=document.getElementById("mi-obs").value;
+  try{
+    const r=await api("/api/mensajes/masivo","POST",{
+      seccion_id:+sid,estudiante_id:+eid,
+      conducta,participacion,trabajos,nota_estimada,recomendaciones,observaciones
+    });
+    cerrarModal("modal-informe");
+    sa("alert-rep",`✅ Informe enviado a ${r.enviados} profesor${r.enviados!==1?"es":""}.`,"success");
+    verTab("enviados");
+  }catch(e){sa("alert-mi",e.message,"danger");}
 }
 
 async function marcarLeido(id){
@@ -2013,6 +2139,98 @@ async function imprimirConducta(){
   window.print();
   setTimeout(()=>{
     const s=document.getElementById("print-style-conducta"); if(s)s.remove();
+    printArea.innerHTML="";
+  }, 1500);
+}
+
+async function imprimirInformeCompilado(informeId){
+  // Obtener el informe específico
+  const inf = window._informesData?.[informeId];
+  if(!inf){ alert("Datos del informe no disponibles. Recargá la página."); return; }
+
+  const printArea = document.getElementById("print-boleta-area") || document.createElement("div");
+  printArea.id = "print-boleta-area";
+  if(!document.getElementById("print-boleta-area")) document.body.appendChild(printArea);
+
+  const periodo = detectarPeriodo(null);
+
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+      <div style="text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px;">
+        <p style="font-size:12px;margin:2px 0;">Ministerio de Educación Pública</p>
+        <h2 style="font-size:16px;margin:4px 0;">Liceo de Calle Fallas</h2>
+        <p style="font-size:12px;margin:2px 0;">Directora: Licda. Laura Cruz Jiménez</p>
+        <h3 style="font-size:14px;margin:8px 0 2px;">INFORME DE RENDIMIENTO ACADÉMICO</h3>
+        <p style="font-size:12px;color:#555;">${periodo}</p>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div><strong>Estudiante:</strong> ${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}</div>
+          <div><strong>Sección:</strong> ${inf.seccion_nombre||"—"}</div>
+          <div><strong>Profesor:</strong> ${inf.dest_ap1} ${inf.dest_nombre}</div>
+        </div>
+        <div style="font-size:12px;color:#555;">
+          <div><strong>Solicitado por:</strong> ${inf.remit_ap1} ${inf.remit_nombre}</div>
+          <div><strong>Respondido:</strong> ${fmtTS(inf.fecha_respuesta)}</div>
+        </div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
+        <thead>
+          <tr style="background:#1a3a5c;color:#fff;">
+            <th style="padding:8px 12px;text-align:left;width:30%;">Aspecto</th>
+            <th style="padding:8px 12px;text-align:left;">Valoración del Profesor</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#f9fafb;">
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Asistencia</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_asistencia||"—"}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Trabajo Cotidiano</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_trabajo_cotidiano||"—"}</td>
+          </tr>
+          <tr style="background:#f9fafb;">
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Tareas</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_tareas||"—"}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Exámenes / Proyectos</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_examenes||"—"}</td>
+          </tr>
+          <tr style="background:#f9fafb;">
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Comportamiento</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_comportamiento||"—"}</td>
+          </tr>
+          ${inf.resp_observaciones?`<tr>
+            <td style="padding:8px 12px;font-weight:bold;">Observaciones</td>
+            <td style="padding:8px 12px;">${inf.resp_observaciones}</td>
+          </tr>`:""}
+        </tbody>
+      </table>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma del Profesor<br/>${inf.dest_ap1} ${inf.dest_nombre}
+        </div>
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma del Encargado Legal
+        </div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#888;margin-top:12px;">
+        Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
+      </div>
+    </div>`;
+
+  const style = document.createElement("style");
+  style.id = "print-style-informe";
+  style.innerHTML = `@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(()=>{
+    const s=document.getElementById("print-style-informe"); if(s)s.remove();
     printArea.innerHTML="";
   }, 1500);
 }

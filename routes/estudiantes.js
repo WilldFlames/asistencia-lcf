@@ -54,32 +54,52 @@ router.put("/:id", canManage, async (req, res) => {
 
 // ── CAMBIAR SECCIÓN (solo auxiliar/admin) ────────────────────
 router.put("/:id/seccion", canManage, async (req, res) => {
-  const { seccion_id } = req.body;
+  const { seccion_id, justificacion } = req.body;
   const estId = req.params.id;
 
-  // Obtener sección actual
-  const estR = await pool.query("SELECT *, (SELECT nombre FROM secciones WHERE id=seccion_id) AS sec_nombre FROM estudiantes WHERE id=$1", [estId]);
+  // Obtener info actual del estudiante
+  const estR = await pool.query(`
+    SELECT e.*, s.nombre AS sec_nombre FROM estudiantes e
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.id=$1
+  `, [estId]);
   if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
   const est = estR.rows[0];
+  const seccionAnteriorId = est.seccion_id;
+  const seccionAnteriorNombre = est.sec_nombre || "Sin sección";
 
-  // Actualizar sección
-  await pool.query("UPDATE estudiantes SET seccion_id=$1 WHERE id=$2", [seccion_id||null, estId]);
+  // Actualizar sección y guardar justificación
+  await pool.query(
+    "UPDATE estudiantes SET seccion_id=$1, justificacion_cambio_seccion=$2 WHERE id=$3",
+    [seccion_id||null, justificacion||null, estId]
+  );
 
-  // Notificar a todos los profesores de la nueva sección
+  const secNombreNueva = seccion_id
+    ? (await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccion_id])).rows[0]?.nombre
+    : "Sin sección";
+
+  const msgAnterior = `🔄 El estudiante ${est.primer_apellido} ${est.nombre} fue trasladado FUERA de la sección ${seccionAnteriorNombre}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
+  const msgNueva    = `🔄 El estudiante ${est.primer_apellido} ${est.nombre} fue trasladado a la sección ${secNombreNueva}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
+
+  // Notificar profesores de la sección ANTERIOR
+  if (seccionAnteriorId) {
+    const profsAnt = await pool.query(`
+      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1
+      UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
+    `, [seccionAnteriorId]);
+    for (const p of profsAnt.rows) {
+      await pool.query("INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'cambio_seccion',$2)", [p.uid, msgAnterior]);
+    }
+  }
+
+  // Notificar profesores de la sección NUEVA
   if (seccion_id) {
-    const secR = await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccion_id]);
-    const secNombre = secR.rows[0]?.nombre || seccion_id;
-
-    // Profesores asignados a la nueva sección
-    const profsR = await pool.query(`
-      SELECT DISTINCT a.profesor_id FROM asignaciones a WHERE a.seccion_id=$1
-      UNION
-      SELECT profesor_id FROM seccion_guia WHERE seccion_id=$1
+    const profsNueva = await pool.query(`
+      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1
+      UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
     `, [seccion_id]);
-
-    const msg = `📋 El estudiante ${est.primer_apellido} ${est.nombre} ha sido trasladado a la sección ${secNombre}.`;
-    for (const p of profsR.rows) {
-      await pool.query("INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'cambio_seccion',$2)", [p.profesor_id, msg]);
+    for (const p of profsNueva.rows) {
+      await pool.query("INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'cambio_seccion',$2)", [p.uid, msgNueva]);
     }
   }
 

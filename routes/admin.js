@@ -78,12 +78,12 @@ router.get("/secciones", async (req, res) => {
   const r = await pool.query(`
     SELECT s.*,
       u.nombre AS guia_nombre, u.primer_apellido AS guia_ap1, u.id AS guia_id,
-      o.nombre AS orient_nombre, o.primer_apellido AS orient_ap1
+      o.id AS orient_id, o.nombre AS orient_nombre, o.primer_apellido AS orient_ap1
     FROM secciones s
     LEFT JOIN seccion_guia sg ON sg.seccion_id=s.id
     LEFT JOIN usuarios u ON u.id=sg.profesor_id
-    LEFT JOIN (SELECT so.seccion_id,MIN(u2.id) AS uid FROM seccion_orientador so JOIN usuarios u2 ON u2.id=so.orientador_id GROUP BY so.seccion_id) so2 ON so2.seccion_id=s.id
-    LEFT JOIN usuarios o ON o.id=so2.uid
+    LEFT JOIN (SELECT so.seccion_id, so.orientador_id FROM seccion_orientador so) so2 ON so2.seccion_id=s.id
+    LEFT JOIN usuarios o ON o.id=so2.orientador_id
     ORDER BY s.nivel, s.nombre
   `);
   res.json(r.rows);
@@ -91,13 +91,27 @@ router.get("/secciones", async (req, res) => {
 
 router.put("/secciones/:id/guia", onlyAdmin, async (req, res) => {
   const { profesor_id } = req.body;
-  await pool.query(`INSERT INTO seccion_guia (seccion_id,profesor_id) VALUES ($1,$2) ON CONFLICT (seccion_id) DO UPDATE SET profesor_id=$2`, [req.params.id, profesor_id||null]);
+  if (!profesor_id) return res.json({ ok: true });
+  // Validar que no sea también orientador
+  const esOrient = await pool.query("SELECT 1 FROM seccion_orientador WHERE orientador_id=$1 LIMIT 1", [profesor_id]);
+  if (esOrient.rows.length > 0)
+    return res.status(400).json({ error: "Este profesor ya está asignado como Orientador. Un profesor solo puede tener una función extra (guía O orientador, no ambas)." });
+  await pool.query(`
+    INSERT INTO seccion_guia (seccion_id,profesor_id) VALUES ($1,$2)
+    ON CONFLICT (seccion_id) DO UPDATE SET profesor_id=$2
+  `, [req.params.id, profesor_id]);
   res.json({ ok: true });
 });
 
 router.post("/secciones/:id/orientador", onlyAdmin, async (req, res) => {
   const { orientador_id } = req.body;
-  await pool.query(`INSERT INTO seccion_orientador (seccion_id,orientador_id) VALUES ($1,$2) ON CONFLICT (seccion_id,orientador_id) DO NOTHING`, [req.params.id, orientador_id]);
+  if (!orientador_id) return res.json({ ok: true });
+  // Validar que no sea también guía
+  const esGuia = await pool.query("SELECT 1 FROM seccion_guia WHERE profesor_id=$1 LIMIT 1", [orientador_id]);
+  if (esGuia.rows.length > 0)
+    return res.status(400).json({ error: "Este profesor ya está asignado como Profesor Guía. Un profesor solo puede tener una función extra (guía O orientador, no ambas)." });
+  await pool.query("DELETE FROM seccion_orientador WHERE seccion_id=$1", [req.params.id]);
+  await pool.query("INSERT INTO seccion_orientador (seccion_id, orientador_id) VALUES ($1,$2)", [req.params.id, orientador_id]);
   res.json({ ok: true });
 });
 
