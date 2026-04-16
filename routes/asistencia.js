@@ -19,6 +19,23 @@ router.get("/mis-asignaciones", requireDocente, async (req, res) => {
   res.json(r.rows);
 });
 
+// ── HISTORIAL DE SESIONES DE UNA ASIGNACIÓN ───────────────────────────────────
+// ⚠️ Esta ruta debe ir ANTES de /:asignacion_id/:fecha para evitar conflicto
+router.get("/historial/:asignacion_id", requireDocente, async (req, res) => {
+  const r = await pool.query(`
+    SELECT sa.*, 
+      COUNT(a.id) FILTER (WHERE a.estado='A') AS total_ausentes,
+      COUNT(a.id) FILTER (WHERE a.estado='T') AS total_tardias,
+      COUNT(a.id) FILTER (WHERE a.estado='P') AS total_presentes
+    FROM sesiones_asistencia sa
+    LEFT JOIN asistencia a ON a.sesion_id=sa.id
+    WHERE sa.asignacion_id=$1
+    GROUP BY sa.id
+    ORDER BY sa.fecha DESC
+  `, [req.params.asignacion_id]);
+  res.json(r.rows);
+});
+
 // ── OBTENER ASISTENCIA DE UNA SESIÓN ─────────────────────────────────────────
 router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   const { asignacion_id, fecha } = req.params;
@@ -126,22 +143,6 @@ router.put("/justificar/:asistencia_id", requireDocente, async (req, res) => {
 router.delete("/sesion/:sesion_id", requireDocente, async (req, res) => {
   await pool.query("DELETE FROM sesiones_asistencia WHERE id=$1", [req.params.sesion_id]);
   res.json({ ok:true });
-});
-
-// ── HISTORIAL DE SESIONES DE UNA ASIGNACIÓN ───────────────────────────────────
-router.get("/historial/:asignacion_id", requireDocente, async (req, res) => {
-  const r = await pool.query(`
-    SELECT sa.*, 
-      COUNT(a.id) FILTER (WHERE a.estado='A') AS total_ausentes,
-      COUNT(a.id) FILTER (WHERE a.estado='T') AS total_tardias,
-      COUNT(a.id) FILTER (WHERE a.estado='P') AS total_presentes
-    FROM sesiones_asistencia sa
-    LEFT JOIN asistencia a ON a.sesion_id=sa.id
-    WHERE sa.asignacion_id=$1
-    GROUP BY sa.id
-    ORDER BY sa.fecha DESC
-  `, [req.params.asignacion_id]);
-  res.json(r.rows);
 });
 
 module.exports = router;
