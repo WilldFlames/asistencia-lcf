@@ -2320,29 +2320,4 @@ document.querySelectorAll(".modal-overlay").forEach(o=>{
 })();
 </script>
 </body>
-</html>  // Usar tieneAlgunRol para considerar tanto rol base como funciones extra
-  if(tieneAlgunRol("admin","profesor","profesor_guia","orientador")){
-    document.getElementById("sec-docente").style.display="";
-    document.getElementById("nav-asistencia").style.display="";
-  }
-  // Consulta visible para todos los roles
-  if(tieneAlgunRol("admin","profesor","profesor_guia","orientador","auxiliar")){
-    document.getElementById("nav-consulta").style.display="";
-  }
-  if(tieneAlgunRol("admin","profesor_guia","orientador","auxiliar")){
-    document.getElementById("sec-docente").style.display="";
-    document.getElementById("nav-conducta").style.display="";
-  }
-  if(tieneAlgunRol("admin","auxiliar","orientador","profesor_guia")){
-    document.getElementById("sec-gestion").style.display="";
-    document.getElementById("nav-estudiantes").style.display="";
-    document.getElementById("nav-reportes").style.display="";
-  }
-  if(ME.rol==="admin"){
-    document.getElementById("sec-admin").style.display="";
-    document.getElementById("nav-usuarios").style.display="";
-    document.getElementById("nav-asignaciones").style.display="";
-  }
-  if(tieneAlgunRol("profesor_guia","orientador","auxiliar")) document.getElementById("btn-nuevo-informe").style.display="";
-  if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
-  
+</html>
