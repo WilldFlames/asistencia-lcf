@@ -924,7 +924,7 @@ async function iniciarApp(){
   }
   if(tieneAlgunRol("profesor_guia","orientador","auxiliar")) document.getElementById("btn-nuevo-informe").style.display="";
   if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
-    await cargarCatalogos();
+  await cargarCatalogos();
   verificarNotif();
   setInterval(verificarNotif,60000);
   cargarDashboard();
@@ -1326,24 +1326,37 @@ async function cargarEncargadosLista(){
   const rows=await api(`/api/encargados/estudiante/${encEstId}`);if(!rows)return;
   const div=document.getElementById("enc-lista");
   if(!rows.length){div.innerHTML='<div style="color:var(--muted);font-size:13px;margin-bottom:8px;">Sin encargados registrados.</div>';return;}
-  div.innerHTML=rows.map(e=>`
-    <div class="enc-card ${e.es_principal?'principal':''}" style="position:relative;">
-      ${e.es_principal?'<span class="badge b-prof" style="position:absolute;top:8px;right:8px;">Principal</span>':""}
-      <strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
-      ${e.parentesco?`<span style="color:var(--muted);font-size:12px"> · ${e.parentesco}</span>`:""}
-      ${e.cedula?`<span style="color:var(--muted);font-size:12px"> · Cédula: ${e.cedula}</span>`:""}
-      <div style="font-size:12px;color:var(--muted);margin-top:4px;">
-        ${e.telefono?`📞 ${e.telefono}  `:""}
-        ${e.celular?`📱 ${e.celular}  `:""}
-        ${e.telefono_trabajo?`🏢 ${e.telefono_trabajo}  `:""}
-        ${e.email?`✉️ ${e.email}`:""}
-        ${e.lugar_trabajo?`<br/>💼 Trabaja en: ${e.lugar_trabajo}`:""}
-        ${e.direccion?`<br/>📍 ${e.direccion}`:""}
+  div.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${rows.length} encargado${rows.length!==1?"s":""} registrado${rows.length!==1?"s":""}</div>`+
+  rows.map((e,i)=>`
+    <div style="border:2px solid ${e.es_principal?'var(--verde)':'var(--border)'};border-radius:10px;padding:14px;margin-bottom:12px;background:#fff;position:relative;">
+      <!-- Encabezado del encargado -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+        <div>
+          <span style="font-size:11px;font-weight:bold;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Encargado ${i+1}</span>
+          ${e.es_principal?'<span class="badge b-prof" style="margin-left:6px;">⭐ Principal</span>':""}
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-xs" onclick="editarEncargado(${e.id})" title="Editar">✏️ Editar</button>
+          <button class="btn btn-danger btn-xs" onclick="eliminarEncargado(${e.id})" title="Eliminar">🗑️</button>
+        </div>
       </div>
-      <div style="margin-top:8px;display:flex;gap:6px;">
-        <button class="btn btn-outline btn-xs" onclick="editarEncargado(${e.id})">✏️</button>
-        <button class="btn btn-danger btn-xs" onclick="eliminarEncargado(${e.id})">🗑️</button>
+      <!-- Nombre y parentesco -->
+      <div style="font-size:16px;font-weight:bold;margin-bottom:4px;">
+        ${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}
       </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">
+        ${e.parentesco?`${e.parentesco}`:""}
+        ${e.cedula?` · Cédula: <strong>${e.cedula}</strong>`:""}
+      </div>
+      <!-- Contacto en grilla -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
+        ${e.telefono?`<div style="background:#f8fafc;border-radius:6px;padding:6px 10px;">📞 <strong>${e.telefono}</strong><br/><span style="font-size:11px;color:var(--muted);">Casa</span></div>`:""}
+        ${e.celular?`<div style="background:#f8fafc;border-radius:6px;padding:6px 10px;">📱 <strong>${e.celular}</strong><br/><span style="font-size:11px;color:var(--muted);">Celular</span></div>`:""}
+        ${e.telefono_trabajo?`<div style="background:#f8fafc;border-radius:6px;padding:6px 10px;">🏢 <strong>${e.telefono_trabajo}</strong><br/><span style="font-size:11px;color:var(--muted);">Trabajo</span></div>`:""}
+        ${e.email?`<div style="background:#f8fafc;border-radius:6px;padding:6px 10px;">✉️ <strong>${e.email}</strong><br/><span style="font-size:11px;color:var(--muted);">Correo</span></div>`:""}
+      </div>
+      ${e.lugar_trabajo?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">💼 Trabaja en: ${e.lugar_trabajo}</div>`:""}
+      ${e.direccion?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">📍 ${e.direccion}</div>`:""}
     </div>`).join("");
 }
 
