@@ -80,12 +80,15 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS encargados (
         id               SERIAL PRIMARY KEY,
         estudiante_id    INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
+        cedula           TEXT DEFAULT '',
         nombre           TEXT NOT NULL,
         primer_apellido  TEXT NOT NULL,
         segundo_apellido TEXT DEFAULT '',
         parentesco       TEXT DEFAULT '',
         telefono         TEXT DEFAULT '',
         celular          TEXT DEFAULT '',
+        telefono_trabajo TEXT DEFAULT '',
+        lugar_trabajo    TEXT DEFAULT '',
         email            TEXT DEFAULT '',
         direccion        TEXT DEFAULT '',
         es_principal     BOOLEAN DEFAULT true,
@@ -186,6 +189,9 @@ async function initDB() {
     await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_login BOOLEAN DEFAULT true`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS cedula TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS lugar_trabajo TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS telefono_trabajo TEXT DEFAULT ''`);
     // Actualizar UNIQUE de asignaciones para incluir subgrupo
     await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_profesor_id_seccion_id_materia_id_key`);
     await client.query(`

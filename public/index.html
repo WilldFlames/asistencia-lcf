@@ -566,7 +566,7 @@ tr:hover td{background:#f8fafc;}
 
 <!-- Modal Encargados -->
 <div class="modal-overlay" id="modal-encargados">
-  <div class="modal" style="max-width:640px;">
+  <div class="modal" style="max-width:680px;">
     <h3 id="menc-titulo">Encargados Legales</h3>
     <div id="alert-enc" class="alert"></div>
     <div id="enc-lista" style="margin-bottom:14px;"></div>
@@ -574,16 +574,19 @@ tr:hover td{background:#f8fafc;}
       <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;" id="enc-form-titulo">➕ Agregar Encargado</div>
       <input type="hidden" id="enc-edit-id"/>
       <div class="form-grid">
+        <div class="fg"><label>Cédula</label><input type="text" id="enc-cedula" placeholder="Número de cédula"/></div>
+        <div class="fg"><label>Parentesco</label><input type="text" id="enc-parentesco" placeholder="Madre, Padre, Abuelo..."/></div>
         <div class="fg"><label>Nombre *</label><input type="text" id="enc-nombre"/></div>
         <div class="fg"><label>Primer Apellido *</label><input type="text" id="enc-ap1"/></div>
         <div class="fg"><label>Segundo Apellido</label><input type="text" id="enc-ap2"/></div>
-        <div class="fg"><label>Parentesco</label><input type="text" id="enc-parentesco" placeholder="Madre, Padre, Abuelo..."/></div>
-        <div class="fg"><label>Teléfono</label><input type="text" id="enc-tel"/></div>
-        <div class="fg"><label>Celular</label><input type="text" id="enc-cel"/></div>
-        <div class="fg"><label>Correo Electrónico</label><input type="email" id="enc-email"/></div>
         <div class="fg"><label>Encargado Principal</label>
           <select id="enc-principal"><option value="true">Sí</option><option value="false">No</option></select>
         </div>
+        <div class="fg"><label>Teléfono Casa</label><input type="text" id="enc-tel"/></div>
+        <div class="fg"><label>Celular</label><input type="text" id="enc-cel"/></div>
+        <div class="fg"><label>Teléfono Trabajo</label><input type="text" id="enc-tel-trabajo"/></div>
+        <div class="fg"><label>Lugar de Trabajo</label><input type="text" id="enc-lugar-trabajo" placeholder="Empresa u organización..."/></div>
+        <div class="fg"><label>Correo Electrónico</label><input type="email" id="enc-email"/></div>
         <div class="fg" style="grid-column:1/-1"><label>Dirección</label><input type="text" id="enc-direccion"/></div>
       </div>
       <div class="form-actions">
@@ -900,6 +903,9 @@ async function iniciarApp(){
   if(tieneAlgunRol("admin","profesor","profesor_guia","orientador")){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-asistencia").style.display="";
+  }
+  // Consulta disponible para todos
+  if(tieneAlgunRol("admin","profesor","profesor_guia","orientador","auxiliar")){
     document.getElementById("nav-consulta").style.display="";
   }
   if(tieneAlgunRol("admin","profesor_guia","orientador","auxiliar")){
@@ -915,9 +921,7 @@ async function iniciarApp(){
     document.getElementById("sec-admin").style.display="";
     document.getElementById("nav-usuarios").style.display="";
     document.getElementById("nav-asignaciones").style.display="";
-    document.getElementById("nav-consulta").style.display="";
   }
-  if(ME.rol==="auxiliar") document.getElementById("nav-consulta").style.display="";
   if(tieneAlgunRol("profesor_guia","orientador","auxiliar")) document.getElementById("btn-nuevo-informe").style.display="";
   if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
     await cargarCatalogos();
@@ -940,8 +944,6 @@ async function cargarCatalogos(){
   if(sp) sp.innerHTML='<option value="">— Seleccionar —</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]})</option>`).join("");
   const sm=document.getElementById("ma-materia");
   if(sm) sm.innerHTML='<option value="">— Seleccionar —</option>'+allMaterias.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join("");
-  const sd=document.getElementById("mi-dest");
-  if(sd) sd.innerHTML='<option value="">— Seleccionar —</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]})</option>`).join("");
 }
 
 function poblarSel(id,groupByLevel,emptyLabel){
@@ -1325,12 +1327,17 @@ async function cargarEncargadosLista(){
   const div=document.getElementById("enc-lista");
   if(!rows.length){div.innerHTML='<div style="color:var(--muted);font-size:13px;margin-bottom:8px;">Sin encargados registrados.</div>';return;}
   div.innerHTML=rows.map(e=>`
-    <div class="enc-card ${e.es_principal?'principal':''}">
+    <div class="enc-card ${e.es_principal?'principal':''}" style="position:relative;">
       ${e.es_principal?'<span class="badge b-prof" style="position:absolute;top:8px;right:8px;">Principal</span>':""}
       <strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
       ${e.parentesco?`<span style="color:var(--muted);font-size:12px"> · ${e.parentesco}</span>`:""}
+      ${e.cedula?`<span style="color:var(--muted);font-size:12px"> · Cédula: ${e.cedula}</span>`:""}
       <div style="font-size:12px;color:var(--muted);margin-top:4px;">
-        ${e.telefono?`📞 ${e.telefono}  `:""}${e.celular?`📱 ${e.celular}  `:""}${e.email?`✉️ ${e.email}  `:""}
+        ${e.telefono?`📞 ${e.telefono}  `:""}
+        ${e.celular?`📱 ${e.celular}  `:""}
+        ${e.telefono_trabajo?`🏢 ${e.telefono_trabajo}  `:""}
+        ${e.email?`✉️ ${e.email}`:""}
+        ${e.lugar_trabajo?`<br/>💼 Trabaja en: ${e.lugar_trabajo}`:""}
         ${e.direccion?`<br/>📍 ${e.direccion}`:""}
       </div>
       <div style="margin-top:8px;display:flex;gap:6px;">
@@ -1345,27 +1352,35 @@ async function editarEncargado(id){
   const e=rows?.find(r=>r.id===id);if(!e)return;
   document.getElementById("enc-edit-id").value=id;
   document.getElementById("enc-form-titulo").textContent="✏️ Editando Encargado";
+  document.getElementById("enc-cedula").value=e.cedula||"";
   document.getElementById("enc-nombre").value=e.nombre;
   document.getElementById("enc-ap1").value=e.primer_apellido;
   document.getElementById("enc-ap2").value=e.segundo_apellido;
   document.getElementById("enc-parentesco").value=e.parentesco;
   document.getElementById("enc-tel").value=e.telefono;
   document.getElementById("enc-cel").value=e.celular;
+  document.getElementById("enc-tel-trabajo").value=e.telefono_trabajo||"";
+  document.getElementById("enc-lugar-trabajo").value=e.lugar_trabajo||"";
   document.getElementById("enc-email").value=e.email;
   document.getElementById("enc-direccion").value=e.direccion;
   document.getElementById("enc-principal").value=String(e.es_principal);
+  // Scroll al formulario
+  document.getElementById("enc-form-titulo").scrollIntoView({behavior:"smooth"});
 }
 
 async function guardarEncargado(){
   const eid=document.getElementById("enc-edit-id").value;
   const data={
     estudiante_id:encEstId,
+    cedula:document.getElementById("enc-cedula").value.trim(),
     nombre:document.getElementById("enc-nombre").value.trim(),
     primer_apellido:document.getElementById("enc-ap1").value.trim(),
     segundo_apellido:document.getElementById("enc-ap2").value.trim(),
     parentesco:document.getElementById("enc-parentesco").value.trim(),
     telefono:document.getElementById("enc-tel").value.trim(),
     celular:document.getElementById("enc-cel").value.trim(),
+    telefono_trabajo:document.getElementById("enc-tel-trabajo").value.trim(),
+    lugar_trabajo:document.getElementById("enc-lugar-trabajo").value.trim(),
     email:document.getElementById("enc-email").value.trim(),
     direccion:document.getElementById("enc-direccion").value.trim(),
     es_principal:document.getElementById("enc-principal").value==="true"
@@ -1374,9 +1389,17 @@ async function guardarEncargado(){
   try{
     if(eid) await api(`/api/encargados/${eid}`,"PUT",data);
     else await api("/api/encargados","POST",data);
-    limpiarFormEnc();cargarEncargadosLista();
-    sa("alert-enc","✅ Encargado guardado.","success");
+    limpiarFormEnc();
+    cargarEncargados(encEstId);
   }catch(e){sa("alert-enc",e.message,"danger");}
+}
+
+function limpiarFormEnc(){
+  document.getElementById("enc-edit-id").value="";
+  ["enc-cedula","enc-nombre","enc-ap1","enc-ap2","enc-parentesco","enc-tel","enc-cel",
+   "enc-tel-trabajo","enc-lugar-trabajo","enc-email","enc-direccion"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("enc-principal").value="true";
+  document.getElementById("enc-form-titulo").textContent="➕ Agregar Encargado";
 }
 
 async function eliminarEncargado(id){
@@ -1414,16 +1437,19 @@ async function buscarEstudianteConsulta(){
         <div style="margin-top:14px;">
           <div style="font-weight:bold;color:var(--azul);margin-bottom:8px;">👨‍👩‍👧 Encargados Legales</div>
           ${encs.length?encs.map(e=>`
-            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#f8fafc;">
-              <div style="font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}
-                ${e.parentesco?`<span style="font-size:12px;color:var(--muted);font-weight:normal"> · ${e.parentesco}</span>`:""}
-                ${e.es_principal?'<span class="badge b-prof" style="margin-left:6px;">Principal</span>':""}
+            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#f8fafc;position:relative;">
+              ${e.es_principal?'<span class="badge b-prof" style="position:absolute;top:8px;right:8px;">Principal</span>':""}
+              <div style="font-weight:bold;font-size:14px;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">
+                ${e.parentesco?`${e.parentesco}`:""} ${e.cedula?` · Cédula: ${e.cedula}`:""}
               </div>
-              <div style="font-size:13px;color:var(--muted);margin-top:6px;">
-                ${e.telefono?`📞 <strong>${e.telefono}</strong>  `:""}
-                ${e.celular?`📱 <strong>${e.celular}</strong>  `:""}
-                ${e.email?`✉️ ${e.email}`:""}
-                ${e.direccion?`<br/>📍 ${e.direccion}`:""}
+              <div style="font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                ${e.telefono?`<span>📞 Casa: <strong>${e.telefono}</strong></span>`:""}
+                ${e.celular?`<span>📱 Celular: <strong>${e.celular}</strong></span>`:""}
+                ${e.telefono_trabajo?`<span>🏢 Trabajo: <strong>${e.telefono_trabajo}</strong></span>`:""}
+                ${e.email?`<span>✉️ ${e.email}</span>`:""}
+                ${e.lugar_trabajo?`<span style="grid-column:1/-1;color:var(--muted);">💼 Trabaja en: ${e.lugar_trabajo}</span>`:""}
+                ${e.direccion?`<span style="grid-column:1/-1;color:var(--muted);">📍 ${e.direccion}</span>`:""}
               </div>
             </div>`).join(""):"<div style='color:var(--muted);font-size:13px;'>Sin encargados registrados.</div>"}
         </div>
@@ -1793,35 +1819,42 @@ async function cargarMensajes(tipo){
   }).join("");
 }
 
-function abrirModalInforme(){
-  ["mi-recom","mi-obs"].forEach(id=>document.getElementById(id).value="");
+async function abrirModalInforme(){
+  // Limpiar campos
+  const obsEl = document.getElementById("mi-obs");
+  if(obsEl) obsEl.value="";
   document.getElementById("mi-seccion").value="";
   document.getElementById("mi-estudiante").innerHTML='<option value="">— Seleccionar —</option>';
+  document.getElementById("alert-mi").className="alert";
+
+  // Cargar secciones según el rol (mis-secciones devuelve las correctas para cada rol)
+  try{
+    const secs = await api("/api/reportes/mis-secciones");
+    const sel = document.getElementById("mi-seccion");
+    if(secs && secs.length){
+      sel.innerHTML='<option value="">— Seleccionar sección —</option>'+
+        secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+    } else {
+      sel.innerHTML='<option value="">Sin secciones asignadas</option>';
+    }
+  }catch(e){}
+
   document.getElementById("modal-informe").classList.add("show");
 }
 
 async function cargarEstInforme(){
-  const sid=document.getElementById("mi-seccion").value;if(!sid)return;
-  const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);if(!rows)return;
-  document.getElementById("mi-estudiante").innerHTML='<option value="">— Seleccionar —</option>'+rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+  const sid=document.getElementById("mi-seccion").value;
+  if(!sid) return;
+  const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);
+  if(!rows) return;
+  document.getElementById("mi-estudiante").innerHTML=
+    '<option value="">— Seleccionar estudiante —</option>'+
+    rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
 }
 
 async function enviarInforme(){
-  const did=document.getElementById("mi-dest").value;
-  const eid=document.getElementById("mi-estudiante").value;
-  if(!did||!eid){sa("alert-mi","Seleccioná el estudiante y el destinatario.","danger");return;}
-  try{
-    await api("/api/mensajes","POST",{
-      destinatario_id:+did,estudiante_id:+eid,
-      conducta:document.getElementById("mi-conducta").value,
-      participacion:document.getElementById("mi-part").value,
-      trabajos:document.getElementById("mi-trab").value,
-      nota_estimada:document.getElementById("mi-nota").value,
-      recomendaciones:document.getElementById("mi-recom").value,
-      observaciones:document.getElementById("mi-obs").value
-    });
-    cerrarModal("modal-informe");verTab("enviados");
-  }catch(e){sa("alert-mi",e.message,"danger");}
+  // Redirigir a enviarInformeTodos que es el flujo correcto
+  await enviarInformeTodos();
 }
 
 function abrirResponderById(id, soloVer){
@@ -2274,4 +2307,29 @@ document.querySelectorAll(".modal-overlay").forEach(o=>{
 })();
 </script>
 </body>
-</html>
+</html>  // Usar tieneAlgunRol para considerar tanto rol base como funciones extra
+  if(tieneAlgunRol("admin","profesor","profesor_guia","orientador")){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-asistencia").style.display="";
+  }
+  // Consulta visible para todos los roles
+  if(tieneAlgunRol("admin","profesor","profesor_guia","orientador","auxiliar")){
+    document.getElementById("nav-consulta").style.display="";
+  }
+  if(tieneAlgunRol("admin","profesor_guia","orientador","auxiliar")){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-conducta").style.display="";
+  }
+  if(tieneAlgunRol("admin","auxiliar","orientador","profesor_guia")){
+    document.getElementById("sec-gestion").style.display="";
+    document.getElementById("nav-estudiantes").style.display="";
+    document.getElementById("nav-reportes").style.display="";
+  }
+  if(ME.rol==="admin"){
+    document.getElementById("sec-admin").style.display="";
+    document.getElementById("nav-usuarios").style.display="";
+    document.getElementById("nav-asignaciones").style.display="";
+  }
+  if(tieneAlgunRol("profesor_guia","orientador","auxiliar")) document.getElementById("btn-nuevo-informe").style.display="";
+  if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
+  
