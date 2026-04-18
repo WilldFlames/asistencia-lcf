@@ -112,4 +112,11 @@ router.delete("/:id", canManage, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── GUARDAR FOTO (base64) ─────────────────────────────────────
+router.put("/:id/foto", canManage, async (req, res) => {
+  const { foto_url } = req.body;
+  await pool.query("UPDATE estudiantes SET foto_url=$1 WHERE id=$2", [foto_url||null, req.params.id]);
+  res.json({ ok: true });
+});
+
 module.exports = router;

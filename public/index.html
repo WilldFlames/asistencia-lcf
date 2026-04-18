@@ -219,18 +219,20 @@ tr:hover td{background:#f8fafc;}
   <div class="sidebar-section" id="sec-admin" style="display:none">Admin</div>
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
+  <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📊</span><span>Cumplimiento</span></button>
 </nav>
 
 <div class="main-content">
 
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
-  <div class="stats">
+  <div class="stats" id="dash-stats-admin">
     <div class="stat"><div class="num" id="ds-usuarios">—</div><div class="lbl">Usuarios</div></div>
     <div class="stat"><div class="num green" id="ds-estudiantes">—</div><div class="lbl">Estudiantes</div></div>
     <div class="stat"><div class="num orange" id="ds-asignaciones">—</div><div class="lbl">Asignaciones</div></div>
   </div>
-  <div class="card"><h2>Bienvenido</h2><p style="font-size:14px;color:var(--muted)" id="dash-msg"></p></div>
+  <div class="card"><h2 id="dash-saludo">Bienvenido</h2><p style="font-size:14px;color:var(--muted)" id="dash-msg"></p></div>
+  <div id="dash-profesor-content"></div>
 </div>
 
 <!-- USUARIOS -->
@@ -397,6 +399,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" onclick="volverConducta()">← Volver</button>
         <h2 style="margin:0;flex:1" id="cond-titulo"></h2>
         <button class="btn btn-success no-print" onclick="imprimirConducta()">🖨️ Imprimir Informe</button>
+        <button class="btn btn-outline no-print" onclick="imprimirInformeSeccionConducta()">📋 Imprimir Informe de Sección</button>
       </div>
       <div id="alert-cond" class="alert"></div>
 
@@ -455,6 +458,19 @@ tr:hover td{background:#f8fafc;}
       <h2>📄 Boletas Registradas</h2>
       <div id="cond-boletas-lista"></div>
     </div>
+  </div>
+</div>
+
+<!-- CUMPLIMIENTO -->
+<div class="page" id="page-cumplimiento">
+  <div class="card">
+    <h2>📊 Reporte de Cumplimiento</h2>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+      <div class="fg"><label>Desde</label><input type="date" id="cum-desde"/></div>
+      <div class="fg"><label>Hasta</label><input type="date" id="cum-hasta"/></div>
+      <button class="btn btn-primary" onclick="cargarCumplimiento()">🔍 Ver</button>
+    </div>
+    <div id="cum-contenido"></div>
   </div>
 </div>
 
@@ -554,6 +570,16 @@ tr:hover td{background:#f8fafc;}
           <option value="A">Grupo A</option>
           <option value="B">Grupo B</option>
         </select>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Foto del Estudiante <small style="color:var(--muted)">(opcional)</small></label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <img id="me-foto-preview" src="" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid var(--border);display:none;"/>
+          <div>
+            <input type="file" id="me-foto-file" accept="image/*" onchange="previsualizarFoto()" style="font-size:12px;"/>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">JPG o PNG, máx 1MB</div>
+          </div>
+        </div>
       </div>
     </div>
     <div id="alert-me" class="alert"></div>
@@ -884,6 +910,13 @@ function goTo(page){
   if(page==="asignaciones"){cargarMateriasList();cargarSeccionesAdmin();cargarAsignaciones();}
   if(page==="estudiantes") {cargarEstudiantes();poblarSel("filtro-seccion-est",false,"Todas las secciones");}
   if(page==="asistencia")  cargarMisAsig();
+  if(page==="cumplimiento") {
+    const hoy=new Date().toISOString().slice(0,10);
+    const primero=hoy.slice(0,8)+"01";
+    document.getElementById("cum-desde").value=primero;
+    document.getElementById("cum-hasta").value=hoy;
+    cargarCumplimiento();
+  }
   if(page==="conducta")    initConducta();
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
   if(page==="reportes")    initReportes();
@@ -921,6 +954,7 @@ async function iniciarApp(){
     document.getElementById("sec-admin").style.display="";
     document.getElementById("nav-usuarios").style.display="";
     document.getElementById("nav-asignaciones").style.display="";
+    document.getElementById("nav-cumplimiento").style.display="";
   }
   if(tieneAlgunRol("profesor_guia","orientador","auxiliar")) document.getElementById("btn-nuevo-informe").style.display="";
   if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
@@ -1012,15 +1046,123 @@ document.addEventListener("click",e=>{
 //  DASHBOARD
 // ════════════════════════════════════
 async function cargarDashboard(){
-  try{
-    const [u,e,a]=await Promise.all([api("/api/admin/usuarios"),api("/api/estudiantes"),api("/api/admin/asignaciones")]);
-    if(u) document.getElementById("ds-usuarios").textContent=u.filter(x=>x.activo).length;
-    if(e) document.getElementById("ds-estudiantes").textContent=e.length;
-    if(a) document.getElementById("ds-asignaciones").textContent=a.length;
-  }catch{}
   const dias=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
   const hoy=new Date();
-  document.getElementById("dash-msg").textContent=`Bienvenido/a, ${ME.nombre} ${ME.primer_apellido}. Rol: ${RLBL[ME.rol]}. Hoy es ${dias[hoy.getDay()]} ${hoy.toLocaleDateString("es-CR",{day:"numeric",month:"long",year:"numeric"})}.`;
+  const fx = ME.funciones_extra||[];
+  const esDocente = tieneAlgunRol("profesor","profesor_guia","orientador");
+  const esGuiaOri = tieneAlgunRol("profesor_guia","orientador") || fx.includes("profesor_guia") || fx.includes("orientador");
+
+  // Saludo
+  const hora = hoy.getHours();
+  const saludo = hora<12?"🌅 Buenos días":"hora<18"?"☀️ Buenas tardes":"🌙 Buenas noches";
+  const saludoFinal = hora<12?"🌅 Buenos días":hora<18?"☀️ Buenas tardes":"🌙 Buenas noches";
+  document.getElementById("dash-saludo").textContent = `${saludoFinal}, ${ME.nombre} ${ME.primer_apellido}`;
+  document.getElementById("dash-msg").textContent = `${RLBL[ME.rol]}${fx.length?" + "+fx.map(r=>RLBL[r]).join(", "):""} · ${dias[hoy.getDay()]} ${hoy.toLocaleDateString("es-CR",{day:"numeric",month:"long",year:"numeric"})}`;
+
+  // Stats admin
+  if(ME.rol==="admin"){
+    document.getElementById("dash-stats-admin").style.display="";
+    try{
+      const [u,e,a]=await Promise.all([api("/api/admin/usuarios"),api("/api/estudiantes"),api("/api/admin/asignaciones")]);
+      if(u) document.getElementById("ds-usuarios").textContent=u.filter(x=>x.activo).length;
+      if(e) document.getElementById("ds-estudiantes").textContent=e.length;
+      if(a) document.getElementById("ds-asignaciones").textContent=a.length;
+    }catch{}
+  } else {
+    document.getElementById("dash-stats-admin").style.display="none";
+  }
+
+  // Dashboard del profesor
+  if(!esDocente && ME.rol!=="auxiliar") return;
+  const div = document.getElementById("dash-profesor-content");
+  div.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px;">Cargando...</div>';
+
+  try{
+    const d = await api("/api/reportes/dashboard-profesor");
+    if(!d){ div.innerHTML=""; return; }
+
+    const hoyStr = hoy.toISOString().slice(0,10);
+    const asigsPendientes = d.asignaciones.filter(a=>!a.sesion_hoy);
+    const asigsOk = d.asignaciones.filter(a=>a.sesion_hoy);
+
+    let html = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:14px;">`;
+
+    // ── TARJETA 1: Asistencia hoy ──
+    html += `<div class="card" style="margin:0;">
+      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">✅ Asistencia de Hoy</div>
+      ${d.asignaciones.length===0?`<div style="color:var(--muted);font-size:13px;">Sin asignaciones registradas.</div>`:""}
+      ${asigsOk.map(a=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span><strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}${a.subgrupo?` (G${a.subgrupo})`:""}</span>
+          <span class="badge b-prof">✅ Registrada</span>
+        </div>`).join("")}
+      ${asigsPendientes.map(a=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span><strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}${a.subgrupo?` (G${a.subgrupo})`:""}</span>
+          <button class="btn btn-outline btn-xs" onclick="goTo('asistencia')">⏳ Pendiente</button>
+        </div>`).join("")}
+      ${d.asignaciones.length>0?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">${asigsOk.length}/${d.asignaciones.length} registradas hoy</div>`:""}
+    </div>`;
+
+    // ── TARJETA 2: Informes pendientes ──
+    html += `<div class="card" style="margin:0;">
+      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">📨 Informes</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="text-align:center;padding:12px;background:${d.informesPendientes>0?'#fee2e2':'#f0fdf4'};border-radius:8px;flex:1;">
+          <div style="font-size:28px;font-weight:bold;color:${d.informesPendientes>0?'var(--rojo)':'var(--verde)'};">${d.informesPendientes}</div>
+          <div style="font-size:12px;color:var(--muted);">Por responder</div>
+          ${d.informesPendientes>0?`<button class="btn btn-outline btn-xs" style="margin-top:6px;" onclick="goTo('mensajes')">Ver ahora</button>`:""}
+        </div>
+        ${d.informesSolicitados>0?`<div style="text-align:center;padding:12px;background:#fef9c3;border-radius:8px;flex:1;">
+          <div style="font-size:28px;font-weight:bold;color:var(--naranja);">${d.informesSolicitados}</div>
+          <div style="font-size:12px;color:var(--muted);">Solicitados sin respuesta</div>
+        </div>`:""}
+      </div>
+    </div>`;
+
+    // ── TARJETA 3: Ausencias frecuentes ──
+    if(d.ausenciasFrecuentes.length>0){
+      html += `<div class="card" style="margin:0;grid-column:1/-1;">
+        <div style="font-weight:bold;font-size:14px;color:var(--rojo);margin-bottom:10px;">⚠️ Estudiantes con Ausencias Frecuentes (≥10 lecciones)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">
+          ${d.ausenciasFrecuentes.map(e=>`
+            <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:9px 12px;font-size:13px;">
+              <div style="font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
+              ${e.materia_nombre?`<div style="font-size:11px;color:var(--muted);">${e.materia_nombre}</div>`:""}
+              <div style="color:var(--rojo);font-weight:bold;margin-top:3px;">${e.total_ausencias} lecciones ausente</div>
+            </div>`).join("")}
+        </div>
+      </div>`;
+    }
+
+    // ── TARJETA 4: Estado conducta (solo guía/orientador) ──
+    if(d.estadoConducta && esGuiaOri){
+      const {total,criticos,en_riesgo} = d.estadoConducta;
+      html += `<div class="card" style="margin:0;">
+        <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">📋 Conducta de la Sección</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="text-align:center;padding:10px;background:#f0fdf4;border-radius:8px;flex:1;">
+            <div style="font-size:22px;font-weight:bold;color:var(--verde);">${total-criticos-en_riesgo}</div>
+            <div style="font-size:11px;color:var(--muted);">En buen estado</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:#fef9c3;border-radius:8px;flex:1;">
+            <div style="font-size:22px;font-weight:bold;color:var(--naranja);">${en_riesgo}</div>
+            <div style="font-size:11px;color:var(--muted);">En riesgo (60-79)</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:#fee2e2;border-radius:8px;flex:1;">
+            <div style="font-size:22px;font-weight:bold;color:var(--rojo);">${criticos}</div>
+            <div style="font-size:11px;color:var(--muted);">Críticos (<60)</div>
+          </div>
+        </div>
+        ${parseInt(criticos)>0||parseInt(en_riesgo)>0?`<button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="goTo('conducta')">Ver conducta completa →</button>`:""}
+      </div>`;
+    }
+
+    html += `</div>`;
+    div.innerHTML = html;
+  }catch(e){
+    div.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px;">—</div>`;
+  }
 }
 
 // ════════════════════════════════════
@@ -1218,7 +1360,7 @@ async function cargarEstudiantes(){
   const rows=await api(url);if(!rows)return;
   const tbody=document.getElementById("est-body");
   if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin estudiantes</td></tr>`;return;}
-  const isAux=tieneAlgunRol("admin","auxiliar");
+  const isAux=tieneAlgunRol("admin","auxiliar","orientador","profesor_guia");
   tbody.innerHTML=rows.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
@@ -1281,6 +1423,18 @@ async function guardarEstudiante(){
     else{
       if(!cedula){sa("alert-me","La cédula es requerida.","danger");return;}
       await api("/api/estudiantes","POST",{cedula,nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,seccion_id:sid,subgrupo});
+    }
+    // Subir foto si se seleccionó
+    const fotoFile = document.getElementById("me-foto-file").files[0];
+    if(fotoFile){
+      // Get the saved ID
+      if(!editIdE){
+        const all = await api("/api/estudiantes");
+        const nuevo = all?.find(r=>r.cedula===cedula);
+        if(nuevo) await subirFoto(nuevo.id);
+      } else {
+        await subirFoto(editIdE);
+      }
     }
     cerrarModal("modal-estudiante");cargarEstudiantes();
     sa("alert-est","✅ Estudiante guardado.","success");
@@ -1441,11 +1595,16 @@ async function buscarEstudianteConsulta(){
     const encs=d.encargados||[];
     div.innerHTML=`
       <div class="consulta-card">
-        <div style="font-size:18px;font-weight:bold;color:var(--azul);margin-bottom:8px;">${d.primer_apellido} ${d.segundo_apellido}, ${d.nombre}</div>
-        <div class="consulta-info">
-          <p><strong>Cédula:</strong> ${d.cedula}</p>
-          <p><strong>Sección:</strong> ${d.seccion_nombre||"Sin asignar"}</p>
-          <p><strong>Fecha de Nacimiento:</strong> ${fmtF(d.fecha_nacimiento)}</p>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+          ${d.foto_url?`<img src="${d.foto_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--azul);"/>`:`<div style="width:80px;height:80px;border-radius:50%;background:var(--azul2);display:flex;align-items:center;justify-content:center;font-size:28px;">👤</div>`}
+          <div>
+            <div style="font-size:18px;font-weight:bold;color:var(--azul);">${d.primer_apellido} ${d.segundo_apellido}, ${d.nombre}</div>
+            <div class="consulta-info" style="margin-top:4px;">
+              <p><strong>Cédula:</strong> ${d.cedula}</p>
+              <p><strong>Sección:</strong> ${d.seccion_nombre||"Sin asignar"}</p>
+              <p><strong>Fecha de Nacimiento:</strong> ${fmtF(d.fecha_nacimiento)}</p>
+            </div>
+          </div>
         </div>
         <div style="margin-top:14px;">
           <div style="font-weight:bold;color:var(--azul);margin-bottom:8px;">👨‍👩‍👧 Encargados Legales</div>
@@ -2290,6 +2449,159 @@ async function imprimirInformeCompilado(informeId){
     const s=document.getElementById("print-style-informe"); if(s)s.remove();
     printArea.innerHTML="";
   }, 1500);
+}
+
+// ════════════════════════════════════
+//  FOTO ESTUDIANTE
+// ════════════════════════════════════
+function previsualizarFoto(){
+  const file = document.getElementById("me-foto-file").files[0];
+  if(!file) return;
+  if(file.size > 1024*1024){ alert("La imagen es muy grande. Máximo 1MB."); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById("me-foto-preview");
+    preview.src = e.target.result;
+    preview.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+
+async function subirFoto(estId){
+  const file = document.getElementById("me-foto-file").files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    await api(`/api/estudiantes/${estId}/foto`,"PUT",{ foto_url: e.target.result });
+  };
+  reader.readAsDataURL(file);
+}
+
+// ════════════════════════════════════
+//  CUMPLIMIENTO (solo admin)
+// ════════════════════════════════════
+async function cargarCumplimiento(){
+  const desde = document.getElementById("cum-desde").value;
+  const hasta = document.getElementById("cum-hasta").value;
+  const url = `/api/reportes/cumplimiento${desde||hasta?`?desde=${desde}&hasta=${hasta}`:""}`;
+  const d = await api(url);
+  if(!d) return;
+  const div = document.getElementById("cum-contenido");
+
+  const colorSesiones = (n) => n === 0 ? "color:var(--rojo);font-weight:bold" : n < 3 ? "color:var(--naranja);font-weight:bold" : "color:var(--verde);font-weight:bold";
+
+  div.innerHTML = `
+    <h3 style="margin-bottom:8px;">📋 Asistencia por Profesor <span style="font-size:12px;color:var(--muted);">${fmtF(d.desde)} — ${fmtF(d.hasta)}</span></h3>
+    <div class="table-wrap" style="margin-bottom:24px;">
+      <table>
+        <thead><tr><th>Profesor</th><th>Rol</th><th>Asignaciones</th><th>Sesiones registradas</th><th>Estado</th></tr></thead>
+        <tbody>
+          ${d.asistencia.map(p=>`<tr>
+            <td>${p.primer_apellido} ${p.segundo_apellido}, ${p.nombre}</td>
+            <td><span class="badge ${RBDG[p.rol]||'b-prof'}">${RLBL[p.rol]||p.rol}</span></td>
+            <td>${p.asignaciones_total}</td>
+            <td style="${colorSesiones(parseInt(p.sesiones_registradas))}">${p.sesiones_registradas}</td>
+            <td>${parseInt(p.sesiones_registradas)===0?'⚠️ Sin registros':parseInt(p.sesiones_registradas)<3?'🟡 Pocos registros':'✅ Activo'}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-bottom:8px;">📋 Conducta por Profesor Guía</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Profesor Guía</th><th>Sección</th><th>Estudiantes</th><th>Boletas registradas</th><th>Estado</th></tr></thead>
+        <tbody>
+          ${d.conducta.map(p=>`<tr>
+            <td>${p.primer_apellido} ${p.segundo_apellido}, ${p.nombre}</td>
+            <td><strong>${p.seccion_nombre}</strong></td>
+            <td>${p.total_estudiantes}</td>
+            <td style="${colorSesiones(parseInt(p.boletas_registradas))}">${p.boletas_registradas}</td>
+            <td>${parseInt(p.boletas_registradas)===0?'⚠️ Sin boletas':'✅ Con registros'}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ════════════════════════════════════
+//  INFORME DE SECCIÓN — CONDUCTA
+// ════════════════════════════════════
+async function imprimirInformeSeccionConducta(){
+  if(!condSeccionActual){ alert("Seleccioná una sección primero."); return; }
+
+  // Obtener todos los estudiantes de la sección con sus notas de conducta
+  const ests = await api(`/api/reportes/seccion/${condSeccionActual}/estudiantes`);
+  if(!ests || !ests.length){ alert("No hay estudiantes en esta sección."); return; }
+
+  // Obtener nota de conducta de cada uno
+  const datos = [];
+  for(const e of ests){
+    const d = await api(`/api/conducta/estudiante/${e.id}`);
+    datos.push({ ...e, nota: d?.notaConducta ?? 100, boletas: d?.boletas?.length ?? 0 });
+  }
+
+  const secs = await api("/api/admin/secciones");
+  const sec = secs?.find(s=>s.id==condSeccionActual);
+  const guia = sec ? `${sec.guia_ap1||""} ${sec.guia_nombre||""}`.trim() : "";
+  const periodo = detectarPeriodo(null);
+
+  const printArea = document.getElementById("print-boleta-area") || (() => {
+    const el=document.createElement("div"); el.id="print-boleta-area"; document.body.appendChild(el); return el;
+  })();
+
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+      <div style="text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px;">
+        <p style="font-size:12px;margin:2px 0;">Ministerio de Educación Pública</p>
+        <h2 style="font-size:16px;margin:4px 0;">Liceo de Calle Fallas</h2>
+        <h3 style="font-size:14px;margin:6px 0;">INFORME DE CONDUCTA — SECCIÓN ${sec?.nombre||""}</h3>
+        <p style="font-size:12px;color:#555;">${periodo}</p>
+      </div>
+      <div style="font-size:13px;margin-bottom:14px;">
+        <strong>Profesor Guía:</strong> ${guia} &nbsp;&nbsp;
+        <strong>Generado:</strong> ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#1a3a5c;color:#fff;">
+            <th style="padding:7px 10px;text-align:left;">#</th>
+            <th style="padding:7px 10px;text-align:left;">Apellidos, Nombre</th>
+            <th style="padding:7px 10px;text-align:center;">Boletas</th>
+            <th style="padding:7px 10px;text-align:center;">Nota de Conducta</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${datos.map((e,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'};">
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${i+1}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${e.boletas}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${e.nota>=80?'#166534':e.nota>=60?'#92400e':'#991b1b'};">${e.nota}</td>
+          </tr>`).join("")}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f1f5f9;font-weight:bold;">
+            <td colspan="3" style="padding:8px 10px;text-align:right;">Promedio de conducta:</td>
+            <td style="padding:8px 10px;text-align:center;">${Math.round(datos.reduce((s,e)=>s+e.nota,0)/datos.length)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;">
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma del Profesor Guía<br/>${guia}
+        </div>
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Sello / Visto Bueno
+        </div>
+      </div>
+    </div>`;
+
+  const style = document.createElement("style");
+  style.id="print-style-seccion";
+  style.innerHTML=`@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(()=>{ const s=document.getElementById("print-style-seccion"); if(s)s.remove(); printArea.innerHTML=""; }, 1500);
 }
 
 // ════════════════════════════════════
