@@ -69,7 +69,7 @@ router.post("/archivar-anio", canManage, async (req, res) => {
 
 // ── REGISTRAR MATRÍCULA ───────────────────────────────────────────────────────
 router.post("/matricula", canManage, async (req, res) => {
-  const { estudiante_id, anio, seccion_id, observaciones } = req.body;
+  const { estudiante_id, anio, seccion_id, num_boleta, observaciones } = req.body;
   if (!estudiante_id || !anio) return res.status(400).json({ error: "Datos incompletos" });
   const uid = req.session.usuario.id;
 
@@ -81,11 +81,11 @@ router.post("/matricula", canManage, async (req, res) => {
   }
 
   await pool.query(`
-    INSERT INTO matricula (estudiante_id, anio, seccion_id, seccion_nombre, confirmado_por, observaciones)
-    VALUES ($1,$2,$3,$4,$5,$6)
+    INSERT INTO matricula (estudiante_id, anio, seccion_id, seccion_nombre, num_boleta, confirmado_por, observaciones)
+    VALUES ($1,$2,$3,$4,$5,$6,$7)
     ON CONFLICT (estudiante_id, anio) DO UPDATE SET
-      seccion_id=$3, seccion_nombre=$4, confirmado_por=$5, observaciones=$6
-  `, [estudiante_id, anio, seccion_id||null, secNombre, uid, observaciones||""]);
+      seccion_id=$3, seccion_nombre=$4, num_boleta=$5, confirmado_por=$6, observaciones=$7
+  `, [estudiante_id, anio, seccion_id||null, secNombre, num_boleta||"", uid, observaciones||""]);
 
   res.json({ ok: true });
 });

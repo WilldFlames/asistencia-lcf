@@ -185,6 +185,7 @@ async function initDB() {
         anio             INTEGER NOT NULL,
         seccion_id       INTEGER REFERENCES secciones(id) ON DELETE SET NULL,
         seccion_nombre   TEXT DEFAULT '',
+        num_boleta       TEXT DEFAULT '',
         confirmado_por   INTEGER REFERENCES usuarios(id),
         observaciones    TEXT DEFAULT '',
         created_at       TIMESTAMP DEFAULT NOW(),
@@ -217,6 +218,7 @@ async function initDB() {
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS lugar_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS telefono_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS foto_url TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS num_boleta TEXT DEFAULT ''`);
     // Actualizar UNIQUE de asignaciones para incluir subgrupo
     await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_profesor_id_seccion_id_materia_id_key`);
     await client.query(`

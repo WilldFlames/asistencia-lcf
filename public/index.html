@@ -47,7 +47,19 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .notif-item.no-leida{background:#eff6ff;}
 .notif-item:hover{background:#f8fafc;}
 .notif-empty{padding:20px;text-align:center;color:var(--muted);font-size:13px;}
-.notif-header{padding:10px 14px;font-weight:bold;font-size:13px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+/* NOTIFICACIONES — color explícito para evitar herencia del navbar */
+.notif-dropdown{position:absolute;right:0;top:34px;width:320px;background:#fff;color:#1e293b;border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:300;display:none;max-height:400px;overflow-y:auto;}
+.notif-dropdown.show{display:block;}
+.notif-item{padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;color:#1e293b;}
+.notif-item:last-child{border-bottom:none;}
+.notif-item.no-leida{background:#eff6ff;color:#1e293b;}
+.notif-item:hover{background:#f8fafc;}
+.notif-empty{padding:20px;text-align:center;color:var(--muted);font-size:13px;}
+.notif-header{padding:10px 14px;font-weight:bold;font-size:13px;color:#1e293b;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+/* HAMBURGER */
+.hamburger{display:none;background:none;border:none;cursor:pointer;padding:6px;color:#fff;font-size:22px;line-height:1;}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:149;}
+.sidebar-overlay.show{display:block;}
 /* LAYOUT */
 .app-body{display:flex;flex:1;overflow:hidden;}
 /* SIDEBAR */
@@ -60,6 +72,56 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 /* MAIN */
 .main-content{flex:1;overflow-y:auto;padding:22px 18px;}
 .page{display:none;}.page.active{display:block;}
+/* PRINT */
+@media print{
+  .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
+  .main-content{padding:0;}
+  body{background:#fff;}
+  .print-header{text-align:center;margin-bottom:20px;}
+  .reporte-materia{page-break-inside:avoid;}
+}
+/* ═══════════ RESPONSIVE ═══════════ */
+@media(max-width:768px){
+  /* Hamburger visible */
+  .hamburger{display:block;}
+  /* Sidebar oculto por defecto en móvil */
+  .sidebar{position:fixed;left:-220px;top:0;height:100%;z-index:150;transition:left .25s;width:215px;}
+  .sidebar.open{left:0;}
+  /* Main ocupa todo el ancho */
+  .main-content{padding:14px 10px;}
+  /* Topbar */
+  .topbar{padding:0 12px;}
+  #usuario-label{display:none;}
+  .notif-dropdown{right:-60px;width:290px;}
+  /* Modales pantalla completa */
+  .modal-overlay{padding:0;align-items:flex-end;}
+  .modal{max-width:100% !important;border-radius:14px 14px 0 0;max-height:92vh;padding:18px 14px;}
+  /* Formularios en columna */
+  .form-grid{grid-template-columns:1fr !important;}
+  .fg[style*="grid-column:1/-1"]{grid-column:1 !important;}
+  /* Tablas scrolleables */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table{min-width:500px;}
+  /* Stats en 2 columnas */
+  .stats{grid-template-columns:repeat(2,1fr);}
+  /* Dashboard tarjetas en columna */
+  #dash-profesor-content > div{grid-template-columns:1fr !important;}
+  /* Botones más grandes para touch */
+  .btn{padding:9px 16px;}
+  .btn-sm{padding:7px 12px;}
+  /* Ocultar columnas menos importantes en tablas */
+  .col-hide-mobile{display:none;}
+  /* Informe row en columna */
+  .informe-row{grid-template-columns:1fr;}
+  /* Cards encargados */
+  .enc-card div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !important;}
+}
+@media(max-width:480px){
+  .stats{grid-template-columns:1fr 1fr;}
+  .topbar h1{font-size:14px;}
+  .card{padding:12px;}
+  .card h2{font-size:14px;}
+}
 /* CARDS */
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:16px;}
 .card h2{font-size:15px;color:var(--azul);margin-bottom:12px;}
@@ -150,7 +212,6 @@ tr:hover td{background:#f8fafc;}
   .print-header{text-align:center;margin-bottom:20px;}
   .reporte-materia{page-break-inside:avoid;}
 }
-@media(max-width:700px){.sidebar{width:50px;}.nav-btn span{display:none;}.sidebar-section{display:none;}.nav-btn .icon{margin:0 auto;}}
 </style>
 </head>
 <body>
@@ -186,6 +247,7 @@ tr:hover td{background:#f8fafc;}
 <!-- TOPBAR -->
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:10px;">
+    <button class="hamburger" onclick="toggleSidebar()" title="Menú">☰</button>
     <div><div class="topbar h1">🏫 Liceo de Calle Fallas</div><div class="sub">Sistema de Asistencia</div></div>
   </div>
   <div class="topbar-right">
@@ -195,7 +257,7 @@ tr:hover td{background:#f8fafc;}
       <span class="notif-count" id="notif-count">0</span>
       <div class="notif-dropdown" id="notif-dropdown">
         <div class="notif-header">Notificaciones
-          <button class="btn-xs btn-outline" onclick="leerTodasNotif();event.stopPropagation()">Leer todas</button>
+          <button class="btn-xs btn-outline" style="color:var(--azul);" onclick="leerTodasNotif();event.stopPropagation()">Leer todas</button>
         </div>
         <div id="notif-lista"></div>
       </div>
@@ -203,6 +265,9 @@ tr:hover td{background:#f8fafc;}
     <button class="btn-logout" onclick="doLogout()">Salir</button>
   </div>
 </div>
+
+<!-- Overlay para cerrar sidebar en móvil -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <div class="app-body">
 <nav class="sidebar" id="sidebar">
@@ -757,7 +822,7 @@ tr:hover td{background:#f8fafc;}
 
 <!-- Modal Matrícula -->
 <div class="modal-overlay" id="modal-matricula">
-  <div class="modal" style="max-width:500px;">
+  <div class="modal" style="max-width:680px;">
     <h3>📋 Confirmar Matrícula</h3>
     <input type="hidden" id="mat-est-id"/>
     <p style="font-size:13px;color:var(--muted);margin-bottom:12px;" id="mat-est-nombre"></p>
@@ -767,14 +832,59 @@ tr:hover td{background:#f8fafc;}
         <input type="number" id="mat-anio" min="2025" max="2030" value="2027"/>
       </div>
       <div class="fg">
-        <label>Sección asignada</label>
+        <label>N° de Boleta (consecutivo del sobre) *</label>
+        <input type="text" id="mat-boleta" placeholder="Ej: 001, 0245..."/>
+      </div>
+      <div class="fg">
+        <label>Sección asignada para ese año</label>
         <select id="mat-seccion"><option value="">— Sin sección aún —</option></select>
       </div>
-      <div class="fg" style="grid-column:1/-1">
+      <div class="fg">
         <label>Observaciones</label>
-        <input type="text" id="mat-obs" placeholder="Ej: Pendiente documentos, confirmado, etc."/>
+        <input type="text" id="mat-obs" placeholder="Ej: Pendiente documentos, etc."/>
       </div>
     </div>
+
+    <!-- Encargados con edición inline -->
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-weight:bold;font-size:13px;color:var(--azul);">
+          👨‍👩‍👧 Encargados
+          <small style="color:var(--muted);font-weight:normal;"> — actualizalos si hubo cambios antes de confirmar</small>
+        </div>
+        <button class="btn btn-outline btn-xs" onclick="abrirNuevoEncMatricula()">➕ Agregar</button>
+      </div>
+      <div id="mat-encargados-lista">
+        <div style="color:var(--muted);font-size:13px;">Cargando...</div>
+      </div>
+
+      <!-- Formulario inline de encargado dentro de matrícula -->
+      <div id="mat-enc-form" style="display:none;border:1px solid var(--azul2);border-radius:8px;padding:12px;margin-top:10px;background:#f0f7ff;">
+        <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:8px;" id="mat-enc-form-titulo">➕ Agregar Encargado</div>
+        <input type="hidden" id="mat-enc-id"/>
+        <div class="form-grid">
+          <div class="fg"><label>Cédula</label><input type="text" id="mat-enc-cedula" placeholder="Número de cédula"/></div>
+          <div class="fg"><label>Parentesco</label><input type="text" id="mat-enc-parentesco" placeholder="Madre, Padre..."/></div>
+          <div class="fg"><label>Nombre *</label><input type="text" id="mat-enc-nombre"/></div>
+          <div class="fg"><label>Primer Apellido *</label><input type="text" id="mat-enc-ap1"/></div>
+          <div class="fg"><label>Segundo Apellido</label><input type="text" id="mat-enc-ap2"/></div>
+          <div class="fg"><label>Principal</label>
+            <select id="mat-enc-principal"><option value="true">Sí</option><option value="false">No</option></select>
+          </div>
+          <div class="fg"><label>Teléfono Casa</label><input type="text" id="mat-enc-tel"/></div>
+          <div class="fg"><label>Celular</label><input type="text" id="mat-enc-cel"/></div>
+          <div class="fg"><label>Teléfono Trabajo</label><input type="text" id="mat-enc-tel-trabajo"/></div>
+          <div class="fg"><label>Lugar de Trabajo</label><input type="text" id="mat-enc-lugar"/></div>
+          <div class="fg"><label>Correo</label><input type="email" id="mat-enc-email"/></div>
+          <div class="fg" style="grid-column:1/-1"><label>Dirección</label><input type="text" id="mat-enc-dir"/></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-success btn-sm" onclick="guardarEncMatricula()">💾 Guardar Encargado</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('mat-enc-form').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
     <div id="alert-mat" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-matricula')">Cancelar</button>
@@ -864,6 +974,17 @@ function sa(id,msg,type="success"){
   el.className="alert show alert-"+type;el.textContent=msg;
   setTimeout(()=>{el.className="alert";},4500);
 }
+const calcularEdad=fechaNac=>{
+  if(!fechaNac) return "";
+  const nac=new Date(fechaNac), hoy=new Date();
+  let a=hoy.getFullYear()-nac.getFullYear();
+  let m=hoy.getMonth()-nac.getMonth();
+  if(m<0||(m===0&&hoy.getDate()<nac.getDate())){a--;m+=12;}
+  if(hoy.getDate()<nac.getDate()) m--;
+  if(m<0) m+=12;
+  return `${a} año${a!==1?"s":""} y ${m} mes${m!==1?"es":""}`;
+};
+
 const fmtF=d=>{
   if(!d) return "—";
   const s = typeof d === 'string' ? d.slice(0,10) : new Date(d).toISOString().slice(0,10);
@@ -945,7 +1066,22 @@ async function doLogout(){
 // ════════════════════════════════════
 //  NAV
 // ════════════════════════════════════
+function toggleSidebar(){
+  const sb=document.getElementById("sidebar");
+  const ov=document.getElementById("sidebar-overlay");
+  sb.classList.toggle("open");
+  ov.classList.toggle("show");
+}
+
+function closeSidebarMobile(){
+  if(window.innerWidth<=768){
+    document.getElementById("sidebar").classList.remove("open");
+    document.getElementById("sidebar-overlay").classList.remove("show");
+  }
+}
+
 function goTo(page){
+  closeSidebarMobile();
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
   document.getElementById("page-"+page).classList.add("active");
@@ -1664,7 +1800,7 @@ async function buscarEstudianteConsulta(){
             <div class="consulta-info" style="margin-top:4px;">
               <p><strong>Cédula:</strong> ${d.cedula}</p>
               <p><strong>Sección:</strong> ${d.seccion_nombre||"Sin asignar"}</p>
-              <p><strong>Fecha de Nacimiento:</strong> ${fmtF(d.fecha_nacimiento)}</p>
+              <p><strong>Fecha de Nacimiento:</strong> ${fmtF(d.fecha_nacimiento)}${d.fecha_nacimiento?` <span style="color:var(--muted);font-size:12px;">(${calcularEdad(d.fecha_nacimiento)})</span>`:""}</p>
             </div>
           </div>
         </div>
@@ -2683,7 +2819,10 @@ async function buscarExpediente(){
           <div style="border:1px solid ${m.anio===anioActual+1?'var(--verde)':'var(--border)'};border-radius:8px;padding:10px;margin-bottom:8px;background:#fff;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <span style="font-weight:bold;">Matrícula ${m.anio}</span>
-              <span class="badge ${m.anio===anioActual+1?'b-prof':'b-guia'}">${m.sec_nombre||"Sección pendiente"}</span>
+              <div style="display:flex;gap:6px;align-items:center;">
+                ${m.num_boleta?`<span style="font-size:12px;background:#f1f5f9;padding:2px 8px;border-radius:6px;">Boleta #${m.num_boleta}</span>`:""}
+                <span class="badge ${m.anio===anioActual+1?'b-prof':'b-guia'}">${m.sec_nombre||"Sección pendiente"}</span>
+              </div>
             </div>
             ${m.observaciones?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">📝 ${m.observaciones}</div>`:""}
             <div style="font-size:11px;color:var(--muted);margin-top:4px;">Confirmado por: ${m.conf_ap1||""} ${m.conf_nombre||""}</div>
@@ -2711,30 +2850,141 @@ async function confirmarArchivar(){
   }catch(e){sa("alert-arch",e.message,"danger");}
 }
 
-function abrirMatricula(estId, nombre){
+async function abrirMatricula(estId, nombre){
   document.getElementById("mat-est-id").value=estId;
   document.getElementById("mat-est-nombre").textContent=`Estudiante: ${nombre}`;
   document.getElementById("mat-anio").value=new Date().getFullYear()+1;
   document.getElementById("mat-obs").value="";
+  document.getElementById("mat-boleta").value="";
   document.getElementById("alert-mat").className="alert";
+  document.getElementById("mat-enc-form").style.display="none";
+
   // Poblar secciones
   const sel=document.getElementById("mat-seccion");
   sel.innerHTML='<option value="">— Sin sección aún —</option>'+
     allSecciones.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+
+  // Cargar encargados
+  await cargarEncMatricula(estId);
   document.getElementById("modal-matricula").classList.add("show");
+}
+
+async function cargarEncMatricula(estId){
+  const id = estId || document.getElementById("mat-est-id").value;
+  const rows = await api(`/api/encargados/estudiante/${id}`);
+  const div = document.getElementById("mat-encargados-lista");
+  if(!rows||!rows.length){
+    div.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0;">Sin encargados registrados. Usá ➕ Agregar para añadir.</div>';
+    return;
+  }
+  div.innerHTML = rows.map((e,i)=>`
+    <div style="border:1px solid ${e.es_principal?'var(--verde)':'var(--border)'};border-radius:8px;padding:10px;margin-bottom:8px;background:#fff;position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-weight:bold;font-size:13px;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}
+            ${e.parentesco?`<span style="font-weight:normal;color:var(--muted);font-size:12px;"> · ${e.parentesco}</span>`:""}
+            ${e.es_principal?'<span class="badge b-prof" style="margin-left:4px;">Principal</span>':""}
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px;">
+            ${e.cedula?`<span>Cédula: ${e.cedula}</span>`:""}
+            ${e.telefono?`<span>📞 ${e.telefono}</span>`:""}
+            ${e.celular?`<span>📱 ${e.celular}</span>`:""}
+            ${e.telefono_trabajo?`<span>🏢 ${e.telefono_trabajo}</span>`:""}
+            ${e.email?`<span>✉️ ${e.email}</span>`:""}
+          </div>
+          ${e.lugar_trabajo?`<div style="font-size:12px;color:var(--muted);">💼 ${e.lugar_trabajo}</div>`:""}
+          ${e.direccion?`<div style="font-size:12px;color:var(--muted);">📍 ${e.direccion}</div>`:""}
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px;">
+          <button class="btn btn-outline btn-xs" onclick="editarEncMatricula(${e.id})">✏️</button>
+          <button class="btn btn-danger btn-xs" onclick="eliminarEncMatricula(${e.id})">🗑️</button>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+function abrirNuevoEncMatricula(){
+  document.getElementById("mat-enc-id").value="";
+  document.getElementById("mat-enc-form-titulo").textContent="➕ Agregar Encargado";
+  ["mat-enc-cedula","mat-enc-nombre","mat-enc-ap1","mat-enc-ap2","mat-enc-parentesco",
+   "mat-enc-tel","mat-enc-cel","mat-enc-tel-trabajo","mat-enc-lugar","mat-enc-email","mat-enc-dir"]
+    .forEach(id=>document.getElementById(id).value="");
+  document.getElementById("mat-enc-principal").value="true";
+  document.getElementById("mat-enc-form").style.display="";
+  document.getElementById("mat-enc-nombre").focus();
+}
+
+async function editarEncMatricula(id){
+  const estId=document.getElementById("mat-est-id").value;
+  const rows=await api(`/api/encargados/estudiante/${estId}`);
+  const e=rows?.find(r=>r.id===id);if(!e)return;
+  document.getElementById("mat-enc-id").value=id;
+  document.getElementById("mat-enc-form-titulo").textContent="✏️ Editando Encargado";
+  document.getElementById("mat-enc-cedula").value=e.cedula||"";
+  document.getElementById("mat-enc-nombre").value=e.nombre||"";
+  document.getElementById("mat-enc-ap1").value=e.primer_apellido||"";
+  document.getElementById("mat-enc-ap2").value=e.segundo_apellido||"";
+  document.getElementById("mat-enc-parentesco").value=e.parentesco||"";
+  document.getElementById("mat-enc-tel").value=e.telefono||"";
+  document.getElementById("mat-enc-cel").value=e.celular||"";
+  document.getElementById("mat-enc-tel-trabajo").value=e.telefono_trabajo||"";
+  document.getElementById("mat-enc-lugar").value=e.lugar_trabajo||"";
+  document.getElementById("mat-enc-email").value=e.email||"";
+  document.getElementById("mat-enc-dir").value=e.direccion||"";
+  document.getElementById("mat-enc-principal").value=String(e.es_principal);
+  document.getElementById("mat-enc-form").style.display="";
+}
+
+async function guardarEncMatricula(){
+  const estId=document.getElementById("mat-est-id").value;
+  const eid=document.getElementById("mat-enc-id").value;
+  const data={
+    estudiante_id:+estId,
+    cedula:document.getElementById("mat-enc-cedula").value.trim(),
+    nombre:document.getElementById("mat-enc-nombre").value.trim(),
+    primer_apellido:document.getElementById("mat-enc-ap1").value.trim(),
+    segundo_apellido:document.getElementById("mat-enc-ap2").value.trim(),
+    parentesco:document.getElementById("mat-enc-parentesco").value.trim(),
+    telefono:document.getElementById("mat-enc-tel").value.trim(),
+    celular:document.getElementById("mat-enc-cel").value.trim(),
+    telefono_trabajo:document.getElementById("mat-enc-tel-trabajo").value.trim(),
+    lugar_trabajo:document.getElementById("mat-enc-lugar").value.trim(),
+    email:document.getElementById("mat-enc-email").value.trim(),
+    direccion:document.getElementById("mat-enc-dir").value.trim(),
+    es_principal:document.getElementById("mat-enc-principal").value==="true"
+  };
+  if(!data.nombre||!data.primer_apellido){sa("alert-mat","Nombre y primer apellido son requeridos.","danger");return;}
+  try{
+    if(eid) await api(`/api/encargados/${eid}`,"PUT",data);
+    else await api("/api/encargados","POST",data);
+    document.getElementById("mat-enc-form").style.display="none";
+    await cargarEncMatricula(estId);
+  }catch(e){sa("alert-mat",e.message,"danger");}
+}
+
+async function eliminarEncMatricula(id){
+  if(!confirm("¿Eliminar este encargado?"))return;
+  const estId=document.getElementById("mat-est-id").value;
+  await api(`/api/encargados/${id}`,"DELETE");
+  await cargarEncMatricula(estId);
 }
 
 async function confirmarMatricula(){
   const estId=document.getElementById("mat-est-id").value;
   const anio=parseInt(document.getElementById("mat-anio").value);
   const secId=document.getElementById("mat-seccion").value||null;
+  const boleta=document.getElementById("mat-boleta").value.trim();
   const obs=document.getElementById("mat-obs").value.trim();
   if(!anio){sa("alert-mat","El año es requerido.","danger");return;}
+  if(!boleta){sa("alert-mat","El número de boleta es requerido.","danger");return;}
   try{
-    await api("/api/expediente/matricula","POST",{estudiante_id:+estId,anio,seccion_id:secId?+secId:null,observaciones:obs});
+    await api("/api/expediente/matricula","POST",{
+      estudiante_id:+estId, anio, seccion_id:secId?+secId:null,
+      num_boleta:boleta, observaciones:obs
+    });
     cerrarModal("modal-matricula");
-    buscarExpediente(); // Recargar
-    sa("alert-exp","✅ Matrícula confirmada correctamente.","success");
+    buscarExpediente();
+    sa("alert-exp","✅ Matrícula confirmada — Boleta #"+boleta,"success");
   }catch(e){sa("alert-mat",e.message,"danger");}
 }
 
