@@ -167,6 +167,30 @@ async function initDB() {
         created_at      TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS expediente_historico (
+        id               SERIAL PRIMARY KEY,
+        estudiante_id    INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        anio             INTEGER NOT NULL,
+        seccion_nombre   TEXT DEFAULT '',
+        nivel            INTEGER DEFAULT NULL,
+        encargados_snap  JSONB DEFAULT '[]',
+        archivado_por    INTEGER REFERENCES usuarios(id),
+        created_at       TIMESTAMP DEFAULT NOW(),
+        UNIQUE(estudiante_id, anio)
+      );
+
+      CREATE TABLE IF NOT EXISTS matricula (
+        id               SERIAL PRIMARY KEY,
+        estudiante_id    INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        anio             INTEGER NOT NULL,
+        seccion_id       INTEGER REFERENCES secciones(id) ON DELETE SET NULL,
+        seccion_nombre   TEXT DEFAULT '',
+        confirmado_por   INTEGER REFERENCES usuarios(id),
+        observaciones    TEXT DEFAULT '',
+        created_at       TIMESTAMP DEFAULT NOW(),
+        UNIQUE(estudiante_id, anio)
+      );
+
       CREATE TABLE IF NOT EXISTS notificaciones (
         id         SERIAL PRIMARY KEY,
         usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,

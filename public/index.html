@@ -219,6 +219,7 @@ tr:hover td{background:#f8fafc;}
   <div class="sidebar-section" id="sec-admin" style="display:none">Admin</div>
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
+  <button class="nav-btn" data-page="expediente" id="nav-expediente" onclick="goTo('expediente')" style="display:none"><span class="icon">📁</span><span>Expediente</span></button>
   <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📊</span><span>Cumplimiento</span></button>
 </nav>
 
@@ -293,7 +294,10 @@ tr:hover td{background:#f8fafc;}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <h2 style="margin:0">🎒 Estudiantes</h2>
-      <button class="btn btn-primary" onclick="abrirModalEstudiante()">+ Nuevo</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" id="btn-imprimir-lista" onclick="imprimirListaEstudiantes()">🖨️ Imprimir Lista</button>
+        <button class="btn btn-primary" id="btn-nuevo-est" onclick="abrirModalEstudiante()">+ Nuevo</button>
+      </div>
     </div>
     <div id="alert-est" class="alert"></div>
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
@@ -458,6 +462,27 @@ tr:hover td{background:#f8fafc;}
       <h2>📄 Boletas Registradas</h2>
       <div id="cond-boletas-lista"></div>
     </div>
+  </div>
+</div>
+
+<!-- EXPEDIENTE -->
+<div class="page" id="page-expediente">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <h2 style="margin:0">📁 Expediente Estudiantil</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-orange btn-sm" onclick="abrirArchivarAnio()">📦 Archivar Año</button>
+        <button class="btn btn-outline btn-sm" onclick="verEstadisticasMatricula()">📊 Stats Matrícula</button>
+      </div>
+    </div>
+    <div id="alert-exp" class="alert"></div>
+
+    <!-- Buscador -->
+    <div style="display:flex;gap:8px;max-width:440px;margin-bottom:16px;">
+      <input type="text" id="exp-cedula" placeholder="Cédula del estudiante..." style="flex:1;padding:10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;" onkeydown="if(event.key==='Enter')buscarExpediente()"/>
+      <button class="btn btn-primary" onclick="buscarExpediente()">🔍 Buscar</button>
+    </div>
+    <div id="exp-resultado"></div>
   </div>
 </div>
 
@@ -681,58 +706,79 @@ tr:hover td{background:#f8fafc;}
     <div id="mr-detalle" style="margin-bottom:12px;"></div>
     <div id="mr-resp-wrap">
       <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;">📝 Informe de Rendimiento del Estudiante</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Completá cada campo con la valoración del estudiante en tu materia.</p>
       <div class="form-grid">
         <div class="fg"><label>Asistencia</label>
-          <select id="mr-asistencia">
-            <option value="">— Sin información —</option>
-            <option>Excelente (0-3 ausencias)</option>
-            <option>Buena (4-6 ausencias)</option>
-            <option>Regular (7-10 ausencias)</option>
-            <option>Deficiente (más de 10 ausencias)</option>
-          </select>
+          <input type="text" id="mr-asistencia" placeholder="Ej: Muy buena, ausencias justificadas..."/>
         </div>
         <div class="fg"><label>Trabajo Cotidiano</label>
-          <select id="mr-trabajo">
-            <option value="">— Sin información —</option>
-            <option>Excelente</option><option>Muy Bueno</option>
-            <option>Bueno</option><option>Regular</option><option>Deficiente</option>
-          </select>
+          <input type="text" id="mr-trabajo" placeholder="Ej: Participativo, atento en clase..."/>
         </div>
         <div class="fg"><label>Tareas</label>
-          <select id="mr-tareas">
-            <option value="">— Sin información —</option>
-            <option>Al día y completas</option>
-            <option>Algunas pendientes</option>
-            <option>Muchas pendientes</option>
-            <option>No entrega</option>
-          </select>
+          <input type="text" id="mr-tareas" placeholder="Ej: Al día, entrega completa..."/>
         </div>
         <div class="fg"><label>Exámenes / Proyectos</label>
-          <select id="mr-examenes">
-            <option value="">— Sin información —</option>
-            <option>Excelente rendimiento</option>
-            <option>Buen rendimiento</option>
-            <option>Rendimiento regular</option>
-            <option>Bajo rendimiento</option>
-            <option>No presentó</option>
-          </select>
+          <input type="text" id="mr-examenes" placeholder="Ej: Buen rendimiento, aprobó todos..."/>
         </div>
         <div class="fg"><label>Comportamiento</label>
-          <select id="mr-comportamiento">
-            <option value="">— Sin información —</option>
-            <option>Excelente</option><option>Muy Bueno</option>
-            <option>Bueno</option><option>Regular</option><option>Deficiente</option>
-          </select>
+          <input type="text" id="mr-comportamiento" placeholder="Ej: Respetuoso, colaborador..."/>
         </div>
       </div>
       <div class="fg" style="margin-top:10px;"><label>Observaciones adicionales</label>
-        <textarea id="mr-obs-resp" placeholder="Observaciones del profesor sobre el estudiante..." style="min-height:70px;"></textarea>
+        <textarea id="mr-obs-resp" placeholder="Cualquier observación adicional sobre el estudiante..." style="min-height:70px;"></textarea>
       </div>
     </div>
     <div id="alert-mr" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-responder')">Cerrar</button>
       <button class="btn btn-success" id="btn-resp" onclick="enviarRespuesta()">✔ Enviar Respuesta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Archivar Año -->
+<div class="modal-overlay" id="modal-archivar">
+  <div class="modal" style="max-width:440px;">
+    <h3>📦 Archivar Año en Expediente</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+      Esto guardará una fotografía del estado actual de <strong>todos los estudiantes</strong> (sección y encargados) para el año seleccionado. Podés hacerlo cuantas veces quieras — si ya existe un registro del año, se actualiza.
+    </p>
+    <div class="fg">
+      <label>Año a archivar *</label>
+      <input type="number" id="arch-anio" min="2024" max="2030" value="2026"/>
+    </div>
+    <div id="alert-arch" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-archivar')">Cancelar</button>
+      <button class="btn btn-orange" onclick="confirmarArchivar()">📦 Archivar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Matrícula -->
+<div class="modal-overlay" id="modal-matricula">
+  <div class="modal" style="max-width:500px;">
+    <h3>📋 Confirmar Matrícula</h3>
+    <input type="hidden" id="mat-est-id"/>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;" id="mat-est-nombre"></p>
+    <div class="form-grid">
+      <div class="fg">
+        <label>Año de matrícula *</label>
+        <input type="number" id="mat-anio" min="2025" max="2030" value="2027"/>
+      </div>
+      <div class="fg">
+        <label>Sección asignada</label>
+        <select id="mat-seccion"><option value="">— Sin sección aún —</option></select>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Observaciones</label>
+        <input type="text" id="mat-obs" placeholder="Ej: Pendiente documentos, confirmado, etc."/>
+      </div>
+    </div>
+    <div id="alert-mat" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-matricula')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarMatricula()">✅ Confirmar Matrícula</button>
     </div>
   </div>
 </div>
@@ -908,7 +954,16 @@ function goTo(page){
   if(page==="dashboard")   cargarDashboard();
   if(page==="usuarios")    cargarUsuarios();
   if(page==="asignaciones"){cargarMateriasList();cargarSeccionesAdmin();cargarAsignaciones();}
-  if(page==="estudiantes") {cargarEstudiantes();poblarSel("filtro-seccion-est",false,"Todas las secciones");}
+  if(page==="estudiantes") {
+    cargarEstudiantes();
+    poblarSel("filtro-seccion-est",false,"Todas las secciones");
+    // Mostrar botón Nuevo solo para admin/auxiliar
+    const btnNuevo=document.getElementById("btn-nuevo-est");
+    if(btnNuevo) btnNuevo.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
+    // Imprimir disponible para todos los que ven la pantalla
+    const btnImprimir=document.getElementById("btn-imprimir-lista");
+    if(btnImprimir) btnImprimir.style.display="";
+  }
   if(page==="asistencia")  cargarMisAsig();
   if(page==="cumplimiento") {
     const hoy=new Date().toISOString().slice(0,10);
@@ -919,6 +974,7 @@ function goTo(page){
   }
   if(page==="conducta")    initConducta();
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
+  if(page==="expediente")  document.getElementById("exp-cedula").focus();
   if(page==="reportes")    initReportes();
   if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
 }
@@ -945,10 +1001,16 @@ async function iniciarApp(){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-conducta").style.display="";
   }
-  if(tieneAlgunRol("admin","auxiliar","orientador","profesor_guia")){
+  // Gestión: solo admin, auxiliar, guía y orientador — NO profesores puros
+  const puedeGestion = ME.rol==="admin" || ME.rol==="auxiliar" ||
+    tieneAlgunRol("orientador","profesor_guia");
+  if(puedeGestion){
     document.getElementById("sec-gestion").style.display="";
     document.getElementById("nav-estudiantes").style.display="";
     document.getElementById("nav-reportes").style.display="";
+  }
+  if(tieneAlgunRol("admin","auxiliar")){
+    document.getElementById("nav-expediente").style.display="";
   }
   if(ME.rol==="admin"){
     document.getElementById("sec-admin").style.display="";
@@ -1360,7 +1422,7 @@ async function cargarEstudiantes(){
   const rows=await api(url);if(!rows)return;
   const tbody=document.getElementById("est-body");
   if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin estudiantes</td></tr>`;return;}
-  const isAux=tieneAlgunRol("admin","auxiliar","orientador","profesor_guia");
+  const isAux=tieneAlgunRol("admin","auxiliar"); // Solo admin/auxiliar pueden editar estudiantes
   tbody.innerHTML=rows.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
@@ -2449,6 +2511,238 @@ async function imprimirInformeCompilado(informeId){
     const s=document.getElementById("print-style-informe"); if(s)s.remove();
     printArea.innerHTML="";
   }, 1500);
+}
+
+// ════════════════════════════════════
+//  IMPRIMIR LISTA DE ESTUDIANTES
+// ════════════════════════════════════
+async function imprimirListaEstudiantes(){
+  const rows = await api("/api/estudiantes");
+  const filtroSec = document.getElementById("filtro-seccion-est")?.value;
+  const buscar = document.getElementById("buscar-est")?.value?.toLowerCase()||"";
+  if(!rows||!rows.length){ alert("No hay estudiantes para imprimir."); return; }
+
+  // Aplicar filtros actuales
+  let lista = rows;
+  if(filtroSec) lista = lista.filter(e=>e.seccion_id==filtroSec);
+  if(buscar) lista = lista.filter(e=>`${e.primer_apellido} ${e.segundo_apellido} ${e.nombre} ${e.cedula}`.toLowerCase().includes(buscar));
+
+  if(!lista.length){ alert("No hay estudiantes con los filtros actuales."); return; }
+
+  // Agrupar por sección
+  const porSeccion = {};
+  lista.forEach(e=>{
+    const sec = e.seccion_nombre||"Sin Sección";
+    if(!porSeccion[sec]) porSeccion[sec]=[];
+    porSeccion[sec].push(e);
+  });
+
+  const periodo = detectarPeriodo(null);
+  const printArea = document.getElementById("print-boleta-area") || (() => {
+    const el=document.createElement("div"); el.id="print-boleta-area"; document.body.appendChild(el); return el;
+  })();
+
+  let html = `
+    <div style="font-family:Arial,sans-serif;padding:20px;max-width:750px;margin:0 auto;">
+      <div style="text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:10px;margin-bottom:16px;">
+        <p style="font-size:12px;margin:2px 0;">Ministerio de Educación Pública</p>
+        <h2 style="font-size:16px;margin:4px 0;">Liceo de Calle Fallas</h2>
+        <h3 style="font-size:14px;margin:4px 0;">LISTA DE ESTUDIANTES — ${periodo}</h3>
+        <p style="font-size:11px;color:#555;">Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}</p>
+      </div>`;
+
+  Object.keys(porSeccion).sort().forEach(sec=>{
+    const ests = porSeccion[sec];
+    html += `
+      <div style="margin-bottom:20px;page-break-inside:avoid;">
+        <div style="background:#1a3a5c;color:#fff;padding:6px 12px;font-weight:bold;font-size:13px;border-radius:4px 4px 0 0;">
+          Sección: ${sec} — ${ests.length} estudiante${ests.length!==1?"s":""}
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:#f1f5f9;">
+              <th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">#</th>
+              <th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th>
+              <th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Cédula</th>
+              <th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Fecha Nac.</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ests.map((e,i)=>`<tr style="background:${i%2===0?'#fff':'#f9fafb'};">
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;">${i+1}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;">${e.cedula}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;">${fmtF(e.fecha_nacimiento)}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  });
+
+  html += `<div style="font-size:11px;color:#888;text-align:right;margin-top:8px;">
+    Total: ${lista.length} estudiante${lista.length!==1?"s":""}
+  </div></div>`;
+
+  printArea.innerHTML = html;
+  const style = document.createElement("style");
+  style.id="print-style-lista";
+  style.innerHTML=`@media print { body > *:not(#print-boleta-area){display:none!important;} #print-boleta-area{display:block!important;} }`;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(()=>{ const s=document.getElementById("print-style-lista"); if(s)s.remove(); printArea.innerHTML=""; }, 1500);
+}
+
+// ════════════════════════════════════
+//  EXPEDIENTE
+// ════════════════════════════════════
+async function buscarExpediente(){
+  const cedula = document.getElementById("exp-cedula").value.trim();
+  if(!cedula){ sa("alert-exp","Ingresá la cédula del estudiante.","danger"); return; }
+  const div = document.getElementById("exp-resultado");
+  div.innerHTML='<div style="color:var(--muted);font-size:13px;">Buscando...</div>';
+  try{
+    const d = await api(`/api/expediente/buscar/${cedula}`);
+    const e = d.estudiante;
+    const anioActual = new Date().getFullYear();
+
+    // Matrícula más reciente
+    const matReciente = d.matriculas[0];
+    const yaMatriculado = d.matriculas.some(m=>m.anio===anioActual+1);
+
+    div.innerHTML=`
+      <!-- Encabezado del estudiante -->
+      <div style="border:2px solid var(--azul);border-radius:10px;padding:16px;margin-bottom:14px;background:#f8fafc;">
+        <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+          ${e.foto_url?`<img src="${e.foto_url}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid var(--azul);"/>`:`<div style="width:72px;height:72px;border-radius:50%;background:var(--azul2);display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;">👤</div>`}
+          <div style="flex:1;">
+            <div style="font-size:20px;font-weight:bold;color:var(--azul);">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px;">
+              Cédula: <strong>${e.cedula}</strong> &nbsp;·&nbsp;
+              Sección actual: <strong>${e.seccion_nombre||"Sin asignar"}</strong> &nbsp;·&nbsp;
+              Nac.: ${fmtF(e.fecha_nacimiento)}
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" onclick="abrirMatricula(${e.id},'${e.primer_apellido} ${e.nombre}')">
+                📋 ${yaMatriculado?'Ver/Editar Matrícula':'Confirmar Matrícula'}
+              </button>
+            </div>
+          </div>
+          <div style="text-align:center;padding:10px 16px;border-radius:8px;background:${yaMatriculado?'#dcfce7':'#fef9c3'};">
+            <div style="font-size:11px;color:var(--muted);">Matrícula ${anioActual+1}</div>
+            <div style="font-weight:bold;color:${yaMatriculado?'var(--verde)':'var(--naranja)'};">${yaMatriculado?'✅ Confirmada':'⏳ Pendiente'}</div>
+            ${yaMatriculado&&matReciente?`<div style="font-size:12px;color:var(--muted);">${matReciente.sec_nombre||"Sección pendiente"}</div>`:""}
+          </div>
+        </div>
+      </div>
+
+      <!-- Encargados actuales -->
+      <div style="margin-bottom:14px;">
+        <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:8px;">👨‍👩‍👧 Encargados Actuales</div>
+        ${d.encargados.length?d.encargados.map(enc=>`
+          <div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;background:#fff;">
+            <div style="font-weight:bold;">${enc.primer_apellido} ${enc.segundo_apellido}, ${enc.nombre}
+              ${enc.parentesco?`<span style="font-size:12px;color:var(--muted);font-weight:normal"> · ${enc.parentesco}</span>`:""}
+              ${enc.es_principal?'<span class="badge b-prof" style="margin-left:6px;">Principal</span>':""}
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;">
+              ${enc.cedula?`<span>Cédula: ${enc.cedula}</span>`:""}
+              ${enc.telefono?`<span>📞 ${enc.telefono}</span>`:""}
+              ${enc.celular?`<span>📱 ${enc.celular}</span>`:""}
+              ${enc.telefono_trabajo?`<span>🏢 ${enc.telefono_trabajo}</span>`:""}
+              ${enc.email?`<span>✉️ ${enc.email}</span>`:""}
+            </div>
+            ${enc.lugar_trabajo?`<div style="font-size:12px;color:var(--muted);">💼 ${enc.lugar_trabajo}</div>`:""}
+            ${enc.direccion?`<div style="font-size:12px;color:var(--muted);">📍 ${enc.direccion}</div>`:""}
+          </div>`).join(""):'<div style="color:var(--muted);font-size:13px;">Sin encargados registrados.</div>'}
+      </div>
+
+      <!-- Historial de años -->
+      <div>
+        <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:8px;">📅 Historial por Año</div>
+        ${d.historial.length?d.historial.map(h=>`
+          <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#fafafa;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-weight:bold;font-size:16px;color:var(--azul);">📆 Año ${h.anio}</span>
+              <span class="badge b-guia">${h.seccion_nombre||"Sin sección"}</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Encargados registrados ese año:</div>
+            ${(h.encargados_snap||[]).map(enc=>`
+              <div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
+                <strong>${enc.primer_apellido} ${enc.segundo_apellido}, ${enc.nombre}</strong>
+                ${enc.parentesco?` · ${enc.parentesco}`:""}
+                ${enc.telefono?` · 📞 ${enc.telefono}`:""}
+                ${enc.celular?` · 📱 ${enc.celular}`:""}
+              </div>`).join("")||'<div style="font-size:12px;color:var(--muted);">Sin encargados guardados</div>'}
+          </div>`).join(""):`<div style="color:var(--muted);font-size:13px;">Sin historial archivado. Usá "Archivar Año" para crear el primer registro.</div>`}
+      </div>
+
+      <!-- Matrículas registradas -->
+      ${d.matriculas.length?`<div style="margin-top:14px;">
+        <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:8px;">📋 Matrículas Registradas</div>
+        ${d.matriculas.map(m=>`
+          <div style="border:1px solid ${m.anio===anioActual+1?'var(--verde)':'var(--border)'};border-radius:8px;padding:10px;margin-bottom:8px;background:#fff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:bold;">Matrícula ${m.anio}</span>
+              <span class="badge ${m.anio===anioActual+1?'b-prof':'b-guia'}">${m.sec_nombre||"Sección pendiente"}</span>
+            </div>
+            ${m.observaciones?`<div style="font-size:12px;color:var(--muted);margin-top:4px;">📝 ${m.observaciones}</div>`:""}
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Confirmado por: ${m.conf_ap1||""} ${m.conf_nombre||""}</div>
+          </div>`).join("")}
+      </div>`:""}
+    `;
+  }catch(e){
+    div.innerHTML=`<div style="color:var(--rojo);font-size:13px;padding:12px;">❌ ${e.message}</div>`;
+  }
+}
+
+function abrirArchivarAnio(){
+  document.getElementById("arch-anio").value=new Date().getFullYear();
+  document.getElementById("alert-arch").className="alert";
+  document.getElementById("modal-archivar").classList.add("show");
+}
+
+async function confirmarArchivar(){
+  const anio=parseInt(document.getElementById("arch-anio").value);
+  if(!anio||anio<2024){sa("alert-arch","Año inválido.","danger");return;}
+  try{
+    const r=await api("/api/expediente/archivar-anio","POST",{anio});
+    cerrarModal("modal-archivar");
+    sa("alert-exp",`✅ Año ${anio} archivado — ${r.archivados} estudiantes guardados en el expediente.`,"success");
+  }catch(e){sa("alert-arch",e.message,"danger");}
+}
+
+function abrirMatricula(estId, nombre){
+  document.getElementById("mat-est-id").value=estId;
+  document.getElementById("mat-est-nombre").textContent=`Estudiante: ${nombre}`;
+  document.getElementById("mat-anio").value=new Date().getFullYear()+1;
+  document.getElementById("mat-obs").value="";
+  document.getElementById("alert-mat").className="alert";
+  // Poblar secciones
+  const sel=document.getElementById("mat-seccion");
+  sel.innerHTML='<option value="">— Sin sección aún —</option>'+
+    allSecciones.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+  document.getElementById("modal-matricula").classList.add("show");
+}
+
+async function confirmarMatricula(){
+  const estId=document.getElementById("mat-est-id").value;
+  const anio=parseInt(document.getElementById("mat-anio").value);
+  const secId=document.getElementById("mat-seccion").value||null;
+  const obs=document.getElementById("mat-obs").value.trim();
+  if(!anio){sa("alert-mat","El año es requerido.","danger");return;}
+  try{
+    await api("/api/expediente/matricula","POST",{estudiante_id:+estId,anio,seccion_id:secId?+secId:null,observaciones:obs});
+    cerrarModal("modal-matricula");
+    buscarExpediente(); // Recargar
+    sa("alert-exp","✅ Matrícula confirmada correctamente.","success");
+  }catch(e){sa("alert-mat",e.message,"danger");}
+}
+
+async function verEstadisticasMatricula(){
+  const anio=new Date().getFullYear()+1;
+  const d=await api(`/api/expediente/matricula/stats/${anio}`);
+  if(!d) return;
+  sa("alert-exp",`📊 Matrícula ${anio}: ${d.matriculados} confirmados de ${d.total} estudiantes (${d.pendientes} pendientes).`,"success");
 }
 
 // ════════════════════════════════════
