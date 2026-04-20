@@ -83,7 +83,7 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
   .print-page-footer{position:fixed;bottom:0;left:0;right:0;background:#fff;
     border-top:1.5px solid #1F3864;padding:4px 12px;
     display:flex;justify-content:space-between;font-size:10px;color:#555;font-family:Arial,sans-serif;}
-  #print-boleta-area > div{padding-bottom:48px;}
+  #print-boleta-area > div{padding-bottom:70px;}
   #print-boleta-area *{font-size:12px!important;}
   #print-boleta-area h2,#print-boleta-area .big-num{font-size:15px!important;}
   #print-boleta-area h3{font-size:13px!important;}
@@ -229,7 +229,7 @@ tr:hover td{background:#f8fafc;}
   .print-page-footer{position:fixed;bottom:0;left:0;right:0;background:#fff;
     border-top:1.5px solid #1F3864;padding:4px 12px;
     display:flex;justify-content:space-between;font-size:10px;color:#555;font-family:Arial,sans-serif;}
-  #print-boleta-area > div{padding-bottom:48px;}
+  #print-boleta-area > div{padding-bottom:70px;}
   #print-boleta-area *{font-size:12px!important;}
   #print-boleta-area h2,#print-boleta-area .big-num{font-size:15px!important;}
   #print-boleta-area h3{font-size:13px!important;}
@@ -3535,12 +3535,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+( sec?.nombre||""))}
             <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${e.nota>=80?'#166534':e.nota>=60?'#92400e':'#991b1b'};">${e.nota}</td>
           </tr>`).join("")}
         </tbody>
-        <tfoot>
-          <tr style="background:#f1f5f9;font-weight:bold;">
-            <td colspan="3" style="padding:8px 10px;text-align:right;">Promedio de conducta:</td>
-            <td style="padding:8px 10px;text-align:center;">${Math.round(datos.reduce((s,e)=>s+e.nota,0)/datos.length)}</td>
-          </tr>
-        </tfoot>
+
       </table>
       <div style="margin-top:40px;max-width:300px;margin-left:auto;margin-right:auto;">
         <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
@@ -3565,24 +3560,25 @@ const LCF_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAI0AAAB3CAYAAAFJ
 
 function encabezadoMEP(titulo){
   return `
-    <div style="font-family:Arial,sans-serif;margin-bottom:14px;">
-      <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
+    <div style="font-family:Arial,sans-serif;margin-bottom:12px;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:0;">
         <tr>
-          <td style="width:55%;vertical-align:middle;padding:0;">
-            <img src="${MEP_LOGO}" style="width:100%;max-width:400px;height:auto;display:block;"/>
+          <td style="width:50%;vertical-align:middle;padding:0;">
+            <img src="${MEP_LOGO}" style="width:100%;max-width:420px;height:auto;display:block;"/>
           </td>
-          <td style="vertical-align:middle;text-align:center;padding:0 8px;">
-            <div style="font-weight:bold;font-size:12px;color:#1F3864;line-height:1.4;">Dirección Regional Desamparados, Circuito 07.</div>
-            <div style="font-weight:bold;font-size:13px;color:#1F3864;line-height:1.4;">Liceo de Calle Fallas</div>
-            <div style="font-size:10px;color:#555;margin-top:2px;">Directora: Licda. Laura Cruz Jiménez</div>
+          <td style="vertical-align:middle;text-align:center;padding:0 12px;">
+            <div style="font-weight:bold;font-size:11px;color:#1F3864;line-height:1.5;">
+              Dirección Regional Desamparados Supervisión<br/>
+              Educativa Circuito 07. Liceo de Calle Fallas
+            </div>
           </td>
-          <td style="width:70px;vertical-align:middle;text-align:right;padding:0;">
-            <img src="${LCF_LOGO}" style="height:64px;width:auto;display:block;margin-left:auto;"/>
+          <td style="width:72px;vertical-align:middle;text-align:right;padding:0;">
+            <img src="${LCF_LOGO}" style="height:66px;width:auto;display:block;margin-left:auto;"/>
           </td>
         </tr>
       </table>
-      <div style="border-top:2.5px solid #1F3864;margin-bottom:10px;"></div>
-      ${titulo?`<div style="font-weight:bold;font-size:14px;color:#1F3864;text-align:center;margin-bottom:10px;">${titulo}</div>`:""}
+      <div style="border-top:2px solid #1F3864;margin-top:4px;margin-bottom:10px;"></div>
+      ${titulo?`<div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:8px;">${titulo}</div>`:""}
     </div>`;
 }
 
