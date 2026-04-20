@@ -73,10 +73,11 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .main-content{flex:1;overflow-y:auto;padding:22px 18px;}
 .page{display:none;}.page.active{display:block;}
 /* PRINT */
+@page { margin: 1.5cm 1cm; size: auto; }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
   .main-content{padding:0;}
-  body{background:#fff;}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .print-header{text-align:center;margin-bottom:20px;}
   .reporte-materia{page-break-inside:avoid;}
 }
@@ -205,10 +206,11 @@ tr:hover td{background:#f8fafc;}
 .search-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
 .search-bar input{flex:1;min-width:160px;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;}
 /* PRINT */
+@page { margin: 1.5cm 1cm; size: auto; }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
   .main-content{padding:0;}
-  body{background:#fff;}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .print-header{text-align:center;margin-bottom:20px;}
   .reporte-materia{page-break-inside:avoid;}
 }
@@ -454,7 +456,10 @@ tr:hover td{background:#f8fafc;}
 <div class="page" id="page-conducta">
   <div id="conducta-view-lista">
     <div class="card">
-      <h2>📋 Conducta Estudiantil — REAC</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <h2 style="margin:0">📋 Conducta Estudiantil — REAC</h2>
+        <button class="btn btn-outline btn-sm" id="btn-imprimir-seccion-cond" onclick="imprimirInformeSeccionConducta()" style="display:none">📋 Imprimir Informe de Sección</button>
+      </div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
         <div class="fg"><label>Sección</label><select id="cond-seccion" onchange="cargarEstConducta()"><option value="">— Seleccionar —</option></select></div>
         <div class="fg"><label>Estudiante</label><select id="cond-estudiante"><option value="">— Seleccionar —</option></select></div>
@@ -2475,6 +2480,8 @@ async function verConductaEstudiante(){
   if(!eid){ alert("Seleccioná un estudiante."); return; }
   condEstudianteActual = eid;
   condSeccionActual    = sid;
+  const btnSec = document.getElementById("btn-imprimir-seccion-cond");
+  if(btnSec) btnSec.style.display = sid ? "" : "none";
   const sel = document.getElementById("cond-estudiante");
   const nombre = sel.options[sel.selectedIndex].text;
   document.getElementById("cond-titulo").textContent = `Conducta — ${nombre}`;
@@ -2650,11 +2657,7 @@ async function imprimirConducta(){
   style.id = "print-style-conducta";
   style.innerHTML = `@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
   document.head.appendChild(style);
-  window.print();
-  setTimeout(()=>{
-    const s=document.getElementById("print-style-conducta"); if(s)s.remove();
-    printArea.innerHTML="";
-  }, 1500);
+  await imprimirConEncabezado(printArea, style);
 }
 
 async function imprimirInformeCompilado(informeId){
@@ -2662,9 +2665,9 @@ async function imprimirInformeCompilado(informeId){
   const inf = window._informesData?.[informeId];
   if(!inf){ alert("Datos del informe no disponibles. Recargá la página."); return; }
 
-  const printArea = document.getElementById("print-boleta-area") || document.createElement("div");
-  printArea.id = "print-boleta-area";
-  if(!document.getElementById("print-boleta-area")) document.body.appendChild(printArea);
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
   const periodo = detectarPeriodo(null);
 
@@ -2738,11 +2741,7 @@ ${encabezadoMEP("INFORME DE RENDIMIENTO ACADÉMICO — "+periodo)}
   style.id = "print-style-informe";
   style.innerHTML = `@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
   document.head.appendChild(style);
-  window.print();
-  setTimeout(()=>{
-    const s=document.getElementById("print-style-informe"); if(s)s.remove();
-    printArea.innerHTML="";
-  }, 1500);
+  await imprimirConEncabezado(printArea, document.getElementById("print-style-informe"));
 }
 
 // ════════════════════════════════════
@@ -2770,9 +2769,9 @@ async function imprimirListaEstudiantes(){
   });
 
   const periodo = detectarPeriodo(null);
-  const printArea = document.getElementById("print-boleta-area") || (() => {
-    const el=document.createElement("div"); el.id="print-boleta-area"; document.body.appendChild(el); return el;
-  })();
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
   let html = `
     <div style="font-family:Arial,sans-serif;padding:20px;max-width:750px;margin:0 auto;">
@@ -2817,8 +2816,7 @@ ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
   style.id="print-style-lista";
   style.innerHTML=`@media print { body > *:not(#print-boleta-area){display:none!important;} #print-boleta-area{display:block!important;} }`;
   document.head.appendChild(style);
-  window.print();
-  setTimeout(()=>{ const s=document.getElementById("print-style-lista"); if(s)s.remove(); printArea.innerHTML=""; }, 1500);
+  await imprimirConEncabezado(printArea, document.getElementById("print-style-lista"));
 }
 
 // ════════════════════════════════════
@@ -3456,9 +3454,9 @@ async function imprimirInformeSeccionConducta(){
   const guia = sec ? `${sec.guia_ap1||""} ${sec.guia_nombre||""}`.trim() : "";
   const periodo = detectarPeriodo(null);
 
-  const printArea = document.getElementById("print-boleta-area") || (() => {
-    const el=document.createElement("div"); el.id="print-boleta-area"; document.body.appendChild(el); return el;
-  })();
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
   printArea.innerHTML = `
     <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
@@ -3507,8 +3505,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+( sec?.nombre||""))}
   style.id="print-style-seccion";
   style.innerHTML=`@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
   document.head.appendChild(style);
-  window.print();
-  setTimeout(()=>{ const s=document.getElementById("print-style-seccion"); if(s)s.remove(); printArea.innerHTML=""; }, 1500);
+  await imprimirConEncabezado(printArea, document.getElementById("print-style-seccion"));
 }
 
 // ════════════════════════════════════
@@ -3544,6 +3541,34 @@ function piePaginaMEP(){
 
 // ════════════════════════════════════
 //  UTILS
+
+// Imprime esperando que carguen las imágenes del encabezado MEP
+async function imprimirConEncabezado(area, styleEl){
+  // Mover el área fuera de la pantalla mientras carga — el usuario no la ve
+  area.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+
+  // Esperar a que las imágenes carguen (máximo 3s)
+  const imgs = area.querySelectorAll("img");
+  if(imgs.length){
+    await Promise.all(Array.from(imgs).map(img => {
+      if(img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload  = resolve;
+        img.onerror = resolve;
+        setTimeout(resolve, 3000);
+      });
+    }));
+  }
+
+  // Limpiar estilo antes de imprimir para que el @media print funcione
+  area.style.cssText = "";
+  window.print();
+
+  // Limpiar inmediatamente después de que el diálogo se cierra
+  if(styleEl) styleEl.remove();
+  area.innerHTML = "";
+  area.style.cssText = "";
+}
 // ════════════════════════════════════
 function cerrarModal(id){document.getElementById(id).classList.remove("show");}
 document.querySelectorAll(".modal-overlay").forEach(o=>{
