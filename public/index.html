@@ -74,6 +74,9 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .page{display:none;}.page.active{display:block;}
 /* PRINT */
 @page { margin: 1.5cm 1cm 2cm 1cm; size: auto; }
+/* Visible SOLO al imprimir */
+.print-only-block { display: none !important; }
+@media print { .print-only-block { display: block !important; } }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
   .main-content{padding:0;}
@@ -236,6 +239,9 @@ tr:hover td{background:#f8fafc;}
 .search-bar input{flex:1;min-width:160px;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;}
 /* PRINT */
 @page { margin: 1.5cm 1cm 2cm 1cm; size: auto; }
+/* Visible SOLO al imprimir */
+.print-only-block { display: none !important; }
+@media print { .print-only-block { display: block !important; } }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
   .main-content{padding:0;}
@@ -2203,7 +2209,7 @@ async function generarReporte(){
   let totalA=0,totalJ=0,totalT=0,totalL=0;
   d.materias.forEach(m=>{totalA+=(parseInt(m.ausencias)||0);totalJ+=(parseInt(m.justificadas)||0);totalT+=(parseInt(m.tardias)||0);totalL+=(parseInt(m.total_lecciones)||0);});
   document.getElementById("reporte-contenido").innerHTML=`
-    <div id="print-header" style="margin-bottom:16px;display:none;">
+    <div id="print-header" class="print-only-block" style="margin-bottom:16px;max-width:720px;margin-left:auto;margin-right:auto;">
       <div id="print-header-mep"></div>
     </div>
     <div class="card">
@@ -2290,8 +2296,7 @@ async function generarReporte(){
       card.appendChild(pie);
     }
   }, 100);
-  document.getElementById("print-header").style.display="block";
-  // Inyectar encabezado MEP oficial
+  // Inyectar encabezado MEP oficial (solo visible en impresión via CSS)
   const mepDiv = document.getElementById("print-header-mep");
   if(mepDiv) mepDiv.innerHTML = encabezadoMEP("REPORTE DE ASISTENCIA");
 }
