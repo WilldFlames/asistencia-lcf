@@ -2466,6 +2466,9 @@ async function initConducta(){
 
 async function cargarEstConducta(){
   const sid = document.getElementById("cond-seccion").value;
+  condSeccionActual = sid || null;
+  const btnSec = document.getElementById("btn-imprimir-seccion-cond");
+  if(btnSec) btnSec.style.display = sid ? "" : "none";
   if(!sid) return;
   const rows = await api(`/api/reportes/seccion/${sid}/estudiantes`);
   if(!rows) return;
@@ -2480,8 +2483,6 @@ async function verConductaEstudiante(){
   if(!eid){ alert("Seleccioná un estudiante."); return; }
   condEstudianteActual = eid;
   condSeccionActual    = sid;
-  const btnSec = document.getElementById("btn-imprimir-seccion-cond");
-  if(btnSec) btnSec.style.display = sid ? "" : "none";
   const sel = document.getElementById("cond-estudiante");
   const nombre = sel.options[sel.selectedIndex].text;
   document.getElementById("cond-titulo").textContent = `Conducta — ${nombre}`;
@@ -3436,10 +3437,12 @@ async function cargarCumplimiento(){
 //  INFORME DE SECCIÓN — CONDUCTA
 // ════════════════════════════════════
 async function imprimirInformeSeccionConducta(){
-  if(!condSeccionActual){ alert("Seleccioná una sección primero."); return; }
+  // Leer la sección del dropdown directamente (no depende de condSeccionActual)
+  const secId = condSeccionActual || document.getElementById("cond-seccion")?.value;
+  if(!secId){ alert("Seleccioná una sección primero."); return; }
 
   // Obtener todos los estudiantes de la sección con sus notas de conducta
-  const ests = await api(`/api/reportes/seccion/${condSeccionActual}/estudiantes`);
+  const ests = await api(`/api/reportes/seccion/${secId}/estudiantes`);
   if(!ests || !ests.length){ alert("No hay estudiantes en esta sección."); return; }
 
   // Obtener nota de conducta de cada uno
@@ -3450,7 +3453,7 @@ async function imprimirInformeSeccionConducta(){
   }
 
   const secs = await api("/api/admin/secciones");
-  const sec = secs?.find(s=>s.id==condSeccionActual);
+  const sec = secs?.find(s=>s.id==secId);
   const guia = sec ? `${sec.guia_ap1||""} ${sec.guia_nombre||""}`.trim() : "";
   const periodo = detectarPeriodo(null);
 
