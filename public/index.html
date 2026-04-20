@@ -87,6 +87,12 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
   #print-boleta-area *{font-size:12px!important;}
   #print-boleta-area h2,#print-boleta-area .big-num{font-size:15px!important;}
   #print-boleta-area h3{font-size:13px!important;}
+  /* Reporte de asistencia (usa cards inline) */
+  #reporte-contenido *{font-size:12px!important;}
+  #reporte-contenido .num{font-size:22px!important;}
+  #reporte-contenido .lbl{font-size:10px!important;}
+  #print-header img{max-width:400px!important;height:auto!important;}
+  .reporte-materia{page-break-inside:avoid;}
 }
 /* ═══════════ RESPONSIVE ═══════════ */
 @media(max-width:768px){
@@ -227,6 +233,12 @@ tr:hover td{background:#f8fafc;}
   #print-boleta-area *{font-size:12px!important;}
   #print-boleta-area h2,#print-boleta-area .big-num{font-size:15px!important;}
   #print-boleta-area h3{font-size:13px!important;}
+  /* Reporte de asistencia (usa cards inline) */
+  #reporte-contenido *{font-size:12px!important;}
+  #reporte-contenido .num{font-size:22px!important;}
+  #reporte-contenido .lbl{font-size:10px!important;}
+  #print-header img{max-width:400px!important;height:auto!important;}
+  .reporte-materia{page-break-inside:avoid;}
 }
 </style>
 </head>
@@ -2242,7 +2254,7 @@ async function generarReporte(){
       // Pie de página fijo
       const pie = document.createElement("div");
       pie.className = "print-page-footer";
-      pie.innerHTML = `<span style="font-weight:bold;">Ministerio de Educación Pública — Liceo de Calle Fallas</span><span>Desamparados, San José, Costa Rica · Tel: 2258-XXXX</span>`;
+      pie.innerHTML = `<div style="text-align:center;width:100%;font-size:10px;"><div>San José, Desamparados, 1 Km al sur del Centro Comercial Multicentro de Desamparados</div><div>Teléfono: 2250-0590 / 2250-0614 · Correo electrónico: lic.callefallas@mep.go.cr</div></div>`;
       card.appendChild(pie);
     }
   }, 100);
@@ -3557,7 +3569,7 @@ function encabezadoMEP(titulo){
       <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
         <tr>
           <td style="width:55%;vertical-align:middle;padding:0;">
-            <img src="${MEP_LOGO}" style="width:100%;max-width:320px;height:auto;display:block;"/>
+            <img src="${MEP_LOGO}" style="width:100%;max-width:400px;height:auto;display:block;"/>
           </td>
           <td style="vertical-align:middle;text-align:center;padding:0 8px;">
             <div style="font-weight:bold;font-size:12px;color:#1F3864;line-height:1.4;">Dirección Regional Desamparados, Circuito 07.</div>
@@ -3577,8 +3589,10 @@ function encabezadoMEP(titulo){
 function piePaginaMEP(){
   return `
     <div class="print-page-footer">
-      <span style="font-weight:bold;">Ministerio de Educación Pública — Liceo de Calle Fallas</span>
-      <span>Desamparados, San José, Costa Rica · Tel: 2258-XXXX</span>
+      <div style="text-align:center;width:100%;font-size:10px;">
+        <div>San José, Desamparados, 1 Km al sur del Centro Comercial Multicentro de Desamparados</div>
+        <div>Teléfono: 2250-0590 / 2250-0614 &nbsp;·&nbsp; Correo electrónico: lic.callefallas@mep.go.cr</div>
+      </div>
     </div>`;
 }
 
