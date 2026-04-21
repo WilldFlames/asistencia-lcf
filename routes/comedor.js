@@ -3,7 +3,7 @@ const { pool } = require("../db");
 const { requireAuth, requireRol, tieneRol } = require("../middleware/auth");
 
 // Quién puede pasar lista: cocinera, admin
-const canRegistrar = requireRol("admin","cocinera");
+const canRegistrar = requireRol("admin","cocinera","orientador");
 // Quién puede imprimir reportes: admin, comité comedor
 function requireComedor(req, res, next){
   const u = req.session.usuario;

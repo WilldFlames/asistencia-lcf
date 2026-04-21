@@ -1417,9 +1417,18 @@ async function iniciarApp(){
     document.getElementById("nav-expediente").style.display="";
     document.getElementById("nav-matricula").style.display="";
   }
-  // Comedor: cocinera siempre, admin siempre, otros verifican en iniciarComedor
-  if(ME.rol==="cocinera"||ME.rol==="admin"){
+  // Comedor: cocinera, admin, orientador (para marcar becados) y comité (para imprimir)
+  // El nav se muestra siempre para cocinera, admin y orientador
+  // Para guía/auxiliar/comité se muestra si están en comedor_comite
+  if(ME.rol==="cocinera"||ME.rol==="admin"||tieneAlgunRol("orientador")){
     document.getElementById("nav-comedor").style.display="";
+  } else {
+    // Para otros roles, verificar si son comité de comedor
+    api("/api/comedor/comite").then(comite=>{
+      if(comite && comite.some(c=>c.usuario_id===ME.id)){
+        document.getElementById("nav-comedor").style.display="";
+      }
+    }).catch(()=>{});
   }
   if(ME.rol==="admin"){
     document.getElementById("sec-admin").style.display="";
@@ -3638,9 +3647,10 @@ async function iniciarComedor(){
   }
   const btnImp = document.getElementById("btn-imprimir-comedor");
   if(btnImp) btnImp.style.display = esComite ? "" : "none";
-  // Registrar: solo cocinera y admin
+  // Registrar: cocinera, admin, orientador
+  const puedeRegistrar = ME.rol==="cocinera" || ME.rol==="admin" || tieneAlgunRol("orientador");
   const btnGuardar = document.getElementById("btn-guardar-comedor");
-  if(btnGuardar) btnGuardar.style.display = (ME.rol==="cocinera"||ME.rol==="admin") ? "" : "none";
+  if(btnGuardar) btnGuardar.style.display = puedeRegistrar ? "" : "none";
   await cargarListaComedor();
 }
 
