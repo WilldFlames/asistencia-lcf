@@ -31,7 +31,7 @@ router.get("/consulta/:cedula", requireAuth, async (req, res) => {
 
 // ── CREAR ─────────────────────────────────────────────────────
 router.post("/", canManage, async (req, res) => {
-  const { cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, seccion_id, subgrupo } = req.body;
+  const { cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, seccion_id, subgrupo, becado } = req.body;
   if (!cedula||!nombre||!primer_apellido||!segundo_apellido)
     return res.status(400).json({ error: "Datos incompletos" });
   try {
@@ -46,10 +46,34 @@ router.post("/", canManage, async (req, res) => {
 
 // ── EDITAR (solo auxiliar/admin) ─────────────────────────────
 router.put("/:id", canManage, async (req, res) => {
-  const { nombre, primer_apellido, segundo_apellido, fecha_nacimiento, subgrupo } = req.body;
-  await pool.query(`UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,fecha_nacimiento=$4,subgrupo=$5 WHERE id=$6`,
-    [nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,subgrupo||null,req.params.id]);
+  const { nombre, primer_apellido, segundo_apellido, fecha_nacimiento, subgrupo, becado } = req.body;
+  const becadoVal = becado !== undefined ? !!becado : null;
+  if(becadoVal !== null){
+    await pool.query(`UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,fecha_nacimiento=$4,subgrupo=$5,becado=$6 WHERE id=$7`,
+      [nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,subgrupo||null,becadoVal,req.params.id]);
+  } else {
+    await pool.query(`UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,fecha_nacimiento=$4,subgrupo=$5 WHERE id=$6`,
+      [nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,subgrupo||null,req.params.id]);
+  }
   res.json({ ok:true });
+});
+
+// ── ACTUALIZAR BECA COMEDOR (orientadores — solo su sección) ─────
+router.put("/:id/becado", require("../middleware/auth").requireRol("admin","auxiliar","orientador"), async (req, res) => {
+  const { becado } = req.body;
+  const u = req.session.usuario;
+  const fx = u.funciones_extra || [];
+  const esOrientador = u.rol === "orientador" || fx.includes("orientador");
+  if(esOrientador && u.rol !== "admin" && u.rol !== "auxiliar"){
+    const secR = await pool.query("SELECT seccion_id FROM estudiantes WHERE id=$1", [req.params.id]);
+    if(!secR.rows.length) return res.status(404).json({ error:"No encontrado" });
+    const oriSec = await pool.query("SELECT seccion_id FROM seccion_orientador WHERE orientador_id=$1", [u.id]);
+    const misSecs = oriSec.rows.map(r=>r.seccion_id);
+    if(!misSecs.includes(secR.rows[0].seccion_id))
+      return res.status(403).json({ error:"Solo podés modificar estudiantes de tu sección asignada" });
+  }
+  await pool.query("UPDATE estudiantes SET becado=$1 WHERE id=$2", [!!becado, req.params.id]);
+  res.json({ ok: true });
 });
 
 // ── CAMBIAR SECCIÓN (solo auxiliar/admin) ────────────────────

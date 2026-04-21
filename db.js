@@ -167,6 +167,22 @@ async function initDB() {
         created_at      TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS comedor_asistencia (
+        id             SERIAL PRIMARY KEY,
+        estudiante_id  INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        fecha          DATE NOT NULL,
+        tipo           TEXT DEFAULT 'regular',  -- becado / regular
+        registrado_por INTEGER REFERENCES usuarios(id),
+        created_at     TIMESTAMP DEFAULT NOW(),
+        UNIQUE(estudiante_id, fecha)
+      );
+
+      CREATE TABLE IF NOT EXISTS comedor_comite (
+        id          SERIAL PRIMARY KEY,
+        usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        created_at  TIMESTAMP DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS expediente_historico (
         id               SERIAL PRIMARY KEY,
         estudiante_id    INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
@@ -218,6 +234,7 @@ async function initDB() {
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS lugar_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS telefono_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS foto_url TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS becado BOOLEAN DEFAULT false`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS num_boleta TEXT DEFAULT ''`);
     // Actualizar UNIQUE de asignaciones para incluir subgrupo
     await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_profesor_id_seccion_id_materia_id_key`);

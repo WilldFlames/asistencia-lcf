@@ -352,6 +352,7 @@ tr:hover td{background:#f8fafc;}
   <div class="sidebar-section" id="sec-admin" style="display:none">Admin</div>
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
+  <button class="nav-btn" data-page="comedor" id="nav-comedor" onclick="goTo('comedor')" style="display:none"><span class="icon">🍽️</span><span>Comedor</span></button>
   <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📈</span><span>Cumplimiento</span></button>
 </nav>
 
@@ -437,7 +438,7 @@ tr:hover td{background:#f8fafc;}
       <input type="text" id="buscar-est" placeholder="Buscar..." oninput="cargarEstudiantes()" style="flex:1;min-width:140px;padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>#</th><th>Cédula</th><th>Apellidos, Nombre</th><th>Sección</th><th>Nacimiento</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Cédula</th><th>Apellidos, Nombre</th><th>Sección</th><th>Beca</th><th>Nacimiento</th><th></th></tr></thead>
       <tbody id="est-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
     </table></div>
   </div>
@@ -720,6 +721,67 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- COMEDOR -->
+<div class="page" id="page-comedor">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <h2 style="margin:0">🍽️ Comedor Escolar</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" id="btn-imprimir-comedor" onclick="imprimirReporteComedor()" style="display:none">🖨️ Imprimir Reporte</button>
+      </div>
+    </div>
+    <div id="alert-comedor" class="alert"></div>
+
+    <!-- Selector de fecha y lista del día -->
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="fg"><label>Fecha</label>
+        <input type="date" id="comedor-fecha" onchange="cargarListaComedor()"/>
+      </div>
+      <button class="btn btn-primary" onclick="cargarListaComedor()">🔄 Cargar Lista</button>
+      <button class="btn btn-success" id="btn-guardar-comedor" onclick="guardarAsistenciaComedor()" style="display:none">💾 Guardar Asistencia</button>
+    </div>
+
+    <!-- Stats del día -->
+    <div id="comedor-stats" style="display:none;margin-bottom:14px;">
+      <div class="stats" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat"><div class="num green" id="cd-becados">0</div><div class="lbl">Becados</div></div>
+        <div class="stat"><div class="num orange" id="cd-regulares">0</div><div class="lbl">No Becados</div></div>
+        <div class="stat"><div class="num" id="cd-total">0</div><div class="lbl">Total Marcados</div></div>
+      </div>
+    </div>
+
+    <!-- Becados -->
+    <div id="comedor-becados-section" style="display:none;margin-bottom:16px;">
+      <div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <span>🎓 Estudiantes Becados</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('becados',true)">✅ Todos</button>
+          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('becados',false)">❌ Ninguno</button>
+        </div>
+      </div>
+      <div id="comedor-lista-becados" class="table-wrap">
+        <table><thead><tr><th>✓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
+        <tbody id="comedor-tbody-becados"></tbody></table>
+      </div>
+    </div>
+
+    <!-- No becados -->
+    <div id="comedor-regulares-section" style="display:none;">
+      <div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <span>👤 Estudiantes No Becados</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('regulares',true)">✅ Todos</button>
+          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('regulares',false)">❌ Ninguno</button>
+        </div>
+      </div>
+      <div id="comedor-lista-regulares" class="table-wrap">
+        <table><thead><tr><th>✓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
+        <tbody id="comedor-tbody-regulares"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- CUMPLIMIENTO -->
 <div class="page" id="page-cumplimiento">
   <div class="card">
@@ -770,6 +832,7 @@ tr:hover td{background:#f8fafc;}
           <option value="profesor">Profesor</option>
           <option value="profesor_guia">Profesor Guía</option>
           <option value="orientador">Orientador</option>
+          <option value="cocinera">Cocinera</option>
           <option value="auxiliar">Auxiliar Administrativo</option>
           <option value="admin">Administrador</option>
         </select>
@@ -828,6 +891,13 @@ tr:hover td{background:#f8fafc;}
           <option value="">Sin subgrupo</option>
           <option value="A">Grupo A</option>
           <option value="B">Grupo B</option>
+        </select>
+      </div>
+      <div class="fg" id="me-becado-wrap" style="display:none;">
+        <label>Estado Comedor <small style="color:var(--muted)">(solo orientadoras)</small></label>
+        <select id="me-becado">
+          <option value="false">No Becado</option>
+          <option value="true">Becado</option>
         </select>
       </div>
       <div class="fg" style="grid-column:1/-1;">
@@ -966,6 +1036,24 @@ tr:hover td{background:#f8fafc;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-responder')">Cerrar</button>
       <button class="btn btn-success" id="btn-resp" onclick="enviarRespuesta()">✔ Enviar Respuesta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Comité Comedor -->
+<div class="modal-overlay" id="modal-comite-comedor">
+  <div class="modal" style="max-width:480px;">
+    <h3>🍽️ Comité de Comedor</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">La persona asignada podrá imprimir los reportes de asistencia al comedor.</p>
+    <div class="fg">
+      <label>Asignar al usuario</label>
+      <select id="comite-usuario"><option value="">— Seleccionar —</option></select>
+    </div>
+    <div id="comite-actual" style="margin-top:10px;font-size:13px;"></div>
+    <div id="alert-comite" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-comite-comedor')">Cerrar</button>
+      <button class="btn btn-primary" onclick="guardarComite()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -1181,8 +1269,8 @@ function detectarPeriodo(fechaStr) {
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
 const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
-const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor"};
-const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof"};
+const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera"};
+const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof",cocinera:"b-orient"};
 
 // ════════════════════════════════════
 //  AUTH
@@ -1262,6 +1350,15 @@ function goTo(page){
   if(page==="estudiantes") {
     cargarEstudiantes();
     poblarSel("filtro-seccion-est",false,"Todas las secciones");
+    // Orientadores: auto-filter to their section
+    if(tieneAlgunRol("orientador") && !tieneAlgunRol("admin","auxiliar")){
+      api("/api/reportes/mis-secciones").then(secs=>{
+        if(secs&&secs.length){
+          document.getElementById("filtro-seccion-est").value=secs[0].id;
+          cargarEstudiantes();
+        }
+      });
+    }
     // Mostrar botón Nuevo solo para admin/auxiliar
     const btnNuevo=document.getElementById("btn-nuevo-est");
     if(btnNuevo) btnNuevo.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
@@ -1280,6 +1377,7 @@ function goTo(page){
   if(page==="conducta")    initConducta();
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
   if(page==="expediente")  document.getElementById("exp-cedula").focus();
+  if(page==="comedor")     iniciarComedor();
   if(page==="matricula")   iniciarPaginaMatricula();
   if(page==="reportes")    initReportes();
   if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
@@ -1318,6 +1416,10 @@ async function iniciarApp(){
   if(tieneAlgunRol("admin","auxiliar")){
     document.getElementById("nav-expediente").style.display="";
     document.getElementById("nav-matricula").style.display="";
+  }
+  // Comedor: cocinera siempre, admin siempre, otros verifican en iniciarComedor
+  if(ME.rol==="cocinera"||ME.rol==="admin"){
+    document.getElementById("nav-comedor").style.display="";
   }
   if(ME.rol==="admin"){
     document.getElementById("sec-admin").style.display="";
@@ -1735,6 +1837,7 @@ async function cargarEstudiantes(){
     <td><code>${e.cedula}</code></td>
     <td>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
     <td>${e.seccion_nombre||"—"}</td>
+    <td>${e.becado?'<span class="badge b-guia">🎓 Becado</span>':''}</td>
     <td>${fmtF(e.fecha_nacimiento)}</td>
     <td style="white-space:nowrap;">
       ${isAux?`<button class="btn btn-outline btn-xs" onclick="editarEstudiante(${e.id})">✏️</button>
@@ -1774,6 +1877,7 @@ async function editarEstudiante(id){
   document.getElementById("me-nac").value=e.fecha_nacimiento?e.fecha_nacimiento.slice(0,10):"";
   document.getElementById("me-seccion").value=e.seccion_id||"";
   document.getElementById("me-subgrupo").value=e.subgrupo||"";
+  if(document.getElementById("me-becado")) document.getElementById("me-becado").value=String(!!e.becado);
   document.getElementById("me-subgrupo-wrap").style.display=e.seccion_id?"":"none";
   document.getElementById("modal-estudiante").classList.add("show");
 }
@@ -1786,12 +1890,19 @@ async function guardarEstudiante(){
   const nac=document.getElementById("me-nac").value;
   const sid=document.getElementById("me-seccion").value||null;
   const subgrupo=document.getElementById("me-subgrupo").value||null;
+  const becado=document.getElementById("me-becado")?.value==="true";
   if(!nombre||!ap1||!ap2){sa("alert-me","Nombre y apellidos son requeridos.","danger");return;}
+  // Orientadores solo pueden actualizar el campo becado de su sección
+  const soloOrientador = tieneAlgunRol("orientador") && !tieneAlgunRol("admin","auxiliar");
   try{
-    if(editIdE) await api(`/api/estudiantes/${editIdE}`,"PUT",{nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,subgrupo});
-    else{
+    if(soloOrientador && editIdE){
+      // Solo actualizan becado
+      await api(`/api/estudiantes/${editIdE}/becado`,"PUT",{becado});
+    } else if(editIdE){
+      await api(`/api/estudiantes/${editIdE}`,"PUT",{nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,subgrupo,becado});
+    } else {
       if(!cedula){sa("alert-me","La cédula es requerida.","danger");return;}
-      await api("/api/estudiantes","POST",{cedula,nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,seccion_id:sid,subgrupo});
+      await api("/api/estudiantes","POST",{cedula,nombre,primer_apellido:ap1,segundo_apellido:ap2,fecha_nacimiento:nac||null,seccion_id:sid,subgrupo,becado});
     }
     // Subir foto si se seleccionó
     const fotoFile = document.getElementById("me-foto-file").files[0];
@@ -1971,6 +2082,7 @@ async function buscarEstudianteConsulta(){
             <div class="consulta-info" style="margin-top:4px;">
               <p><strong>Cédula:</strong> ${d.cedula}</p>
               <p><strong>Sección:</strong> ${d.seccion_nombre||"Sin asignar"}</p>
+              ${d.becado?`<p><strong>Beca Comedor:</strong> <span class="badge b-guia">🎓 Becado</span></p>`:``}
               <p><strong>Fecha de Nacimiento:</strong> ${fmtF(d.fecha_nacimiento)}${d.fecha_nacimiento?` <span style="color:var(--muted);font-size:12px;">(${calcularEdad(d.fecha_nacimiento)})</span>`:""}</p>
             </div>
           </div>
@@ -2681,9 +2793,8 @@ async function imprimirConducta(){
 
   printArea.innerHTML = `
     <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
-      <div style="text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px;">
-        <p style="font-size:13px;margin:2px 0;">${encabezadoMEP("INFORME DE CONDUCTA")}
-        <p style="font-size:12px;color:#555;margin:2px 0;"><strong>${periodo}</strong> · Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}</p>
+${encabezadoMEP("INFORME DE CONDUCTA")}
+      <p style="font-size:12px;color:#555;margin:2px 0;"><strong>${periodo}</strong> · Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}</p>
       </div>
 
       <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;flex-wrap:wrap;gap:8px;">
@@ -2759,9 +2870,7 @@ async function imprimirInformeCompilado(informeId){
 
   printArea.innerHTML = `
     <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
-      <div style="text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px;">
 ${encabezadoMEP("INFORME DE RENDIMIENTO ACADÉMICO — "+periodo)}
-      </div>
 
       <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;flex-wrap:wrap;gap:8px;">
         <div>
@@ -2858,10 +2967,9 @@ async function imprimirListaEstudiantes(){
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
   let html = `
-    <div style="font-family:Arial,sans-serif;padding:20px;max-width:750px;margin:0 auto;">
-      <div style="text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:10px;margin-bottom:16px;">
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
 ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
-      </div>`;
+`;
 
   Object.keys(porSeccion).sort().forEach(sec=>{
     const ests = porSeccion[sec];
@@ -2903,6 +3011,42 @@ ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
   style.innerHTML=`@media print { body > *:not(#print-boleta-area){display:none!important;} #print-boleta-area{display:block!important;} }`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea, document.getElementById("print-style-lista"));
+}
+
+async function abrirGestionComite(){
+  // Load users into selector
+  const profs = allProfesores;
+  const sel = document.getElementById("comite-usuario");
+  sel.innerHTML='<option value="">— Seleccionar —</option>'+
+    (profs||[]).map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]||p.rol})</option>`).join("");
+  // Show current
+  const comite = await api("/api/comedor/comite");
+  const div = document.getElementById("comite-actual");
+  if(comite&&comite.length){
+    div.innerHTML=`<div style="background:#f0fdf4;border-radius:7px;padding:8px 12px;font-size:13px;">Actual: <strong>${comite[0].primer_apellido} ${comite[0].nombre}</strong> <button class="btn btn-danger btn-xs" onclick="eliminarComite(${comite[0].id})">Quitar</button></div>`;
+    sel.value = comite[0].usuario_id;
+  } else {
+    div.innerHTML='<div style="color:var(--muted);font-size:13px;">Sin comité asignado.</div>';
+  }
+  document.getElementById("alert-comite").className="alert";
+  document.getElementById("modal-comite-comedor").classList.add("show");
+}
+
+async function guardarComite(){
+  const uid = document.getElementById("comite-usuario").value;
+  if(!uid){sa("alert-comite","Seleccioná un usuario.","danger");return;}
+  try{
+    await api("/api/comedor/comite","POST",{usuario_id:+uid});
+    cerrarModal("modal-comite-comedor");
+    sa("alert-cumplimiento","✅ Comité de comedor asignado.","success");
+    // Update nav if current user is now comite
+    if(+uid===ME.id) document.getElementById("nav-comedor").style.display="";
+  }catch(e){sa("alert-comite",e.message,"danger");}
+}
+
+async function eliminarComite(id){
+  await api(`/api/comedor/comite/${id}`,"DELETE");
+  abrirGestionComite();
 }
 
 // ════════════════════════════════════
@@ -3472,6 +3616,166 @@ async function subirFoto(estId){
 }
 
 // ════════════════════════════════════
+//  COMEDOR
+// ════════════════════════════════════
+let comedorData = [];
+let esComite = false;
+
+async function iniciarComedor(){
+  const hoy = new Date().toISOString().slice(0,10);
+  document.getElementById("comedor-fecha").value = hoy;
+  document.getElementById("comedor-fecha").max = hoy;
+  // Verificar si es comité de comedor (puede imprimir)
+  const puedeImprimir = ME.rol==="admin" || ME.rol==="cocinera";
+  if(!puedeImprimir){
+    // Check comite
+    try{
+      const comite = await api("/api/comedor/comite");
+      esComite = comite.some(c=>c.usuario_id===ME.id);
+    }catch{}
+  } else {
+    esComite = true;
+  }
+  const btnImp = document.getElementById("btn-imprimir-comedor");
+  if(btnImp) btnImp.style.display = esComite ? "" : "none";
+  // Registrar: solo cocinera y admin
+  const btnGuardar = document.getElementById("btn-guardar-comedor");
+  if(btnGuardar) btnGuardar.style.display = (ME.rol==="cocinera"||ME.rol==="admin") ? "" : "none";
+  await cargarListaComedor();
+}
+
+async function cargarListaComedor(){
+  const fecha = document.getElementById("comedor-fecha").value;
+  if(!fecha) return;
+  comedorData = await api(`/api/comedor/estudiantes?fecha=${fecha}`);
+  if(!comedorData) return;
+
+  const becados = comedorData.filter(e=>e.becado);
+  const regulares = comedorData.filter(e=>!e.becado);
+  const marcados = comedorData.filter(e=>e.asistencia_id);
+
+  // Show sections
+  document.getElementById("comedor-becados-section").style.display = becados.length?"":"none";
+  document.getElementById("comedor-regulares-section").style.display = regulares.length?"":"none";
+  document.getElementById("comedor-stats").style.display = "";
+
+  // Render becados
+  document.getElementById("comedor-tbody-becados").innerHTML = becados.map((e,i)=>`
+    <tr>
+      <td><input type="checkbox" id="cd-${e.id}" ${e.asistencia_id?'checked':''} onchange="actualizarStatsComedor()"/></td>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong></td>
+      <td>${e.cedula}</td>
+      <td>${e.seccion_nombre||"—"}</td>
+    </tr>`).join("");
+
+  // Render regulares
+  document.getElementById("comedor-tbody-regulares").innerHTML = regulares.map((e,i)=>`
+    <tr>
+      <td><input type="checkbox" id="cd-${e.id}" ${e.asistencia_id?'checked':''} onchange="actualizarStatsComedor()"/></td>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+      <td>${e.cedula}</td>
+      <td>${e.seccion_nombre||"—"}</td>
+    </tr>`).join("");
+
+  actualizarStatsComedor();
+}
+
+function actualizarStatsComedor(){
+  const marcados = comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked);
+  const becados = marcados.filter(e=>e.becado).length;
+  const regulares = marcados.filter(e=>!e.becado).length;
+  document.getElementById("cd-becados").textContent = becados;
+  document.getElementById("cd-regulares").textContent = regulares;
+  document.getElementById("cd-total").textContent = marcados.length;
+}
+
+function marcarTodosComedor(tipo, marcar){
+  const lista = tipo==="becados"
+    ? comedorData.filter(e=>e.becado)
+    : comedorData.filter(e=>!e.becado);
+  lista.forEach(e=>{
+    const cb = document.getElementById(`cd-${e.id}`);
+    if(cb) cb.checked = marcar;
+  });
+  actualizarStatsComedor();
+}
+
+async function guardarAsistenciaComedor(){
+  const fecha = document.getElementById("comedor-fecha").value;
+  const ids = comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
+  try{
+    const r = await api("/api/comedor/asistencia","POST",{fecha, estudiante_ids: ids});
+    sa("alert-comedor",`✅ Asistencia guardada — ${r.registrados} estudiantes registrados para ${fecha}.`,"success");
+    await cargarListaComedor();
+  }catch(e){ sa("alert-comedor",e.message,"danger"); }
+}
+
+async function imprimirReporteComedor(){
+  const fecha = document.getElementById("comedor-fecha").value;
+  const data = await api(`/api/comedor/asistencia/${fecha}`);
+  if(!data||!data.length){ sa("alert-comedor","No hay asistencia registrada para esta fecha.","danger"); return; }
+
+  const becados = data.filter(e=>e.becado);
+  const regulares = data.filter(e=>!e.becado);
+  const periodo = detectarPeriodo(fecha);
+
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+
+  const fila = (e,i) => `<tr style="background:${i%2===0?'#fff':'#f9fafb'};">
+    <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">${i+1}</td>
+    <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+    <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">${e.seccion_nombre||"—"}</td>
+    <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;"></td>
+  </tr>`;
+
+  const tabla = (lista, titulo, color) => lista.length ? `
+    <div style="margin-bottom:20px;page-break-inside:avoid;">
+      <div style="background:${color};color:#fff;padding:6px 12px;font-weight:bold;font-size:12px;border-radius:4px 4px 0 0;">
+        ${titulo} — ${lista.length} estudiantes
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:#f1f5f9;">
+          <th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">#</th>
+          <th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th>
+          <th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Sección</th>
+          <th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Firma / V°B°</th>
+        </tr></thead>
+        <tbody>${lista.map(fila).join("")}</tbody>
+      </table>
+    </div>` : "";
+
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+      ${encabezadoMEP("ASISTENCIA DIARIA COMEDOR ESCOLAR")}
+      <div style="font-size:13px;margin-bottom:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div><strong>Fecha:</strong> ${fmtF(fecha)} &nbsp;&nbsp; <strong>Período:</strong> ${periodo}</div>
+        <div><strong>Becados:</strong> ${becados.length} &nbsp;&nbsp; <strong>No Becados:</strong> ${regulares.length} &nbsp;&nbsp; <strong>Total:</strong> ${data.length}</div>
+      </div>
+      ${tabla(becados, "🎓 BECADOS", "#1a3a5c")}
+      ${tabla(regulares, "👤 NO BECADOS", "#374151")}
+      <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:40px;">
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma del Comité de Nutrición
+        </div>
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+          Firma de la Dirección
+        </div>
+      </div>
+      ${piePaginaMEP()}
+    </div>`;
+
+  const style = document.createElement("style");
+  style.id = "print-style-comedor";
+  style.innerHTML = `@media print { body > *:not(#print-boleta-area){display:none!important;} #print-boleta-area{display:block!important;} }`;
+  document.head.appendChild(style);
+  await imprimirConEncabezado(printArea, style);
+}
+
+// ════════════════════════════════════
 //  CUMPLIMIENTO (solo admin)
 // ════════════════════════════════════
 async function cargarCumplimiento(){
@@ -3548,9 +3852,7 @@ async function imprimirInformeSeccionConducta(){
 
   printArea.innerHTML = `
     <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
-      <div style="text-align:center;border-bottom:2px solid #1a3a5c;padding-bottom:12px;margin-bottom:16px;">
 ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+( sec?.nombre||""))}
-      </div>
       <div style="font-size:13px;margin-bottom:14px;">
         <strong>Profesor Guía:</strong> ${guia} &nbsp;&nbsp;
         <strong>Generado:</strong> ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
