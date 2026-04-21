@@ -727,86 +727,120 @@ tr:hover td{background:#f8fafc;}
 <!-- COMEDOR -->
 <div class="page" id="page-comedor">
 
-  <!-- ESCANEO + STATS -->
-  <div class="card" id="comedor-scan-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
-      <h2 style="margin:0">🍽️ Comedor Escolar</h2>
-      <button class="btn btn-outline btn-sm" id="btn-imprimir-comedor" onclick="imprimirReporteComedor()" style="display:none">🖨️ Imprimir Reporte</button>
-    </div>
-    <div id="alert-comedor" class="alert"></div>
-
-    <!-- Escaneo de cédula -->
-    <div id="comedor-scan-area" style="text-align:center;padding:16px 0 8px;">
-      <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Escaneá o escribí la cédula del estudiante y presioná Enter</p>
-      <div style="display:flex;gap:10px;justify-content:center;max-width:440px;margin:0 auto 16px;">
-        <input type="text" id="comedor-scan-input" placeholder="Cédula / código de barras"
-          style="flex:1;padding:14px 18px;font-size:18px;font-weight:bold;border:3px solid var(--azul);border-radius:var(--r);text-align:center;letter-spacing:2px;"
-          autocomplete="off"
-          onkeydown="if(event.key==='Enter') escanearComedor()"/>
-        <button class="btn btn-primary" style="padding:14px 18px;font-size:18px;" onclick="escanearComedor()">✔</button>
+  <!-- VISTA COCINERA/ADMIN: escaneo + stats (sin lista) -->
+  <div id="comedor-vista-escaneo" style="display:none;">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        <h2 style="margin:0">🍽️ Comedor Escolar</h2>
+        <div style="display:flex;gap:8px;">
+          <input type="date" id="comedor-fecha-scan" onchange="cargarStatsComedor()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
+        </div>
       </div>
-      <!-- Resultado del escaneo -->
-      <div id="comedor-scan-result" style="display:none;max-width:440px;margin:0 auto 12px;border-radius:var(--r);padding:16px 20px;text-align:left;animation:fadeIn .2s;">
-        <div style="font-size:22px;font-weight:bold;" id="csr-nombre"></div>
-        <div style="font-size:13px;color:var(--muted);margin-top:2px;" id="csr-cedula"></div>
-        <div style="margin-top:6px;" id="csr-tipo"></div>
-        <div style="font-size:13px;margin-top:4px;" id="csr-msg"></div>
-      </div>
-    </div>
+      <div id="alert-comedor" class="alert"></div>
 
-    <!-- Stats del día -->
-    <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:0;" id="comedor-stats">
-      <div class="stat"><div class="num green" id="cd-hoy">0</div><div class="lbl">Comieron hoy</div></div>
-      <div class="stat"><div class="num orange" id="cd-becados">0</div><div class="lbl">Becados</div></div>
-      <div class="stat"><div class="num" id="cd-regulares">0</div><div class="lbl">No Becados</div></div>
-      <div class="stat"><div class="num" id="cd-total-reg">—</div><div class="lbl">Registrados</div></div>
+      <!-- Input escaneo -->
+      <div style="text-align:center;padding:20px 0 12px;">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Escaneá o escribí la cédula del estudiante y presioná Enter</p>
+        <div style="display:flex;gap:10px;justify-content:center;max-width:440px;margin:0 auto 16px;">
+          <input type="text" id="comedor-scan-input" placeholder="Cédula / código de barras"
+            style="flex:1;padding:14px 18px;font-size:20px;font-weight:bold;border:3px solid var(--azul);border-radius:var(--r);text-align:center;letter-spacing:2px;"
+            autocomplete="off"
+            onkeydown="if(event.key==='Enter') escanearComedor()"/>
+          <button class="btn btn-primary" style="padding:14px 18px;font-size:20px;" onclick="escanearComedor()">✔</button>
+        </div>
+        <!-- Resultado -->
+        <div id="comedor-scan-result" style="display:none;max-width:440px;margin:0 auto 12px;border-radius:var(--r);padding:16px 20px;text-align:left;">
+          <div style="font-size:22px;font-weight:bold;" id="csr-nombre"></div>
+          <div style="font-size:13px;color:var(--muted);margin-top:2px;" id="csr-cedula"></div>
+          <div style="margin-top:6px;" id="csr-tipo"></div>
+          <div style="font-size:13px;margin-top:4px;" id="csr-msg"></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-top:8px;">
+        <div class="stat"><div class="num green" id="cd-hoy">0</div><div class="lbl">Comieron hoy</div></div>
+        <div class="stat"><div class="num orange" id="cd-becados">0</div><div class="lbl">Becados</div></div>
+        <div class="stat"><div class="num" id="cd-regulares">0</div><div class="lbl">No Becados</div></div>
+        <div class="stat"><div class="num" id="cd-total-reg">—</div><div class="lbl">Total registrados</div></div>
+      </div>
     </div>
   </div>
 
-  <!-- LISTA MANUAL (para orientadores y vista completa) -->
-  <div class="card" id="comedor-lista-card" style="margin-top:14px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-      <h3 style="margin:0;font-size:14px;color:var(--azul);">📋 Lista del Día</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-        <div class="fg" style="margin:0;">
+  <!-- VISTA COMITÉ: solo reporte + imprimir -->
+  <div id="comedor-vista-reporte" style="display:none;">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+        <h2 style="margin:0">🍽️ Reporte de Comedor</h2>
+        <button class="btn btn-success" onclick="imprimirReporteComedor()">🖨️ Imprimir Reporte</button>
+      </div>
+      <div id="alert-comedor-rep" class="alert"></div>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+        <div class="fg"><label>Fecha</label>
+          <input type="date" id="comedor-fecha-rep" onchange="cargarResumenComedor()"/>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="cargarResumenComedor()">🔍 Ver</button>
+      </div>
+      <!-- Stats del día seleccionado -->
+      <div id="comedor-rep-stats" style="display:none;margin-bottom:16px;">
+        <div class="stats" style="grid-template-columns:repeat(3,1fr);">
+          <div class="stat"><div class="num green" id="rep-total">0</div><div class="lbl">Total comieron</div></div>
+          <div class="stat"><div class="num orange" id="rep-becados">0</div><div class="lbl">Becados</div></div>
+          <div class="stat"><div class="num" id="rep-regulares">0</div><div class="lbl">No Becados</div></div>
+        </div>
+      </div>
+      <div id="comedor-rep-vacio" style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Seleccioná una fecha para ver el reporte.</div>
+    </div>
+  </div>
+
+  <!-- VISTA ORIENTADOR: lista con checkboxes de su sección -->
+  <div id="comedor-vista-lista" style="display:none;">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <h2 style="margin:0">🍽️ Comedor — Mi Sección</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <input type="date" id="comedor-fecha" onchange="cargarListaComedor()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
-        </div>
-        <button class="btn btn-outline btn-sm" onclick="cargarListaComedor()">🔄</button>
-        <button class="btn btn-success btn-sm" id="btn-guardar-comedor" onclick="guardarAsistenciaComedor()" style="display:none">💾 Guardar Lista</button>
-      </div>
-    </div>
-
-    <!-- Becados -->
-    <div id="comedor-becados-section" style="display:none;margin-bottom:16px;">
-      <div style="font-weight:bold;font-size:12px;color:var(--azul);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-        <span>🎓 Becados</span>
-        <div style="display:flex;gap:5px;">
-          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('becados',true)">✅ Todos</button>
-          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('becados',false)">❌ Ninguno</button>
+          <button class="btn btn-success btn-sm" id="btn-guardar-comedor" onclick="guardarAsistenciaComedor()">💾 Guardar</button>
         </div>
       </div>
-      <div class="table-wrap">
-        <table style="font-size:12px;"><thead><tr><th>✓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
-        <tbody id="comedor-tbody-becados"></tbody></table>
-      </div>
-    </div>
+      <div id="alert-comedor" class="alert"></div>
 
-    <!-- No becados -->
-    <div id="comedor-regulares-section" style="display:none;">
-      <div style="font-weight:bold;font-size:12px;color:var(--azul);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-        <span>👤 No Becados</span>
-        <div style="display:flex;gap:5px;">
-          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('regulares',true)">✅ Todos</button>
-          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('regulares',false)">❌ Ninguno</button>
+      <!-- Stats -->
+      <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px;" id="comedor-stats">
+        <div class="stat"><div class="num orange" id="cd-becados">0</div><div class="lbl">Becados marcados</div></div>
+        <div class="stat"><div class="num" id="cd-regulares">0</div><div class="lbl">No Becados marcados</div></div>
+        <div class="stat"><div class="num green" id="cd-hoy">0</div><div class="lbl">Total marcados</div></div>
+      </div>
+
+      <!-- Becados -->
+      <div id="comedor-becados-section" style="display:none;margin-bottom:16px;">
+        <div style="font-weight:bold;font-size:12px;color:var(--azul);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>🎓 Becados</span>
+          <div style="display:flex;gap:5px;">
+            <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('becados',true)">✅ Todos</button>
+            <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('becados',false)">❌ Ninguno</button>
+          </div>
         </div>
+        <div class="table-wrap"><table style="font-size:12px;">
+          <thead><tr><th>✓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
+          <tbody id="comedor-tbody-becados"></tbody></table></div>
       </div>
-      <div class="table-wrap">
-        <table style="font-size:12px;"><thead><tr><th>✓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
-        <tbody id="comedor-tbody-regulares"></tbody></table>
-      </div>
-    </div>
 
-    <div id="comedor-lista-empty" style="text-align:center;padding:24px;color:var(--muted);font-size:13px;display:none;">Cargando lista...</div>
+      <!-- No becados -->
+      <div id="comedor-regulares-section" style="display:none;">
+        <div style="font-weight:bold;font-size:12px;color:var(--azul);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>👤 No Becados</span>
+          <div style="display:flex;gap:5px;">
+            <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('regulares',true)">✅ Todos</button>
+            <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('regulares',false)">❌ Ninguno</button>
+          </div>
+        </div>
+        <div class="table-wrap"><table style="font-size:12px;">
+          <thead><tr><th>✓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
+          <tbody id="comedor-tbody-regulares"></tbody></table></div>
+      </div>
+      <div id="comedor-lista-empty" style="text-align:center;padding:24px;color:var(--muted);font-size:13px;display:none;">Cargando lista...</div>
+    </div>
   </div>
 
 </div>
@@ -3666,21 +3700,32 @@ let scanClearTimeout = null;
 
 async function iniciarComedor(){
   const hoy = new Date().toISOString().slice(0,10);
-  document.getElementById("comedor-fecha").value = hoy;
-  document.getElementById("comedor-fecha").max = hoy;
-  const puedeImprimir = ME.rol==="admin"||ME.rol==="cocinera";
-  if(!puedeImprimir){
-    try{ const c=await api("/api/comedor/comite"); esComite=c.some(x=>x.usuario_id===ME.id); }catch{ esComite=false; }
-  } else { esComite=true; }
-  const btnImp=document.getElementById("btn-imprimir-comedor");
-  if(btnImp) btnImp.style.display=esComite?"":"none";
-  const puedeRegistrar=ME.rol==="cocinera"||ME.rol==="admin"||tieneAlgunRol("orientador");
-  const btnG=document.getElementById("btn-guardar-comedor");
-  if(btnG) btnG.style.display=puedeRegistrar?"":"none";
-  const scanArea=document.getElementById("comedor-scan-area");
-  if(scanArea) scanArea.style.display=(ME.rol==="cocinera"||ME.rol==="admin")?"":"none";
-  // Orientadores: selector de sección
-  if(tieneAlgunRol("orientador")&&!tieneAlgunRol("admin","auxiliar")){
+
+  // Determinar qué vista mostrar según el rol
+  // Cocinera/Admin → vista escaneo
+  // Comité (no cocinera/admin/orientador) → vista reporte
+  // Orientador → vista lista con checkboxes de su sección
+
+  const vistaEsc  = document.getElementById("comedor-vista-escaneo");
+  const vistaRep  = document.getElementById("comedor-vista-reporte");
+  const vistaList = document.getElementById("comedor-vista-lista");
+  // Ocultar todas primero
+  [vistaEsc,vistaRep,vistaList].forEach(v=>{if(v)v.style.display="none";});
+
+  if(ME.rol==="cocinera"||ME.rol==="admin"){
+    // Vista escaneo
+    if(vistaEsc) vistaEsc.style.display="";
+    document.getElementById("comedor-fecha-scan").value=hoy;
+    document.getElementById("comedor-fecha-scan").max=hoy;
+    await cargarStatsComedor();
+    setTimeout(()=>document.getElementById("comedor-scan-input")?.focus(),200);
+
+  } else if(tieneAlgunRol("orientador")){
+    // Vista lista (orientador - su sección)
+    if(vistaList) vistaList.style.display="";
+    document.getElementById("comedor-fecha").value=hoy;
+    document.getElementById("comedor-fecha").max=hoy;
+    // Agregar selector de sección si no existe
     try{
       const misSecs=await api("/api/reportes/mis-secciones");
       if(misSecs&&misSecs.length&&!document.getElementById("comedor-seccion-ori")){
@@ -3690,17 +3735,32 @@ async function iniciarComedor(){
           <option value="">Todas mis secciones</option>
           ${misSecs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("")}
         </select>`;
-        const fechaInput=document.getElementById("comedor-fecha");
-        if(fechaInput&&fechaInput.parentElement) fechaInput.parentElement.appendChild(div);
+        const dateInput=document.getElementById("comedor-fecha");
+        if(dateInput) dateInput.insertAdjacentElement("afterend",div);
       }
     }catch{}
+    await cargarListaComedor();
+
+  } else {
+    // Verificar si es comité
+    try{
+      const comite=await api("/api/comedor/comite");
+      esComite=comite.some(c=>c.usuario_id===ME.id);
+    }catch{ esComite=false; }
+
+    if(esComite){
+      // Vista reporte (solo ver e imprimir)
+      if(vistaRep) vistaRep.style.display="";
+      document.getElementById("comedor-fecha-rep").value=hoy;
+      document.getElementById("comedor-fecha-rep").max=hoy;
+      await cargarResumenComedor();
+    }
   }
-  await Promise.all([cargarStatsComedor(), cargarListaComedor()]);
-  if(ME.rol==="cocinera"||ME.rol==="admin") setTimeout(()=>document.getElementById("comedor-scan-input")?.focus(),200);
 }
 
 async function cargarStatsComedor(){
-  const fecha=document.getElementById("comedor-fecha").value||new Date().toISOString().slice(0,10);
+  const fecha=(document.getElementById("comedor-fecha-scan")||document.getElementById("comedor-fecha"))?.value
+    ||new Date().toISOString().slice(0,10);
   try{
     const data=await api(`/api/comedor/asistencia/${fecha}`);
     document.getElementById("cd-hoy").textContent=data.length;
@@ -3709,14 +3769,35 @@ async function cargarStatsComedor(){
   }catch{}
   try{
     const tots=await api("/api/comedor/estudiantes?fecha="+fecha);
-    document.getElementById("cd-total-reg").textContent=tots?.length||"—";
+    const el=document.getElementById("cd-total-reg");
+    if(el) el.textContent=tots?.length||"—";
+  }catch{}
+}
+
+async function cargarResumenComedor(){
+  const fecha=document.getElementById("comedor-fecha-rep").value;
+  if(!fecha)return;
+  try{
+    const data=await api(`/api/comedor/asistencia/${fecha}`);
+    const statsDiv=document.getElementById("comedor-rep-stats");
+    const vacioDiv=document.getElementById("comedor-rep-vacio");
+    if(data&&data.length){
+      document.getElementById("rep-total").textContent=data.length;
+      document.getElementById("rep-becados").textContent=data.filter(e=>e.becado).length;
+      document.getElementById("rep-regulares").textContent=data.filter(e=>!e.becado).length;
+      statsDiv.style.display="";
+      vacioDiv.style.display="none";
+    } else {
+      statsDiv.style.display="none";
+      vacioDiv.style.display="";
+      vacioDiv.textContent="No hay registros para el "+new Date(fecha+"T12:00:00").toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"});
+    }
   }catch{}
 }
 
 async function escanearComedor(){
   const input=document.getElementById("comedor-scan-input");
-  const cedula=(input?.value||"").trim();
-  if(!cedula)return;
+  const cedula=(input?.value||"").trim(); if(!cedula)return;
   const result=document.getElementById("comedor-scan-result");
   try{
     const d=await api("/api/comedor/escaneo","POST",{cedula});
@@ -3730,7 +3811,7 @@ async function escanearComedor(){
       ?`<span style="color:var(--verde);font-weight:bold;">✔ Registrado a las ${d.hora}</span>`
       :`<span style="color:var(--naranja);font-weight:bold;">⚠️ Ya registrado (${d.hora})</span>`;
     result.style.cssText=`display:block;background:${d.nuevo?"#dcfce7":"#fef9c3"};border:2px solid ${d.nuevo?"#86efac":"#fde047"};border-radius:var(--r);padding:16px;max-width:440px;margin:0 auto 12px;`;
-    await cargarStatsComedor(); await cargarListaComedor();
+    await cargarStatsComedor();
   }catch(err){
     document.getElementById("csr-nombre").textContent="Estudiante no encontrado";
     document.getElementById("csr-cedula").textContent=`Cédula: ${cedula}`;
@@ -3740,11 +3821,11 @@ async function escanearComedor(){
   }
   input.value=""; input.focus();
   if(scanClearTimeout) clearTimeout(scanClearTimeout);
-  scanClearTimeout=setTimeout(()=>{result.style.display="none";},5000);
+  scanClearTimeout=setTimeout(()=>{if(result)result.style.display="none";},5000);
 }
 
 async function cargarListaComedor(){
-  const fecha=document.getElementById("comedor-fecha").value; if(!fecha)return;
+  const fecha=document.getElementById("comedor-fecha")?.value; if(!fecha)return;
   const secId=document.getElementById("comedor-seccion-ori")?.value||"";
   const url=secId?`/api/comedor/estudiantes?fecha=${fecha}&seccion_id=${secId}`:`/api/comedor/estudiantes?fecha=${fecha}`;
   comedorData=await api(url); if(!comedorData)return;
@@ -3752,7 +3833,8 @@ async function cargarListaComedor(){
   const regulares=comedorData.filter(e=>!e.becado);
   document.getElementById("comedor-becados-section").style.display=becados.length?"":"none";
   document.getElementById("comedor-regulares-section").style.display=regulares.length?"":"none";
-  document.getElementById("comedor-lista-empty").style.display=(becados.length||regulares.length)?"none":"";
+  const vacio=document.getElementById("comedor-lista-empty");
+  if(vacio) vacio.style.display=(becados.length||regulares.length)?"none":"";
   const row=(e,i)=>`<tr>
     <td><input type="checkbox" id="cd-${e.id}" ${e.asistencia_id?"checked":""} onchange="actualizarStatsComedor()"/></td>
     <td style="color:var(--muted)">${i+1}</td>
@@ -3764,10 +3846,12 @@ async function cargarListaComedor(){
 }
 
 function actualizarStatsComedor(){
+  if(!comedorData)return;
   const m=comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked);
-  document.getElementById("cd-hoy").textContent=m.length;
-  document.getElementById("cd-becados").textContent=m.filter(e=>e.becado).length;
-  document.getElementById("cd-regulares").textContent=m.filter(e=>!e.becado).length;
+  const hoyEl=document.getElementById("cd-hoy");const bEl=document.getElementById("cd-becados");const rEl=document.getElementById("cd-regulares");
+  if(hoyEl) hoyEl.textContent=m.length;
+  if(bEl) bEl.textContent=m.filter(e=>e.becado).length;
+  if(rEl) rEl.textContent=m.filter(e=>!e.becado).length;
 }
 
 function marcarTodosComedor(tipo,marcar){
@@ -3777,19 +3861,21 @@ function marcarTodosComedor(tipo,marcar){
 }
 
 async function guardarAsistenciaComedor(){
-  const fecha=document.getElementById("comedor-fecha").value;
+  const fecha=document.getElementById("comedor-fecha")?.value;
   const ids=comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
   try{
     const r=await api("/api/comedor/asistencia","POST",{fecha,estudiante_ids:ids});
     sa("alert-comedor",`✅ Asistencia guardada — ${r.registrados} estudiantes.`,"success");
-    await cargarStatsComedor(); await cargarListaComedor();
+    await cargarListaComedor();
   }catch(e){sa("alert-comedor",e.message,"danger");}
 }
 
 async function imprimirReporteComedor(){
-  const fecha=document.getElementById("comedor-fecha").value;
+  const fecha=(document.getElementById("comedor-fecha-rep")||document.getElementById("comedor-fecha-scan"))?.value
+    ||new Date().toISOString().slice(0,10);
+  const alertEl=document.getElementById("alert-comedor-rep")||document.getElementById("alert-comedor");
   const data=await api(`/api/comedor/asistencia/${fecha}`);
-  if(!data||!data.length){sa("alert-comedor","No hay asistencia registrada para esta fecha.","danger");return;}
+  if(!data||!data.length){if(alertEl)sa(alertEl.id,"No hay asistencia registrada para esta fecha.","danger");return;}
   const becados=data.filter(e=>e.becado);
   const regulares=data.filter(e=>!e.becado);
   const periodo=detectarPeriodo(fecha);
