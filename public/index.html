@@ -411,7 +411,10 @@ tr:hover td{background:#f8fafc;}
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-      <h2 style="margin:0">📋 Asignaciones Docentes</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <h2 style="margin:0">📋 Asignaciones Docentes</h2>
+        <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Comité Comedor</button>
+      </div>
       <button class="btn btn-primary" onclick="abrirModalAsignacion()">+ Nueva</button>
     </div>
     <div id="alert-asig" class="alert"></div>
