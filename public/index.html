@@ -767,21 +767,36 @@ tr:hover td{background:#f8fafc;}
     </div>
   </div>
 
-  <!-- VISTA COMITÉ: solo reporte + imprimir -->
+  <!-- VISTA COMITÉ: reporte diario estilo sistema viejo -->
   <div id="comedor-vista-reporte" style="display:none;">
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-        <h2 style="margin:0">🍽️ Reporte de Comedor</h2>
-        <button class="btn btn-success" onclick="imprimirReporteComedor()">🖨️ Imprimir Reporte</button>
-      </div>
+      <h2 style="margin-bottom:14px;">📋 Reporte Diario</h2>
       <div id="alert-comedor-rep" class="alert"></div>
-      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
-        <div class="fg"><label>Fecha</label>
+
+      <!-- Selector fecha + botones -->
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+        <div class="fg">
+          <label>Seleccionar fecha</label>
           <input type="date" id="comedor-fecha-rep" onchange="cargarResumenComedor()"/>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="cargarResumenComedor()">🔍 Ver</button>
+        <button class="btn btn-primary" onclick="cargarResumenComedor()">🔍 Ver Reporte</button>
+        <button class="btn btn-success" onclick="imprimirReporteComedor()">🖨️ Imprimir</button>
       </div>
-      <!-- Stats del día seleccionado -->
+
+      <!-- Menú del Día -->
+      <div style="border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;background:#f8fafc;">
+        <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;">
+          🍽️ Menú del Día
+          <span style="font-weight:normal;color:var(--muted);font-size:12px;"> — completá los campos y se imprimen en la boleta</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+          <div class="fg"><label>Plato</label><input type="text" id="menu-plato" placeholder="Ej: Arroz con pollo..."/></div>
+          <div class="fg"><label>Ensalada</label><input type="text" id="menu-ensalada" placeholder="Ej: Ensalada verde..."/></div>
+          <div class="fg"><label>Fruta</label><input type="text" id="menu-fruta" placeholder="Ej: Papaya..."/></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
       <div id="comedor-rep-stats" style="display:none;margin-bottom:16px;">
         <div class="stats" style="grid-template-columns:repeat(3,1fr);">
           <div class="stat"><div class="num green" id="rep-total">0</div><div class="lbl">Total comieron</div></div>
@@ -789,6 +804,9 @@ tr:hover td{background:#f8fafc;}
           <div class="stat"><div class="num" id="rep-regulares">0</div><div class="lbl">No Becados</div></div>
         </div>
       </div>
+
+      <!-- Tabla de registros -->
+      <div id="comedor-rep-tabla"></div>
       <div id="comedor-rep-vacio" style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Seleccioná una fecha para ver el reporte.</div>
     </div>
   </div>
@@ -3777,22 +3795,39 @@ async function cargarStatsComedor(){
 async function cargarResumenComedor(){
   const fecha=document.getElementById("comedor-fecha-rep").value;
   if(!fecha)return;
+  const fechaLeg=new Date(fecha+"T12:00:00").toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"});
   try{
     const data=await api(`/api/comedor/asistencia/${fecha}`);
     const statsDiv=document.getElementById("comedor-rep-stats");
     const vacioDiv=document.getElementById("comedor-rep-vacio");
+    const tablaDiv=document.getElementById("comedor-rep-tabla");
     if(data&&data.length){
       document.getElementById("rep-total").textContent=data.length;
       document.getElementById("rep-becados").textContent=data.filter(e=>e.becado).length;
       document.getElementById("rep-regulares").textContent=data.filter(e=>!e.becado).length;
       statsDiv.style.display="";
       vacioDiv.style.display="none";
+      // Tabla de registros igual al sistema viejo
+      tablaDiv.innerHTML=`<div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Cédula</th><th>Apellidos, Nombre</th><th>Sección</th><th>Tipo</th></tr></thead>
+        <tbody>${data.map((r,i)=>`<tr>
+          <td style="color:var(--muted)">${i+1}</td>
+          <td><code>${r.cedula}</code></td>
+          <td>${r.primer_apellido} ${r.segundo_apellido}, ${r.nombre}</td>
+          <td>${r.seccion_nombre||"—"}</td>
+          <td>${r.becado
+            ?'<span class="badge b-guia">🎓 Becado</span>'
+            :'<span class="badge" style="background:#f3f4f6;color:#374151;">👤 No Becado</span>'
+          }</td>
+        </tr>`).join("")}</tbody>
+      </table></div>`;
     } else {
       statsDiv.style.display="none";
+      tablaDiv.innerHTML="";
       vacioDiv.style.display="";
-      vacioDiv.textContent="No hay registros para el "+new Date(fecha+"T12:00:00").toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"});
+      vacioDiv.textContent=`No hay registros para el ${fechaLeg}`;
     }
-  }catch{}
+  }catch(err){ console.error(err); }
 }
 
 async function escanearComedor(){
@@ -3901,6 +3936,21 @@ async function imprimirReporteComedor(){
         <tbody>${lista.map(fila).join("")}</tbody>
       </table>
     </div>`:"";
+  const menuPlato   = document.getElementById("menu-plato")?.value.trim()    || "___________________________";
+  const menuEnsalada= document.getElementById("menu-ensalada")?.value.trim() || "___________________________";
+  const menuFruta   = document.getElementById("menu-fruta")?.value.trim()    || "___________________________";
+  const menuHTML = `
+    <div style="border:1px solid #000;margin-bottom:16px;">
+      <div style="background:#f0f0f0;padding:5px 10px;font-weight:bold;font-size:12px;border-bottom:1px solid #000;">MENÚ DEL DÍA</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <tr>
+          <td style="padding:7px 12px;border-right:1px solid #ccc;width:33%;"><strong>Plato:</strong><br/>${menuPlato}</td>
+          <td style="padding:7px 12px;border-right:1px solid #ccc;width:33%;"><strong>Ensalada:</strong><br/>${menuEnsalada}</td>
+          <td style="padding:7px 12px;width:33%;"><strong>Fruta:</strong><br/>${menuFruta}</td>
+        </tr>
+      </table>
+    </div>`;
+
   printArea.innerHTML=`
     <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
       ${encabezadoMEP("ASISTENCIA DIARIA COMEDOR ESCOLAR")}
@@ -3908,6 +3958,7 @@ async function imprimirReporteComedor(){
         <div><strong>Fecha:</strong> ${fechaLeg} &nbsp;·&nbsp; <strong>Período:</strong> ${periodo}</div>
         <div><strong>Becados:</strong> ${becados.length} &nbsp;·&nbsp; <strong>No Becados:</strong> ${regulares.length} &nbsp;·&nbsp; <strong>Total:</strong> ${data.length}</div>
       </div>
+      ${menuHTML}
       ${tabla(becados,"🎓 BECADOS","#1a3a5c")}
       ${tabla(regulares,"👤 NO BECADOS","#374151")}
       <div style="border:2px solid #1a3a5c;padding:8px 14px;display:flex;gap:30px;font-size:13px;font-weight:bold;margin-bottom:20px;border-radius:4px;">
