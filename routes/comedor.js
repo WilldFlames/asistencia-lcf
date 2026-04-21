@@ -19,6 +19,9 @@ function requireComedor(req, res, next){
 // ── OBTENER ESTUDIANTES DEL COMEDOR (todos activos) ─────────────────
 router.get("/estudiantes", requireAuth, async (req, res) => {
   const fecha = req.query.fecha || new Date().toISOString().slice(0,10);
+  const seccionId = req.query.seccion_id || null;
+  const whereSeccion = seccionId ? "AND e.seccion_id=$2" : "";
+  const params = seccionId ? [fecha, seccionId] : [fecha];
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
       e.becado, s.nombre AS seccion_nombre,
@@ -26,13 +29,45 @@ router.get("/estudiantes", requireAuth, async (req, res) => {
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN comedor_asistencia ca ON ca.estudiante_id=e.id AND ca.fecha=$1
-    WHERE e.activo=true
+    WHERE e.activo=true ${whereSeccion}
     ORDER BY e.becado DESC, e.primer_apellido, e.segundo_apellido, e.nombre
-  `, [fecha]);
+  `, params);
   res.json(r.rows);
 });
 
-// ── REGISTRAR ASISTENCIA AL COMEDOR ────────────────────────────────
+// ── ESCANEO DE CÉDULA (cocinera / admin) ────────────────────────────
+router.post("/escaneo", canRegistrar, async (req, res) => {
+  const { cedula } = req.body;
+  if(!cedula) return res.status(400).json({ error:"Cédula requerida" });
+  const fecha = new Date().toISOString().slice(0,10);
+  const hora  = new Date().toLocaleTimeString("es-CR",{hour:"2-digit",minute:"2-digit"});
+
+  // Buscar estudiante
+  const estR = await pool.query(`
+    SELECT e.*, s.nombre AS seccion_nombre
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.cedula=$1 AND e.activo=true
+  `, [cedula.trim()]);
+
+  if(!estR.rows.length) return res.status(404).json({ error:"Estudiante no encontrado en el sistema" });
+  const est = estR.rows[0];
+
+  // Verificar si ya comió hoy
+  const ya = await pool.query("SELECT id FROM comedor_asistencia WHERE estudiante_id=$1 AND fecha=$2", [est.id, fecha]);
+  const nuevo = ya.rows.length === 0;
+
+  if(nuevo){
+    await pool.query(`
+      INSERT INTO comedor_asistencia (estudiante_id, fecha, tipo, registrado_por)
+      VALUES ($1,$2,$3,$4)
+    `, [est.id, fecha, est.becado ? 'becado' : 'regular', req.session.usuario.id]);
+  }
+
+  res.json({ ok:true, nuevo, hora, estudiante: est });
+});
+
+
 router.post("/asistencia", canRegistrar, async (req, res) => {
   const { fecha, estudiante_ids } = req.body;
   if(!fecha || !Array.isArray(estudiante_ids))
