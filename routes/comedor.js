@@ -139,9 +139,10 @@ router.get("/reporte", requireComedor, async (req, res) => {
 });
 
 // ── GESTIÓN COMITÉ DE COMEDOR ────────────────────────────────────────
-router.get("/comite", requireRol("admin"), async (req, res) => {
+// GET: cualquier usuario puede verificar si pertenece al comité
+router.get("/comite", requireAuth, async (req, res) => {
   const r = await pool.query(`
-    SELECT cc.*, u.nombre, u.primer_apellido, u.segundo_apellido, u.cedula, u.rol
+    SELECT cc.*, u.nombre, u.primer_apellido, u.segundo_apellido, u.cedula, u.rol, u.id AS usuario_id
     FROM comedor_comite cc JOIN usuarios u ON u.id=cc.usuario_id
   `);
   res.json(r.rows);

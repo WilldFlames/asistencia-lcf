@@ -3056,12 +3056,12 @@ ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
 }
 
 async function abrirGestionComite(){
-  // Load users into selector
-  const profs = allProfesores;
+  // Cargar todos los usuarios activos (no solo profesores)
+  const todos = await api("/api/admin/usuarios") || allProfesores || [];
   const sel = document.getElementById("comite-usuario");
   sel.innerHTML='<option value="">— Seleccionar —</option>'+
-    (profs||[]).map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]||p.rol})</option>`).join("");
-  // Show current
+    todos.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]||p.rol})</option>`).join("");
+  // Mostrar actual
   const comite = await api("/api/comedor/comite");
   const div = document.getElementById("comite-actual");
   if(comite&&comite.length){
