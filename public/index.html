@@ -1655,7 +1655,7 @@ function goTo(page){
     if(btnNuevo) btnNuevo.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
     // Botón importar Excel: solo administrativo
     const btnImportarExcel=document.getElementById("btn-importar-excel");
-    if(btnImportarExcel) btnImportarExcel.style.display=ME.rol==="administrativo"?"":"none";
+    if(btnImportarExcel) btnImportarExcel.style.display=(ME.rol==="administrativo"||ME.rol==="admin")?"":"none";
     // Imprimir disponible para todos los que ven la pantalla
     const btnImprimir=document.getElementById("btn-imprimir-lista");
     if(btnImprimir) btnImprimir.style.display="";
@@ -4552,7 +4552,14 @@ async function generarConstancia(){
   const est=todos?.find(e=>e.id==eid);
   if(!est){sa("alert-const","Estudiante no encontrado.","danger");return;}
   const auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
-  const auxCedula=ME.cedula;
+  // Obtener cédula actualizada del servidor por si no está en sesión
+  let auxCedula = ME.cedula || "";
+  if(!auxCedula){
+    try{
+      const meData = await api("/api/auth/me");
+      auxCedula = meData?.usuario?.cedula || "";
+    }catch{}
+  }
   const sec=allSecciones?.find(s=>s.id==sid);
   const nivel=sec?parseInt(sec.nombre):0;
   const nivelTexto={7:"SÉTIMO",8:"OCTAVO",9:"NOVENO",10:"DÉCIMO",11:"UNDÉCIMO"}[nivel]||sec?.nombre?.toUpperCase()||"";
