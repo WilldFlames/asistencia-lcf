@@ -1,13 +1,21 @@
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const { pool } = require("../db");
-const { requireRol } = require("../middleware/auth");
+const { requireRol, requireAuth } = require("../middleware/auth");
 const onlyAdmin = requireRol("admin");
 
 // ── USUARIOS ──────────────────────────────────────────────────
 router.get("/usuarios", onlyAdmin, async (req, res) => {
   const r = await pool.query(
     "SELECT id,cedula,nombre,primer_apellido,segundo_apellido,email,rol,activo,primer_login FROM usuarios ORDER BY primer_apellido,nombre"
+  );
+  res.json(r.rows);
+});
+
+// Lista de usuarios activos — accesible para secretaria (para consecutivos)
+router.get("/usuarios-activos", requireAuth, async (req, res) => {
+  const r = await pool.query(
+    "SELECT id,nombre,primer_apellido,segundo_apellido,rol FROM usuarios WHERE activo=true ORDER BY primer_apellido,nombre"
   );
   res.json(r.rows);
 });

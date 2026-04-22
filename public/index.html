@@ -4299,9 +4299,9 @@ async function abrirNuevoConsecutivo(){
   const esSecre = ME.rol==="secretaria";
   document.getElementById("consec-sol-wrap").style.display = esSecre?"":"none";
   if(esSecre){
-    const users = await api("/api/admin/usuarios")||[];
+    const users = await api("/api/admin/usuarios-activos")||[];
     document.getElementById("consec-solicitante").innerHTML='<option value="">— Seleccionar —</option>'+
-      users.filter(u=>u.activo&&u.rol!=="admin").map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${RLBL[u.rol]||u.rol})</option>`).join("");
+      users.filter(u=>u.rol!=="admin"&&u.rol!=="cocinera").map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${RLBL[u.rol]||u.rol})</option>`).join("");
   }
   ["minuta","proceso","protocolo"].forEach(t=>poblarSel(`consec-sec-${t}`,false,"— Sección —"));
   const prots = await api("/api/consecutivos/tipos-protocolo");
@@ -4528,43 +4528,47 @@ function procesarDatosExcel(rows){
 
 async function confirmarImportarExcel(){
   if(!excelData.length) return;
-  document.getElementById("btn-confirmar-excel").disabled = true;
-  document.getElementById("btn-confirmar-excel").textContent = "⏳ Importando...";
+  const btnConf = document.getElementById("btn-confirmar-excel");
+  btnConf.disabled = true;
+  btnConf.textContent = "⏳ Importando...";
+
+  // Mostrar barra de progreso
+  const alertEl = document.getElementById("alert-excel");
+  alertEl.className = "alert show alert-info";
+  alertEl.textContent = `⏳ Enviando ${excelData.length} estudiantes al servidor...`;
 
   // Obtener secciones para mapear nombre → id
   const secs = allSecciones || await api("/api/admin/secciones");
 
-  let insertados = 0, omitidos = 0, errores = [];
+  // Preparar payload con seccion_id ya resuelto
+  const payload = excelData.map(e => {
+    const sec = secs?.find(s => s.nombre === e.seccion);
+    return {
+      cedula:           e.cedula,
+      nombre:           e.nombre,
+      primer_apellido:  e.primer_apellido,
+      segundo_apellido: e.segundo_apellido,
+      fecha_nacimiento: e.fecha_nacimiento||null,
+      seccion_id:       sec?.id||null,
+    };
+  });
 
-  for(const e of excelData){
-    try{
-      // Buscar seccion_id por nombre
-      const sec = secs?.find(s => s.nombre === e.seccion);
-      const payload = {
-        cedula:           e.cedula,
-        nombre:           e.nombre,
-        primer_apellido:  e.primer_apellido,
-        segundo_apellido: e.segundo_apellido,
-        fecha_nacimiento: e.fecha_nacimiento||null,
-        seccion_id:       sec?.id||null,
-      };
-      const r = await api("/api/estudiantes","POST",payload);
-      if(r?.reactivado) insertados++;  // reactivado desde baja
-      else insertados++;
-    }catch(err){
-      if(err.message.includes("activo")) omitidos++;  // ya existe activo → ignorar
-      else errores.push(`${e.cedula}: ${err.message}`);
-    }
+  try{
+    // Una sola llamada al backend — mucho más rápido
+    const r = await api("/api/estudiantes/importar","POST",payload);
+    btnConf.textContent = "✅ Importar";
+    cerrarModal("modal-importar-excel");
+    let msg = `✅ Importación completa: ${r.insertados} nuevos`;
+    if(r.reactivados > 0) msg += `, ${r.reactivados} reactivados`;
+    if(r.omitidos > 0) msg += `, ${r.omitidos} ya existían (ignorados)`;
+    sa("alert-est", msg, "success");
+    cargarEstudiantes();
+  }catch(err){
+    alertEl.className = "alert show alert-danger";
+    alertEl.textContent = "❌ Error: " + err.message;
+    btnConf.disabled = false;
+    btnConf.textContent = "✅ Importar";
   }
-
-  document.getElementById("btn-confirmar-excel").textContent = "✅ Importar";
-  cerrarModal("modal-importar-excel");
-
-  let msg = `✅ Importación completa: ${insertados} estudiantes agregados`;
-  if(omitidos > 0) msg += `, ${omitidos} ya existían (ignorados)`;
-  if(errores.length > 0) msg += `. ⚠️ ${errores.length} errores`;
-  sa("alert-est", msg, errores.length > 0 ? "info" : "success");
-  cargarEstudiantes();
 }
 
 // ════════════════════════════════════
@@ -4804,8 +4808,8 @@ function piePaginaMEP(){
 
 // Imprime esperando que carguen las imágenes del encabezado MEP
 async function imprimirConEncabezado(area, styleEl){
-  // Mover el área fuera de la pantalla mientras carga — el usuario no la ve
-  area.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+  // Mantener oculto en pantalla — solo visible al imprimir via @media print
+  area.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:800px;background:#fff;visibility:hidden;";
 
   // Esperar a que las imágenes carguen (máximo 3s)
   const imgs = area.querySelectorAll("img");
@@ -4820,14 +4824,16 @@ async function imprimirConEncabezado(area, styleEl){
     }));
   }
 
-  // Limpiar estilo antes de imprimir para que el @media print funcione
-  area.style.cssText = "";
+  // Al imprimir: el CSS @media print ya oculta todo lo demás y muestra solo el área
+  // Hacemos visible el área solo durante window.print()
+  area.style.visibility = "visible";
   window.print();
+  area.style.visibility = "hidden";
 
-  // Limpiar inmediatamente después de que el diálogo se cierra
+  // Limpiar después de que el diálogo se cierra
   if(styleEl) styleEl.remove();
   area.innerHTML = "";
-  area.style.cssText = "";
+  area.style.cssText = "display:none;";
 }
 // ════════════════════════════════════
 function cerrarModal(id){document.getElementById(id).classList.remove("show");}

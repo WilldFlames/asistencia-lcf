@@ -198,3 +198,57 @@ router.put("/:id/foto", canManage, async (req, res) => {
 });
 
 module.exports = router;
+
+// ── IMPORTAR MASIVO DESDE EXCEL ────────────────────────────────────────
+router.post("/importar", canManage, async (req, res) => {
+  const estudiantes = req.body;
+  if(!Array.isArray(estudiantes) || !estudiantes.length)
+    return res.status(400).json({ error:"No se enviaron datos" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Obtener cédulas ya activas para ignorarlas
+    const activosR = await client.query("SELECT cedula FROM estudiantes WHERE activo=true");
+    const activos = new Set(activosR.rows.map(r => r.cedula));
+
+    // Obtener inactivos para reactivar
+    const inactivosR = await client.query("SELECT id, cedula FROM estudiantes WHERE activo=false");
+    const inactivos = new Map(inactivosR.rows.map(r => [r.cedula, r.id]));
+
+    let insertados = 0, omitidos = 0, reactivados = 0;
+
+    for(const e of estudiantes){
+      const { cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, seccion_id } = e;
+      if(!cedula || !nombre || !primer_apellido) { omitidos++; continue; }
+
+      if(activos.has(cedula)){ omitidos++; continue; }
+
+      if(inactivos.has(cedula)){
+        // Reactivar
+        await client.query(`
+          UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,
+          fecha_nacimiento=$4,seccion_id=$5,activo=true WHERE id=$6
+        `, [nombre, primer_apellido, segundo_apellido||'', fecha_nacimiento||null, seccion_id||null, inactivos.get(cedula)]);
+        reactivados++;
+      } else {
+        // Insertar nuevo
+        await client.query(`
+          INSERT INTO estudiantes (cedula,nombre,primer_apellido,segundo_apellido,fecha_nacimiento,seccion_id)
+          VALUES ($1,$2,$3,$4,$5,$6)
+          ON CONFLICT (cedula) DO NOTHING
+        `, [cedula, nombre, primer_apellido, segundo_apellido||'', fecha_nacimiento||null, seccion_id||null]);
+        insertados++;
+      }
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok:true, insertados, reactivados, omitidos });
+  } catch(e) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
