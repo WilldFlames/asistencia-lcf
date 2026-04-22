@@ -190,9 +190,13 @@ async function initDB() {
         -- Control
         eliminado       BOOLEAN DEFAULT false,
         justificacion_eliminacion TEXT,
-        created_at      TIMESTAMP DEFAULT NOW(),
-        UNIQUE(tipo, numero)
+        created_at      TIMESTAMP DEFAULT NOW()
       );
+
+      -- Índice único parcial: solo números activos (no eliminados) deben ser únicos
+      -- Esto permite reusar números de consecutivos eliminados
+      CREATE UNIQUE INDEX IF NOT EXISTS consecutivos_tipo_numero_activo
+        ON consecutivos(tipo, numero) WHERE eliminado=false;
 
       CREATE TABLE IF NOT EXISTS comedor_asistencia (
         id             SERIAL PRIMARY KEY,
@@ -268,6 +272,17 @@ async function initDB() {
       await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo'))`);
     } catch(e) { /* ya existe con los valores correctos */ }
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS num_boleta TEXT DEFAULT ''`);
+    // Migrar constraint UNIQUE de consecutivos a índice parcial (solo activos)
+    // Esto permite reusar números eliminados
+    try {
+      await client.query(`ALTER TABLE consecutivos DROP CONSTRAINT IF EXISTS consecutivos_tipo_numero_key`);
+    } catch(e) {}
+    try {
+      await client.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS consecutivos_tipo_numero_activo
+          ON consecutivos(tipo, numero) WHERE eliminado=false
+      `);
+    } catch(e) {}
     // Actualizar UNIQUE de asignaciones para incluir subgrupo
     await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_profesor_id_seccion_id_materia_id_key`);
     await client.query(`
