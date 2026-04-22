@@ -53,7 +53,8 @@ router.get("/", requireAuth, canUse, async (req, res) => {
   res.json(r.rows);
 });
 
-// ── CREAR — con reintentos automáticos ante colisión ─────────────────
+// ── CREAR — INSERT con número calculado dentro de la misma query ─────
+// Usa un CTE que calcula y reserva el número en una sola operación atómica
 router.post("/", requireAuth, canUse, async (req, res) => {
   const u = req.session.usuario;
   const { tipo, fecha, destinatario, motivo_oficio, solicitado_por_cargo,
@@ -65,67 +66,54 @@ router.post("/", requireAuth, canUse, async (req, res) => {
 
   const solicitante_id = (u.rol === "secretaria" && sol_id_body) ? sol_id_body : u.id;
   const inicio = INICIO[tipo];
+  const fechaVal = fecha || new Date().toISOString().slice(0,10);
 
-  // Intentar hasta 5 veces en caso de colisión concurrente
-  const MAX_INTENTOS = 5;
-  let ultimoError = null;
-
-  for(let intento = 1; intento <= MAX_INTENTOS; intento++){
-    const client = await pool.connect();
+  // Reintentos con backoff — sin LOCK TABLE para evitar deadlocks
+  for(let intento = 0; intento < 10; intento++){
+    if(intento > 0){
+      // Espera aleatoria entre 20-150ms para evitar que dos usuarios reintenten al mismo tiempo
+      await new Promise(r => setTimeout(r, 20 + Math.random() * 130));
+    }
     try {
-      await client.query("BEGIN");
-      await client.query("LOCK TABLE consecutivos IN SHARE ROW EXCLUSIVE MODE");
-
-      // Buscar siguiente número libre
-      const usadosR = await client.query(
-        "SELECT numero FROM consecutivos WHERE tipo=$1 AND eliminado=false ORDER BY numero",
-        [tipo]
-      );
-      const usados = new Set(usadosR.rows.map(x => x.numero));
-      let numero = null;
-      for(let n = inicio; n <= MAX; n++){
-        if(!usados.has(n)){ numero = n; break; }
-      }
-
-      if(!numero){
-        await client.query("ROLLBACK");
-        return res.status(400).json({ error:`No hay consecutivos disponibles para ${tipo}` });
-      }
-
-      const r = await client.query(`
+      // CTE atómica: calcula el siguiente número libre e inserta en un solo paso
+      const r = await pool.query(`
+        WITH siguiente AS (
+          SELECT n AS numero
+          FROM generate_series($1::int, $2::int) AS n
+          WHERE n NOT IN (
+            SELECT numero FROM consecutivos WHERE tipo=$3 AND eliminado=false
+          )
+          ORDER BY n
+          LIMIT 1
+        )
         INSERT INTO consecutivos
           (tipo, numero, solicitante_id, fecha, destinatario, motivo_oficio, solicitado_por_cargo,
            estudiante_id, solicitante_cargo, seccion_id, motivo_proceso,
            digitado_por_cargo, tipo_protocolo)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        SELECT $3, siguiente.numero, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+        FROM siguiente
         RETURNING *
-      `, [tipo, numero, solicitante_id,
-          fecha || new Date().toISOString().slice(0,10),
+      `, [inicio, MAX, tipo, solicitante_id, fechaVal,
           destinatario||null, motivo_oficio||null, solicitado_por_cargo||null,
           estudiante_id||null, solicitante_cargo||null, seccion_id||null, motivo_proceso||null,
           digitado_por_cargo||null, tipo_protocolo||null]);
 
-      await client.query("COMMIT");
-      return res.json({ ok:true, consecutivo: r.rows[0], numero });
+      if(r.rows.length === 0){
+        return res.status(400).json({ error:`No hay consecutivos disponibles para ${tipo}` });
+      }
+
+      return res.json({ ok:true, consecutivo: r.rows[0], numero: r.rows[0].numero });
 
     } catch(e) {
-      await client.query("ROLLBACK");
-      ultimoError = e;
-      // Si es colisión por UNIQUE, esperar un poco y reintentar
-      if(e.message.includes("unique") || e.message.includes("duplicate") || e.code === "23505"){
-        const espera = intento * 50; // 50ms, 100ms, 150ms...
-        await new Promise(r => setTimeout(r, espera));
+      // Solo reintentar en colisión de unicidad
+      if(e.code === "23505"){
         continue;
       }
-      // Otro error → no reintentar
       return res.status(500).json({ error: e.message });
-    } finally {
-      client.release();
     }
   }
 
-  // Si agotó los reintentos
-  return res.status(409).json({ error:"No se pudo asignar el consecutivo tras varios intentos. Por favor intente de nuevo." });
+  return res.status(409).json({ error:"No se pudo asignar. Intente de nuevo." });
 });
 
 // ── ELIMINAR ─────────────────────────────────────────────────────────
