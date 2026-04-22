@@ -1185,11 +1185,7 @@ tr:hover td{background:#f8fafc;}
       </select>
     </div>
 
-    <!-- Siguiente número (readonly) -->
-    <div class="fg" style="margin-bottom:10px;">
-      <label>Número que se asignará</label>
-      <input type="text" id="consec-numero-preview" readonly style="background:#f1f5f9;font-weight:bold;font-size:16px;" placeholder="Seleccioná el tipo..."/>
-    </div>
+
 
     <!-- Secretaria: seleccionar solicitante -->
     <div class="fg" id="consec-sol-wrap" style="display:none;margin-bottom:10px;">
@@ -1257,6 +1253,17 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-outline" onclick="cerrarModal('modal-consecutivo')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarConsecutivo()">✅ Asignar Consecutivo</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal Número Asignado -->
+<div class="modal-overlay" id="modal-num-consec">
+  <div class="modal" style="max-width:400px;text-align:center;">
+    <div style="font-size:48px;margin-bottom:8px;">✅</div>
+    <h3 style="color:var(--verde);margin-bottom:4px;" id="num-consec-tipo"></h3>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:16px;">Su número de consecutivo asignado es:</p>
+    <div style="font-size:64px;font-weight:bold;color:var(--azul);letter-spacing:4px;margin:8px 0 20px;" id="num-consec-valor"></div>
+    <button class="btn btn-primary" onclick="cerrarModal('modal-num-consec')" style="width:100%;">Aceptar</button>
   </div>
 </div>
 
@@ -4253,6 +4260,12 @@ let consecFiltro = "todos";
 const CONSEC_TIPOS = { oficio:"📨 Oficio", minuta:"📝 Minuta", proceso:"⚖️ Proceso", protocolo:"🛡️ Protocolo" };
 const CONSEC_COLORS = { oficio:"b-guia", minuta:"b-prof", proceso:"b-aux", protocolo:"b-orient" };
 
+function mostrarNumeroConsecutivo(tipoLabel, numero){
+  document.getElementById("num-consec-tipo").textContent = tipoLabel;
+  document.getElementById("num-consec-valor").textContent = numero;
+  document.getElementById("modal-num-consec").classList.add("show");
+}
+
 async function iniciarConsecutivos(){ await cargarConsecutivos(); }
 
 async function cargarConsecutivos(){
@@ -4292,7 +4305,6 @@ function filtrarConsecutivos(tipo){
 
 async function abrirNuevoConsecutivo(){
   document.getElementById("consec-tipo").value="";
-  document.getElementById("consec-numero-preview").value="";
   document.getElementById("consec-fecha").value=new Date().toISOString().slice(0,10);
   document.getElementById("alert-consec-modal").className="alert";
   ["oficio","minuta","proceso","protocolo"].forEach(t=>{ document.getElementById(`consec-campos-${t}`).style.display="none"; });
@@ -4313,7 +4325,6 @@ async function abrirNuevoConsecutivo(){
 async function cambiarTipoConsecutivo(){
   const tipo=document.getElementById("consec-tipo").value;
   ["oficio","minuta","proceso","protocolo"].forEach(t=>{ document.getElementById(`consec-campos-${t}`).style.display=t===tipo?"":"none"; });
-  if(tipo){ const r=await api(`/api/consecutivos/siguiente/${tipo}`); document.getElementById("consec-numero-preview").value=r?.numero?String(r.numero).padStart(3,'0')+` (${CONSEC_TIPOS[tipo]||tipo})`:"Sin disponibles"; }
 }
 
 async function cargarEstConsec(tipo){
@@ -4338,7 +4349,10 @@ async function guardarConsecutivo(){
   try{
     const r=await api("/api/consecutivos","POST",body);
     cerrarModal("modal-consecutivo");
-    sa("alert-consec",`✅ Consecutivo asignado: ${CONSEC_TIPOS[tipo]} N° ${String(r.numero).padStart(3,'0')}`,"success");
+    // Mostrar número asignado con modal de confirmación
+    const num=String(r.numero).padStart(3,'0');
+    const tipo_lbl=CONSEC_TIPOS[tipo]||tipo;
+    mostrarNumeroConsecutivo(tipo_lbl, num);
     cargarConsecutivos();
   }catch(e){sa("alert-consec-modal",e.message,"danger");}
 }
