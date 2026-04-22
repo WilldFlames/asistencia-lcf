@@ -167,6 +167,33 @@ async function initDB() {
         created_at      TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS consecutivos (
+        id              SERIAL PRIMARY KEY,
+        tipo            TEXT NOT NULL CHECK(tipo IN ('oficio','minuta','proceso','protocolo')),
+        numero          INTEGER NOT NULL,
+        solicitante_id  INTEGER NOT NULL REFERENCES usuarios(id),
+        -- Campos comunes
+        fecha           DATE NOT NULL DEFAULT CURRENT_DATE,
+        -- Oficio
+        destinatario    TEXT,
+        motivo_oficio   TEXT,
+        solicitado_por_cargo TEXT,
+        -- Minuta
+        estudiante_id   INTEGER REFERENCES estudiantes(id),
+        solicitante_cargo TEXT,
+        -- Proceso
+        seccion_id      INTEGER REFERENCES secciones(id),
+        motivo_proceso  TEXT,
+        -- Protocolo
+        digitado_por_cargo TEXT,
+        tipo_protocolo  TEXT,
+        -- Control
+        eliminado       BOOLEAN DEFAULT false,
+        justificacion_eliminacion TEXT,
+        created_at      TIMESTAMP DEFAULT NOW(),
+        UNIQUE(tipo, numero)
+      );
+
       CREATE TABLE IF NOT EXISTS comedor_asistencia (
         id             SERIAL PRIMARY KEY,
         estudiante_id  INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
@@ -237,6 +264,7 @@ async function initDB() {
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS becado BOOLEAN DEFAULT false`);
     // Ampliar constraint de rol para incluir cocinera
     await client.query(`ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check`);
+    await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo'))`);
     await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera'))`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS num_boleta TEXT DEFAULT ''`);
     // Actualizar UNIQUE de asignaciones para incluir subgrupo

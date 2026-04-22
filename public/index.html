@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Asistencia – Liceo de Calle Fallas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--azul:#1a3a5c;--azul2:#2563a8;--verde:#16a34a;--rojo:#dc2626;--naranja:#d97706;--morado:#7c3aed;--bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--r:10px;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -353,6 +354,8 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
   <button class="nav-btn" data-page="comedor" id="nav-comedor" onclick="goTo('comedor')" style="display:none"><span class="icon">🍽️</span><span>Comedor</span></button>
+  <button class="nav-btn" data-page="consecutivos" id="nav-consecutivos" onclick="goTo('consecutivos')" style="display:none"><span class="icon">🔢</span><span>Consecutivos</span></button>
+  <button class="nav-btn" data-page="constancia" id="nav-constancia" onclick="goTo('constancia')" style="display:none"><span class="icon">📄</span><span>Constancia</span></button>
   <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📈</span><span>Cumplimiento</span></button>
 </nav>
 
@@ -432,6 +435,7 @@ tr:hover td{background:#f8fafc;}
       <h2 style="margin:0">🎒 Estudiantes</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" id="btn-imprimir-lista" onclick="imprimirListaEstudiantes()">🖨️ Imprimir Lista</button>
+        <button class="btn btn-orange btn-sm" id="btn-importar-excel" onclick="abrirImportarExcel()" style="display:none">📥 Importar Excel</button>
         <button class="btn btn-primary" id="btn-nuevo-est" onclick="abrirModalEstudiante()">+ Nuevo</button>
       </div>
     </div>
@@ -863,6 +867,46 @@ tr:hover td{background:#f8fafc;}
 
 </div>
 
+<!-- CONSECUTIVOS -->
+<div class="page" id="page-consecutivos">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <h2 style="margin:0">🔢 Consecutivos</h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirNuevoConsecutivo()">+ Nuevo Consecutivo</button>
+    </div>
+    <div id="alert-consec" class="alert"></div>
+    <!-- Filtros -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      <button class="btn btn-outline btn-sm consec-tab active" onclick="filtrarConsecutivos('todos')">Todos</button>
+      <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('oficio')">📨 Oficios</button>
+      <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('minuta')">📝 Minutas</button>
+      <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('proceso')">⚖️ Procesos</button>
+      <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('protocolo')">🛡️ Protocolos</button>
+    </div>
+    <div class="table-wrap"><table id="consec-tabla">
+      <thead><tr><th>#</th><th>Tipo</th><th>Consecutivo</th><th>Fecha</th><th>Solicitante</th><th>Detalle</th><th></th></tr></thead>
+      <tbody id="consec-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- CONSTANCIA -->
+<div class="page" id="page-constancia">
+  <div class="card">
+    <h2 style="margin-bottom:14px;">📄 Constancia de Estudiante</h2>
+    <div id="alert-const" class="alert"></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+      <div class="fg"><label>Sección</label>
+        <select id="const-seccion" onchange="cargarEstudiantesConstancia()"><option value="">— Sección —</option></select>
+      </div>
+      <div class="fg"><label>Estudiante</label>
+        <select id="const-estudiante"><option value="">— Estudiante —</option></select>
+      </div>
+      <button class="btn btn-success" onclick="generarConstancia()">🖨️ Generar e Imprimir</button>
+    </div>
+  </div>
+</div>
+
 <!-- CUMPLIMIENTO -->
 <div class="page" id="page-cumplimiento">
   <div class="card">
@@ -914,6 +958,8 @@ tr:hover td{background:#f8fafc;}
           <option value="profesor_guia">Profesor Guía</option>
           <option value="orientador">Orientador</option>
           <option value="cocinera">Cocinera</option>
+          <option value="secretaria">Secretaria</option>
+          <option value="administrativo">Administrativo</option>
           <option value="auxiliar">Auxiliar Administrativo</option>
           <option value="admin">Administrador</option>
         </select>
@@ -1121,6 +1167,166 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- Modal Nuevo Consecutivo -->
+<div class="modal-overlay" id="modal-consecutivo">
+  <div class="modal" style="max-width:520px;">
+    <h3 id="consec-modal-titulo">🔢 Nuevo Consecutivo</h3>
+    <div id="alert-consec-modal" class="alert"></div>
+
+    <!-- Tipo -->
+    <div class="fg" style="margin-bottom:10px;">
+      <label>Tipo de Consecutivo <span style="color:var(--rojo)">*</span></label>
+      <select id="consec-tipo" onchange="cambiarTipoConsecutivo()">
+        <option value="">— Seleccionar —</option>
+        <option value="oficio">📨 Oficio</option>
+        <option value="minuta">📝 Minuta</option>
+        <option value="proceso">⚖️ Debido Proceso</option>
+        <option value="protocolo">🛡️ Protocolo</option>
+      </select>
+    </div>
+
+    <!-- Siguiente número (readonly) -->
+    <div class="fg" style="margin-bottom:10px;">
+      <label>Número que se asignará</label>
+      <input type="text" id="consec-numero-preview" readonly style="background:#f1f5f9;font-weight:bold;font-size:16px;" placeholder="Seleccioná el tipo..."/>
+    </div>
+
+    <!-- Secretaria: seleccionar solicitante -->
+    <div class="fg" id="consec-sol-wrap" style="display:none;margin-bottom:10px;">
+      <label>Solicitante <span style="color:var(--rojo)">*</span></label>
+      <select id="consec-solicitante"><option value="">— Seleccionar usuario —</option></select>
+    </div>
+
+    <div class="fg" style="margin-bottom:10px;">
+      <label>Fecha <span style="color:var(--rojo)">*</span></label>
+      <input type="date" id="consec-fecha"/>
+    </div>
+
+    <!-- Campos dinámicos según tipo -->
+    <div id="consec-campos-oficio" style="display:none;">
+      <div class="fg" style="margin-bottom:8px;"><label>Destinatario <span style="color:var(--rojo)">*</span></label><input type="text" id="consec-destinatario" placeholder="Nombre del destinatario"/></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Motivo</label><textarea id="consec-motivo-oficio" rows="2" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;" placeholder="Motivo del oficio..."></textarea></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Cargo del solicitante</label>
+        <select id="consec-cargo-oficio">
+          <option value="">— Cargo —</option>
+          <option value="Secretaria">Secretaria</option>
+          <option value="Auxiliar Administrativo">Auxiliar Administrativo</option>
+          <option value="Orientador(a)">Orientador(a)</option>
+          <option value="Docente">Docente</option>
+          <option value="Administrativo">Administrativo</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="consec-campos-minuta" style="display:none;">
+      <div class="fg" style="margin-bottom:8px;"><label>Sección</label><select id="consec-sec-minuta" onchange="cargarEstConsec('minuta')"><option value="">— Sección —</option></select></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Estudiante</label><select id="consec-est-minuta"><option value="">— Estudiante —</option></select></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Cargo del solicitante</label>
+        <select id="consec-cargo-minuta">
+          <option value="">— Cargo —</option>
+          <option value="Docente">Docente</option>
+          <option value="Orientador(a)">Orientador(a)</option>
+          <option value="Auxiliar Administrativo">Auxiliar Administrativo</option>
+          <option value="Administrativo">Administrativo</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="consec-campos-proceso" style="display:none;">
+      <div class="fg" style="margin-bottom:8px;"><label>Sección</label><select id="consec-sec-proceso" onchange="cargarEstConsec('proceso')"><option value="">— Sección —</option></select></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Estudiante</label><select id="consec-est-proceso"><option value="">— Estudiante —</option></select></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Motivo</label><textarea id="consec-motivo-proceso" rows="2" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;" placeholder="Describa el motivo del debido proceso..."></textarea></div>
+    </div>
+
+    <div id="consec-campos-protocolo" style="display:none;">
+      <div class="fg" style="margin-bottom:8px;"><label>Cargo del digitador</label>
+        <select id="consec-cargo-protocolo">
+          <option value="">— Cargo —</option>
+          <option value="Docente">Docente</option>
+          <option value="Orientador(a)">Orientador(a)</option>
+          <option value="Auxiliar Administrativo">Auxiliar Administrativo</option>
+          <option value="Administrativo">Administrativo</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-bottom:8px;"><label>Sección</label><select id="consec-sec-protocolo" onchange="cargarEstConsec('protocolo')"><option value="">— Sección —</option></select></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Estudiante</label><select id="consec-est-protocolo"><option value="">— Estudiante —</option></select></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Tipo de Protocolo <span style="color:var(--rojo)">*</span></label><select id="consec-tipo-protocolo"><option value="">— Seleccionar —</option></select></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-consecutivo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarConsecutivo()">✅ Asignar Consecutivo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Eliminar Consecutivo -->
+<div class="modal-overlay" id="modal-eliminar-consec">
+  <div class="modal" style="max-width:440px;">
+    <h3 style="color:var(--rojo);">🗑️ Eliminar Consecutivo</h3>
+    <input type="hidden" id="del-consec-id"/>
+    <p id="del-consec-info" style="font-size:13px;margin-bottom:10px;"></p>
+    <div class="fg">
+      <label>Justificación <span style="color:var(--rojo)">*</span></label>
+      <textarea id="del-consec-just" rows="2" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;" placeholder="Indique que fue por error y el motivo..."></textarea>
+    </div>
+    <div id="alert-del-consec" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-eliminar-consec')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarEliminarConsec()">🗑️ Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Importar Excel -->
+<div class="modal-overlay" id="modal-importar-excel">
+  <div class="modal" style="max-width:560px;">
+    <h3>📥 Importar Lista desde Excel</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+      El archivo debe tener estas columnas (en cualquier orden, con encabezado):<br/>
+      <code style="background:#f1f5f9;padding:3px 8px;border-radius:4px;">cedula, primer_apellido, segundo_apellido, nombre, seccion, fecha_nacimiento</code><br/>
+      <span style="font-size:12px;">Los guiones en las cédulas se ignoran automáticamente. Los estudiantes ya registrados se omiten.</span>
+    </p>
+    <div class="fg" style="margin-bottom:12px;">
+      <label>Seleccionar archivo Excel (.xlsx / .xls / .csv)</label>
+      <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" onchange="previsualizarExcel()"/>
+    </div>
+    <div id="excel-preview" style="display:none;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:bold;margin-bottom:6px;" id="excel-info"></div>
+      <div class="table-wrap" style="max-height:220px;overflow-y:auto;">
+        <table style="font-size:12px;">
+          <thead><tr><th>Cédula</th><th>Apellidos, Nombre</th><th>Sección</th><th>Nacimiento</th></tr></thead>
+          <tbody id="excel-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="alert-excel" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-importar-excel')">Cancelar</button>
+      <button class="btn btn-success" id="btn-confirmar-excel" onclick="confirmarImportarExcel()" disabled>✅ Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Eliminar Estudiante -->
+<div class="modal-overlay" id="modal-eliminar-est">
+  <div class="modal" style="max-width:480px;">
+    <h3 style="color:var(--rojo);">🗑️ Dar de Baja a Estudiante</h3>
+    <p id="del-est-nombre" style="font-weight:bold;margin:8px 0 12px;font-size:14px;"></p>
+    <input type="hidden" id="del-est-id"/>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">⚠️ Esta acción desactiva al estudiante del sistema. Deberá indicar la razón de la baja para el registro institucional.</p>
+    <div class="fg">
+      <label>Justificación de la Baja <span style="color:var(--rojo)">*</span></label>
+      <textarea id="del-est-justificacion" rows="3" placeholder="Ej: Traslado a otro centro educativo, abandono, retiro voluntario..." style="resize:vertical;padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;width:100%;font-family:Arial;"></textarea>
+    </div>
+    <div id="alert-del-est" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-eliminar-est')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarEliminarEst()">🗑️ Confirmar Baja</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Comité Comedor -->
 <div class="modal-overlay" id="modal-comite-comedor">
   <div class="modal" style="max-width:480px;">
@@ -1261,6 +1467,12 @@ tr:hover td{background:#f8fafc;}
     <div class="fg"><label>Estado</label>
       <select id="jus-estado"><option value="true">✅ Justificada</option><option value="false">❌ No justificada</option></select>
     </div>
+    <div class="fg" style="margin-top:8px;"><label>Lecciones justificadas</label>
+      <select id="jus-lecciones">
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+      </select>
+    </div>
     <div class="fg" style="margin-top:8px;"><label>Motivo</label><textarea id="jus-motivo"></textarea></div>
     <div id="alert-jus" class="alert"></div>
     <div class="modal-actions">
@@ -1350,8 +1562,8 @@ function detectarPeriodo(fechaStr) {
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
 const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
-const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera"};
-const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof",cocinera:"b-orient"};
+const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo"};
+const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof",cocinera:"b-orient",secretaria:"b-aux",administrativo:"b-prof"};
 
 // ════════════════════════════════════
 //  AUTH
@@ -1394,11 +1606,9 @@ async function doCambiarPass(){
 }
 
 async function doLogout(){
-  await api("/api/auth/logout","POST");
-  ME=null;
-  document.getElementById("l-ced").value="";
-  document.getElementById("l-pass").value="";
-  document.getElementById("login-screen").classList.add("show");
+  try{ await api("/api/auth/logout","POST"); }catch{}
+  // Recargar la página para limpiar todo el estado del usuario anterior
+  window.location.reload();
 }
 
 // ════════════════════════════════════
@@ -1443,6 +1653,9 @@ function goTo(page){
     // Mostrar botón Nuevo solo para admin/auxiliar
     const btnNuevo=document.getElementById("btn-nuevo-est");
     if(btnNuevo) btnNuevo.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
+    // Botón importar Excel: solo administrativo
+    const btnImportarExcel=document.getElementById("btn-importar-excel");
+    if(btnImportarExcel) btnImportarExcel.style.display=ME.rol==="administrativo"?"":"none";
     // Imprimir disponible para todos los que ven la pantalla
     const btnImprimir=document.getElementById("btn-imprimir-lista");
     if(btnImprimir) btnImprimir.style.display="";
@@ -1459,6 +1672,8 @@ function goTo(page){
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
   if(page==="expediente")  document.getElementById("exp-cedula").focus();
   if(page==="comedor")     iniciarComedor();
+  if(page==="consecutivos") iniciarConsecutivos();
+  if(page==="constancia")   iniciarConstancia();
   if(page==="matricula")   iniciarPaginaMatricula();
   if(page==="reportes")    initReportes();
   if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
@@ -1501,6 +1716,21 @@ async function iniciarApp(){
   // Comedor: cocinera, admin, orientador (para marcar) y comité (para imprimir)
   if(ME.rol==="cocinera"||ME.rol==="admin"||tieneAlgunRol("orientador")){
     document.getElementById("nav-comedor").style.display="";
+  }
+  // Consecutivos: todos excepto cocinera y admin-solo
+  const rolesConsec=["secretaria","auxiliar","orientador","profesor","administrativo","profesor_guia"];
+  const fxConsec=(ME.funciones_extra||[]);
+  if(rolesConsec.includes(ME.rol)||fxConsec.includes("profesor_guia")||fxConsec.includes("orientador")||ME.rol==="admin"){
+    document.getElementById("nav-consecutivos").style.display="";
+  }
+  // Constancia: solo auxiliar y admin
+  if(ME.rol==="auxiliar"||ME.rol==="admin"){
+    document.getElementById("nav-constancia").style.display="";
+  }
+  // Secretaria: solo consulta, lista estudiantes y consecutivos (redirigir al init)
+  if(ME.rol==="secretaria"){
+    document.getElementById("nav-consulta").style.display="";
+    document.getElementById("nav-estudiantes").style.display="";
   } else {
     // Para otros roles, verificar si son comité de comedor (await para que aparezca antes de renderizar)
     try{
@@ -1524,6 +1754,8 @@ async function iniciarApp(){
   // Cocinera → va directo a Comedor, no tiene dashboard
   if(ME.rol==="cocinera"){
     goTo("comedor");
+  } else if(ME.rol==="secretaria"){
+    goTo("consecutivos");
   } else {
     cargarDashboard();
   }
@@ -1664,7 +1896,7 @@ async function cargarDashboard(){
       ${asigsPendientes.map(a=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
           <span><strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}${a.subgrupo?` (G${a.subgrupo})`:""}</span>
-          <button class="btn btn-outline btn-xs" onclick="goTo('asistencia')">⏳ Pendiente</button>
+          <span class="badge" style="background:#fef9c3;color:#92400e;">⏳ Sin registrar</span>
         </div>`).join("")}
       ${d.asignaciones.length>0?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">${asigsOk.length}/${d.asignaciones.length} registradas hoy</div>`:""}
     </div>`;
@@ -2015,9 +2247,25 @@ async function guardarEstudiante(){
   }catch(e){sa("alert-me",e.message,"danger");}
 }
 
-async function eliminarEst(id,n){
-  if(!confirm(`¿Dar de baja a "${n}"?`))return;
-  await api(`/api/estudiantes/${id}`,"DELETE");cargarEstudiantes();
+function eliminarEst(id,n){
+  // Abrir modal con justificación obligatoria
+  document.getElementById("del-est-id").value=id;
+  document.getElementById("del-est-nombre").textContent=`Dar de baja: ${n}`;
+  document.getElementById("del-est-justificacion").value="";
+  document.getElementById("alert-del-est").className="alert";
+  document.getElementById("modal-eliminar-est").classList.add("show");
+}
+
+async function confirmarEliminarEst(){
+  const id=document.getElementById("del-est-id").value;
+  const justificacion=document.getElementById("del-est-justificacion").value.trim();
+  if(!justificacion){sa("alert-del-est","La justificación es obligatoria.","danger");return;}
+  try{
+    await api(`/api/estudiantes/${id}`,"DELETE",{justificacion});
+    cerrarModal("modal-eliminar-est");
+    cargarEstudiantes();
+    sa("alert-est","✅ Estudiante dado de baja. La dirección fue notificada.","success");
+  }catch(e){sa("alert-del-est",e.message,"danger");}
 }
 
 // ── CAMBIAR SECCIÓN ──────────────────
@@ -2244,6 +2492,10 @@ async function abrirAsistencia(id,titulo){
   try{
     const asig = (await api("/api/asistencia/mis-asignaciones"))?.find(a=>a.id===id);
     if(asig){
+      // Preseleccionar lecciones según la asignación (antes de ver si hay sesión)
+      if(asig.lecciones_semana){
+        document.getElementById("asis-lecciones").value = asig.lecciones_semana;
+      }
       const secs = await api("/api/admin/secciones");
       const sec = secs?.find(s=>s.nombre===asig.seccion_nombre);
       if(sec){
@@ -2367,15 +2619,21 @@ function abrirJus(id,nombre,estado){
   document.getElementById("jus-id").value=id;
   document.getElementById("jus-info").textContent=`${nombre} — ${estado==='A'?'Ausente':'Tardía'}`;
   document.getElementById("jus-motivo").value="";
+  // Preseleccionar las lecciones ausentes actuales
+  const reg = registrosAsist.find(e=>e.asistencia_id===id);
+  const leccAus = reg?.lecciones_ausentes || parseInt(document.getElementById("asis-lecciones").value) || 4;
+  document.getElementById("jus-lecciones").value = Math.min(leccAus, 6);
+  document.getElementById("alert-jus").className="alert";
   document.getElementById("modal-jus").classList.add("show");
 }
 
 async function guardarJus(){
   const id=document.getElementById("jus-id").value;
   const jus=document.getElementById("jus-estado").value==="true";
+  const lecc=parseInt(document.getElementById("jus-lecciones").value)||1;
   const motivo=document.getElementById("jus-motivo").value.trim();
   try{
-    await api(`/api/asistencia/justificar/${id}`,"PUT",{justificada:jus,motivo});
+    await api(`/api/asistencia/justificar/${id}`,"PUT",{justificada:jus,motivo,lecciones_justificadas:lecc});
     cerrarModal("modal-jus");sa("alert-asis","✅ Justificación guardada.","success");await cargarListaDia();
   }catch(e){sa("alert-jus",e.message,"danger");}
 }
@@ -2576,6 +2834,7 @@ async function cargarMensajes(tipo){
         ${tipo==="inbox"&&inf.respondido?`<button class="btn btn-outline btn-sm" onclick="abrirResponderById(${inf.id},true)">👁️ Ver</button>`:""}
         ${!inf.leido&&tipo==="inbox"?`<button class="btn btn-outline btn-sm" onclick="marcarLeido(${inf.id})">✔ Leído</button>`:""}
         ${(tipo==="enviados"||tipo==="todos")&&inf.respondido?`<button class="btn btn-success btn-sm" onclick="imprimirInformeCompilado(${inf.id})">🖨️ Imprimir</button>`:""}
+        ${(tipo==="enviados"||ME.rol==="admin"||ME.rol==="auxiliar")?`<button class="btn btn-danger btn-sm" onclick="eliminarInforme(${inf.id})">🗑️ Eliminar</button>`:""}
       </div>
     </div>`;
   }).join("");
@@ -2683,6 +2942,14 @@ async function enviarInformeTodos(){
 async function marcarLeido(id){
   await api(`/api/mensajes/${id}/leer`,"PUT");
   cargarMensajes("inbox");
+}
+
+async function eliminarInforme(id){
+  if(!confirm("¿Eliminar este informe? Esta acción no se puede deshacer.")) return;
+  try{
+    await api(`/api/mensajes/${id}`,"DELETE");
+    cargarMensajes();
+  }catch(e){ alert("Error al eliminar: "+e.message); }
 }
 
 // ════════════════════════════════════
@@ -2886,7 +3153,7 @@ async function imprimirConducta(){
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
   printArea.innerHTML = `
-    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
 ${encabezadoMEP("INFORME DE CONDUCTA")}
       <p style="font-size:12px;color:#555;margin:2px 0;"><strong>${periodo}</strong> · Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}</p>
       </div>
@@ -2963,7 +3230,7 @@ async function imprimirInformeCompilado(informeId){
   const periodo = detectarPeriodo(null);
 
   printArea.innerHTML = `
-    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
 ${encabezadoMEP("INFORME DE RENDIMIENTO ACADÉMICO — "+periodo)}
 
       <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;flex-wrap:wrap;gap:8px;">
@@ -3061,7 +3328,7 @@ async function imprimirListaEstudiantes(){
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
   let html = `
-    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
 ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
 `;
 
@@ -3952,7 +4219,7 @@ async function imprimirReporteComedor(){
     </div>`;
 
   printArea.innerHTML=`
-    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
       ${encabezadoMEP("ASISTENCIA DIARIA COMEDOR ESCOLAR")}
       <div style="font-size:13px;margin-bottom:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <div><strong>Fecha:</strong> ${fechaLeg} &nbsp;·&nbsp; <strong>Período:</strong> ${periodo}</div>
@@ -3972,6 +4239,362 @@ async function imprimirReporteComedor(){
     </div>`;
   const style=document.createElement("style");
   style.id="print-style-comedor";
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  document.head.appendChild(style);
+  await imprimirConEncabezado(printArea,style);
+}
+
+
+// ════════════════════════════════════
+//  CONSECUTIVOS
+// ════════════════════════════════════
+let consecData = [];
+let consecFiltro = "todos";
+const CONSEC_TIPOS = { oficio:"📨 Oficio", minuta:"📝 Minuta", proceso:"⚖️ Proceso", protocolo:"🛡️ Protocolo" };
+const CONSEC_COLORS = { oficio:"b-guia", minuta:"b-prof", proceso:"b-aux", protocolo:"b-orient" };
+
+async function iniciarConsecutivos(){ await cargarConsecutivos(); }
+
+async function cargarConsecutivos(){
+  const tipo = consecFiltro === "todos" ? "" : consecFiltro;
+  consecData = await api(tipo ? `/api/consecutivos?tipo=${tipo}` : "/api/consecutivos") || [];
+  renderConsecutivos();
+}
+
+function renderConsecutivos(){
+  const tbody = document.getElementById("consec-tbody");
+  if(!consecData.length){ tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay consecutivos registrados.</td></tr>`; return; }
+  tbody.innerHTML = consecData.map((c,i)=>`<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td><span class="badge ${CONSEC_COLORS[c.tipo]||''}">${CONSEC_TIPOS[c.tipo]||c.tipo}</span></td>
+    <td style="font-weight:bold;font-size:15px;">${String(c.numero).padStart(3,'0')}</td>
+    <td>${fmtF(c.fecha)}</td>
+    <td>${c.sol_ap1} ${c.sol_nombre}</td>
+    <td style="font-size:12px;color:var(--muted);">${detalleConsecutivo(c)}</td>
+    <td><button class="btn btn-danger btn-xs" onclick="abrirEliminarConsec(${c.id},'${c.tipo}',${c.numero})">🗑️</button></td>
+  </tr>`).join("");
+}
+
+function detalleConsecutivo(c){
+  if(c.tipo==="oficio") return `${c.destinatario||"—"}${c.motivo_oficio?" · "+c.motivo_oficio.substring(0,40):""}`;
+  if(c.tipo==="minuta") return c.est_ap1?`${c.est_ap1} ${c.est_nombre}`:c.solicitante_cargo||"";
+  if(c.tipo==="proceso") return c.est_ap1?`${c.est_ap1} ${c.est_nombre}${c.seccion_nombre?" · "+c.seccion_nombre:""}`:c.motivo_proceso?.substring(0,40)||"";
+  if(c.tipo==="protocolo") return c.tipo_protocolo?.substring(0,55)||"";
+  return "";
+}
+
+function filtrarConsecutivos(tipo){
+  consecFiltro = tipo;
+  document.querySelectorAll(".consec-tab").forEach(b=>b.classList.remove("active"));
+  event?.target?.classList?.add("active");
+  cargarConsecutivos();
+}
+
+async function abrirNuevoConsecutivo(){
+  document.getElementById("consec-tipo").value="";
+  document.getElementById("consec-numero-preview").value="";
+  document.getElementById("consec-fecha").value=new Date().toISOString().slice(0,10);
+  document.getElementById("alert-consec-modal").className="alert";
+  ["oficio","minuta","proceso","protocolo"].forEach(t=>{ document.getElementById(`consec-campos-${t}`).style.display="none"; });
+  const esSecre = ME.rol==="secretaria";
+  document.getElementById("consec-sol-wrap").style.display = esSecre?"":"none";
+  if(esSecre){
+    const users = await api("/api/admin/usuarios")||[];
+    document.getElementById("consec-solicitante").innerHTML='<option value="">— Seleccionar —</option>'+
+      users.filter(u=>u.activo&&u.rol!=="admin").map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${RLBL[u.rol]||u.rol})</option>`).join("");
+  }
+  ["minuta","proceso","protocolo"].forEach(t=>poblarSel(`consec-sec-${t}`,false,"— Sección —"));
+  const prots = await api("/api/consecutivos/tipos-protocolo");
+  if(prots) document.getElementById("consec-tipo-protocolo").innerHTML=
+    '<option value="">— Seleccionar —</option>'+prots.map(p=>`<option value="${p}">${p}</option>`).join("");
+  document.getElementById("modal-consecutivo").classList.add("show");
+}
+
+async function cambiarTipoConsecutivo(){
+  const tipo=document.getElementById("consec-tipo").value;
+  ["oficio","minuta","proceso","protocolo"].forEach(t=>{ document.getElementById(`consec-campos-${t}`).style.display=t===tipo?"":"none"; });
+  if(tipo){ const r=await api(`/api/consecutivos/siguiente/${tipo}`); document.getElementById("consec-numero-preview").value=r?.numero?String(r.numero).padStart(3,'0')+` (${CONSEC_TIPOS[tipo]||tipo})`:"Sin disponibles"; }
+}
+
+async function cargarEstConsec(tipo){
+  const secId=document.getElementById(`consec-sec-${tipo}`)?.value;
+  const estSel=document.getElementById(`consec-est-${tipo}`);
+  if(!secId||!estSel){if(estSel)estSel.innerHTML='<option value="">— Estudiante —</option>';return;}
+  const rows=await api(`/api/reportes/seccion/${secId}/estudiantes`);
+  estSel.innerHTML='<option value="">— Estudiante —</option>'+(rows||[]).map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+}
+
+async function guardarConsecutivo(){
+  const tipo=document.getElementById("consec-tipo").value;
+  const fecha=document.getElementById("consec-fecha").value;
+  if(!tipo||!fecha){sa("alert-consec-modal","Seleccioná el tipo y la fecha.","danger");return;}
+  const esSecre=ME.rol==="secretaria";
+  const body={tipo,fecha};
+  if(esSecre){ body.solicitante_id=document.getElementById("consec-solicitante").value; if(!body.solicitante_id){sa("alert-consec-modal","Seleccioná el solicitante.","danger");return;} }
+  if(tipo==="oficio"){ body.destinatario=document.getElementById("consec-destinatario").value.trim(); body.motivo_oficio=document.getElementById("consec-motivo-oficio").value.trim(); body.solicitado_por_cargo=document.getElementById("consec-cargo-oficio").value; if(!body.destinatario){sa("alert-consec-modal","El destinatario es obligatorio.","danger");return;} }
+  if(tipo==="minuta"){ body.estudiante_id=document.getElementById("consec-est-minuta").value||null; body.seccion_id=document.getElementById("consec-sec-minuta").value||null; body.solicitante_cargo=document.getElementById("consec-cargo-minuta").value; }
+  if(tipo==="proceso"){ body.seccion_id=document.getElementById("consec-sec-proceso").value||null; body.estudiante_id=document.getElementById("consec-est-proceso").value||null; body.motivo_proceso=document.getElementById("consec-motivo-proceso").value.trim(); }
+  if(tipo==="protocolo"){ body.digitado_por_cargo=document.getElementById("consec-cargo-protocolo").value; body.seccion_id=document.getElementById("consec-sec-protocolo").value||null; body.estudiante_id=document.getElementById("consec-est-protocolo").value||null; body.tipo_protocolo=document.getElementById("consec-tipo-protocolo").value; if(!body.tipo_protocolo){sa("alert-consec-modal","Seleccioná el tipo de protocolo.","danger");return;} }
+  try{
+    const r=await api("/api/consecutivos","POST",body);
+    cerrarModal("modal-consecutivo");
+    sa("alert-consec",`✅ Consecutivo asignado: ${CONSEC_TIPOS[tipo]} N° ${String(r.numero).padStart(3,'0')}`,"success");
+    cargarConsecutivos();
+  }catch(e){sa("alert-consec-modal",e.message,"danger");}
+}
+
+function abrirEliminarConsec(id,tipo,numero){
+  document.getElementById("del-consec-id").value=id;
+  document.getElementById("del-consec-info").textContent=`${CONSEC_TIPOS[tipo]||tipo} N° ${String(numero).padStart(3,'0')}`;
+  document.getElementById("del-consec-just").value="";
+  document.getElementById("alert-del-consec").className="alert";
+  document.getElementById("modal-eliminar-consec").classList.add("show");
+}
+
+async function confirmarEliminarConsec(){
+  const id=document.getElementById("del-consec-id").value;
+  const just=document.getElementById("del-consec-just").value.trim();
+  if(!just){sa("alert-del-consec","La justificación es obligatoria.","danger");return;}
+  try{
+    await api(`/api/consecutivos/${id}`,"DELETE",{justificacion:just});
+    cerrarModal("modal-eliminar-consec");
+    sa("alert-consec","✅ Consecutivo eliminado.","success");
+    cargarConsecutivos();
+  }catch(e){sa("alert-del-consec",e.message,"danger");}
+}
+
+// ════════════════════════════════════
+//  IMPORTAR EXCEL
+// ════════════════════════════════════
+let excelData = [];
+
+function abrirImportarExcel(){
+  excelData = [];
+  document.getElementById("excel-file").value = "";
+  document.getElementById("excel-preview").style.display = "none";
+  document.getElementById("excel-info").textContent = "";
+  document.getElementById("excel-tbody").innerHTML = "";
+  document.getElementById("btn-confirmar-excel").disabled = true;
+  document.getElementById("alert-excel").className = "alert";
+  document.getElementById("modal-importar-excel").classList.add("show");
+}
+
+function previsualizarExcel(){
+  const file = document.getElementById("excel-file").files[0];
+  if(!file) return;
+
+  const isCsv = file.name.toLowerCase().endsWith(".csv");
+
+  if(isCsv){
+    const reader = new FileReader();
+    reader.onload = e => procesarDatosExcel(parseCsvToRows(e.target.result));
+    reader.readAsText(file, "UTF-8");
+  } else {
+    // Usar SheetJS para xlsx/xls
+    const reader = new FileReader();
+    reader.onload = e => {
+      try{
+        const XLSX = window.XLSX;
+        if(!XLSX){ sa("alert-excel","Para archivos Excel (.xlsx/.xls) necesitás SheetJS. Usá formato CSV por favor.","danger"); return; }
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:"array"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:""});
+        procesarDatosExcel(rows);
+      }catch(err){ sa("alert-excel","Error al leer el archivo: "+err.message,"danger"); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function parseCsvToRows(text){
+  return text.split(/\r?\n/).map(line =>
+    line.split(",").map(c => c.trim().replace(/^"|"$/g,""))
+  ).filter(r => r.some(c => c));
+}
+
+function procesarDatosExcel(rows){
+  if(!rows || rows.length < 2){ sa("alert-excel","El archivo está vacío o no tiene datos.","danger"); return; }
+
+  // Detectar encabezado
+  const header = rows[0].map(h => (h||"").toString().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/\s+/g,"_").trim());
+
+  const col = (keys) => {
+    for(const k of keys){ const i = header.findIndex(h=>h.includes(k)); if(i>-1) return i; }
+    return -1;
+  };
+
+  const iCed    = col(["cedul"]);
+  const iAp1    = col(["primer_ap","primerapel","primer ap"]);
+  const iAp2    = col(["segundo_ap","segundoapel","segundo ap"]);
+  const iNom    = col(["nombre"]);
+  const iSec    = col(["secc"]);
+  const iFecha  = col(["fecha","nacim","nac"]);
+
+  if(iCed === -1 || iAp1 === -1 || iNom === -1){
+    sa("alert-excel","No se encontraron las columnas requeridas (cedula, primer_apellido, nombre). Verificá el encabezado.","danger");
+    return;
+  }
+
+  excelData = [];
+  let omitidos = 0;
+
+  for(let i = 1; i < rows.length; i++){
+    const row = rows[i];
+    if(!row || row.every(c=>!c)) continue;
+
+    // Limpiar cédula — quitar guiones, espacios, todo excepto números
+    const cedula = (row[iCed]||"").toString().replace(/[^0-9]/g,"").trim();
+    const ap1    = (row[iAp1]||"").toString().trim();
+    const ap2    = iAp2 > -1 ? (row[iAp2]||"").toString().trim() : "";
+    const nombre = (row[iNom]||"").toString().trim();
+    const seccion= iSec > -1 ? (row[iSec]||"").toString().trim() : "";
+    let fecha    = iFecha > -1 ? (row[iFecha]||"").toString().trim() : "";
+
+    if(!cedula || !ap1 || !nombre){ omitidos++; continue; }
+
+    // Normalizar fecha — soporta DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD y números de Excel
+    if(fecha){
+      // Número serial de Excel → fecha
+      if(/^\d+$/.test(fecha) && parseInt(fecha) > 1000){
+        const d = new Date((parseInt(fecha)-25569)*86400000);
+        if(!isNaN(d)) fecha = d.toISOString().slice(0,10);
+      } else if(fecha.includes("/")){
+        const parts = fecha.split("/");
+        if(parts.length === 3){
+          const [a,b,c] = parts;
+          // Detectar si es DD/MM/YYYY o MM/DD/YYYY
+          if(parseInt(a) > 12) fecha = `${c}-${b.padStart(2,"0")}-${a.padStart(2,"0")}`;
+          else fecha = `${c}-${a.padStart(2,"0")}-${b.padStart(2,"0")}`;
+        }
+      }
+    }
+
+    excelData.push({ cedula, primer_apellido:ap1, segundo_apellido:ap2, nombre, seccion, fecha_nacimiento:fecha||null });
+  }
+
+  // Renderizar preview
+  document.getElementById("excel-info").textContent =
+    `${excelData.length} estudiantes encontrados${omitidos>0?` (${omitidos} filas inválidas omitidas)`:""}`;
+  document.getElementById("excel-tbody").innerHTML = excelData.slice(0,20).map(e=>`<tr>
+    <td>${e.cedula}</td>
+    <td>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+    <td>${e.seccion||"—"}</td>
+    <td>${e.fecha_nacimiento||"—"}</td>
+  </tr>`).join("") + (excelData.length>20?`<tr><td colspan="4" style="text-align:center;color:var(--muted);font-size:11px;">... y ${excelData.length-20} más</td></tr>`:"");
+  document.getElementById("excel-preview").style.display = "";
+  document.getElementById("btn-confirmar-excel").disabled = excelData.length === 0;
+}
+
+async function confirmarImportarExcel(){
+  if(!excelData.length) return;
+  document.getElementById("btn-confirmar-excel").disabled = true;
+  document.getElementById("btn-confirmar-excel").textContent = "⏳ Importando...";
+
+  // Obtener secciones para mapear nombre → id
+  const secs = allSecciones || await api("/api/admin/secciones");
+
+  let insertados = 0, omitidos = 0, errores = [];
+
+  for(const e of excelData){
+    try{
+      // Buscar seccion_id por nombre
+      const sec = secs?.find(s => s.nombre === e.seccion);
+      const payload = {
+        cedula:           e.cedula,
+        nombre:           e.nombre,
+        primer_apellido:  e.primer_apellido,
+        segundo_apellido: e.segundo_apellido,
+        fecha_nacimiento: e.fecha_nacimiento||null,
+        seccion_id:       sec?.id||null,
+      };
+      const r = await api("/api/estudiantes","POST",payload);
+      if(r?.reactivado) insertados++;  // reactivado desde baja
+      else insertados++;
+    }catch(err){
+      if(err.message.includes("activo")) omitidos++;  // ya existe activo → ignorar
+      else errores.push(`${e.cedula}: ${err.message}`);
+    }
+  }
+
+  document.getElementById("btn-confirmar-excel").textContent = "✅ Importar";
+  cerrarModal("modal-importar-excel");
+
+  let msg = `✅ Importación completa: ${insertados} estudiantes agregados`;
+  if(omitidos > 0) msg += `, ${omitidos} ya existían (ignorados)`;
+  if(errores.length > 0) msg += `. ⚠️ ${errores.length} errores`;
+  sa("alert-est", msg, errores.length > 0 ? "info" : "success");
+  cargarEstudiantes();
+}
+
+// ════════════════════════════════════
+//  CONSTANCIA DE ESTUDIANTE
+// ════════════════════════════════════
+async function iniciarConstancia(){
+  poblarSel("const-seccion",false,"— Sección —");
+  document.getElementById("const-estudiante").innerHTML='<option value="">— Estudiante —</option>';
+}
+
+async function cargarEstudiantesConstancia(){
+  const sid=document.getElementById("const-seccion").value;
+  const sel=document.getElementById("const-estudiante");
+  if(!sid){sel.innerHTML='<option value="">— Estudiante —</option>';return;}
+  const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);
+  sel.innerHTML='<option value="">— Estudiante —</option>'+(rows||[]).map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+}
+
+async function generarConstancia(){
+  const sid=document.getElementById("const-seccion").value;
+  const eid=document.getElementById("const-estudiante").value;
+  if(!sid||!eid){sa("alert-const","Seleccioná sección y estudiante.","danger");return;}
+  const todos=await api("/api/estudiantes");
+  const est=todos?.find(e=>e.id==eid);
+  if(!est){sa("alert-const","Estudiante no encontrado.","danger");return;}
+  const auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  const auxCedula=ME.cedula;
+  const sec=allSecciones?.find(s=>s.id==sid);
+  const nivel=sec?parseInt(sec.nombre):0;
+  const nivelTexto={7:"SÉTIMO",8:"OCTAVO",9:"NOVENO",10:"DÉCIMO",11:"UNDÉCIMO"}[nivel]||sec?.nombre?.toUpperCase()||"";
+  const ciclo=nivel>=10?"EDUCACIÓN DIVERSIFICADA":"III CICLO DE LA EDUCACIÓN GENERAL BÁSICA";
+  const hoy=new Date();
+  const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const dias=["","uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve","treinta","treinta y uno"];
+  const anioLetra={2024:"dos mil veinticuatro",2025:"dos mil veinticinco",2026:"dos mil veintiséis",2027:"dos mil veintisiete",2028:"dos mil veintiocho"};
+  const diaTexto=dias[hoy.getDate()]||hoy.getDate();
+  const mesTexto=meses[hoy.getMonth()];
+  const anio=hoy.getFullYear();
+  const anioTexto=anioLetra[anio]||anio;
+  let printArea=document.getElementById("print-boleta-area");
+  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+  printArea.innerHTML=`
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
+      ${encabezadoMEP()}
+      <h2 style="text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE ESTUDIANTE</h2>
+      <div style="font-size:13px;line-height:2;text-align:justify;">
+        <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
+        <strong>${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre}</strong>,
+        portador(a) de la cédula de identidad número <strong>${est.cedula}</strong>,
+        se encuentra debidamente matriculado(a) en esta institución educativa durante el presente curso lectivo
+        <strong>${anioTexto.toUpperCase()}</strong>, cursando el nivel de <strong>${nivelTexto}</strong>
+        de la <strong>${ciclo}</strong>.</p>
+        <br/>
+        <p style="text-indent:2em;">Se extiende la presente constancia a solicitud del(la) interesado(a), para los fines que estime
+        convenientes, a los <strong>${diaTexto}</strong> días del mes de <strong>${mesTexto}</strong>
+        del año <strong>${anioTexto}</strong>.</p>
+      </div>
+      <div style="margin-top:60px;text-align:center;">
+        <div style="border-top:1px solid #374151;width:300px;margin:0 auto;padding-top:8px;">
+          <div style="font-size:13px;font-weight:bold;">${auxNombre}</div>
+          <div style="font-size:12px;color:#555;">Cédula: ${auxCedula||"—"}</div>
+          <div style="font-size:12px;color:#555;">Auxiliar Administrativo</div>
+          <div style="font-size:12px;color:#555;">Liceo de Calle Fallas</div>
+        </div>
+      </div>
+      ${piePaginaMEP()}
+    </div>`;
+  const style=document.createElement("style");style.id="print-style-constancia";
   style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
@@ -4051,7 +4674,7 @@ async function imprimirInformeSeccionConducta(){
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
   printArea.innerHTML = `
-    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;">
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
 ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+( sec?.nombre||""))}
       <div style="font-size:13px;margin-bottom:14px;">
         <strong>Profesor Guía:</strong> ${guia} &nbsp;&nbsp;

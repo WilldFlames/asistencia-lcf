@@ -35,11 +35,35 @@ router.post("/", canManage, async (req, res) => {
   if (!cedula||!nombre||!primer_apellido||!segundo_apellido)
     return res.status(400).json({ error: "Datos incompletos" });
   try {
-    const r = await pool.query(`INSERT INTO estudiantes (cedula,nombre,primer_apellido,segundo_apellido,fecha_nacimiento,seccion_id,subgrupo) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [cedula.trim(),nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,seccion_id||null,subgrupo||null]);
-    res.json({ ok:true, id:r.rows[0].id });
+    // Verificar si ya existe (activo o inactivo)
+    const existe = await pool.query("SELECT id, activo FROM estudiantes WHERE cedula=$1", [cedula.trim()]);
+
+    if(existe.rows.length > 0) {
+      const est = existe.rows[0];
+      if(est.activo) {
+        return res.status(409).json({ error: "Ya existe un estudiante activo con esa cédula" });
+      }
+      // Estaba eliminado — reactivar con los nuevos datos
+      await pool.query(`
+        UPDATE estudiantes SET
+          nombre=$1, primer_apellido=$2, segundo_apellido=$3,
+          fecha_nacimiento=$4, seccion_id=$5, subgrupo=$6, becado=$7,
+          activo=true
+        WHERE id=$8
+      `, [nombre.trim(), primer_apellido.trim(), segundo_apellido.trim(),
+          fecha_nacimiento||null, seccion_id||null, subgrupo||null,
+          becado||false, est.id]);
+      return res.json({ ok:true, id: est.id, reactivado: true });
+    }
+
+    // No existe — crear nuevo
+    const r = await pool.query(`
+      INSERT INTO estudiantes (cedula,nombre,primer_apellido,segundo_apellido,fecha_nacimiento,seccion_id,subgrupo,becado)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id
+    `, [cedula.trim(), nombre.trim(), primer_apellido.trim(), segundo_apellido.trim(),
+        fecha_nacimiento||null, seccion_id||null, subgrupo||null, becado||false]);
+    res.json({ ok:true, id: r.rows[0].id });
   } catch(e) {
-    if (e.message.includes("unique")) return res.status(409).json({ error: "Cédula ya registrada" });
     res.status(500).json({ error: e.message });
   }
 });
@@ -132,7 +156,37 @@ router.put("/:id/seccion", canManage, async (req, res) => {
 
 // ── ELIMINAR (baja lógica) ─────────────────────────────────────
 router.delete("/:id", canManage, async (req, res) => {
+  const { justificacion } = req.body || {};
+  if(!justificacion || !justificacion.trim())
+    return res.status(400).json({ error:"La justificación de la baja es obligatoria." });
+
+  const u = req.session.usuario;
+
+  // Obtener datos del estudiante antes de desactivar
+  const estR = await pool.query(
+    "SELECT nombre, primer_apellido, segundo_apellido, cedula FROM estudiantes WHERE id=$1",
+    [req.params.id]
+  );
+  const est = estR.rows[0];
+  const nombreEst = est ? `${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre} (${est.cedula})` : `ID ${req.params.id}`;
+
+  // Desactivar estudiante
   await pool.query("UPDATE estudiantes SET activo=false WHERE id=$1", [req.params.id]);
+
+  // Notificar a todos los admins
+  const admins = await pool.query(
+    "SELECT id FROM usuarios WHERE rol='admin' AND activo=true"
+  );
+  const nombreUsuario = `${u.primer_apellido} ${u.nombre}`;
+  const mensaje = `Baja de estudiante: ${nombreEst}. Justificación: ${justificacion.trim()}. Registrado por: ${nombreUsuario}.`;
+
+  for(const admin of admins.rows){
+    await pool.query(
+      "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
+      [admin.id, mensaje, "baja_estudiante"]
+    );
+  }
+
   res.json({ ok: true });
 });
 

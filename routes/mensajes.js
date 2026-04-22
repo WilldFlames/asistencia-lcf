@@ -139,6 +139,20 @@ router.put("/:id/leer", requireAuth, async (req, res) => {
   res.json({ ok:true });
 });
 
+// ── ELIMINAR INFORME (remitente, guía, orientador, auxiliar, admin) ──────────
+router.delete("/:id", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  // Verificar que sea el remitente o tenga rol admin/auxiliar
+  const inf = await pool.query("SELECT remitente_id FROM informes WHERE id=$1", [req.params.id]);
+  if(!inf.rows.length) return res.status(404).json({ error:"No encontrado" });
+  const esRemitente = inf.rows[0].remitente_id === u.id;
+  const puedeEliminar = esRemitente || ["admin","auxiliar"].includes(u.rol) ||
+    (u.funciones_extra||[]).includes("profesor_guia") || (u.funciones_extra||[]).includes("orientador");
+  if(!puedeEliminar) return res.status(403).json({ error:"Sin permisos para eliminar este informe" });
+  await pool.query("DELETE FROM informes WHERE id=$1", [req.params.id]);
+  res.json({ ok:true });
+});
+
 // ── NO LEÍDOS ─────────────────────────────────────────────────────────────────
 router.get("/no-leidos", requireAuth, async (req, res) => {
   const r = await pool.query(
