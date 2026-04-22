@@ -4415,61 +4415,100 @@ function parseCsvToRows(text){
 function procesarDatosExcel(rows){
   if(!rows || rows.length < 2){ sa("alert-excel","El archivo está vacío o no tiene datos.","danger"); return; }
 
-  // Detectar encabezado
-  const header = rows[0].map(h => (h||"").toString().toLowerCase()
+  // Detectar encabezado — normalizar quitando tildes, espacios y mayúsculas
+  const normalizeH = h => (h||"").toString().toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-    .replace(/\s+/g,"_").trim());
+    .replace(/[\s\-]+/g,"_").trim();
 
-  const col = (keys) => {
+  const header = rows[0].map(normalizeH);
+
+  const col = (...keys) => {
     for(const k of keys){ const i = header.findIndex(h=>h.includes(k)); if(i>-1) return i; }
     return -1;
   };
 
-  const iCed    = col(["cedul"]);
-  const iAp1    = col(["primer_ap","primerapel","primer ap"]);
-  const iAp2    = col(["segundo_ap","segundoapel","segundo ap"]);
-  const iNom    = col(["nombre"]);
-  const iSec    = col(["secc"]);
-  const iFecha  = col(["fecha","nacim","nac"]);
+  const iCed   = col("cedul");
+  const iAp1   = col("primer_ap","primerapel");
+  const iAp2   = col("segundo_ap","segundoapel","seg_ap");
+  const iNom   = col("nombre");
+  const iSec   = col("secc","seccion");
+  const iFecha = col("fecha_nac","fecha","nacim","nac");
 
   if(iCed === -1 || iAp1 === -1 || iNom === -1){
-    sa("alert-excel","No se encontraron las columnas requeridas (cedula, primer_apellido, nombre). Verificá el encabezado.","danger");
+    sa("alert-excel",`No se encontraron columnas requeridas. Encabezados detectados: ${header.join(", ")}. Se necesita: cedula, primer_apellido, nombre.`,"danger");
     return;
   }
 
   excelData = [];
   let omitidos = 0;
 
+  // Función para parsear fecha desde cualquier formato
+  const parseFecha = (val) => {
+    if(!val) return null;
+    // Si es un objeto Date de SheetJS
+    if(val instanceof Date || (typeof val === "object" && val !== null && typeof val.getFullYear === "function")){
+      try{ return val.toISOString().slice(0,10); }catch{ return null; }
+    }
+    let f = String(val).trim();
+    if(!f || f === "null" || f === "undefined") return null;
+    // Número serial de Excel (ej: 46498)
+    if(/^\d{5,6}$/.test(f)){
+      const d = new Date((parseInt(f)-25569)*86400000);
+      if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+    }
+    // Ya en formato YYYY-MM-DD
+    if(/^\d{4}-\d{2}-\d{2}/.test(f)) return f.slice(0,10);
+    // DD/MM/YYYY
+    if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(f)){
+      const [d,m,y] = f.split("/");
+      return `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+    }
+    // MM/DD/YYYY
+    if(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(f)){
+      const parts = f.split("/");
+      const y = parts[2].length===2 ? "20"+parts[2] : parts[2];
+      if(parseInt(parts[0])>12) return `${y}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`;
+      return `${y}-${parts[0].padStart(2,"0")}-${parts[1].padStart(2,"0")}`;
+    }
+    // Intento con Date.parse
+    const d = new Date(f);
+    if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+    return null;
+  };
+
   for(let i = 1; i < rows.length; i++){
     const row = rows[i];
-    if(!row || row.every(c=>!c)) continue;
+    if(!row || row.every(c=>c===null||c===undefined||c==="")) continue;
 
-    // Limpiar cédula — quitar guiones, espacios, todo excepto números
-    const cedula = (row[iCed]||"").toString().replace(/[^0-9]/g,"").trim();
+    // Limpiar cédula — preservar formato original (letras y números)
+    // Solo se limpian: espacios, guiones de cédulas numéricas costarricenses
+    const rawCed = row[iCed];
+    let cedula = "";
+    if(rawCed !== null && rawCed !== undefined && rawCed !== ""){
+      if(typeof rawCed === "number"){
+        // Número flotante/entero de Excel (DIMEX como 155849063512)
+        cedula = Math.round(rawCed).toString();
+      } else {
+        const s = rawCed.toString().trim();
+        if(s.toUpperCase().includes("E+")){
+          // Notación científica → convertir a entero
+          cedula = Math.round(parseFloat(s)).toString();
+        } else if(/^[\d\-]+$/.test(s)){
+          // Solo dígitos y guiones (cédula CR normal: 1-2178-0021) → quitar guiones
+          cedula = s.replace(/-/g,"");
+        } else {
+          // Tiene letras (DIMEX con letra, refugio, etc.) → conservar tal cual, solo quitar espacios
+          cedula = s.replace(/\s+/g,"");
+        }
+      }
+    }
     const ap1    = (row[iAp1]||"").toString().trim();
     const ap2    = iAp2 > -1 ? (row[iAp2]||"").toString().trim() : "";
     const nombre = (row[iNom]||"").toString().trim();
     const seccion= iSec > -1 ? (row[iSec]||"").toString().trim() : "";
-    let fecha    = iFecha > -1 ? (row[iFecha]||"").toString().trim() : "";
+    const fecha  = iFecha > -1 ? parseFecha(row[iFecha]) : null;
 
     if(!cedula || !ap1 || !nombre){ omitidos++; continue; }
-
-    // Normalizar fecha — soporta DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD y números de Excel
-    if(fecha){
-      // Número serial de Excel → fecha
-      if(/^\d+$/.test(fecha) && parseInt(fecha) > 1000){
-        const d = new Date((parseInt(fecha)-25569)*86400000);
-        if(!isNaN(d)) fecha = d.toISOString().slice(0,10);
-      } else if(fecha.includes("/")){
-        const parts = fecha.split("/");
-        if(parts.length === 3){
-          const [a,b,c] = parts;
-          // Detectar si es DD/MM/YYYY o MM/DD/YYYY
-          if(parseInt(a) > 12) fecha = `${c}-${b.padStart(2,"0")}-${a.padStart(2,"0")}`;
-          else fecha = `${c}-${a.padStart(2,"0")}-${b.padStart(2,"0")}`;
-        }
-      }
-    }
 
     excelData.push({ cedula, primer_apellido:ap1, segundo_apellido:ap2, nombre, seccion, fecha_nacimiento:fecha||null });
   }
