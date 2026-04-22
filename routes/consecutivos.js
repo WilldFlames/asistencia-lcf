@@ -29,20 +29,6 @@ function canUse(req, res, next) {
   return res.status(403).json({ error:"Sin permisos" });
 }
 
-// ── SIGUIENTE NÚMERO (solo para preview en el form, NO para asignar) ─
-async function previsualizarSiguiente(tipo) {
-  const inicio = INICIO[tipo];
-  const r = await pool.query(
-    "SELECT numero FROM consecutivos WHERE tipo=$1 AND eliminado=false ORDER BY numero",
-    [tipo]
-  );
-  const usados = new Set(r.rows.map(x => x.numero));
-  for(let n = inicio; n <= MAX; n++) {
-    if(!usados.has(n)) return n;
-  }
-  return null;
-}
-
 // ── LISTAR ───────────────────────────────────────────────────────────
 router.get("/", requireAuth, canUse, async (req, res) => {
   const u = req.session.usuario;
@@ -67,7 +53,7 @@ router.get("/", requireAuth, canUse, async (req, res) => {
   res.json(r.rows);
 });
 
-// ── CREAR — con transacción y bloqueo para evitar duplicados ─────────
+// ── CREAR — con reintentos automáticos ante colisión ─────────────────
 router.post("/", requireAuth, canUse, async (req, res) => {
   const u = req.session.usuario;
   const { tipo, fecha, destinatario, motivo_oficio, solicitado_por_cargo,
@@ -80,58 +66,66 @@ router.post("/", requireAuth, canUse, async (req, res) => {
   const solicitante_id = (u.rol === "secretaria" && sol_id_body) ? sol_id_body : u.id;
   const inicio = INICIO[tipo];
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
+  // Intentar hasta 5 veces en caso de colisión concurrente
+  const MAX_INTENTOS = 5;
+  let ultimoError = null;
 
-    // BLOQUEO EXCLUSIVO: nadie más puede leer/escribir consecutivos de este tipo
-    // hasta que terminemos la transacción
-    await client.query(
-      "LOCK TABLE consecutivos IN SHARE ROW EXCLUSIVE MODE"
-    );
+  for(let intento = 1; intento <= MAX_INTENTOS; intento++){
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("LOCK TABLE consecutivos IN SHARE ROW EXCLUSIVE MODE");
 
-    // Buscar el siguiente número libre dentro de la transacción bloqueada
-    const usadosR = await client.query(
-      "SELECT numero FROM consecutivos WHERE tipo=$1 AND eliminado=false ORDER BY numero",
-      [tipo]
-    );
-    const usados = new Set(usadosR.rows.map(x => x.numero));
-    let numero = null;
-    for(let n = inicio; n <= MAX; n++) {
-      if(!usados.has(n)) { numero = n; break; }
-    }
+      // Buscar siguiente número libre
+      const usadosR = await client.query(
+        "SELECT numero FROM consecutivos WHERE tipo=$1 AND eliminado=false ORDER BY numero",
+        [tipo]
+      );
+      const usados = new Set(usadosR.rows.map(x => x.numero));
+      let numero = null;
+      for(let n = inicio; n <= MAX; n++){
+        if(!usados.has(n)){ numero = n; break; }
+      }
 
-    if(!numero) {
+      if(!numero){
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error:`No hay consecutivos disponibles para ${tipo}` });
+      }
+
+      const r = await client.query(`
+        INSERT INTO consecutivos
+          (tipo, numero, solicitante_id, fecha, destinatario, motivo_oficio, solicitado_por_cargo,
+           estudiante_id, solicitante_cargo, seccion_id, motivo_proceso,
+           digitado_por_cargo, tipo_protocolo)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        RETURNING *
+      `, [tipo, numero, solicitante_id,
+          fecha || new Date().toISOString().slice(0,10),
+          destinatario||null, motivo_oficio||null, solicitado_por_cargo||null,
+          estudiante_id||null, solicitante_cargo||null, seccion_id||null, motivo_proceso||null,
+          digitado_por_cargo||null, tipo_protocolo||null]);
+
+      await client.query("COMMIT");
+      return res.json({ ok:true, consecutivo: r.rows[0], numero });
+
+    } catch(e) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error:`No hay consecutivos disponibles para ${tipo}` });
+      ultimoError = e;
+      // Si es colisión por UNIQUE, esperar un poco y reintentar
+      if(e.message.includes("unique") || e.message.includes("duplicate") || e.code === "23505"){
+        const espera = intento * 50; // 50ms, 100ms, 150ms...
+        await new Promise(r => setTimeout(r, espera));
+        continue;
+      }
+      // Otro error → no reintentar
+      return res.status(500).json({ error: e.message });
+    } finally {
+      client.release();
     }
-
-    // Insertar con el número asignado dentro del mismo bloqueo
-    const r = await client.query(`
-      INSERT INTO consecutivos
-        (tipo, numero, solicitante_id, fecha, destinatario, motivo_oficio, solicitado_por_cargo,
-         estudiante_id, solicitante_cargo, seccion_id, motivo_proceso,
-         digitado_por_cargo, tipo_protocolo)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-      RETURNING *
-    `, [tipo, numero, solicitante_id,
-        fecha || new Date().toISOString().slice(0,10),
-        destinatario||null, motivo_oficio||null, solicitado_por_cargo||null,
-        estudiante_id||null, solicitante_cargo||null, seccion_id||null, motivo_proceso||null,
-        digitado_por_cargo||null, tipo_protocolo||null]);
-
-    await client.query("COMMIT");
-    res.json({ ok:true, consecutivo: r.rows[0], numero });
-  } catch(e) {
-    await client.query("ROLLBACK");
-    // Si hay colisión por UNIQUE constraint (caso extremo), devolver error claro
-    if(e.message.includes("unique") || e.message.includes("duplicate")) {
-      return res.status(409).json({ error:"Conflicto al asignar el consecutivo, intente de nuevo." });
-    }
-    res.status(500).json({ error: e.message });
-  } finally {
-    client.release();
   }
+
+  // Si agotó los reintentos
+  return res.status(409).json({ error:"No se pudo asignar el consecutivo tras varios intentos. Por favor intente de nuevo." });
 });
 
 // ── ELIMINAR ─────────────────────────────────────────────────────────
@@ -150,12 +144,6 @@ router.delete("/:id", requireAuth, canUse, async (req, res) => {
     [justificacion.trim(), req.params.id]
   );
   res.json({ ok:true });
-});
-
-// ── SIGUIENTE NÚMERO (solo preview, no reserva) ──────────────────────
-router.get("/siguiente/:tipo", requireAuth, canUse, async (req, res) => {
-  const numero = await previsualizarSiguiente(req.params.tipo);
-  res.json({ numero, tipo: req.params.tipo });
 });
 
 // ── TIPOS DE PROTOCOLO ───────────────────────────────────────────────
