@@ -4589,7 +4589,16 @@ async function confirmarImportarExcel(){
 //  CONSTANCIA DE ESTUDIANTE
 // ════════════════════════════════════
 async function iniciarConstancia(){
-  poblarSel("const-seccion",false,"— Sección —");
+  // Cargar secciones desde la API (no depender de allSecciones que solo carga para admin)
+  let secciones = allSecciones || [];
+  if(!secciones.length){
+    try{ secciones = await api("/api/admin/secciones") || []; }catch{}
+  }
+  // Poblar selector de sección
+  const sel = document.getElementById("const-seccion");
+  sel.innerHTML = '<option value="">— Sección —</option>' +
+    secciones.sort((a,b)=>a.nombre.localeCompare(b.nombre))
+             .map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
   document.getElementById("const-estudiante").innerHTML='<option value="">— Estudiante —</option>';
 }
 
@@ -4617,10 +4626,16 @@ async function generarConstancia(){
       auxCedula = meData?.usuario?.cedula || "";
     }catch{}
   }
-  const sec=allSecciones?.find(s=>s.id==sid);
-  const nivel=sec?parseInt(sec.nombre):0;
-  const nivelTexto={7:"SÉTIMO",8:"OCTAVO",9:"NOVENO",10:"DÉCIMO",11:"UNDÉCIMO"}[nivel]||sec?.nombre?.toUpperCase()||"";
-  const ciclo=nivel>=10?"EDUCACIÓN DIVERSIFICADA":"III CICLO DE LA EDUCACIÓN GENERAL BÁSICA";
+  // Obtener sección directamente — no depender de allSecciones (vacío para auxiliares)
+  let secciones = (allSecciones && allSecciones.length) ? allSecciones : [];
+  if(!secciones.length){
+    try{ secciones = await api("/api/admin/secciones") || []; }catch{}
+  }
+  const sec = secciones.find(s=>s.id==sid);
+  // Detectar nivel desde el nombre de la sección (ej: "7-1" → 7, "11-3" → 11)
+  const nivelNum = sec ? parseInt(sec.nombre.split('-')[0]) : 0;
+  const nivelTexto={7:"SÉTIMO",8:"OCTAVO",9:"NOVENO",10:"DÉCIMO",11:"UNDÉCIMO"}[nivelNum]||sec?.nombre?.toUpperCase()||"";
+  const ciclo=nivelNum>=10?"EDUCACIÓN DIVERSIFICADA":"III CICLO DE LA EDUCACIÓN GENERAL BÁSICA";
   const hoy=new Date();
   const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
   const dias=["","uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve","treinta","treinta y uno"];
@@ -4822,7 +4837,7 @@ function piePaginaMEP(){
 
 // Imprime esperando que carguen las imágenes del encabezado MEP
 async function imprimirConEncabezado(area, styleEl){
-  // Mantener oculto en pantalla — solo visible al imprimir via @media print
+  // Mantener oculto fuera de pantalla mientras carga
   area.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:800px;background:#fff;visibility:hidden;";
 
   // Esperar a que las imágenes carguen (máximo 3s)
@@ -4838,16 +4853,14 @@ async function imprimirConEncabezado(area, styleEl){
     }));
   }
 
-  // Al imprimir: el CSS @media print ya oculta todo lo demás y muestra solo el área
-  // Hacemos visible el área solo durante window.print()
-  area.style.visibility = "visible";
+  // Mover al flujo normal del documento para que el navegador lo imprima correctamente
+  area.style.cssText = "position:static;width:100%;background:#fff;";
   window.print();
-  area.style.visibility = "hidden";
 
-  // Limpiar después de que el diálogo se cierra
+  // Ocultar y limpiar después de cerrar el diálogo
+  area.style.cssText = "display:none;";
   if(styleEl) styleEl.remove();
   area.innerHTML = "";
-  area.style.cssText = "display:none;";
 }
 // ════════════════════════════════════
 function cerrarModal(id){document.getElementById(id).classList.remove("show");}
