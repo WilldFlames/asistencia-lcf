@@ -160,6 +160,19 @@ router.delete("/asignaciones/:id", onlyAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+router.put("/asignaciones/:id", onlyAdmin, async (req, res) => {
+  const { profesor_id, seccion_id, materia_id, lecciones_semana, subgrupo } = req.body;
+  if(!profesor_id || !seccion_id || !materia_id)
+    return res.status(400).json({ error: "Faltan campos requeridos." });
+  const r = await pool.query(
+    `UPDATE asignaciones SET profesor_id=$1, seccion_id=$2, materia_id=$3,
+     lecciones_semana=$4, subgrupo=$5 WHERE id=$6 RETURNING id`,
+    [profesor_id, seccion_id, materia_id, lecciones_semana || 4, subgrupo || null, req.params.id]
+  );
+  if(!r.rows.length) return res.status(404).json({ error: "Asignación no encontrada." });
+  res.json({ ok: true });
+});
+
 router.get("/profesores", async (req, res) => {
   const r = await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido,rol FROM usuarios WHERE rol IN ('profesor','profesor_guia','orientador') AND activo=true ORDER BY primer_apellido,nombre`);
   res.json(r.rows);

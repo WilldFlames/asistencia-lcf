@@ -265,6 +265,10 @@ async function initDB() {
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS lugar_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS telefono_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS foto_url TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS archivado BOOLEAN DEFAULT false`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS fecha_archivo DATE DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS motivo_archivo TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS justificacion_archivo TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS becado BOOLEAN DEFAULT false`);
     // Ampliar constraint de rol para incluir todos los roles
     try {

@@ -197,6 +197,83 @@ router.put("/:id/foto", canManage, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── LISTAR ARCHIVADOS ────────────────────────────────────────────────
+router.get("/archivados", canManage, async (req, res) => {
+  const r = await pool.query(`
+    SELECT e.*,
+      s.nombre AS seccion_nombre
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.archivado=true
+    ORDER BY e.primer_apellido, e.nombre
+  `);
+  res.json(r.rows);
+});
+
+// ── ARCHIVAR ESTUDIANTE ──────────────────────────────────────────────
+router.post("/:id/archivar", canManage, async (req, res) => {
+  const { justificacion, motivo } = req.body || {};
+  if(!justificacion || !justificacion.trim())
+    return res.status(400).json({ error:"La justificación es obligatoria." });
+
+  const u = req.session.usuario;
+
+  // Obtener datos del estudiante
+  const estR = await pool.query(`
+    SELECT e.*, s.nombre AS seccion_nombre, s.id AS sec_id
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.id=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
+  `, [req.params.id]);
+
+  if(!estR.rows.length)
+    return res.status(404).json({ error:"Estudiante no encontrado o ya archivado." });
+
+  const est = estR.rows[0];
+  const nombreEst = `${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre}`;
+  const nombreUsuario = `${u.primer_apellido} ${u.nombre}`;
+
+  // Archivar — mantener activo=true pero archivado=true
+  await pool.query(`
+    UPDATE estudiantes SET
+      archivado=true,
+      fecha_archivo=CURRENT_DATE,
+      motivo_archivo=$1,
+      justificacion_archivo=$2,
+      seccion_id=NULL
+    WHERE id=$3
+  `, [motivo||null, justificacion.trim(), req.params.id]);
+
+  // Notificar a profesores de la sección
+  if(est.sec_id){
+    const profR = await pool.query(`
+      SELECT DISTINCT a.profesor_id
+      FROM asignaciones a
+      WHERE a.seccion_id=$1
+    `, [est.sec_id]);
+
+    const msg = `El estudiante ${nombreEst} (Sección: ${est.seccion_nombre||''}) ha sido retirado del Liceo de Calle Fallas. Registrado por: ${nombreUsuario}.${motivo?' Motivo: '+motivo:''}`;
+
+    for(const p of profR.rows){
+      await pool.query(
+        "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
+        [p.profesor_id, msg, "archivo_estudiante"]
+      );
+    }
+
+    // También notificar admins
+    const admins = await pool.query("SELECT id FROM usuarios WHERE rol='admin' AND activo=true");
+    for(const a of admins.rows){
+      await pool.query(
+        "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
+        [a.id, msg, "archivo_estudiante"]
+      );
+    }
+  }
+
+  res.json({ ok:true });
+});
+
 module.exports = router;
 
 // ── IMPORTAR MASIVO DESDE EXCEL ────────────────────────────────────────

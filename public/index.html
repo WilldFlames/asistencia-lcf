@@ -356,6 +356,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="comedor" id="nav-comedor" onclick="goTo('comedor')" style="display:none"><span class="icon">🍽️</span><span>Comedor</span></button>
   <button class="nav-btn" data-page="consecutivos" id="nav-consecutivos" onclick="goTo('consecutivos')" style="display:none"><span class="icon">🔢</span><span>Consecutivos</span></button>
   <button class="nav-btn" data-page="constancia" id="nav-constancia" onclick="goTo('constancia')" style="display:none"><span class="icon">📄</span><span>Constancia</span></button>
+  <button class="nav-btn" data-page="archivo" id="nav-archivo" onclick="goTo('archivo')" style="display:none"><span class="icon">🗄️</span><span>Archivo</span></button>
   <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📈</span><span>Cumplimiento</span></button>
 </nav>
 
@@ -867,6 +868,25 @@ tr:hover td{background:#f8fafc;}
 
 </div>
 
+<!-- ARCHIVO -->
+<div class="page" id="page-archivo">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <h2 style="margin:0">🗄️ Archivo de Estudiantes</h2>
+    </div>
+    <div id="alert-archivo" class="alert"></div>
+    <div style="margin-bottom:10px;">
+      <input type="text" id="buscar-archivo" placeholder="Buscar por nombre o cédula..." oninput="filtrarArchivo()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección anterior</th><th>Fecha retiro</th><th>Motivo</th><th></th></tr></thead>
+        <tbody id="archivo-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- CONSECUTIVOS -->
 <div class="page" id="page-consecutivos">
   <div class="card">
@@ -902,7 +922,8 @@ tr:hover td{background:#f8fafc;}
       <div class="fg"><label>Estudiante</label>
         <select id="const-estudiante"><option value="">— Estudiante —</option></select>
       </div>
-      <button class="btn btn-success" onclick="generarConstancia()">🖨️ Generar e Imprimir</button>
+      <button class="btn btn-success" onclick="generarConstancia()">🖨️ Constancia</button>
+      <button class="btn btn-orange" onclick="abrirConstanciaRetiro()">📁 Constancia de Retiro</button>
     </div>
   </div>
 </div>
@@ -997,6 +1018,38 @@ tr:hover td{background:#f8fafc;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-asignacion')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarAsignacion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Asignación -->
+<div class="modal-overlay" id="modal-editar-asig">
+  <div class="modal">
+    <h3>✏️ Editar Asignación</h3>
+    <input type="hidden" id="ea-id"/>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Profesor *</label><select id="ea-profesor"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Sección *</label><select id="ea-seccion"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Materia *</label><select id="ea-materia"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Lecciones/semana</label>
+        <select id="ea-lecciones">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+          <option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Subgrupo <small style="color:var(--muted)">(solo para materias con A/B)</small></label>
+        <select id="ea-subgrupo">
+          <option value="">Sin subgrupo</option>
+          <option value="A">Grupo A</option>
+          <option value="B">Grupo B</option>
+        </select>
+      </div>
+    </div>
+    <div id="alert-ea" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-editar-asig')">Cancelar</button>
+      <button class="btn btn-success" onclick="guardarEdicionAsig()">✅ Guardar Cambios</button>
     </div>
   </div>
 </div>
@@ -1311,6 +1364,94 @@ tr:hover td{background:#f8fafc;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-importar-excel')">Cancelar</button>
       <button class="btn btn-success" id="btn-confirmar-excel" onclick="confirmarImportarExcel()" disabled>✅ Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Archivar Estudiante -->
+<div class="modal-overlay" id="modal-archivar-est">
+  <div class="modal" style="max-width:500px;">
+    <h3 style="color:var(--naranja);">📁 Archivar Estudiante</h3>
+    <p id="archivar-est-nombre" style="font-weight:bold;margin:8px 0 12px;font-size:14px;"></p>
+    <input type="hidden" id="archivar-est-id"/>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">El estudiante será retirado de su sección y se notificará a sus profesores. Su expediente quedará disponible en el Archivo.</p>
+    <div class="fg" style="margin-bottom:8px;">
+      <label>Motivo del retiro</label>
+      <select id="archivar-motivo">
+        <option value="">— Seleccionar —</option>
+        <option value="Traslado a otro centro educativo">Traslado a otro centro educativo</option>
+        <option value="Retiro voluntario">Retiro voluntario</option>
+        <option value="Deserción escolar">Deserción escolar</option>
+        <option value="Otro">Otro</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Justificación <span style="color:var(--rojo)">*</span></label>
+      <textarea id="archivar-justificacion" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;" placeholder="Indique el motivo detallado del archivo..."></textarea>
+    </div>
+    <div id="alert-archivar" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-archivar-est')">Cancelar</button>
+      <button class="btn btn-orange" onclick="confirmarArchivarEst()">📁 Confirmar Archivo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Constancia de Retiro -->
+<div class="modal-overlay" id="modal-retiro">
+  <div class="modal" style="max-width:520px;">
+    <h3>📁 Constancia de Retiro Formal</h3>
+    <div id="alert-retiro-modal" class="alert"></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="fg" style="flex:1;min-width:160px;"><label>Sección</label>
+        <select id="retiro-seccion" onchange="cargarEstudiantesRetiro()"><option value="">— Sección —</option></select>
+      </div>
+      <div class="fg" style="flex:1;min-width:160px;"><label>Estudiante</label>
+        <select id="retiro-estudiante" onchange="cargarEncargadoRetiro()"><option value="">— Estudiante —</option></select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px;">
+      <label>Fecha de retiro</label>
+      <input type="date" id="retiro-fecha"/>
+    </div>
+    <div class="fg" style="margin-bottom:8px;">
+      <label>Nivel que cursaba</label>
+      <input type="text" id="retiro-nivel" placeholder="Ej: SÉTIMO" readonly style="background:#f1f5f9;"/>
+    </div>
+    <!-- Encargado legal -->
+    <div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:12px;margin-bottom:10px;">
+      <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:8px;">👤 Encargado Legal</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <div class="fg" style="flex:2;"><label>Nombre del encargado</label>
+          <input type="text" id="retiro-enc-nombre" placeholder="Nombre completo..."/>
+        </div>
+        <div class="fg" style="flex:1;"><label>Cédula</label>
+          <input type="text" id="retiro-enc-cedula" placeholder="Cédula..."/>
+        </div>
+      </div>
+    </div>
+    <!-- Motivo -->
+    <div class="fg" style="margin-bottom:8px;">
+      <label>Motivo del retiro <span style="color:var(--muted);font-size:11px;">(dejar en blanco para completar a mano)</span></label>
+      <input type="text" id="retiro-motivo" placeholder="Ej: Traslado a otro centro educativo, motivos familiares..."/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-retiro')">Cancelar</button>
+      <button class="btn btn-success" onclick="generarConstanciaRetiro()">🖨️ Generar e Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Archivar tras Retiro -->
+<div class="modal-overlay" id="modal-archivar-tras-retiro">
+  <div class="modal" style="max-width:420px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:10px;">📁</div>
+    <h3 style="margin-bottom:8px;">¿Desea archivar al estudiante?</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:20px;" id="archivar-retiro-nombre"></p>
+    <input type="hidden" id="archivar-retiro-est-id"/>
+    <div class="modal-actions" style="justify-content:center;gap:16px;">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-archivar-tras-retiro')">No por ahora</button>
+      <button class="btn btn-orange" onclick="archivarTrasRetiro()">📁 Sí, Archivar</button>
     </div>
   </div>
 </div>
@@ -1681,6 +1822,7 @@ function goTo(page){
   if(page==="comedor")     iniciarComedor();
   if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
+  if(page==="archivo")      iniciarArchivo();
   if(page==="matricula")   iniciarPaginaMatricula();
   if(page==="reportes")    initReportes();
   if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
@@ -1733,6 +1875,7 @@ async function iniciarApp(){
   // Constancia: solo auxiliar y admin
   if(ME.rol==="auxiliar"||ME.rol==="admin"){
     document.getElementById("nav-constancia").style.display="";
+    document.getElementById("nav-archivo").style.display="";
   }
   // Secretaria: solo consulta, lista estudiantes y consecutivos (redirigir al init)
   if(ME.rol==="secretaria"){
@@ -2122,9 +2265,11 @@ async function guardarSec(id){
 // ════════════════════════════════════
 //  ASIGNACIONES
 // ════════════════════════════════════
+let asigData = [];
 async function cargarAsignaciones(){
   const rows=await api("/api/admin/asignaciones");
   if(!rows)return;
+  asigData = rows;
   const tbody=document.getElementById("asig-body");
   if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin asignaciones</td></tr>`;return;}
   tbody.innerHTML=rows.map(a=>`<tr>
@@ -2133,7 +2278,10 @@ async function cargarAsignaciones(){
     <td><strong>${a.seccion_nombre}</strong></td>
     <td>${a.materia_nombre}${a.subgrupo?` <span class="badge b-guia">Grupo ${a.subgrupo}</span>`:""}</td>
     <td>${a.lecciones_semana}</td>
-    <td><button class="btn btn-danger btn-xs" onclick="eliminarAsig(${a.id})">🗑️</button></td>
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="editarAsig(${a.id})">✏️</button>
+      <button class="btn btn-danger btn-xs" onclick="eliminarAsig(${a.id})">🗑️</button>
+    </td>
   </tr>`).join("");
 }
 function abrirModalAsignacion(){document.getElementById("modal-asignacion").classList.add("show");}
@@ -2150,6 +2298,54 @@ async function guardarAsignacion(){
 async function eliminarAsig(id){
   if(!confirm("¿Eliminar esta asignación?"))return;
   await api(`/api/admin/asignaciones/${id}`,"DELETE");cargarAsignaciones();
+}
+
+async function editarAsig(id){
+  const asig = asigData?.find(a=>a.id===id);
+  if(!asig){ alert("No se encontró la asignación."); return; }
+
+  document.getElementById("ea-id").value = id;
+  document.getElementById("alert-ea").className = "alert";
+
+  // Poblar profesores
+  const selProf = document.getElementById("ea-profesor");
+  selProf.innerHTML = '<option value="">— Seleccionar —</option>' +
+    allProfesores.map(p=>`<option value="${p.id}" ${p.id===asig.profesor_id?'selected':''}>${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]||p.rol})</option>`).join("");
+
+  // Poblar secciones
+  const selSec = document.getElementById("ea-seccion");
+  selSec.innerHTML = '<option value="">— Seleccionar —</option>' +
+    allSecciones.map(s=>`<option value="${s.id}" ${s.id===asig.seccion_id?'selected':''}>${s.nombre}</option>`).join("");
+
+  // Poblar materias
+  const selMat = document.getElementById("ea-materia");
+  selMat.innerHTML = '<option value="">— Seleccionar —</option>' +
+    allMaterias.map(m=>`<option value="${m.id}" ${m.id===asig.materia_id?'selected':''}>${m.nombre}</option>`).join("");
+
+  // Lecciones y subgrupo
+  document.getElementById("ea-lecciones").value = asig.lecciones_semana || 4;
+  document.getElementById("ea-subgrupo").value = asig.subgrupo || "";
+
+  document.getElementById("modal-editar-asig").classList.add("show");
+}
+
+async function guardarEdicionAsig(){
+  const id  = document.getElementById("ea-id").value;
+  const pid = document.getElementById("ea-profesor").value;
+  const sid = document.getElementById("ea-seccion").value;
+  const mid = document.getElementById("ea-materia").value;
+  const lecc = document.getElementById("ea-lecciones").value;
+  const sub  = document.getElementById("ea-subgrupo").value || null;
+  if(!pid||!sid||!mid){ sa("alert-ea","Todos los campos marcados con * son requeridos.","danger"); return; }
+  try{
+    await api(`/api/admin/asignaciones/${id}`,"PUT",{
+      profesor_id:+pid, seccion_id:+sid, materia_id:+mid,
+      lecciones_semana:+lecc, subgrupo:sub
+    });
+    cerrarModal("modal-editar-asig");
+    cargarAsignaciones();
+    sa("alert-admin","✅ Asignación actualizada.","success");
+  }catch(e){ sa("alert-ea",e.message,"danger"); }
 }
 
 // ════════════════════════════════════
@@ -2176,6 +2372,7 @@ async function cargarEstudiantes(){
       ${isAux?`<button class="btn btn-outline btn-xs" onclick="editarEstudiante(${e.id})">✏️</button>
                <button class="btn btn-purple btn-xs" onclick="abrirEncargados(${e.id},'${e.nombre} ${e.primer_apellido}')">👨‍👩‍👧</button>
                <button class="btn btn-orange btn-xs" onclick="abrirCambioSec(${e.id},'${e.nombre} ${e.primer_apellido}','${e.seccion_nombre||"Sin sección"}')">🔄</button>
+               <button class="btn btn-outline btn-xs" style="color:var(--naranja);border-color:var(--naranja);" onclick="abrirArchivarEst(${e.id},'${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}')">📁</button>
                <button class="btn btn-danger btn-xs" onclick="eliminarEst(${e.id},'${e.nombre}')">🗑️</button>`:""}
     </td>
   </tr>`).join("");
@@ -4582,6 +4779,257 @@ async function confirmarImportarExcel(){
     alertEl.textContent = "❌ Error: " + err.message;
     btnConf.disabled = false;
     btnConf.textContent = "✅ Importar";
+  }
+}
+
+// ════════════════════════════════════
+//  ARCHIVO DE ESTUDIANTES
+// ════════════════════════════════════
+let archivoData = [];
+
+async function iniciarArchivo(){
+  archivoData = await api("/api/estudiantes/archivados") || [];
+  renderArchivo();
+}
+
+function renderArchivo(){
+  const q = (document.getElementById("buscar-archivo")?.value||"").toLowerCase();
+  const tbody = document.getElementById("archivo-tbody");
+  const lista = q ? archivoData.filter(e =>
+    `${e.primer_apellido} ${e.segundo_apellido} ${e.nombre}`.toLowerCase().includes(q) ||
+    (e.cedula||"").includes(q)
+  ) : archivoData;
+
+  if(!lista.length){
+    tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay estudiantes archivados.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map((e,i)=>`<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong></td>
+    <td>${e.cedula}</td>
+    <td>${e.seccion_nombre||"—"}</td>
+    <td>${e.fecha_archivo ? fmtF(e.fecha_archivo) : "—"}</td>
+    <td style="font-size:12px;color:var(--muted);">${e.motivo_archivo||"—"}</td>
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="verDetalleArchivado(${e.id})">👁️ Ver</button>
+    </td>
+  </tr>`).join("");
+}
+
+function filtrarArchivo(){ renderArchivo(); }
+
+async function verDetalleArchivado(id){
+  const e = archivoData.find(x=>x.id===id);
+  if(!e) return;
+  const encR = await api(`/api/encargados/${id}`);
+  const encs = encR||[];
+  alert(`📁 ${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}\nCédula: ${e.cedula}\nFecha retiro: ${e.fecha_archivo||'—'}\nMotivo: ${e.motivo_archivo||'—'}\nJustificación: ${e.justificacion_archivo||'—'}\n\nEncargados: ${encs.map(enc=>`${enc.nombre} ${enc.primer_apellido} (${enc.parentesco||''})`).join(', ')||'Sin encargados registrados'}`);
+}
+
+// ── ARCHIVAR DESDE LISTA DE ESTUDIANTES ─────────────────────────────
+function abrirArchivarEst(id, nombre){
+  document.getElementById("archivar-est-id").value = id;
+  document.getElementById("archivar-est-nombre").textContent = nombre;
+  document.getElementById("archivar-justificacion").value = "";
+  document.getElementById("archivar-motivo").value = "";
+  document.getElementById("alert-archivar").className = "alert";
+  document.getElementById("modal-archivar-est").classList.add("show");
+}
+
+async function confirmarArchivarEst(){
+  const id = document.getElementById("archivar-est-id").value;
+  const justificacion = document.getElementById("archivar-justificacion").value.trim();
+  const motivo = document.getElementById("archivar-motivo").value;
+  if(!justificacion){ sa("alert-archivar","La justificación es obligatoria.","danger"); return; }
+  try{
+    await api(`/api/estudiantes/${id}/archivar`,"POST",{justificacion, motivo});
+    cerrarModal("modal-archivar-est");
+    sa("alert-est","📁 Estudiante archivado. Los profesores fueron notificados.","success");
+    cargarEstudiantes();
+  }catch(e){ sa("alert-archivar",e.message,"danger"); }
+}
+
+// ── CONSTANCIA DE RETIRO FORMAL ──────────────────────────────────────
+let retiroEstId = null;
+let retiroEstNombre = "";
+
+async function abrirConstanciaRetiro(){
+  const sid = document.getElementById("const-seccion").value;
+  const eid = document.getElementById("const-estudiante").value;
+  document.getElementById("alert-retiro-modal").className="alert";
+  document.getElementById("retiro-fecha").value = new Date().toISOString().slice(0,10);
+
+  // Poblar secciones
+  let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
+  if(!secciones.length){ try{ secciones = await api("/api/admin/secciones")||[]; }catch{} }
+  const selSec = document.getElementById("retiro-seccion");
+  selSec.innerHTML = '<option value="">— Sección —</option>' +
+    secciones.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(s=>`<option value="${s.id}" ${s.id==sid?'selected':''}>${s.nombre}</option>`).join("");
+
+  // Si ya había estudiante seleccionado, cargarlo
+  if(sid) await cargarEstudiantesRetiro();
+  if(eid) {
+    document.getElementById("retiro-estudiante").value = eid;
+    await cargarEncargadoRetiro();
+  }
+  document.getElementById("modal-retiro").classList.add("show");
+}
+
+async function cargarEstudiantesRetiro(){
+  const sid = document.getElementById("retiro-seccion").value;
+  const selEst = document.getElementById("retiro-estudiante");
+  if(!sid){ selEst.innerHTML='<option value="">— Estudiante —</option>'; return; }
+  const rows = await api(`/api/reportes/seccion/${sid}/estudiantes`);
+  selEst.innerHTML = '<option value="">— Estudiante —</option>' +
+    (rows||[]).map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+
+  // Auto-nivel
+  let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
+  if(!secciones.length){ try{ secciones = await api("/api/admin/secciones")||[]; }catch{} }
+  const sec = secciones.find(s=>s.id==sid);
+  if(sec){
+    const n = parseInt(sec.nombre.split('-')[0]);
+    const nivelTexto={7:"SÉTIMO",8:"OCTAVO",9:"NOVENO",10:"DÉCIMO",11:"UNDÉCIMO"}[n]||sec.nombre.toUpperCase();
+    document.getElementById("retiro-nivel").value = nivelTexto;
+  }
+}
+
+async function cargarEncargadoRetiro(){
+  const eid = document.getElementById("retiro-estudiante").value;
+  if(!eid){ return; }
+  try{
+    const encs = await api(`/api/encargados/${eid}`);
+    const principal = encs?.find(e=>e.es_principal) || encs?.[0];
+    if(principal){
+      document.getElementById("retiro-enc-nombre").value =
+        `${principal.nombre} ${principal.primer_apellido} ${principal.segundo_apellido||""}`.trim();
+      document.getElementById("retiro-enc-cedula").value = principal.cedula||"";
+    } else {
+      document.getElementById("retiro-enc-nombre").value = "";
+      document.getElementById("retiro-enc-cedula").value = "";
+    }
+  }catch{}
+}
+
+async function generarConstanciaRetiro(){
+  const sid = document.getElementById("retiro-seccion").value;
+  const eid = document.getElementById("retiro-estudiante").value;
+  const fechaRetiro = document.getElementById("retiro-fecha").value;
+  if(!sid||!eid||!fechaRetiro){
+    sa("alert-retiro-modal","Seleccioná sección, estudiante y fecha.","danger"); return;
+  }
+
+  // Datos del estudiante
+  const todos = await api("/api/estudiantes");
+  const est = todos?.find(e=>e.id==eid);
+  if(!est){ sa("alert-retiro-modal","Estudiante no encontrado.","danger"); return; }
+
+  retiroEstId = eid;
+  retiroEstNombre = `${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre}`;
+
+  const auxNombre = `${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  let auxCedula = ME.cedula||"";
+  if(!auxCedula){ try{ const m=await api("/api/auth/me"); auxCedula=m?.usuario?.cedula||""; }catch{} }
+
+  const nivel = document.getElementById("retiro-nivel").value || "";
+  const encNombre = document.getElementById("retiro-enc-nombre").value.trim() || "_______________________________";
+  const encCedula = document.getElementById("retiro-enc-cedula").value.trim() || "_______________________________";
+  const motivo = document.getElementById("retiro-motivo").value.trim() || "_______________________________";
+
+  // Fechas en letras
+  const hRetiro = new Date(fechaRetiro+"T12:00:00");
+  const hoy = new Date();
+  const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const dias=["","uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve","treinta","treinta y uno"];
+  const anioLetra={2024:"dos mil veinticuatro",2025:"dos mil veinticinco",2026:"dos mil veintiséis",2027:"dos mil veintisiete",2028:"dos mil veintiocho"};
+
+  const retiroDiaT = dias[hRetiro.getDate()]||hRetiro.getDate();
+  const retiroMesT = meses[hRetiro.getMonth()];
+  const retiroAnioT = anioLetra[hRetiro.getFullYear()]||hRetiro.getFullYear();
+  const hoyDiaT = dias[hoy.getDate()]||hoy.getDate();
+  const hoyMesT = meses[hoy.getMonth()];
+  const hoyAnioT = anioLetra[hoy.getFullYear()]||hoy.getFullYear();
+
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+
+  printArea.innerHTML=`
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
+      ${encabezadoMEP()}
+      <h2 style="text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE RETIRO DE ESTUDIANTE</h2>
+      <div style="font-size:13px;line-height:2;text-align:justify;">
+        <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
+        <strong>${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre}</strong>,
+        portador(a) de la cédula de identidad número <strong>${est.cedula}</strong>,
+        estuvo matriculado(a) en esta institución educativa durante el curso lectivo
+        <strong>${retiroAnioT.toUpperCase()}</strong>, cursando el nivel de <strong>${nivel}</strong>.</p>
+        <br/>
+        <p style="text-indent:2em;">Se deja constancia de que el(la) estudiante se retiró oficialmente de la institución en fecha
+        <strong>${retiroDiaT}</strong> días del mes de <strong>${retiroMesT}</strong> del año <strong>${retiroAnioT}</strong>,
+        de conformidad con la solicitud presentada por
+        <strong>${encNombre}</strong>, portador(a) de la cédula de identidad número <strong>${encCedula}</strong>.</p>
+        <br/>
+        <p style="text-indent:2em;">El motivo del retiro, según lo indicado por el(la) encargado(a) legal, es:
+        <strong>${motivo}</strong>.</p>
+        <br/>
+        <p style="text-indent:2em;">Se extiende la presente constancia a solicitud del(la) interesado(a), para los fines que estime
+        convenientes, a los <strong>${hoyDiaT}</strong> días del mes de <strong>${hoyMesT}</strong>
+        del año <strong>${hoyAnioT}</strong>.</p>
+      </div>
+
+      <!-- Firmas -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:60px;">
+        <div style="text-align:center;">
+          <div style="border-top:1px solid #374151;padding-top:8px;">
+            <div style="font-size:13px;font-weight:bold;">${auxNombre}</div>
+            <div style="font-size:12px;color:#555;">Cédula: ${auxCedula||"—"}</div>
+            <div style="font-size:12px;color:#555;">Auxiliar Administrativo</div>
+            <div style="font-size:12px;color:#555;">Liceo de Calle Fallas</div>
+          </div>
+        </div>
+        <div style="text-align:center;">
+          <div style="border-top:1px solid #374151;padding-top:8px;">
+            <div style="font-size:13px;font-weight:bold;">${encNombre}</div>
+            <div style="font-size:12px;color:#555;">Cédula: ${encCedula}</div>
+            <div style="font-size:12px;color:#555;">Encargado(a) Legal</div>
+          </div>
+        </div>
+      </div>
+      ${piePaginaMEP()}
+    </div>`;
+
+  const style=document.createElement("style");
+  style.id="print-style-retiro";
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  document.head.appendChild(style);
+
+  cerrarModal("modal-retiro");
+  await imprimirConEncabezado(printArea,style);
+
+  // Preguntar si archivar
+  setTimeout(()=>{
+    document.getElementById("archivar-retiro-est-id").value = retiroEstId;
+    document.getElementById("archivar-retiro-nombre").textContent = retiroEstNombre;
+    document.getElementById("modal-archivar-tras-retiro").classList.add("show");
+  }, 500);
+}
+
+async function archivarTrasRetiro(){
+  const id = document.getElementById("archivar-retiro-est-id").value;
+  const motivo = document.getElementById("retiro-motivo")?.value || "Retiro formal";
+  try{
+    await api(`/api/estudiantes/${id}/archivar`,"POST",{
+      justificacion: "Retiro formal documentado con Constancia de Retiro",
+      motivo: motivo || "Retiro voluntario"
+    });
+    cerrarModal("modal-archivar-tras-retiro");
+    sa("alert-const","📁 Estudiante archivado correctamente.","success");
+    cargarEstudiantes();
+  }catch(e){
+    cerrarModal("modal-archivar-tras-retiro");
+    sa("alert-const","⚠️ No se pudo archivar: "+e.message,"danger");
   }
 }
 
