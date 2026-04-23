@@ -29,7 +29,7 @@ router.get("/estudiantes", requireAuth, async (req, res) => {
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN comedor_asistencia ca ON ca.estudiante_id=e.id AND ca.fecha=$1
-    WHERE e.activo=true ${whereSeccion}
+    WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL) ${whereSeccion}
     ORDER BY e.becado DESC, e.primer_apellido, e.segundo_apellido, e.nombre
   `, params);
   res.json(r.rows);

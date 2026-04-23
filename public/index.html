@@ -826,13 +826,13 @@ tr:hover td{background:#f8fafc;}
           <button class="btn btn-success btn-sm" id="btn-guardar-comedor" onclick="guardarAsistenciaComedor()">💾 Guardar</button>
         </div>
       </div>
-      <div id="alert-comedor" class="alert"></div>
+      <div id="alert-comedor-ori" class="alert"></div>
 
       <!-- Stats -->
       <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px;" id="comedor-stats">
-        <div class="stat"><div class="num orange" id="cd-becados">0</div><div class="lbl">Becados marcados</div></div>
-        <div class="stat"><div class="num" id="cd-regulares">0</div><div class="lbl">No Becados marcados</div></div>
-        <div class="stat"><div class="num green" id="cd-hoy">0</div><div class="lbl">Total marcados</div></div>
+        <div class="stat"><div class="num orange" id="cd-becados-ori">0</div><div class="lbl">Becados marcados</div></div>
+        <div class="stat"><div class="num" id="cd-regulares-ori">0</div><div class="lbl">No Becados marcados</div></div>
+        <div class="stat"><div class="num green" id="cd-hoy-ori">0</div><div class="lbl">Total marcados</div></div>
       </div>
 
       <!-- Becados -->
@@ -1697,7 +1697,7 @@ function detectarPeriodo(fechaStr) {
     { nombre: "II Período", desde: "2026-07-20", hasta: "2026-12-09" },
   ];
   if (!fechaStr) {
-    const hoy = new Date().toISOString().slice(0,10);
+    const hoy = fechaHoyCR();
     fechaStr = hoy;
   }
   for (const p of PERIODOS) {
@@ -1810,7 +1810,7 @@ function goTo(page){
   }
   if(page==="asistencia")  cargarMisAsig();
   if(page==="cumplimiento") {
-    const hoy=new Date().toISOString().slice(0,10);
+    const hoy=fechaHoyCR();
     const primero=hoy.slice(0,8)+"01";
     document.getElementById("cum-desde").value=primero;
     document.getElementById("cum-hasta").value=hoy;
@@ -2107,6 +2107,45 @@ async function cargarDashboard(){
 
     html += `</div>`;
     div.innerHTML = html;
+
+    // ── Dashboard auxiliar: resumen estudiantes por nivel ──
+    if(ME.rol==="auxiliar"||ME.rol==="admin"){
+      try{
+        const ests = await api("/api/estudiantes") || [];
+        const activos = ests; // API ya excluye archivados y eliminados
+        const niveles = {7:0, 8:0, 9:0, 10:0, 11:0};
+        const nombres = {7:"Sétimo", 8:"Octavo", 9:"Noveno", 10:"Décimo", 11:"Undécimo"};
+        const colores = {7:"var(--azul)", 8:"#7c3aed", 9:"var(--verde)", 10:"var(--naranja)", 11:"var(--rojo)"};
+        activos.forEach(e=>{
+          if(e.seccion_nombre){
+            const n = parseInt(e.seccion_nombre.split('-')[0]);
+            if(niveles[n]!==undefined) niveles[n]++;
+          }
+        });
+        const sinSeccion = activos.filter(e=>!e.seccion_nombre).length;
+        const total = activos.length;
+
+        let nivelHtml = `<div class="card" style="margin-top:14px;">
+          <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📊 Estudiantes por Nivel</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:10px;">
+            ${[7,8,9,10,11].map(n=>`
+              <div style="text-align:center;padding:12px 8px;background:#f8fafc;border:2px solid ${colores[n]}22;border-radius:10px;">
+                <div style="font-size:28px;font-weight:bold;color:${colores[n]};">${niveles[n]}</div>
+                <div style="font-size:12px;font-weight:bold;color:#374151;">${nombres[n]}</div>
+              </div>`).join("")}
+            ${sinSeccion>0?`
+              <div style="text-align:center;padding:12px 8px;background:#f8fafc;border:2px solid #94a3b822;border-radius:10px;">
+                <div style="font-size:28px;font-weight:bold;color:var(--muted);">${sinSeccion}</div>
+                <div style="font-size:12px;font-weight:bold;color:#374151;">Sin sección</div>
+              </div>`:""}
+          </div>
+          <div style="text-align:right;font-size:13px;font-weight:bold;color:var(--azul);padding-top:8px;border-top:1px solid var(--border);">
+            Total activos: ${total} estudiantes
+          </div>
+        </div>`;
+        div.insertAdjacentHTML('beforeend', nivelHtml);
+      }catch{}
+    }
   }catch(e){
     div.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px;">—</div>`;
   }
@@ -2583,16 +2622,20 @@ async function guardarEncargado(){
     if(eid) await api(`/api/encargados/${eid}`,"PUT",data);
     else await api("/api/encargados","POST",data);
     limpiarFormEnc();
-    cargarEncargados(encEstId);
+    cargarEncargadosLista();
   }catch(e){sa("alert-enc",e.message,"danger");}
 }
 
 function limpiarFormEnc(){
   document.getElementById("enc-edit-id").value="";
   ["enc-cedula","enc-nombre","enc-ap1","enc-ap2","enc-parentesco","enc-tel","enc-cel",
-   "enc-tel-trabajo","enc-lugar-trabajo","enc-email","enc-direccion"].forEach(id=>document.getElementById(id).value="");
+   "enc-tel-trabajo","enc-lugar-trabajo","enc-email","enc-direccion"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value="";
+  });
   document.getElementById("enc-principal").value="true";
   document.getElementById("enc-form-titulo").textContent="➕ Agregar Encargado";
+  document.getElementById("alert-enc").className="alert";
 }
 
 async function eliminarEncargado(id){
@@ -2688,7 +2731,7 @@ async function abrirAsistencia(id,titulo){
   document.getElementById("asis-seccion-info").textContent="";
   document.getElementById("asis-view-lista").style.display="none";
   document.getElementById("asis-view-dia").style.display="";
-  const hoy=new Date().toISOString().slice(0,10);
+  const hoy=fechaHoyCR();
   document.getElementById("asis-fecha").value=hoy;
   document.getElementById("asis-fecha").max=hoy;
 
@@ -2849,7 +2892,7 @@ async function initReportes(){
   const secs=await api("/api/reportes/mis-secciones");if(!secs)return;
   const sel=document.getElementById("rep-seccion");
   sel.innerHTML='<option value="">— Sección —</option>'+secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
-  const hoy=new Date().toISOString().slice(0,10);
+  const hoy=fechaHoyCR();
   document.getElementById("rep-hasta").value=hoy;
   const ini=new Date();ini.setMonth(ini.getMonth()-3);
   document.getElementById("rep-desde").value=ini.toISOString().slice(0,10);
@@ -3242,7 +3285,7 @@ async function verConductaEstudiante(){
   const sel = document.getElementById("cond-estudiante");
   const nombre = sel.options[sel.selectedIndex].text;
   document.getElementById("cond-titulo").textContent = `Conducta — ${nombre}`;
-  document.getElementById("cond-fecha").value = new Date().toISOString().slice(0,10);
+  document.getElementById("cond-fecha").value = fechaHoyCR();
   // Cargar asignaciones de la sección para el selector de materia
   const asigs = await api(`/api/conducta/mis-asignaciones/${sid}`);
   if(asigs){
@@ -4188,7 +4231,7 @@ let esComite = false;
 let scanClearTimeout = null;
 
 async function iniciarComedor(){
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = fechaHoyCR();
 
   // Determinar qué vista mostrar según el rol
   // Cocinera/Admin → vista escaneo
@@ -4249,7 +4292,7 @@ async function iniciarComedor(){
 
 async function cargarStatsComedor(){
   const fecha=(document.getElementById("comedor-fecha-scan")||document.getElementById("comedor-fecha"))?.value
-    ||new Date().toISOString().slice(0,10);
+    ||fechaHoyCR();
   try{
     const data=await api(`/api/comedor/asistencia/${fecha}`);
     document.getElementById("cd-hoy").textContent=data.length;
@@ -4354,10 +4397,14 @@ async function cargarListaComedor(){
 function actualizarStatsComedor(){
   if(!comedorData)return;
   const m=comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked);
-  const hoyEl=document.getElementById("cd-hoy");const bEl=document.getElementById("cd-becados");const rEl=document.getElementById("cd-regulares");
-  if(hoyEl) hoyEl.textContent=m.length;
-  if(bEl) bEl.textContent=m.filter(e=>e.becado).length;
-  if(rEl) rEl.textContent=m.filter(e=>!e.becado).length;
+  // Use -ori suffix for orientador vista-lista (avoid duplicate ID confusion)
+  const hoyEl=document.getElementById("cd-hoy-ori")||document.getElementById("cd-hoy");
+  const bEl=document.getElementById("cd-becados-ori")||document.getElementById("cd-becados");
+  const rEl=document.getElementById("cd-regulares-ori")||document.getElementById("cd-regulares");
+  // Update whichever is currently visible
+  ["cd-hoy","cd-hoy-ori"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=m.length;});
+  ["cd-becados","cd-becados-ori"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=m.filter(e=>e.becado).length;});
+  ["cd-regulares","cd-regulares-ori"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=m.filter(e=>!e.becado).length;});
 }
 
 function marcarTodosComedor(tipo,marcar){
@@ -4368,17 +4415,29 @@ function marcarTodosComedor(tipo,marcar){
 
 async function guardarAsistenciaComedor(){
   const fecha=document.getElementById("comedor-fecha")?.value;
+  if(!fecha){alertComedor("Seleccioná una fecha.","danger");return;}
   const ids=comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
   try{
     const r=await api("/api/comedor/asistencia","POST",{fecha,estudiante_ids:ids});
-    sa("alert-comedor",`✅ Asistencia guardada — ${r.registrados} estudiantes.`,"success");
+    alertComedor(`✅ Asistencia guardada — ${r.registrados} estudiantes.`,"success");
     await cargarListaComedor();
-  }catch(e){sa("alert-comedor",e.message,"danger");}
+  }catch(e){alertComedor(e.message,"danger");}
+}
+
+function alertComedor(msg,tipo){
+  // Show alert in whichever comedor view is visible
+  const ids=["alert-comedor-ori","alert-comedor"];
+  for(const id of ids){
+    const el=document.getElementById(id);
+    if(el&&el.closest("[style]")?.style?.display!=="none"){sa(id,msg,tipo);return;}
+  }
+  // Fallback: update both
+  ids.forEach(id=>{const el=document.getElementById(id);if(el)sa(id,msg,tipo);});
 }
 
 async function imprimirReporteComedor(){
   const fecha=(document.getElementById("comedor-fecha-rep")||document.getElementById("comedor-fecha-scan"))?.value
-    ||new Date().toISOString().slice(0,10);
+    ||fechaHoyCR();
   const alertEl=document.getElementById("alert-comedor-rep")||document.getElementById("alert-comedor");
   const data=await api(`/api/comedor/asistencia/${fecha}`);
   if(!data||!data.length){if(alertEl)sa(alertEl.id,"No hay asistencia registrada para esta fecha.","danger");return;}
@@ -4502,7 +4561,7 @@ function filtrarConsecutivos(tipo){
 
 async function abrirNuevoConsecutivo(){
   document.getElementById("consec-tipo").value="";
-  document.getElementById("consec-fecha").value=new Date().toISOString().slice(0,10);
+  document.getElementById("consec-fecha").value=fechaHoyCR();
   document.getElementById("alert-consec-modal").className="alert";
   ["oficio","minuta","proceso","protocolo"].forEach(t=>{ document.getElementById(`consec-campos-${t}`).style.display="none"; });
   const esSecre = ME.rol==="secretaria";
@@ -4822,9 +4881,12 @@ function filtrarArchivo(){ renderArchivo(); }
 async function verDetalleArchivado(id){
   const e = archivoData.find(x=>x.id===id);
   if(!e) return;
-  const encR = await api(`/api/encargados/${id}`);
-  const encs = encR||[];
-  alert(`📁 ${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}\nCédula: ${e.cedula}\nFecha retiro: ${e.fecha_archivo||'—'}\nMotivo: ${e.motivo_archivo||'—'}\nJustificación: ${e.justificacion_archivo||'—'}\n\nEncargados: ${encs.map(enc=>`${enc.nombre} ${enc.primer_apellido} (${enc.parentesco||''})`).join(', ')||'Sin encargados registrados'}`);
+  try{
+    const encs = await api(`/api/encargados/estudiante/${id}`) || [];
+    alert(`📁 ${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}\nCédula: ${e.cedula}\nFecha retiro: ${e.fecha_archivo||'—'}\nMotivo: ${e.motivo_archivo||'—'}\nJustificación: ${e.justificacion_archivo||'—'}\n\nEncargados: ${encs.map(enc=>`${enc.nombre} ${enc.primer_apellido} (${enc.parentesco||''})`).join(', ')||'Sin encargados registrados'}`);
+  }catch{
+    alert(`📁 ${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}\nCédula: ${e.cedula}\nFecha retiro: ${e.fecha_archivo||'—'}\nMotivo: ${e.motivo_archivo||'—'}`);
+  }
 }
 
 // ── ARCHIVAR DESDE LISTA DE ESTUDIANTES ─────────────────────────────
@@ -4858,7 +4920,7 @@ async function abrirConstanciaRetiro(){
   const sid = document.getElementById("const-seccion").value;
   const eid = document.getElementById("const-estudiante").value;
   document.getElementById("alert-retiro-modal").className="alert";
-  document.getElementById("retiro-fecha").value = new Date().toISOString().slice(0,10);
+  document.getElementById("retiro-fecha").value = fechaHoyCR();
 
   // Poblar secciones
   let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
@@ -5311,6 +5373,16 @@ async function imprimirConEncabezado(area, styleEl){
   area.innerHTML = "";
 }
 // ════════════════════════════════════
+// Fecha local Costa Rica (UTC-6) — evita que .toISOString() adelante al día siguiente
+function fechaHoyCR(){
+  const ahora = new Date();
+  // CR = UTC-6 (sin cambio de horario)
+  const offsetCR = -6 * 60; // minutos
+  const localMs = ahora.getTime() + (ahora.getTimezoneOffset() + offsetCR) * 60000;
+  const local = new Date(localMs);
+  return local.toISOString().slice(0,10);
+}
+
 function cerrarModal(id){document.getElementById(id).classList.remove("show");}
 document.querySelectorAll(".modal-overlay").forEach(o=>{
   o.addEventListener("click",e=>{if(e.target===o)o.classList.remove("show");});

@@ -7,7 +7,7 @@ const canManage = requireRol("admin","auxiliar");
 // ── LISTAR ────────────────────────────────────────────────────
 router.get("/", requireAuth, async (req, res) => {
   const { seccion_id, q } = req.query;
-  let sql = `SELECT e.*, s.nombre AS seccion_nombre FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.activo=true`;
+  let sql = `SELECT e.*, s.nombre AS seccion_nombre FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
   const params = [];
   if (seccion_id) { params.push(seccion_id); sql += ` AND e.seccion_id=$${params.length}`; }
   if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }
