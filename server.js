@@ -1,4 +1,4 @@
-// Version: 2026-04-27 21:13:53
+// Version: 2026-04-27 21:17:58
 require("dotenv").config();
 const express   = require("express");
 const session   = require("express-session");
@@ -43,6 +43,12 @@ app.use("/api/prematricula",   requireAuth, require("./routes/prematricula"));
 app.use("/api/matricula",      requireAuth, require("./routes/matricula"));
 
 // Force no-cache for HTML to ensure users always get latest version
+// Versión actual del sistema (se actualiza con cada deploy)
+const APP_VERSION = "2026-04-27 21:17:58";
+app.get("/api/version", (req, res) => {
+  res.json({ version: APP_VERSION });
+});
+
 app.use((req, res, next) => {
   if(req.path === '/' || req.path.endsWith('.html')) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

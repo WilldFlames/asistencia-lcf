@@ -5586,6 +5586,43 @@ async function continuarMatricula(id,cedula){
   await cargarDatosMatricula();
 }
 
+
+
+// ════════════════════════════════════
+//  AUTO-RELOAD al detectar nueva versión
+// ════════════════════════════════════
+(async function iniciarAutoReload(){
+  if(typeof ME === 'undefined' || !ME) return;
+  let versionActual = null;
+  try{
+    const r = await fetch('/api/version');
+    const d = await r.json();
+    versionActual = d.version;
+  }catch{ return; }
+
+  setInterval(async ()=>{
+    if(document.querySelector('.modal-overlay.show')) return;
+    try{
+      const r = await fetch('/api/version?t='+Date.now());
+      const d = await r.json();
+      if(d.version && d.version !== versionActual){
+        const aviso = document.createElement('div');
+        aviso.id = 'version-aviso';
+        aviso.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:#1e3a5f;color:#fff;padding:14px 20px;border-radius:10px;font-family:Arial,sans-serif;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px;max-width:320px;';
+        aviso.innerHTML = '<span style="font-size:20px;">🔄</span><div><strong>Nueva versión disponible</strong><br/><span style="opacity:.8;font-size:12px;">El sistema se actualiza en <span id="reload-countdown">5</span> seg...</span></div><button onclick="location.reload()" style="background:#fff;color:#1e3a5f;border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;">Ahora</button>';
+        document.body.appendChild(aviso);
+        let seg = 5;
+        const iv = setInterval(()=>{
+          seg--;
+          const el = document.getElementById('reload-countdown');
+          if(el) el.textContent = seg;
+          if(seg <= 0){ clearInterval(iv); location.reload(); }
+        }, 1000);
+      }
+    }catch{}
+  }, 30000);
+})();
+
 </script>
 </body>
 </html>
