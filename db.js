@@ -276,6 +276,110 @@ async function initDB() {
       await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo'))`);
     } catch(e) { /* ya existe con los valores correctos */ }
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS num_boleta TEXT DEFAULT ''`);
+    // ── PREMATRÍCULA ─────────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS prematricula (
+        id SERIAL PRIMARY KEY,
+        -- Datos del estudiante
+        cedula TEXT NOT NULL,
+        nombre TEXT NOT NULL,
+        primer_apellido TEXT NOT NULL,
+        segundo_apellido TEXT NOT NULL,
+        fecha_nacimiento DATE,
+        nacionalidad TEXT DEFAULT 'Costa Rica',
+        centro_procedencia TEXT,
+        -- Estado
+        consecutivo_prematricula INTEGER,
+        estado TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente','matriculado','retirado')),
+        -- Control
+        registrado_por INTEGER REFERENCES usuarios(id),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS prematricula_cedula_uq ON prematricula(cedula)`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS prematricula_consec_uq ON prematricula(consecutivo_prematricula) WHERE consecutivo_prematricula IS NOT NULL`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS prematricula_encargado (
+        id SERIAL PRIMARY KEY,
+        prematricula_id INTEGER NOT NULL REFERENCES prematricula(id) ON DELETE CASCADE,
+        parentesco TEXT,
+        cedula TEXT,
+        nombre TEXT NOT NULL,
+        primer_apellido TEXT NOT NULL,
+        segundo_apellido TEXT,
+        fecha_nacimiento DATE,
+        nacionalidad TEXT DEFAULT 'Costa Rica',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // ── MATRICULA (extiende estudiantes con campos 2027) ──────────────
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS sexo TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS correo TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS provincia TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS canton TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS distrito TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS direccion_exacta TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS habita_con TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS habita_con_otro TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS adecuacion TEXT DEFAULT 'ninguna' CHECK(adecuacion IN ('ninguna','significativa','no_significativa'))`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS tipo_ingreso TEXT DEFAULT 'regular' CHECK(tipo_ingreso IN ('regular','prematricula','nuevo'))`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS nivel_matricula INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS matricula_completada BOOLEAN DEFAULT false`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS institucion_procedencia TEXT DEFAULT NULL`);
+    // Médico
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS enfermedad TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS medicamento TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS telefonos_emergencia TEXT DEFAULT NULL`);
+
+    // ── SOLICITUD BECA COMEDOR (matrícula) ────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS solicitud_beca_comedor (
+        id SERIAL PRIMARY KEY,
+        estudiante_id INTEGER REFERENCES estudiantes(id),
+        cedula_estudiante TEXT,
+        -- Familia
+        personas_hogar INTEGER,
+        tipo_vivienda TEXT,
+        vive_con TEXT,
+        ingreso_mensual NUMERIC(12,2),
+        recibe_avancemos BOOLEAN DEFAULT false,
+        monto_avancemos NUMERIC(12,2),
+        otros_ingresos TEXT,
+        motivos TEXT,
+        -- Análisis interno
+        ingreso_percapita NUMERIC(12,2),
+        clasificacion TEXT,
+        resolucion TEXT DEFAULT 'pendiente',
+        observaciones TEXT,
+        -- Control
+        registrado_por INTEGER REFERENCES usuarios(id),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // ── SOLICITUD ADECUACIÓN CURRICULAR ──────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS solicitud_adecuacion (
+        id SERIAL PRIMARY KEY,
+        estudiante_id INTEGER REFERENCES estudiantes(id),
+        motivo TEXT,
+        antecedentes TEXT,
+        registrado_por INTEGER REFERENCES usuarios(id),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // ── COMITÉ DE MATRÍCULA (hasta 6 personas) ───────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS matricula_comite (
+        id SERIAL PRIMARY KEY,
+        usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     // Migrar constraint UNIQUE de consecutivos a índice parcial (solo activos)
     // Esto permite reusar números eliminados
     try {

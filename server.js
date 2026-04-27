@@ -1,4 +1,4 @@
-// Version: 2026-04-23 20:06:38
+// Version: 2026-04-27 05:16:17
 require("dotenv").config();
 const express   = require("express");
 const session   = require("express-session");
@@ -39,6 +39,8 @@ app.use("/api/conducta",       requireAuth, require("./routes/conducta"));
 app.use("/api/expediente",     requireAuth, require("./routes/expediente"));
 app.use("/api/comedor",        requireAuth, require("./routes/comedor"));
 app.use("/api/consecutivos",   requireAuth, require("./routes/consecutivos"));
+app.use("/api/prematricula",   requireAuth, require("./routes/prematricula"));
+app.use("/api/matricula",      requireAuth, require("./routes/matricula"));
 
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
