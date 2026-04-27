@@ -868,6 +868,102 @@ tr:hover td{background:#f8fafc;}
 
 
 <!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: PREMATRÍCULA WIZARD -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-prematricula">
+  <div class="modal" style="max-width:620px;">
+    <!-- Indicador de pasos -->
+    <div style="display:flex;gap:0;margin-bottom:20px;border-radius:8px;overflow:hidden;">
+      <div id="step-ind-1" style="flex:1;padding:8px;text-align:center;font-size:12px;font-weight:bold;background:var(--azul);color:#fff;">1. Estudiante</div>
+      <div id="step-ind-2" style="flex:1;padding:8px;text-align:center;font-size:12px;font-weight:bold;background:#e2e8f0;color:#64748b;">2. Encargado</div>
+      <div id="step-ind-3" style="flex:1;padding:8px;text-align:center;font-size:12px;font-weight:bold;background:#e2e8f0;color:#64748b;">3. Constancia</div>
+    </div>
+    <div id="alert-premat-modal" class="alert"></div>
+
+    <!-- PASO 1: Datos del Estudiante -->
+    <div id="premat-paso-1">
+      <h3 style="margin-bottom:14px;">Paso 1 — Datos del Estudiante</h3>
+      <div class="form-grid">
+        <div class="fg"><label>Cédula *</label><input type="text" id="pm-cedula" placeholder="N° de identidad"/></div>
+        <div class="fg"><label>Nombre *</label><input type="text" id="pm-nombre"/></div>
+        <div class="fg"><label>Primer Apellido *</label><input type="text" id="pm-ap1"/></div>
+        <div class="fg"><label>Segundo Apellido *</label><input type="text" id="pm-ap2"/></div>
+        <div class="fg"><label>Fecha de nacimiento *</label><input type="date" id="pm-fnac"/></div>
+        <div class="fg"><label>Nacionalidad *</label>
+          <select id="pm-nac">
+            <option value="Costa Rica">Costa Rica</option>
+            <option value="Nicaragua">Nicaragua</option>
+            <option value="Panamá">Panamá</option>
+            <option value="Venezuela">Venezuela</option>
+            <option value="Colombia">Colombia</option>
+            <option value="Otra">Otra</option>
+          </select>
+        </div>
+        <div class="fg" style="grid-column:1/-1"><label>Centro educativo de procedencia *</label>
+          <input type="text" id="pm-centro" placeholder="Escuela o centro de procedencia"/>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="cerrarModal('modal-prematricula')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarPM1()">Guardar y Continuar →</button>
+      </div>
+    </div>
+
+    <!-- PASO 2: Datos del Encargado -->
+    <div id="premat-paso-2" style="display:none;">
+      <h3 style="margin-bottom:14px;">Paso 2 — Datos del Encargado Legal</h3>
+      <div class="form-grid">
+        <div class="fg"><label>Parentesco *</label>
+          <select id="pm-enc-parentesco">
+            <option value="">— Seleccionar —</option>
+            <option>Madre</option><option>Padre</option><option>Abuela</option>
+            <option>Abuelo</option><option>Tía</option><option>Tío</option>
+            <option>Hermano</option><option>Hermana</option><option>Encargado Legal</option>
+          </select>
+        </div>
+        <div class="fg"><label>Cédula *</label><input type="text" id="pm-enc-cedula"/></div>
+        <div class="fg"><label>Nombre *</label><input type="text" id="pm-enc-nombre"/></div>
+        <div class="fg"><label>Primer Apellido *</label><input type="text" id="pm-enc-ap1"/></div>
+        <div class="fg"><label>Segundo Apellido</label><input type="text" id="pm-enc-ap2"/></div>
+        <div class="fg"><label>Fecha de nacimiento *</label><input type="date" id="pm-enc-fnac"/></div>
+        <div class="fg"><label>Nacionalidad *</label>
+          <select id="pm-enc-nac">
+            <option value="Costa Rica">Costa Rica</option>
+            <option value="Nicaragua">Nicaragua</option>
+            <option value="Panamá">Panamá</option>
+            <option value="Venezuela">Venezuela</option>
+            <option value="Colombia">Colombia</option>
+            <option value="Otra">Otra</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="pmPaso(1)">← Atrás</button>
+        <button class="btn btn-primary" onclick="guardarPM2()">Guardar y Continuar →</button>
+      </div>
+    </div>
+
+    <!-- PASO 3: Constancia -->
+    <div id="premat-paso-3" style="display:none;">
+      <h3 style="margin-bottom:10px;">Paso 3 — Constancia de Prematrícula</h3>
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;">
+        <div><strong>Estudiante:</strong> <span id="pm-res-nombre"></span></div>
+        <div><strong>Cédula:</strong> <span id="pm-res-cedula"></span></div>
+        <div><strong>Centro procedencia:</strong> <span id="pm-res-centro"></span></div>
+        <div><strong>Encargado:</strong> <span id="pm-res-enc"></span></div>
+        <div style="margin-top:8px;"><strong>Consecutivo N°:</strong>
+          <span id="pm-res-consec" style="font-size:22px;font-weight:bold;color:var(--azul);margin-left:6px;"></span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="cerrarModal('modal-prematricula')">Cerrar</button>
+        <button class="btn btn-success" onclick="imprimirConstanciaPremat()">🖨️ Imprimir Constancia</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: MATRÍCULA WIZARD -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: MATRÍCULA WIZARD -->
@@ -4028,55 +4124,50 @@ function abrirNuevaMatricula(){
 // ════════════════════════════════════
 //  CONSECUTIVOS
 // ════════════════════════════════════
-let consecData = [], consecTipoActivo = 'oficio';
+let consecData = [], consecTipoActivo = 'todos';
 
 async function iniciarConsecutivos(){
   if(ME.rol==="secretaria"||ME.rol==="admin"){
     try{
-      const usuarios = await api("/api/admin/usuarios-activos")||[];
-      const sel = document.getElementById("consec-solicitante");
-      if(sel){
-        sel.innerHTML = '<option value="">— Seleccionar usuario —</option>' +
-          usuarios.map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${u.rol})</option>`).join("");
-      }
-      const wrap = document.getElementById("consec-sol-wrap");
+      const usuarios=await api("/api/admin/usuarios-activos")||[];
+      const sel=document.getElementById("consec-solicitante");
+      if(sel) sel.innerHTML='<option value="">— Seleccionar usuario —</option>'+
+        usuarios.map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${u.rol})</option>`).join("");
+      const wrap=document.getElementById("consec-sol-wrap");
       if(wrap) wrap.style.display="";
     }catch{}
   }
-  // Poblar secciones en selects de minuta/proceso/protocolo
-  let secs = (allSecciones&&allSecciones.length)?allSecciones:[];
+  let secs=(allSecciones&&allSecciones.length)?allSecciones:[];
   if(!secs.length){try{secs=await api("/api/admin/secciones")||[];}catch{}}
   ['minuta','proceso','protocolo'].forEach(tipo=>{
     const sel=document.getElementById(`consec-sec-${tipo}`);
     if(sel) sel.innerHTML='<option value="">— Sección —</option>'+
       secs.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
   });
-  // Cargar tipos de protocolo
   try{
-    const tiposP = await api("/api/consecutivos/tipos-protocolo")||[];
-    const selP = document.getElementById("consec-tipo-protocolo");
-    if(selP) selP.innerHTML='<option value="">— Seleccionar —</option>'+
-      tiposP.map(t=>`<option value="${t}">${t}</option>`).join("");
+    const tiposP=await api("/api/consecutivos/tipos-protocolo")||[];
+    const selP=document.getElementById("consec-tipo-protocolo");
+    if(selP) selP.innerHTML='<option value="">— Seleccionar —</option>'+tiposP.map(t=>`<option value="${t}">${t}</option>`).join("");
   }catch{}
-  // Fecha por defecto
   const fd=document.getElementById("consec-fecha");
   if(fd) fd.value=fechaHoyCR();
-  await cargarConsecutivos('oficio');
-  // Activar tab oficio
-  document.querySelectorAll(".consec-tab").forEach(t=>t.classList.remove("active"));
-  const tab=document.getElementById("tab-oficio");
-  if(tab) tab.classList.add("active");
+  await filtrarConsecutivos('todos');
 }
 
-async function cargarConsecutivos(tipo){
+// Alias: el HTML llama abrirNuevoConsecutivo y filtrarConsecutivos
+function abrirNuevoConsecutivo(){ abrirModalConsec(); }
+function cambiarTabConsec(tipo){ filtrarConsecutivos(tipo); }
+
+async function filtrarConsecutivos(tipo){
   consecTipoActivo = tipo;
   try{
-    const rows = await api(`/api/consecutivos?tipo=${tipo}`)||[];
+    const url = tipo==='todos' ? '/api/consecutivos' : '/api/consecutivos?tipo='+tipo;
+    const rows = await api(url)||[];
     consecData = rows;
     renderConsecutivos(rows, tipo);
   }catch(e){
     const tbody=document.getElementById("consec-tbody");
-    if(tbody) tbody.innerHTML=`<tr><td colspan="6" class="empty">Error: ${e.message}</td></tr>`;
+    if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">Error: ${e.message}</td></tr>`;
   }
 }
 
@@ -4084,38 +4175,35 @@ function renderConsecutivos(rows, tipo){
   const tbody=document.getElementById("consec-tbody");
   if(!tbody) return;
   if(!rows.length){
-    tbody.innerHTML=`<tr><td colspan="6" class="empty">No hay ${tipo}s registrados.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay consecutivos registrados.</td></tr>`;
     return;
   }
+  const tipoLabel={oficio:"📨 Oficio",minuta:"📝 Minuta",proceso:"⚖️ Proceso",protocolo:"🛡️ Protocolo"};
   tbody.innerHTML=rows.map(c=>{
     const sol=`${c.sol_ap1||''} ${c.sol_nombre||''}`.trim();
     let detalle='';
-    if(tipo==='oficio') detalle=c.destinatario||'—';
-    else if(tipo==='minuta'||tipo==='proceso') detalle=c.est_nombre?`${c.est_ap1} ${c.est_nombre}`:c.seccion_nombre||'—';
-    else if(tipo==='protocolo') detalle=(c.tipo_protocolo||'').slice(0,50)+(c.tipo_protocolo?.length>50?'...':'');
+    if(c.tipo==='oficio') detalle=c.destinatario||'—';
+    else if(c.tipo==='minuta'||c.tipo==='proceso')
+      detalle=c.est_nombre?`${c.est_ap1} ${c.est_nombre}`:c.seccion_nombre||'—';
+    else if(c.tipo==='protocolo')
+      detalle=(c.tipo_protocolo||'').slice(0,50)+(c.tipo_protocolo?.length>50?'...':'');
+    const cargo=c.solicitado_por_cargo||c.solicitante_cargo||c.digitado_por_cargo||'—';
     return `<tr>
       <td style="font-weight:bold;color:var(--azul);">${c.numero}</td>
+      <td>${tipoLabel[c.tipo]||c.tipo}</td>
+      <td>${c.numero}</td>
       <td>${c.fecha?.slice(0,10)||'—'}</td>
-      <td>${detalle}</td>
       <td>${sol||'—'}</td>
-      <td style="font-size:11px;color:var(--muted);">${c.solicitado_por_cargo||c.solicitante_cargo||c.digitado_por_cargo||'—'}</td>
-      <td>
-        <button class="btn btn-danger btn-xs" onclick="eliminarConsec(${c.id})">🗑️</button>
-      </td>
+      <td style="font-size:12px;">${detalle}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="eliminarConsec(${c.id})">🗑️</button></td>
     </tr>`;
   }).join("");
 }
 
-function cambiarTabConsec(tipo){
-  document.querySelectorAll(".consec-tab").forEach(t=>t.classList.remove("active"));
-  const tab=document.getElementById(`tab-${tipo}`);
-  if(tab) tab.classList.add("active");
-  cargarConsecutivos(tipo);
-}
-
 function abrirModalConsec(){
   document.getElementById("consec-tipo").value="";
-  document.getElementById("consec-fecha").value=fechaHoyCR();
+  const fd=document.getElementById("consec-fecha");
+  if(fd) fd.value=fechaHoyCR();
   document.getElementById("alert-consec-modal").className="alert";
   ['oficio','minuta','proceso','protocolo'].forEach(t=>{
     const el=document.getElementById(`consec-campos-${t}`);
@@ -4148,26 +4236,24 @@ async function guardarConsecutivo(){
   const tipo=document.getElementById("consec-tipo").value;
   const fecha=document.getElementById("consec-fecha").value;
   if(!tipo||!fecha){sa("alert-consec-modal","Tipo y fecha son requeridos.","danger");return;}
-
   let body={tipo,fecha};
   const solId=document.getElementById("consec-solicitante")?.value;
   if(solId) body.solicitante_id=+solId;
-
   if(tipo==='oficio'){
     const dest=document.getElementById("consec-destinatario").value.trim();
     if(!dest){sa("alert-consec-modal","El destinatario es requerido.","danger");return;}
     body.destinatario=dest;
     body.motivo_oficio=document.getElementById("consec-motivo-oficio").value;
     body.solicitado_por_cargo=document.getElementById("consec-cargo-oficio").value;
-  } else if(tipo==='minuta'){
+  }else if(tipo==='minuta'){
     body.estudiante_id=document.getElementById("consec-est-minuta").value||null;
     body.seccion_id=document.getElementById("consec-sec-minuta").value||null;
     body.solicitante_cargo=document.getElementById("consec-cargo-minuta").value;
-  } else if(tipo==='proceso'){
+  }else if(tipo==='proceso'){
     body.estudiante_id=document.getElementById("consec-est-proceso").value||null;
     body.seccion_id=document.getElementById("consec-sec-proceso").value||null;
     body.motivo_proceso=document.getElementById("consec-motivo-proceso").value;
-  } else if(tipo==='protocolo'){
+  }else if(tipo==='protocolo'){
     const tp=document.getElementById("consec-tipo-protocolo").value;
     if(!tp){sa("alert-consec-modal","Seleccioná el tipo de protocolo.","danger");return;}
     body.tipo_protocolo=tp;
@@ -4175,27 +4261,25 @@ async function guardarConsecutivo(){
     body.estudiante_id=document.getElementById("consec-est-protocolo").value||null;
     body.seccion_id=document.getElementById("consec-sec-protocolo").value||null;
   }
-
   try{
     const r=await api("/api/consecutivos","POST",body);
     cerrarModal("modal-consecutivo");
-    // Show assigned number
-    const num=r.numero;
     const tipos={oficio:"Oficio",minuta:"Minuta",proceso:"Debido Proceso",protocolo:"Protocolo"};
-    alert(`✅ ${tipos[tipo]} N° ${num} asignado correctamente.`);
-    cambiarTabConsec(tipo);
+    alert(`✅ ${tipos[tipo]} N° ${r.numero} asignado correctamente.`);
+    await filtrarConsecutivos(tipo);
   }catch(e){sa("alert-consec-modal",e.message,"danger");}
 }
 
 async function eliminarConsec(id){
-  const just=prompt("Justificación para eliminar este consecutivo (obligatorio):");
+  const just=prompt("Justificación para eliminar (obligatorio):");
   if(just===null) return;
   if(!just.trim()){alert("La justificación es obligatoria.");return;}
   try{
     await api(`/api/consecutivos/${id}`,"DELETE",{justificacion:just});
-    cargarConsecutivos(consecTipoActivo);
+    await filtrarConsecutivos(consecTipoActivo);
   }catch(e){alert(e.message);}
 }
+
 
 // ════════════════════════════════════
 //  CONDUCTA
