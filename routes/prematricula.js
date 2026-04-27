@@ -104,7 +104,7 @@ router.post("/paso3/:prematricula_id", canAccess, async (req, res) => {
       if(!num){ await client.query("ROLLBACK"); return res.status(400).json({ error:"No hay consecutivos disponibles (máximo 220)." }); }
 
       await client.query(
-        "UPDATE prematricula SET consecutivo_prematricula=$1 WHERE id=$2 AND consecutivo_prematricula IS NULL",
+        "UPDATE prematricula SET consecutivo_prematricula=$1, estado='prematriculado' WHERE id=$2 AND consecutivo_prematricula IS NULL",
         [num, pid]
       );
       await client.query("COMMIT");

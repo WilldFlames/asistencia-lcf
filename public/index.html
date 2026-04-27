@@ -902,241 +902,218 @@ tr:hover td{background:#f8fafc;}
 <!-- MATRÍCULA -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <div class="page" id="page-matricula">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
-      <h2 style="margin:0">🎓 Matrícula</h2>
+
+  <!-- Encabezado + botón nueva matrícula -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <h2 style="margin:0">🎓 Matrícula 2027</h2>
       <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
     </div>
-    <div id="alert-mat" class="alert"></div>
+    <div id="alert-mat" class="alert" style="margin-top:10px;"></div>
+
+    <!-- Resumen por nivel -->
+    <div id="mat-resumen-niveles" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;"></div>
+  </div>
+
+  <!-- Tabs por nivel -->
+  <div class="card">
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:10px;">
+      <button class="btn btn-outline btn-sm mat-nivel-tab active" onclick="filtrarNivel(0)" id="mat-tab-todos">Todos</button>
+      <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarNivel(7)"  id="mat-tab-7">Sétimo</button>
+      <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarNivel(8)"  id="mat-tab-8">Octavo</button>
+      <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarNivel(9)"  id="mat-tab-9">Noveno</button>
+      <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarNivel(10)" id="mat-tab-10">Décimo</button>
+      <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarNivel(11)" id="mat-tab-11">Undécimo</button>
+    </div>
+
     <div class="table-wrap">
-      <table>
-        <thead><tr><th>Cédula</th><th>Apellidos, Nombre</th><th>Tipo</th><th>Nivel</th><th>Estado</th><th></th></tr></thead>
-        <tbody id="mat-tbody"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+      <table id="mat-tabla">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Cédula</th>
+            <th>Apellidos, Nombre</th>
+            <th>Tipo</th>
+            <th>Nivel</th>
+            <th>Sección</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="mat-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
       </table>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- MODAL: PREMATRÍCULA WIZARD -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="modal-prematricula">
-  <div class="modal" style="max-width:620px;">
-    <!-- Indicador de pasos -->
-    <div style="display:flex;gap:0;margin-bottom:20px;border-radius:8px;overflow:hidden;">
-      <div class="premat-step-ind" id="step-ind-1" style="flex:1;padding:8px;text-align:center;font-size:12px;font-weight:bold;background:var(--azul);color:#fff;">1. Estudiante</div>
-      <div class="premat-step-ind" id="step-ind-2" style="flex:1;padding:8px;text-align:center;font-size:12px;font-weight:bold;background:#e2e8f0;color:#64748b;">2. Encargado</div>
-      <div class="premat-step-ind" id="step-ind-3" style="flex:1;padding:8px;text-align:center;font-size:12px;font-weight:bold;background:#e2e8f0;color:#64748b;">3. Constancia</div>
+<!-- Modal asignar sección -->
+<div class="modal-overlay" id="modal-asignar-seccion">
+  <div class="modal" style="max-width:400px;">
+    <h3>📚 Asignar Sección</h3>
+    <p id="asignar-sec-nombre" style="font-weight:bold;font-size:14px;margin-bottom:14px;"></p>
+    <input type="hidden" id="asignar-sec-est-id"/>
+    <div class="fg">
+      <label>Sección</label>
+      <select id="asignar-sec-select"><option value="">— Seleccionar —</option></select>
     </div>
-    <div id="alert-premat-modal" class="alert"></div>
-
-    <!-- PASO 1 -->
-    <div id="premat-paso-1">
-      <h3 style="margin-bottom:14px;">Paso 1 — Datos del Estudiante</h3>
-      <div class="form-grid">
-        <div class="fg"><label>Cédula *</label><input type="text" id="pm-cedula" placeholder="N° de identidad"/></div>
-        <div class="fg"><label>Nombre *</label><input type="text" id="pm-nombre"/></div>
-        <div class="fg"><label>Primer Apellido *</label><input type="text" id="pm-ap1"/></div>
-        <div class="fg"><label>Segundo Apellido *</label><input type="text" id="pm-ap2"/></div>
-        <div class="fg"><label>Fecha de nacimiento *</label><input type="date" id="pm-fnac"/></div>
-        <div class="fg"><label>Nacionalidad *</label>
-          <select id="pm-nac">
-            <option value="Costa Rica">Costa Rica</option>
-            <option value="Nicaragua">Nicaragua</option>
-            <option value="Panamá">Panamá</option>
-            <option value="Venezuela">Venezuela</option>
-            <option value="Colombia">Colombia</option>
-            <option value="Otra">Otra</option>
-          </select>
-        </div>
-        <div class="fg" style="grid-column:1/-1"><label>Centro educativo de procedencia *</label><input type="text" id="pm-centro" placeholder="Escuela o centro de procedencia"/></div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-outline" onclick="cerrarModal('modal-prematricula')">Cancelar</button>
-        <button class="btn btn-primary" onclick="guardarPM1()">Guardar y Continuar →</button>
-      </div>
-    </div>
-
-    <!-- PASO 2 -->
-    <div id="premat-paso-2" style="display:none;">
-      <h3 style="margin-bottom:14px;">Paso 2 — Datos del Encargado</h3>
-      <div class="form-grid">
-        <div class="fg"><label>Parentesco *</label>
-          <select id="pm-enc-parentesco">
-            <option value="">— Seleccionar —</option>
-            <option>Madre</option><option>Padre</option><option>Abuela</option>
-            <option>Abuelo</option><option>Tía</option><option>Tío</option>
-            <option>Hermano</option><option>Hermana</option><option>Encargado Legal</option>
-          </select>
-        </div>
-        <div class="fg"><label>Cédula *</label><input type="text" id="pm-enc-cedula"/></div>
-        <div class="fg"><label>Nombre *</label><input type="text" id="pm-enc-nombre"/></div>
-        <div class="fg"><label>Primer Apellido *</label><input type="text" id="pm-enc-ap1"/></div>
-        <div class="fg"><label>Segundo Apellido</label><input type="text" id="pm-enc-ap2"/></div>
-        <div class="fg"><label>Fecha de nacimiento *</label><input type="date" id="pm-enc-fnac"/></div>
-        <div class="fg"><label>Nacionalidad *</label>
-          <select id="pm-enc-nac">
-            <option value="Costa Rica">Costa Rica</option>
-            <option value="Nicaragua">Nicaragua</option>
-            <option value="Panamá">Panamá</option>
-            <option value="Venezuela">Venezuela</option>
-            <option value="Colombia">Colombia</option>
-            <option value="Otra">Otra</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-outline" onclick="pmPaso(1)">← Atrás</button>
-        <button class="btn btn-primary" onclick="guardarPM2()">Guardar y Continuar →</button>
-      </div>
-    </div>
-
-    <!-- PASO 3 -->
-    <div id="premat-paso-3" style="display:none;">
-      <h3 style="margin-bottom:10px;">Paso 3 — Constancia de Prematrícula</h3>
-      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;">
-        <div><strong>Estudiante:</strong> <span id="pm-res-nombre"></span></div>
-        <div><strong>Cédula:</strong> <span id="pm-res-cedula"></span></div>
-        <div><strong>Centro procedencia:</strong> <span id="pm-res-centro"></span></div>
-        <div><strong>Encargado:</strong> <span id="pm-res-enc"></span></div>
-        <div><strong>Consecutivo N°:</strong> <span id="pm-res-consec" style="font-weight:bold;font-size:16px;color:var(--azul);"></span></div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-outline" onclick="cerrarModal('modal-prematricula')">Cerrar</button>
-        <button class="btn btn-success" onclick="imprimirConstanciaPremat()">🖨️ Imprimir Constancia</button>
-      </div>
+    <div id="alert-asignar-sec" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-asignar-seccion')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarAsignarSeccion()">✅ Asignar</button>
     </div>
   </div>
 </div>
 
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: MATRÍCULA WIZARD -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: MATRÍCULA WIZARD -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-matricula">
   <div class="modal" style="max-width:700px;max-height:90vh;overflow-y:auto;">
+
     <!-- Indicador de pasos -->
     <div style="display:flex;gap:0;margin-bottom:18px;border-radius:8px;overflow:hidden;font-size:11px;">
-      <div id="mat-ind-1" style="flex:1;padding:7px;text-align:center;font-weight:bold;background:var(--azul);color:#fff;">1.Datos</div>
-      <div id="mat-ind-2" style="flex:1;padding:7px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">2.Compromiso</div>
-      <div id="mat-ind-3" style="flex:1;padding:7px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">3.Beca</div>
-      <div id="mat-ind-4" style="flex:1;padding:7px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">4.Adecuación</div>
+      <div id="mat-ind-1" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:var(--azul);color:#fff;">1.Datos</div>
+      <div id="mat-ind-2" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">2.Compromiso</div>
+      <div id="mat-ind-3" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">3.Beca</div>
+      <div id="mat-ind-4" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">4.Adecuación</div>
     </div>
     <div id="alert-mat-modal" class="alert"></div>
 
-    <!-- PASO 1: Tipo + Datos -->
+    <!-- ════ PASO 1: Cédula + Datos completos ════ -->
     <div id="mat-paso-1">
       <h3 style="margin-bottom:12px;">Paso 1 — Datos del Estudiante</h3>
+
+      <!-- Tipo de estudiante -->
       <div style="margin-bottom:12px;padding:12px;background:#f8fafc;border-radius:8px;">
         <label style="font-size:13px;font-weight:bold;display:block;margin-bottom:8px;">Tipo de estudiante:</label>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <label style="cursor:pointer;"><input type="radio" name="mat-tipo" value="regular" checked onchange="matTipoChange()"> Regular (ya está en el sistema)</label>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;">
+          <label style="cursor:pointer;"><input type="radio" name="mat-tipo" value="regular" checked onchange="matTipoChange()"> Regular</label>
           <label style="cursor:pointer;"><input type="radio" name="mat-tipo" value="prematricula" onchange="matTipoChange()"> Prematrícula</label>
           <label style="cursor:pointer;"><input type="radio" name="mat-tipo" value="nuevo" onchange="matTipoChange()"> Nuevo ingreso</label>
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <input type="text" id="mat-buscar-cedula" placeholder="Ingresá la cédula del estudiante..." style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
-        <button class="btn btn-primary" onclick="cargarDatosMatricula()">Cargar</button>
+
+      <!-- Buscar cédula -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <input type="text" id="mat-buscar-cedula" placeholder="Ingresá la cédula del estudiante..."
+          style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;"
+          onkeydown="if(event.key==='Enter') cargarDatosMatricula()"/>
+        <button class="btn btn-primary" onclick="cargarDatosMatricula()">🔍 Cargar</button>
       </div>
-      <!-- Datos del estudiante -->
-      <div class="form-grid" style="display:none;" id="mat-form-datos">
+
+      <!-- Formulario datos (oculto hasta cargar cédula) -->
+      <div id="mat-form-datos" style="display:none;">
         <input type="hidden" id="mat-est-id"/>
-        <div class="fg"><label>Cédula *</label><input type="text" id="mat-cedula"/></div>
-        <div class="fg"><label>Sexo *</label>
-          <select id="mat-sexo"><option value="">—</option><option value="F">Femenino</option><option value="M">Masculino</option></select>
+
+        <!-- Datos personales -->
+        <div class="form-grid">
+          <div class="fg"><label>Cédula *</label><input type="text" id="mat-cedula" readonly style="background:#f1f5f9;"/></div>
+          <div class="fg"><label>Sexo *</label>
+            <select id="mat-sexo"><option value="">—</option><option value="F">Femenino</option><option value="M">Masculino</option></select>
+          </div>
+          <div class="fg"><label>Nombre *</label><input type="text" id="mat-nombre"/></div>
+          <div class="fg"><label>Primer Apellido *</label><input type="text" id="mat-ap1"/></div>
+          <div class="fg"><label>Segundo Apellido</label><input type="text" id="mat-ap2"/></div>
+          <div class="fg"><label>Fecha de nacimiento *</label><input type="date" id="mat-fnac"/></div>
+          <div class="fg"><label>Nacionalidad</label>
+            <select id="mat-nac">
+              <option>Costa Rica</option><option>Nicaragua</option><option>Panamá</option>
+              <option>Venezuela</option><option>Colombia</option><option>Otra</option>
+            </select>
+          </div>
+          <div class="fg"><label>Correo personal</label><input type="email" id="mat-correo"/></div>
+          <div class="fg" id="mat-procedencia-wrap"><label>Institución de procedencia</label><input type="text" id="mat-procedencia"/></div>
+          <div class="fg"><label>Nivel a cursar 2027 *</label>
+            <select id="mat-nivel">
+              <option value="">—</option>
+              <option value="7">Sétimo</option><option value="8">Octavo</option><option value="9">Noveno</option>
+              <option value="10">Décimo</option><option value="11">Undécimo</option>
+            </select>
+          </div>
         </div>
-        <div class="fg"><label>Nombre *</label><input type="text" id="mat-nombre"/></div>
-        <div class="fg"><label>Primer Apellido *</label><input type="text" id="mat-ap1"/></div>
-        <div class="fg"><label>Segundo Apellido *</label><input type="text" id="mat-ap2"/></div>
-        <div class="fg"><label>Fecha de nacimiento *</label><input type="date" id="mat-fnac"/></div>
-        <div class="fg"><label>Nacionalidad *</label>
-          <select id="mat-nac">
-            <option value="Costa Rica">Costa Rica</option><option value="Nicaragua">Nicaragua</option>
-            <option value="Panamá">Panamá</option><option value="Venezuela">Venezuela</option>
-            <option value="Colombia">Colombia</option><option value="Otra">Otra</option>
-          </select>
-        </div>
-        <div class="fg"><label>Correo personal</label><input type="email" id="mat-correo"/></div>
-        <div class="fg" id="mat-procedencia-wrap"><label>Institución de procedencia</label><input type="text" id="mat-procedencia"/></div>
+
         <!-- Dirección -->
-        <div class="fg" style="grid-column:1/-1;font-weight:bold;color:var(--azul);font-size:13px;margin-top:4px;">📍 Dirección</div>
-        <div class="fg"><label>Provincia *</label><input type="text" id="mat-provincia"/></div>
-        <div class="fg"><label>Cantón *</label><input type="text" id="mat-canton"/></div>
-        <div class="fg"><label>Distrito *</label><input type="text" id="mat-distrito"/></div>
-        <div class="fg" style="grid-column:1/-1"><label>Dirección exacta *</label><textarea id="mat-direccion" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;"></textarea></div>
-        <!-- Familia -->
-        <div class="fg" style="grid-column:1/-1;font-weight:bold;color:var(--azul);font-size:13px;margin-top:4px;">👨‍👩‍👧 Situación Familiar</div>
-        <div class="fg"><label>Habita con *</label>
-          <select id="mat-habita" onchange="matHabitaChange()">
-            <option value="">—</option>
-            <option value="Padre y madre">Padre y madre</option>
-            <option value="Madre">Madre</option>
-            <option value="Padre">Padre</option>
-            <option value="Otro">Otro</option>
-          </select>
+        <div style="font-weight:bold;color:var(--azul);font-size:12px;margin:10px 0 6px;">📍 DIRECCIÓN</div>
+        <div class="form-grid">
+          <div class="fg"><label>Provincia *</label><input type="text" id="mat-provincia"/></div>
+          <div class="fg"><label>Cantón *</label><input type="text" id="mat-canton"/></div>
+          <div class="fg"><label>Distrito *</label><input type="text" id="mat-distrito"/></div>
+          <div class="fg" style="grid-column:1/-1"><label>Dirección exacta *</label>
+            <textarea id="mat-direccion" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;"></textarea>
+          </div>
         </div>
-        <div class="fg" id="mat-habita-otro-wrap" style="display:none;"><label>Especificar quién</label><input type="text" id="mat-habita-otro"/></div>
-        <div class="fg"><label>Adecuación curricular</label>
-          <select id="mat-adecuacion">
-            <option value="ninguna">No</option>
-            <option value="significativa">Sí — Significativa</option>
-            <option value="no_significativa">Sí — No Significativa</option>
-          </select>
+
+        <!-- Situación familiar -->
+        <div style="font-weight:bold;color:var(--azul);font-size:12px;margin:10px 0 6px;">👨‍👩‍👧 SITUACIÓN FAMILIAR</div>
+        <div class="form-grid">
+          <div class="fg"><label>Habita con</label>
+            <select id="mat-habita" onchange="matHabitaChange()">
+              <option value="">—</option>
+              <option value="Padre y madre">Padre y madre</option>
+              <option value="Madre">Madre</option>
+              <option value="Padre">Padre</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="fg" id="mat-habita-otro-wrap" style="display:none;"><label>Especificar quién</label><input type="text" id="mat-habita-otro"/></div>
+          <div class="fg"><label>Adecuación curricular</label>
+            <select id="mat-adecuacion">
+              <option value="ninguna">No</option>
+              <option value="significativa">Sí — Significativa</option>
+              <option value="no_significativa">Sí — No Significativa</option>
+            </select>
+          </div>
         </div>
-        <div class="fg"><label>Nivel a cursar 2027 *</label>
-          <select id="mat-nivel">
-            <option value="">—</option>
-            <option value="7">Sétimo</option><option value="8">Octavo</option>
-            <option value="9">Noveno</option><option value="10">Décimo</option>
-            <option value="11">Undécimo</option>
-          </select>
+
+        <!-- Información médica -->
+        <div style="font-weight:bold;color:var(--azul);font-size:12px;margin:10px 0 6px;">🏥 INFORMACIÓN MÉDICA</div>
+        <div class="form-grid">
+          <div class="fg"><label>¿Padece alguna enfermedad?</label><input type="text" id="mat-enfermedad" placeholder="Dejar en blanco si no"/></div>
+          <div class="fg"><label>Medicamento (si aplica)</label><input type="text" id="mat-medicamento"/></div>
+          <div class="fg" style="grid-column:1/-1"><label>Teléfonos emergencia adicionales</label><input type="text" id="mat-tels-emergencia"/></div>
         </div>
-        <!-- Médico -->
-        <div class="fg" style="grid-column:1/-1;font-weight:bold;color:var(--azul);font-size:13px;margin-top:4px;">🏥 Información Médica</div>
-        <div class="fg"><label>¿Padece alguna enfermedad?</label><input type="text" id="mat-enfermedad" placeholder="Dejar en blanco si no"/></div>
-        <div class="fg"><label>Medicamento (si aplica)</label><input type="text" id="mat-medicamento"/></div>
-        <div class="fg" style="grid-column:1/-1"><label>Teléfonos emergencia adicionales</label><input type="text" id="mat-tels-emergencia" placeholder="Ej: 8888-1111, 7777-2222"/></div>
-        <!-- Encargados -->
-        <div class="fg" style="grid-column:1/-1;font-weight:bold;color:var(--azul);font-size:13px;margin-top:4px;">👤 Encargados Legales</div>
-        <div id="mat-encargados-container" style="grid-column:1/-1;"></div>
-        <div style="grid-column:1/-1;">
-          <button class="btn btn-outline btn-sm" onclick="agregarEncargadoMat()">+ Agregar encargado</button>
-        </div>
+
+        <!-- Encargados legales -->
+        <div style="font-weight:bold;color:var(--azul);font-size:12px;margin:10px 0 6px;">👤 ENCARGADOS LEGALES</div>
+        <div id="mat-encargados-container"></div>
+        <button class="btn btn-outline btn-sm" onclick="agregarEncargadoMat()" style="margin-top:4px;">+ Agregar encargado</button>
       </div>
-      <div class="modal-actions">
+
+      <div class="modal-actions" style="margin-top:14px;">
         <button class="btn btn-outline" onclick="cerrarModal('modal-matricula')">Cancelar</button>
-        <button class="btn btn-primary" id="mat-btn-paso1" onclick="guardarMat1()" style="display:none;">Guardar y Continuar →</button>
+        <button class="btn btn-success" id="mat-btn-guardar" onclick="guardarMat1()" style="display:none;">💾 Guardar Datos e Imprimir Ficha</button>
       </div>
     </div>
 
-    <!-- PASO 2: Compromiso -->
+    <!-- ════ PASO 2: Compromiso ════ -->
     <div id="mat-paso-2" style="display:none;">
       <h3 style="margin-bottom:10px;">Paso 2 — Compromiso de Matrícula</h3>
-      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;margin-bottom:14px;">
-        <p>Al imprimir el compromiso, el encargado lo firmará y queda como constancia del acuerdo con el MEP y la normativa institucional.</p>
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px;font-size:13px;margin-bottom:16px;">
+        <strong>✅ Datos guardados correctamente.</strong><br/>
+        Imprimí el compromiso para que el encargado legal lo firme.
       </div>
       <div class="modal-actions">
-        <button class="btn btn-outline" onclick="matPaso(1)">← Atrás</button>
         <button class="btn btn-success" onclick="imprimirCompromiso()">🖨️ Imprimir Compromiso</button>
-        <button class="btn btn-primary" id="mat-btn-paso2-next" onclick="matPaso(3)" style="display:none;">Continuar →</button>
+        <button class="btn btn-primary" id="mat-btn-paso2-next" onclick="matPaso(3)" style="display:none;">Continuar → Beca</button>
       </div>
     </div>
 
-    <!-- PASO 3: Beca comedor -->
+    <!-- ════ PASO 3: Beca de Comedor ════ -->
     <div id="mat-paso-3" style="display:none;">
-      <h3 style="margin-bottom:10px;">Paso 3 — Solicitud de Beca de Comedor</h3>
-      <p style="font-size:13px;margin-bottom:12px;">¿El estudiante necesita solicitar beca de comedor?</p>
-      <div style="display:flex;gap:10px;margin-bottom:14px;">
-        <button class="btn btn-outline" onclick="matPaso(4)">No necesita beca</button>
+      <h3 style="margin-bottom:10px;">Paso 3 — Beca de Comedor</h3>
+      <p style="font-size:13px;margin-bottom:14px;">¿El estudiante necesita solicitar beca de comedor?</p>
+      <div style="display:flex;gap:10px;margin-bottom:16px;">
+        <button class="btn btn-outline" id="mat-btn-sin-beca" onclick="saltarBeca()">Sin beca → Continuar</button>
         <button class="btn btn-primary" onclick="mostrarFormBeca()">Sí, llenar solicitud</button>
       </div>
       <div id="mat-form-beca" style="display:none;">
         <div class="form-grid">
           <div class="fg"><label>Personas en el hogar *</label><input type="number" id="beca-personas" min="1" max="20"/></div>
           <div class="fg"><label>Tipo de vivienda *</label>
-            <select id="beca-vivienda">
-              <option value="">—</option><option>Propia</option><option>Alquilada</option><option>Prestada</option>
-            </select>
+            <select id="beca-vivienda"><option value="">—</option><option>Propia</option><option>Alquilada</option><option>Prestada</option></select>
           </div>
           <div class="fg"><label>¿Con quién vive?</label><input type="text" id="beca-vive-con"/></div>
           <div class="fg"><label>Ingreso mensual total (₡) *</label><input type="number" id="beca-ingreso" min="0"/></div>
@@ -1148,7 +1125,7 @@ tr:hover td{background:#f8fafc;}
           <div class="fg" id="beca-monto-av" style="display:none;"><label>Monto Avancemos (₡)</label><input type="number" id="beca-monto-avancemos"/></div>
           <div class="fg" style="grid-column:1/-1"><label>Otros ingresos</label><input type="text" id="beca-otros"/></div>
           <div class="fg" style="grid-column:1/-1"><label>Motivo(s) de la solicitud</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:13px;">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;">
               <label><input type="checkbox" id="beca-m1"> Situación económica</label>
               <label><input type="checkbox" id="beca-m2"> Desempleo</label>
               <label><input type="checkbox" id="beca-m3"> Enfermedad</label>
@@ -1158,17 +1135,17 @@ tr:hover td{background:#f8fafc;}
         </div>
         <div id="beca-resultado" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-weight:bold;"></div>
         <div class="modal-actions">
-          <button class="btn btn-outline" onclick="matPaso(2)">← Atrás</button>
           <button class="btn btn-success" onclick="guardarBecaMatricula()">💾 Guardar e Imprimir</button>
+          <button class="btn btn-primary" id="mat-btn-paso3-next" onclick="matPaso(4)" style="display:none;">Continuar → Adecuación</button>
         </div>
       </div>
     </div>
 
-    <!-- PASO 4: Adecuación -->
+    <!-- ════ PASO 4: Adecuación Curricular ════ -->
     <div id="mat-paso-4" style="display:none;">
       <h3 style="margin-bottom:10px;">Paso 4 — Valoración de Adecuación Curricular</h3>
-      <p style="font-size:13px;margin-bottom:12px;">¿El estudiante requiere solicitud de valoración de adecuación curricular?</p>
-      <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <p style="font-size:13px;margin-bottom:14px;">¿El estudiante requiere solicitud de valoración de adecuación curricular?</p>
+      <div style="display:flex;gap:10px;margin-bottom:16px;">
         <button class="btn btn-success" onclick="finalizarMatricula()">✅ Finalizar Matrícula</button>
         <button class="btn btn-primary" onclick="mostrarFormAdecuacion()">Sí, llenar solicitud</button>
       </div>
@@ -1182,11 +1159,12 @@ tr:hover td{background:#f8fafc;}
           </div>
         </div>
         <div class="modal-actions">
-          <button class="btn btn-outline" onclick="matPaso(3)">← Atrás</button>
           <button class="btn btn-success" onclick="guardarAdecuacion()">💾 Guardar e Imprimir</button>
+          <button class="btn btn-primary" id="mat-btn-paso4-next" onclick="finalizarMatricula()" style="display:none;">✅ Finalizar Matrícula</button>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -5487,7 +5465,7 @@ async function verPremat(id){
   const p = await api(`/api/prematricula/${id}`);
   if(!p){ sa("alert-premat","No se pudo cargar el registro.","danger"); return; }
   const enc = p.encargado || {};
-  const estados = {pendiente:"⏳ Pendiente",matriculado:"✅ Matriculado",retirado:"❌ Retirado"};
+  const estados = {pendiente:"⏳ Pendiente",prematriculado:"✅ Listo para matrícula",matriculado:"🎓 Matriculado",retirado:"❌ Retirado"};
   const consec = p.consecutivo_prematricula ? `N°${String(p.consecutivo_prematricula).padStart(3,'0')}` : "Sin asignar";
 
   // Show in a simple alert-like modal using the existing modal infrastructure
@@ -5751,113 +5729,217 @@ async function imprimirConstanciaPremat(){
 //  MATRÍCULA
 // ════════════════════════════════════
 let matEstId = null, matEncIdx = 0;
+const NIVELES_MAT = {7:"Sétimo",8:"Octavo",9:"Noveno",10:"Décimo",11:"Undécimo"};
+const CICLO_MAT   = {7:"III Ciclo de la Educación General Básica",
+                     8:"III Ciclo de la Educación General Básica",
+                     9:"III Ciclo de la Educación General Básica",
+                     10:"Educación Diversificada",11:"Educación Diversificada"};
+
+let matData = [], matNivelFiltro = 0;
 
 async function iniciarMatricula(){
-  const rows = await api("/api/matricula") || [];
-  const niveles={7:"Sétimo",8:"Octavo",9:"Noveno",10:"Décimo",11:"Undécimo"};
-  const tipos={regular:"Regular",prematricula:"Prematrícula",nuevo:"Nuevo ingreso"};
-  document.getElementById("mat-tbody").innerHTML = rows.length ? rows.map(e=>`<tr>
-    <td><code>${e.cedula}</code></td>
-    <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong></td>
-    <td><span class="badge" style="background:#e0f2fe;color:#0369a1;">${tipos[e.tipo_ingreso]||e.tipo_ingreso}</span></td>
-    <td>${niveles[e.nivel_matricula]||'—'}</td>
-    <td>${e.matricula_completada?'<span class="badge b-guia">✅ Completa</span>':'<span class="badge" style="background:#fef9c3;color:#713f12;">⏳ En proceso</span>'}</td>
-    <td style="display:flex;gap:4px;">
-      <button class="btn btn-outline btn-xs" onclick="continuarMatricula(${e.id})">✏️</button>
-      <button class="btn btn-danger btn-xs" onclick="eliminarMatricula(${e.id},'${(e.primer_apellido+' '+e.nombre).replace(/'/g,"\\'")}')">🗑️</button>
-    </td>
-  </tr>`).join("") : `<tr><td colspan="6" class="empty">No hay matrículas registradas.</td></tr>`;
+  matData = await api("/api/matricula") || [];
+  renderMatricula();
+  renderResumenNiveles();
+}
+
+function renderResumenNiveles(){
+  const NIVELES_MAT_LOCAL = {7:"Sétimo",8:"Octavo",9:"Noveno",10:"Décimo",11:"Undécimo"};
+  const conteos = {7:0,8:0,9:0,10:0,11:0};
+  matData.forEach(e=>{ if(conteos[e.nivel_matricula]!==undefined) conteos[e.nivel_matricula]++; });
+  const colores = {7:"var(--azul)",8:"#7c3aed",9:"var(--verde)",10:"var(--naranja)",11:"var(--rojo)"};
+  document.getElementById("mat-resumen-niveles").innerHTML = Object.entries(NIVELES_MAT_LOCAL).map(([n,nom])=>`
+    <div style="text-align:center;padding:10px 16px;background:#f8fafc;border:2px solid ${colores[n]}33;border-radius:10px;cursor:pointer;" onclick="filtrarNivel(${n})">
+      <div style="font-size:26px;font-weight:bold;color:${colores[n]};">${conteos[n]}</div>
+      <div style="font-size:12px;font-weight:bold;color:#374151;">${nom}</div>
+    </div>`).join("") +
+    `<div style="text-align:center;padding:10px 16px;background:#f8fafc;border:2px solid #37415133;border-radius:10px;">
+      <div style="font-size:26px;font-weight:bold;color:#374151;">${matData.length}</div>
+      <div style="font-size:12px;font-weight:bold;color:#374151;">Total</div>
+    </div>`;
+}
+
+function filtrarNivel(nivel){
+  matNivelFiltro = nivel;
+  // Update tab styles
+  document.querySelectorAll(".mat-nivel-tab").forEach(btn=>btn.classList.remove("active"));
+  const tabId = nivel===0 ? "mat-tab-todos" : `mat-tab-${nivel}`;
+  const tab = document.getElementById(tabId);
+  if(tab) tab.classList.add("active");
+  renderMatricula();
+}
+
+function renderMatricula(){
+  const tipos = {regular:"Regular",prematricula:"Prematrícula",nuevo:"Nuevo ingreso"};
+  const COLORES_TIPO = {regular:"#e0f2fe",prematricula:"#fef9c3",nuevo:"#dcfce7"};
+  const lista = matNivelFiltro === 0 ? matData : matData.filter(e=>e.nivel_matricula==matNivelFiltro);
+
+  document.getElementById("mat-tbody").innerHTML = lista.length
+    ? lista.map((e,i)=>`<tr>
+        <td style="color:var(--muted)">${i+1}</td>
+        <td><code>${e.cedula}</code></td>
+        <td><strong>${e.primer_apellido} ${e.segundo_apellido||""}, ${e.nombre}</strong></td>
+        <td><span class="badge" style="background:${COLORES_TIPO[e.tipo_ingreso]||'#e0f2fe'};color:#374151;">${tipos[e.tipo_ingreso]||e.tipo_ingreso}</span></td>
+        <td style="font-weight:bold;">${NIVELES_MAT[e.nivel_matricula]||'—'}</td>
+        <td>
+          ${e.seccion_nombre
+            ? `<span class="badge b-guia">${e.seccion_nombre}</span>`
+            : `<button class="btn btn-outline btn-xs" onclick="abrirAsignarSeccion(${e.id},'${(e.primer_apellido+' '+e.nombre).replace(/'/g,"\'")}',${e.nivel_matricula||0})">📚 Asignar</button>`}
+        </td>
+        <td>${e.matricula_completada
+          ?'<span class="badge b-guia">✅ Completa</span>'
+          :'<span class="badge" style="background:#fef9c3;color:#713f12;">⏳ En proceso</span>'}</td>
+        <td style="display:flex;gap:4px;">
+          <button class="btn btn-outline btn-xs" title="Continuar matrícula" onclick="continuarMatricula(${e.id},'${e.cedula}')">✏️</button>
+          <button class="btn btn-danger btn-xs" title="Eliminar" onclick="eliminarMatricula(${e.id},'${(e.primer_apellido+' '+e.nombre).replace(/'/g,"\'")}')">🗑️</button>
+        </td>
+      </tr>`).join("")
+    : `<tr><td colspan="8" class="empty">No hay estudiantes matrículados${matNivelFiltro?` en ${NIVELES_MAT[matNivelFiltro]||'este nivel'}`:''}.</td></tr>`;
+}
+
+async function abrirAsignarSeccion(id, nombre, nivel){
+  document.getElementById("asignar-sec-est-id").value = id;
+  document.getElementById("asignar-sec-nombre").textContent = nombre;
+  document.getElementById("alert-asignar-sec").className = "alert";
+
+  // Cargar secciones del nivel correspondiente
+  let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
+  if(!secciones.length){ try{ secciones = await api("/api/admin/secciones")||[]; }catch{} }
+
+  // Filtrar por nivel si aplica
+  const secFiltradas = nivel
+    ? secciones.filter(s=>parseInt(s.nombre.split('-')[0])===nivel)
+    : secciones;
+
+  const sel = document.getElementById("asignar-sec-select");
+  sel.innerHTML = '<option value="">— Seleccionar sección —</option>' +
+    secFiltradas.sort((a,b)=>a.nombre.localeCompare(b.nombre))
+      .map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+
+  document.getElementById("modal-asignar-seccion").classList.add("show");
+}
+
+async function confirmarAsignarSeccion(){
+  const id  = document.getElementById("asignar-sec-est-id").value;
+  const sid = document.getElementById("asignar-sec-select").value;
+  if(!sid){ sa("alert-asignar-sec","Seleccioná una sección.","danger"); return; }
+  try{
+    await api(`/api/estudiantes/${id}/asignar-seccion`,"PUT",{seccion_id:+sid});
+    cerrarModal("modal-asignar-seccion");
+    iniciarMatricula();
+  }catch(e){ sa("alert-asignar-sec",e.message,"danger"); }
 }
 
 function abrirNuevaMatricula(){
   matEstId = null; matEncIdx = 0;
-  document.getElementById("mat-buscar-cedula").value="";
-  document.getElementById("mat-form-datos").style.display="none";
-  document.getElementById("mat-btn-paso1").style.display="none";
-  document.getElementById("alert-mat-modal").className="alert";
-  document.getElementById("mat-encargados-container").innerHTML="";
+  document.getElementById("mat-buscar-cedula").value = "";
+  document.getElementById("mat-form-datos").style.display = "none";
+  document.getElementById("mat-btn-guardar").style.display = "none";
+  document.getElementById("alert-mat-modal").className = "alert";
+  document.getElementById("mat-encargados-container").innerHTML = "";
+  // Reset hidden buttons
+  ["mat-btn-paso2-next","mat-btn-paso3-next","mat-btn-paso4-next"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display="none";
+  });
+  document.getElementById("mat-form-beca").style.display = "none";
+  document.getElementById("mat-form-adecuacion").style.display = "none";
+  document.querySelector('input[name="mat-tipo"][value="regular"]').checked = true;
+  matTipoChange();
   matPaso(1);
   document.getElementById("modal-matricula").classList.add("show");
 }
 
+async function continuarMatricula(id, cedula){
+  abrirNuevaMatricula();
+  document.getElementById("mat-buscar-cedula").value = cedula;
+  await cargarDatosMatricula();
+}
+
 function matPaso(n){
   [1,2,3,4].forEach(i=>{
-    document.getElementById(`mat-paso-${i}`).style.display=i===n?"":"none";
-    const ind=document.getElementById(`mat-ind-${i}`);
-    ind.style.background=i===n?"var(--azul)":i<n?"#86efac":"#e2e8f0";
-    ind.style.color=i===n?"#fff":i<n?"#166534":"#64748b";
+    document.getElementById(`mat-paso-${i}`).style.display = i===n ? "" : "none";
+    const ind = document.getElementById(`mat-ind-${i}`);
+    if(ind){
+      ind.style.background = i===n ? "var(--azul)" : i<n ? "#86efac" : "#e2e8f0";
+      ind.style.color      = i===n ? "#fff"        : i<n ? "#166534" : "#64748b";
+    }
   });
 }
 
 function matTipoChange(){
-  // Si es nuevo ingreso, no precargar nada
   const tipo = document.querySelector('input[name="mat-tipo"]:checked')?.value;
-  document.getElementById("mat-procedencia-wrap").style.display=tipo==="regular"?"none":"";
+  const procWrap = document.getElementById("mat-procedencia-wrap");
+  if(procWrap) procWrap.style.display = tipo==="regular" ? "none" : "";
+}
+
+function matHabitaChange(){
+  const v = document.getElementById("mat-habita").value;
+  document.getElementById("mat-habita-otro-wrap").style.display = v==="Otro" ? "" : "none";
 }
 
 async function cargarDatosMatricula(){
   const cedula = document.getElementById("mat-buscar-cedula").value.trim();
-  if(!cedula){ sa("alert-mat-modal","Ingresá la cédula.","danger"); return; }
+  if(!cedula){ sa("alert-mat-modal","Ingresá la cédula primero.","danger"); return; }
+
+  sa("alert-mat-modal","Buscando...","");
   try{
     const data = await api(`/api/matricula/cedula/${cedula}`);
-    const form = document.getElementById("mat-form-datos");
-    form.style.display="";
-    document.getElementById("mat-btn-paso1").style.display="";
+
+    document.getElementById("mat-form-datos").style.display = "";
+    document.getElementById("mat-btn-guardar").style.display = "";
+    document.getElementById("mat-encargados-container").innerHTML = "";
+    matEncIdx = 0;
 
     if(data){
-      matEstId = data.id||null;
-      document.getElementById("mat-cedula").value = data.cedula||cedula;
-      document.getElementById("mat-nombre").value = data.nombre||"";
-      document.getElementById("mat-ap1").value = data.primer_apellido||"";
-      document.getElementById("mat-ap2").value = data.segundo_apellido||"";
-      document.getElementById("mat-fnac").value = data.fecha_nacimiento?.slice(0,10)||"";
-      document.getElementById("mat-sexo").value = data.sexo||"";
-      document.getElementById("mat-nac").value = data.nacionalidad||"Costa Rica";
-      document.getElementById("mat-correo").value = data.correo||"";
-      document.getElementById("mat-procedencia").value = data.centro_procedencia||data.institucion_procedencia||"";
-      document.getElementById("mat-provincia").value = data.provincia||"";
-      document.getElementById("mat-canton").value = data.canton||"";
-      document.getElementById("mat-distrito").value = data.distrito||"";
-      document.getElementById("mat-direccion").value = data.direccion_exacta||"";
-      document.getElementById("mat-habita").value = data.habita_con||"";
-      if(data.habita_con==="Otro") document.getElementById("mat-habita-otro-wrap").style.display="";
-      document.getElementById("mat-adecuacion").value = data.adecuacion||"ninguna";
-      // Para prematrícula siempre es sétimo (7)
-      document.getElementById("mat-nivel").value = data.nivel_matricula||7;
-      document.getElementById("mat-enfermedad").value = data.enfermedad||"";
-      document.getElementById("mat-medicamento").value = data.medicamento||"";
+      matEstId = data.id || null;
+      // Datos del estudiante
+      document.getElementById("mat-cedula").value        = data.cedula||cedula;
+      document.getElementById("mat-nombre").value        = data.nombre||"";
+      document.getElementById("mat-ap1").value           = data.primer_apellido||"";
+      document.getElementById("mat-ap2").value           = data.segundo_apellido||"";
+      document.getElementById("mat-fnac").value          = data.fecha_nacimiento?.slice(0,10)||"";
+      document.getElementById("mat-sexo").value          = data.sexo||"";
+      document.getElementById("mat-nac").value           = data.nacionalidad||"Costa Rica";
+      document.getElementById("mat-correo").value        = data.correo||"";
+      document.getElementById("mat-provincia").value     = data.provincia||"";
+      document.getElementById("mat-canton").value        = data.canton||"";
+      document.getElementById("mat-distrito").value      = data.distrito||"";
+      document.getElementById("mat-direccion").value     = data.direccion_exacta||"";
+      document.getElementById("mat-habita").value        = data.habita_con||"";
+      document.getElementById("mat-adecuacion").value    = data.adecuacion||"ninguna";
+      document.getElementById("mat-enfermedad").value    = data.enfermedad||"";
+      document.getElementById("mat-medicamento").value   = data.medicamento||"";
       document.getElementById("mat-tels-emergencia").value = data.telefonos_emergencia||"";
 
-      // Encargados — manejar tanto estudiante regular como prematrícula
-      document.getElementById("mat-encargados-container").innerHTML="";
-      matEncIdx = 0;
       if(data.fuente === "prematricula"){
-        // Prematrícula devuelve encargado en campos planos (enc_nombre, enc_ap1, etc.)
-        if(data.enc_nombre){
-          agregarEncargadoMat({
-            parentesco: data.parentesco||"",
-            cedula: data.enc_cedula||"",
-            nombre: data.enc_nombre||"",
-            primer_apellido: data.enc_ap1||"",
-            segundo_apellido: data.enc_ap2||"",
-            nacionalidad: data.enc_nacionalidad||"Costa Rica",
-          });
-        } else {
-          agregarEncargadoMat();
-        }
-        // Marcar tipo como prematricula
+        // Prematricula: nivel siempre es 7 (sétimo), datos del encargado en campos planos
+        document.getElementById("mat-nivel").value        = 7;
+        document.getElementById("mat-procedencia").value  = data.centro_procedencia||"";
         const radioPremat = document.querySelector('input[name="mat-tipo"][value="prematricula"]');
         if(radioPremat){ radioPremat.checked=true; matTipoChange(); }
+        // Cargar encargado desde prematrícula
+        if(data.enc_nombre){
+          agregarEncargadoMat({
+            parentesco:      data.parentesco||"",
+            cedula:          data.enc_cedula||"",
+            nombre:          data.enc_nombre||"",
+            primer_apellido: data.enc_ap1||"",
+            segundo_apellido:data.enc_ap2||"",
+            nacionalidad:    data.enc_nacionalidad||"Costa Rica",
+          });
+        } else { agregarEncargadoMat(); }
         sa("alert-mat-modal","✅ Datos cargados desde prematrícula. Completá la información faltante.","success");
       } else {
-        // Estudiante regular — tiene array de encargados
+        // Estudiante regular
+        document.getElementById("mat-nivel").value       = data.nivel_matricula||"";
+        document.getElementById("mat-procedencia").value = data.institucion_procedencia||"";
         const encs = data.encargados||[];
         if(encs.length){ encs.forEach(e=>agregarEncargadoMat(e)); }
         else { agregarEncargadoMat(); }
-        sa("alert-mat-modal","✅ Datos cargados desde el sistema.","success");
+        sa("alert-mat-modal","✅ Datos cargados del sistema.","success");
       }
     } else {
-      // No encontrado — nuevo ingreso en blanco
+      // Nuevo ingreso
       matEstId = null;
       document.getElementById("mat-cedula").value = cedula;
       ["mat-nombre","mat-ap1","mat-ap2","mat-fnac","mat-correo","mat-procedencia",
@@ -5865,28 +5947,24 @@ async function cargarDatosMatricula(){
        "mat-medicamento","mat-tels-emergencia"].forEach(id=>{
         const el=document.getElementById(id); if(el) el.value="";
       });
-      document.getElementById("mat-encargados-container").innerHTML="";
-      matEncIdx = 0;
+      document.getElementById("mat-nivel").value = "";
       agregarEncargadoMat();
       const radioNuevo = document.querySelector('input[name="mat-tipo"][value="nuevo"]');
       if(radioNuevo){ radioNuevo.checked=true; matTipoChange(); }
-      sa("alert-mat-modal","Estudiante nuevo — completá todos los datos.","warning");
+      sa("alert-mat-modal","Estudiante nuevo — completá todos los campos.","warning");
     }
-  }catch(e){ sa("alert-mat-modal",e.message,"danger"); }
-}
-
-function matHabitaChange(){
-  const v = document.getElementById("mat-habita").value;
-  document.getElementById("mat-habita-otro-wrap").style.display=v==="Otro"?"":"none";
+  }catch(e){
+    sa("alert-mat-modal","Error al cargar: "+e.message,"danger");
+  }
 }
 
 function agregarEncargadoMat(data=null){
-  const idx=matEncIdx++;
-  const div=document.createElement("div");
-  div.id=`enc-mat-${idx}`;
-  div.style.cssText="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;";
-  div.innerHTML=`
-    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+  const idx = matEncIdx++;
+  const div = document.createElement("div");
+  div.id = `enc-mat-${idx}`;
+  div.style.cssText = "border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;";
+  div.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <strong style="font-size:13px;color:var(--azul);">Encargado ${idx===0?'Principal':'#'+(idx+1)}</strong>
       ${idx>0?`<button class="btn btn-danger btn-xs" onclick="document.getElementById('enc-mat-${idx}').remove()">✕</button>`:''}
     </div>
@@ -5898,10 +5976,10 @@ function agregarEncargadoMat(data=null){
           <option>Hermano</option><option>Hermana</option><option>Encargado Legal</option>
         </select>
       </div>
-      <div class="fg"><label>Cédula</label><input type="text" id="enc${idx}-cedula" value="${data?.cedula||data?.enc_cedula||''}"/></div>
-      <div class="fg"><label>Nombre *</label><input type="text" id="enc${idx}-nombre" value="${data?.nombre||data?.enc_nombre||''}"/></div>
-      <div class="fg"><label>Primer Apellido *</label><input type="text" id="enc${idx}-ap1" value="${data?.primer_apellido||data?.enc_ap1||''}"/></div>
-      <div class="fg"><label>Segundo Apellido</label><input type="text" id="enc${idx}-ap2" value="${data?.segundo_apellido||data?.enc_ap2||''}"/></div>
+      <div class="fg"><label>Cédula</label><input type="text" id="enc${idx}-cedula" value="${data?.cedula||''}"/></div>
+      <div class="fg"><label>Nombre *</label><input type="text" id="enc${idx}-nombre" value="${data?.nombre||''}"/></div>
+      <div class="fg"><label>Primer Apellido *</label><input type="text" id="enc${idx}-ap1" value="${data?.primer_apellido||''}"/></div>
+      <div class="fg"><label>Segundo Apellido</label><input type="text" id="enc${idx}-ap2" value="${data?.segundo_apellido||''}"/></div>
       <div class="fg"><label>Nacionalidad</label>
         <select id="enc${idx}-nac">
           <option>Costa Rica</option><option>Nicaragua</option><option>Panamá</option>
@@ -5916,111 +5994,216 @@ function agregarEncargadoMat(data=null){
       <div class="fg"><label>Correo</label><input type="email" id="enc${idx}-email" value="${data?.email||''}"/></div>
     </div>`;
   document.getElementById("mat-encargados-container").appendChild(div);
-  if(data?.parentesco) document.getElementById(`enc${idx}-parentesco`).value=data.parentesco||"";
-  if(data?.nacionalidad) document.getElementById(`enc${idx}-nac`).value=data.nacionalidad||"Costa Rica";
+  if(data?.parentesco) document.getElementById(`enc${idx}-parentesco`).value = data.parentesco;
+  if(data?.nacionalidad) document.getElementById(`enc${idx}-nac`).value = data.nacionalidad;
 }
 
 function getEncargados(){
-  const container=document.getElementById("mat-encargados-container");
-  const items=container.querySelectorAll("[id^='enc-mat-']");
-  const result=[];
-  items.forEach((div,i)=>{
-    const id=div.id.replace("enc-mat-","");
-    const nom=document.getElementById(`enc${id}-nombre`)?.value?.trim();
+  const container = document.getElementById("mat-encargados-container");
+  const result = [];
+  container.querySelectorAll("[id^='enc-mat-']").forEach(div=>{
+    const id = div.id.replace("enc-mat-","");
+    const nom = document.getElementById(`enc${id}-nombre`)?.value?.trim();
     if(!nom) return;
     result.push({
-      parentesco:document.getElementById(`enc${id}-parentesco`)?.value||null,
-      cedula:document.getElementById(`enc${id}-cedula`)?.value?.trim()||null,
-      nombre:nom,
-      primer_apellido:document.getElementById(`enc${id}-ap1`)?.value?.trim()||null,
+      parentesco:      document.getElementById(`enc${id}-parentesco`)?.value||null,
+      cedula:          document.getElementById(`enc${id}-cedula`)?.value?.trim()||null,
+      nombre:          nom,
+      primer_apellido: document.getElementById(`enc${id}-ap1`)?.value?.trim()||null,
       segundo_apellido:document.getElementById(`enc${id}-ap2`)?.value?.trim()||null,
-      nacionalidad:document.getElementById(`enc${id}-nac`)?.value||null,
-      profesion:document.getElementById(`enc${id}-profesion`)?.value?.trim()||null,
-      lugar_trabajo:document.getElementById(`enc${id}-trabajo`)?.value?.trim()||null,
-      telefono:document.getElementById(`enc${id}-tel1`)?.value?.trim()||null,
-      celular:document.getElementById(`enc${id}-tel2`)?.value?.trim()||null,
+      nacionalidad:    document.getElementById(`enc${id}-nac`)?.value||null,
+      profesion:       document.getElementById(`enc${id}-profesion`)?.value?.trim()||null,
+      lugar_trabajo:   document.getElementById(`enc${id}-trabajo`)?.value?.trim()||null,
+      telefono:        document.getElementById(`enc${id}-tel1`)?.value?.trim()||null,
+      celular:         document.getElementById(`enc${id}-tel2`)?.value?.trim()||null,
       telefono_trabajo:document.getElementById(`enc${id}-tel3`)?.value?.trim()||null,
-      email:document.getElementById(`enc${id}-email`)?.value?.trim()||null,
+      email:           document.getElementById(`enc${id}-email`)?.value?.trim()||null,
     });
   });
   return result;
 }
 
 async function guardarMat1(){
-  const tipo = document.querySelector('input[name="mat-tipo"]:checked')?.value||"regular";
-  const body={
-    cedula:document.getElementById("mat-cedula").value.trim(),
-    nombre:document.getElementById("mat-nombre").value.trim(),
-    primer_apellido:document.getElementById("mat-ap1").value.trim(),
-    segundo_apellido:document.getElementById("mat-ap2").value.trim(),
-    fecha_nacimiento:document.getElementById("mat-fnac").value,
-    sexo:document.getElementById("mat-sexo").value,
-    nacionalidad:document.getElementById("mat-nac").value,
-    correo:document.getElementById("mat-correo").value,
-    institucion_procedencia:document.getElementById("mat-procedencia").value,
-    provincia:document.getElementById("mat-provincia").value,
-    canton:document.getElementById("mat-canton").value,
-    distrito:document.getElementById("mat-distrito").value,
-    direccion_exacta:document.getElementById("mat-direccion").value,
-    habita_con:document.getElementById("mat-habita").value,
-    habita_con_otro:document.getElementById("mat-habita-otro")?.value||null,
-    adecuacion:document.getElementById("mat-adecuacion").value,
-    tipo_ingreso:tipo,
-    nivel_matricula:parseInt(document.getElementById("mat-nivel").value)||null,
-    enfermedad:document.getElementById("mat-enfermedad").value,
-    medicamento:document.getElementById("mat-medicamento").value,
-    telefonos_emergencia:document.getElementById("mat-tels-emergencia").value,
-    encargados:getEncargados()
-  };
-  if(!body.cedula||!body.nombre||!body.primer_apellido||!body.nivel_matricula){
-    sa("alert-mat-modal","Cédula, nombre, apellidos y nivel son obligatorios.","danger"); return;
+  const cedula   = document.getElementById("mat-cedula").value.trim();
+  const nombre   = document.getElementById("mat-nombre").value.trim();
+  const ap1      = document.getElementById("mat-ap1").value.trim();
+  const nivel    = parseInt(document.getElementById("mat-nivel").value)||0;
+  if(!cedula||!nombre||!ap1||!nivel){
+    sa("alert-mat-modal","Cédula, nombre, primer apellido y nivel son obligatorios.","danger"); return;
   }
+  const tipo = document.querySelector('input[name="mat-tipo"]:checked')?.value||"regular";
+  const body = {
+    cedula, nombre,
+    primer_apellido:     ap1,
+    segundo_apellido:    document.getElementById("mat-ap2").value.trim(),
+    fecha_nacimiento:    document.getElementById("mat-fnac").value||null,
+    sexo:                document.getElementById("mat-sexo").value||null,
+    nacionalidad:        document.getElementById("mat-nac").value,
+    correo:              document.getElementById("mat-correo").value,
+    institucion_procedencia: document.getElementById("mat-procedencia").value,
+    provincia:           document.getElementById("mat-provincia").value,
+    canton:              document.getElementById("mat-canton").value,
+    distrito:            document.getElementById("mat-distrito").value,
+    direccion_exacta:    document.getElementById("mat-direccion").value,
+    habita_con:          document.getElementById("mat-habita").value,
+    habita_con_otro:     document.getElementById("mat-habita-otro")?.value||null,
+    adecuacion:          document.getElementById("mat-adecuacion").value,
+    tipo_ingreso:        tipo,
+    nivel_matricula:     nivel,
+    enfermedad:          document.getElementById("mat-enfermedad").value,
+    medicamento:         document.getElementById("mat-medicamento").value,
+    telefonos_emergencia:document.getElementById("mat-tels-emergencia").value,
+    encargados:          getEncargados()
+  };
   try{
-    const r=await api("/api/matricula/guardar","POST",body);
-    matEstId=r.estudiante_id;
-    sa("alert-mat-modal","","");
+    const r = await api("/api/matricula/guardar","POST",body);
+    matEstId = r.estudiante_id;
+    // Imprimir ficha del estudiante, luego pasar a paso 2
+    await imprimirFichaMatricula(body);
     matPaso(2);
     iniciarMatricula();
   }catch(e){ sa("alert-mat-modal",e.message,"danger"); }
 }
 
+async function imprimirFichaMatricula(datos){
+  const nivelNum  = datos.nivel_matricula;
+  const nivelNom  = NIVELES_MAT[nivelNum]||"";
+  const ciclo     = CICLO_MAT[nivelNum]||"";
+  const encs      = getEncargados();
+  const enc1      = encs[0]||{};
+  let auxNombre   = `${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  let auxCedula   = ME.cedula||"";
+  if(!auxCedula){ try{ const m=await api("/api/auth/me"); auxCedula=m?.usuario?.cedula||""; }catch{} }
+  const hoy       = new Date();
+  const meses     = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const tipoLabel = {regular:"Estudiante regular",prematricula:"Estudiante de primer ingreso",nuevo:"Estudiante de primer ingreso"}[datos.tipo_ingreso]||"";
+
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+
+  printArea.innerHTML=`
+  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.7;">
+    ${encabezadoMEP("FICHA DE MATRÍCULA ${hoy.getFullYear()}")}
+    <h2 style="text-align:center;font-size:14px;font-weight:bold;margin:16px 0;border-bottom:2px solid #374151;padding-bottom:6px;">DATOS DEL ESTUDIANTE</h2>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
+      <tr>
+        <td style="width:50%;padding:3px 6px;"><strong>Nombre completo:</strong> ${datos.primer_apellido} ${datos.segundo_apellido}, ${datos.nombre}</td>
+        <td style="padding:3px 6px;"><strong>Sexo:</strong> ${datos.sexo==="F"?"Femenino":datos.sexo==="M"?"Masculino":"—"}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 6px;"><strong>N° de identidad:</strong> ${datos.cedula}</td>
+        <td style="padding:3px 6px;"><strong>Nacionalidad:</strong> ${datos.nacionalidad||"—"}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 6px;"><strong>Fecha de nacimiento:</strong> ${datos.fecha_nacimiento||"—"}</td>
+        <td style="padding:3px 6px;"><strong>Correo:</strong> ${datos.correo||"—"}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:3px 6px;"><strong>Institución de procedencia:</strong> ${datos.institucion_procedencia||"—"}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:3px 6px;"><strong>Dirección:</strong> ${datos.provincia||"—"}, ${datos.canton||"—"}, ${datos.distrito||"—"}. ${datos.direccion_exacta||""}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 6px;"><strong>Habita con:</strong> ${datos.habita_con||"—"} ${datos.habita_con_otro?'('+datos.habita_con_otro+')':''}</td>
+        <td style="padding:3px 6px;"><strong>Adecuación:</strong> ${datos.adecuacion==="ninguna"?"No":datos.adecuacion}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 6px;"><strong>Enfermedad:</strong> ${datos.enfermedad||"Ninguna"}</td>
+        <td style="padding:3px 6px;"><strong>Medicamento:</strong> ${datos.medicamento||"—"}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:3px 6px;"><strong>Tels. emergencia:</strong> ${datos.telefonos_emergencia||"—"}</td>
+      </tr>
+    </table>
+    <div style="padding:4px 6px;background:#f8fafc;border-radius:4px;margin-bottom:14px;">
+      <strong>Nivel a cursar en 2027:</strong> ${nivelNom} — ${ciclo}<br/>
+      <strong>Tipo:</strong> ${tipoLabel}
+    </div>
+    ${encs.map((e,i)=>`
+    <h2 style="text-align:center;font-size:13px;font-weight:bold;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px;">DATOS DEL ENCARGADO ${i===0?'PRINCIPAL':i+1}</h2>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr>
+        <td style="width:33%;padding:3px 6px;"><strong>Parentesco:</strong> ${e.parentesco||"—"}</td>
+        <td style="width:33%;padding:3px 6px;"><strong>Cédula:</strong> ${e.cedula||"—"}</td>
+        <td style="padding:3px 6px;"><strong>Nacionalidad:</strong> ${e.nacionalidad||"—"}</td>
+      </tr>
+      <tr>
+        <td colspan="3" style="padding:3px 6px;"><strong>Nombre:</strong> ${e.primer_apellido||""} ${e.segundo_apellido||""}, ${e.nombre||""}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 6px;"><strong>Profesión:</strong> ${e.profesion||"—"}</td>
+        <td colspan="2" style="padding:3px 6px;"><strong>Lugar trabajo:</strong> ${e.lugar_trabajo||"—"}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 6px;"><strong>Tel. 1:</strong> ${e.telefono||"—"}</td>
+        <td style="padding:3px 6px;"><strong>Tel. 2:</strong> ${e.celular||"—"}</td>
+        <td style="padding:3px 6px;"><strong>Tel. 3:</strong> ${e.telefono_trabajo||"—"}</td>
+      </tr>
+      <tr>
+        <td colspan="3" style="padding:3px 6px;"><strong>Correo:</strong> ${e.email||"—"}</td>
+      </tr>
+    </table>`).join("")}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
+      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
+        <div>${enc1.primer_apellido||""} ${enc1.nombre||""}</div>
+        <div>Firma del encargado</div>
+        <div>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
+      </div>
+      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
+        <div>${auxNombre}</div>
+        <div>Auxiliar Administrativo / Funcionario autorizado</div>
+        <div>Cédula: ${auxCedula}</div>
+        <div>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
+      </div>
+    </div>
+    ${piePaginaMEP()}
+  </div>`;
+
+  const style=document.createElement("style");
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  document.head.appendChild(style);
+  await imprimirConEncabezado(printArea,style);
+}
+
 async function imprimirCompromiso(){
-  const nombre=`${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
-  const cedEst=document.getElementById("mat-cedula").value;
-  const nivNum=parseInt(document.getElementById("mat-nivel").value)||7;
-  const nivNom={7:"Sétimo",8:"Octavo",9:"Noveno",10:"Décimo",11:"Undécimo"}[nivNum]||"Sétimo";
-  const encs=getEncargados();
-  const enc1=encs[0]||{};
-  const encNom=`${enc1.primer_apellido||""} ${enc1.segundo_apellido||""}, ${enc1.nombre||""}`.trim();
-  const encCed=enc1.cedula||"_______________";
-  const encTel=enc1.telefono||enc1.celular||"_______________";
-  const hoy=new Date();
-  const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-  let auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  const nombre   = `${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
+  const cedEst   = document.getElementById("mat-cedula").value;
+  const nivelNum = parseInt(document.getElementById("mat-nivel").value)||7;
+  const nivelNom = NIVELES_MAT[nivelNum]||"Sétimo";
+  const encs     = getEncargados();
+  const enc1     = encs[0]||{};
+  const encNom   = `${enc1.primer_apellido||""} ${enc1.segundo_apellido||""}, ${enc1.nombre||""}`.trim();
+  const encCed   = enc1.cedula||"_______________";
+  const encTel   = enc1.telefono||enc1.celular||"_______________";
+  const auxNom   = `${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  const hoy      = new Date();
+  const meses    = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 
   let printArea=document.getElementById("print-boleta-area");
   if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
   printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;">
+  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.7;">
     ${encabezadoMEP("Declaración de Compromiso de Matrícula Periodo Lectivo 2027")}
-    <br/>
     <p>Yo <strong>${encNom}</strong>, cédula <strong>${encCed}</strong>, teléfono <strong>${encTel}</strong>,
     Representante legal del estudiante <strong>${nombre}</strong>, cédula <strong>${cedEst}</strong>,
-    nivel educativo a matricular <strong>${nivNom}</strong>, declaro mi compromiso de cumplir los lineamientos institucionales y del Ministerio de Educación Pública de Costa Rica:</p>
-    <p><strong>1. NORMAS GENERALES DE SEGURIDAD</strong><br/>Las estipuladas por el Ministerio de Educación pública a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional como método de mantener el bienestar y seguridad de la comunidad educativa CIRCULAR N° DM-DVM-PICR-0002-2026</p>
-    <p><strong>2. NORMAS ESPECÍFICAS.</strong></p>
-    <p><strong>2.1. DE LOS ESTUDIANTES</strong><br/>Las estipuladas por el Ministerio de Educación Pública a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional como método de mantener el bienestar y seguridad de la comunidad educativa cítese el artículo 9, 13 del REAC</p>
-    <p>Recordemos que, la Institución no se hará responsable de la pérdida de los artículos como (celulares, laptops portátiles, ipad, etc), salveques, bultos, loncheras, mochilas, carteras, billeteras u otros objetos que el estudiantado ingrese a la Institución. CADA ESTUDIANTE ES RESPONSABLE DEL CUIDO DE SUS PERTENENCIAS.</p>
-    <p><strong>2.2. DE LOS PADRES, MADRES O ENCARGADOS LEGALES</strong><br/>Las estipuladas por el Ministerio de Educación Pública a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional cítese el artículo 9, 14 del REAC, CIRCULAR N° DM-DVM-PICR-0002-2026</p>
-    <p>Declaro que he leído tanto el REAC como Normativa y asumo las responsabilidades que indica tanto compromiso de matrícula como las leyes que se citan en este documento, por lo tanto, no puedo alegar desconocimiento de esta ley.</p>
-    <p>Firmo conforme en el Liceo de Calle Fallas día _____ mes __________ 2027</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;">
+    nivel educativo a matricular <strong>${nivelNom}</strong>, declaro mi compromiso de cumplir los lineamientos institucionales y del Ministerio de Educación Pública de Costa Rica:</p>
+    <p><strong>1. NORMAS GENERALES DE SEGURIDAD</strong><br/>
+    Las estipuladas por el MEP a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional — CIRCULAR N° DM-DVM-PICR-0002-2026</p>
+    <p><strong>2. NORMAS ESPECÍFICAS</strong></p>
+    <p><strong>2.1. DE LOS ESTUDIANTES</strong><br/>
+    Las estipuladas por el MEP a través del REAC, cítese el artículo 9, 13. La institución no se hará responsable de la pérdida de artículos personales (celulares, laptops, etc.) que el estudiantado ingrese. CADA ESTUDIANTE ES RESPONSABLE DEL CUIDO DE SUS PERTENENCIAS.</p>
+    <p><strong>2.2. DE LOS PADRES, MADRES O ENCARGADOS LEGALES</strong><br/>
+    Las estipuladas por el MEP a través del REAC, cítese el artículo 9, 14 — CIRCULAR N° DM-DVM-PICR-0002-2026. Declaro que he leído el REAC y la Normativa institucional y asumo las responsabilidades indicadas.</p>
+    <p>Firmo conforme en el Liceo de Calle Fallas, día _____ del mes de ______________ del año 2027.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;">
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
         <div>${encNom}</div><div>NOMBRE Y FIRMA DEL ENCARGADO</div><div>Cédula: ${encCed}</div>
       </div>
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>Nombre del funcionario que tramita la matrícula:</div><div style="margin-top:8px;">${auxNombre}</div>
+        <div>${auxNom}</div><div>Funcionario que tramita la matrícula</div>
       </div>
     </div>
     ${piePaginaMEP()}
@@ -6029,91 +6212,97 @@ async function imprimirCompromiso(){
   style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
+  // Mostrar botón Continuar solo después de imprimir
   document.getElementById("mat-btn-paso2-next").style.display="";
 }
 
-function mostrarFormBeca(){ document.getElementById("mat-form-beca").style.display=""; }
-function mostrarFormAdecuacion(){ document.getElementById("mat-form-adecuacion").style.display=""; }
+function mostrarFormBeca(){
+  document.getElementById("mat-btn-sin-beca").style.display="none";
+  document.getElementById("mat-form-beca").style.display="";
+}
+
+function saltarBeca(){
+  matPaso(4);
+}
+
+function mostrarFormAdecuacion(){
+  document.getElementById("mat-form-adecuacion").style.display="";
+}
 
 async function guardarBecaMatricula(){
-  const personas=parseInt(document.getElementById("beca-personas").value)||0;
-  const ingreso=parseFloat(document.getElementById("beca-ingreso").value)||0;
+  const personas = parseInt(document.getElementById("beca-personas").value)||0;
+  const ingreso  = parseFloat(document.getElementById("beca-ingreso").value)||0;
   if(!personas||!ingreso){ sa("alert-mat-modal","Ingresá personas en el hogar e ingreso mensual.","danger"); matPaso(3); return; }
-  const motivos=["Situación económica","Desempleo","Enfermedad","Distancia"]
+  const motivos = ["Situación económica","Desempleo","Enfermedad","Distancia"]
     .filter((_,i)=>document.getElementById(`beca-m${i+1}`)?.checked).join(", ");
-  const body={
-    estudiante_id:matEstId, personas_hogar:personas,
-    tipo_vivienda:document.getElementById("beca-vivienda").value,
-    vive_con:document.getElementById("beca-vive-con").value,
-    ingreso_mensual:ingreso,
+  const body = {
+    estudiante_id:   matEstId,
+    cedula_estudiante: document.getElementById("mat-cedula").value,
+    personas_hogar:  personas,
+    tipo_vivienda:   document.getElementById("beca-vivienda").value,
+    vive_con:        document.getElementById("beca-vive-con").value,
+    ingreso_mensual: ingreso,
     recibe_avancemos:document.getElementById("beca-avancemos").value==="si",
-    monto_avancemos:parseFloat(document.getElementById("beca-monto-avancemos")?.value)||0,
-    otros_ingresos:document.getElementById("beca-otros").value,
+    monto_avancemos: parseFloat(document.getElementById("beca-monto-avancemos")?.value)||0,
+    otros_ingresos:  document.getElementById("beca-otros").value,
     motivos
   };
   try{
-    const r=await api("/api/matricula/beca-comedor","POST",body);
-    const col=r.resolucion==="aprobado"?"#dcfce7":r.resolucion==="pendiente"?"#fef9c3":"#fee2e2";
-    const res=document.getElementById("beca-resultado");
-    res.style.display="";res.style.background=col;
-    res.textContent=`Ingreso per cápita: ₡${Math.round(r.percapita).toLocaleString()} — ${r.clasificacion} — ${r.resolucion==="aprobado"?"✅ APROBADO":"⏳ PENDIENTE (decisión del Comité)"}`;
-    // Imprimir formulario
+    const r = await api("/api/matricula/beca-comedor","POST",body);
+    const col = r.resolucion==="aprobado"?"#dcfce7":"#fef9c3";
+    const res = document.getElementById("beca-resultado");
+    res.style.display=""; res.style.background=col;
+    res.textContent=`Per cápita: ₡${Math.round(r.percapita).toLocaleString()} — ${r.clasificacion} — ${r.resolucion==="aprobado"?"✅ APROBADO":"⏳ PENDIENTE (decisión del Comité)"}`;
     await imprimirFormBeca(r, body);
-    matPaso(4);
+    document.getElementById("mat-btn-paso3-next").style.display="";
   }catch(e){ sa("alert-mat-modal",e.message,"danger"); matPaso(3); }
 }
 
 async function imprimirFormBeca(resultado, datos){
-  const nombre=`${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
-  const cedEst=document.getElementById("mat-cedula").value;
-  const nivNum=parseInt(document.getElementById("mat-nivel").value)||7;
-  const nivNom={7:"Sétimo",8:"Octavo",9:"Noveno",10:"Décimo",11:"Undécimo"}[nivNum]||"";
-  const encs=getEncargados();
-  const enc1=encs[0]||{};
-  let auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  const nombre   = `${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
+  const cedEst   = document.getElementById("mat-cedula").value;
+  const nivelNum = parseInt(document.getElementById("mat-nivel").value)||7;
+  const nivelNom = NIVELES_MAT[nivelNum]||"";
+  const encs     = getEncargados(); const enc1=encs[0]||{};
+  const auxNom   = `${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
 
   let printArea=document.getElementById("print-boleta-area");
   if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
   printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.6;">
+  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.7;">
     ${encabezadoMEP("FORMULARIO PARA SOLICITUD DE BECA DE COMEDOR 2027")}
-    <h3 style="text-align:center;font-size:13px;margin:12px 0;">SOLICITUD DE BENEFICIO DE COMEDOR – 2027 · Liceo de Calle Fallas</h3>
-    <p><strong>1. DATOS DEL ESTUDIANTE</strong></p>
-    <p>Nombre: <strong>${nombre}</strong> &nbsp;&nbsp; Cédula: <strong>${cedEst}</strong><br/>
-    Nivel a cursar 2027: <strong>${nivNom}</strong> &nbsp;&nbsp; Teléfono: ${enc1.telefono||'___'}
-    &nbsp;☐ Nuevo ingreso &nbsp;☐ Repitente</p>
-    <p><strong>2. DATOS DEL ENCARGADO LEGAL</strong></p>
-    <p>Nombre: <strong>${enc1.primer_apellido||''} ${enc1.nombre||''}</strong> &nbsp;&nbsp;
-    Cédula: ${enc1.cedula||'___'} &nbsp;&nbsp; Teléfono: ${enc1.telefono||'___'}<br/>
-    Relación: ☐ Madre ☐ Padre ☐ Encargado legal</p>
-    <p><strong>3. INFORMACIÓN FAMILIAR</strong></p>
-    <p>Personas en el hogar: <strong>${datos.personas_hogar}</strong> &nbsp;&nbsp;
-    Tipo de vivienda: <strong>${datos.tipo_vivienda||'___'}</strong><br/>
-    Vive con: ${datos.vive_con||'___'}</p>
-    <p><strong>4. SITUACIÓN ECONÓMICA</strong></p>
-    <p>Ingreso mensual: <strong>₡${Math.round(datos.ingreso_mensual).toLocaleString()}</strong><br/>
-    ¿Recibe Avancemos? ${datos.recibe_avancemos?'Sí':'No'} ${datos.monto_avancemos?`Monto: ₡${datos.monto_avancemos.toLocaleString()}`:''}<br/>
-    Otros ingresos: ${datos.otros_ingresos||'Ninguno'}</p>
-    <p><strong>5. MOTIVO:</strong> ${datos.motivos||'No especificado'}</p>
+    <h3 style="text-align:center;font-size:13px;margin:10px 0;">SOLICITUD DE BENEFICIO DE COMEDOR – 2027 · Liceo de Calle Fallas</h3>
+    <p><strong>1. DATOS DEL ESTUDIANTE</strong><br/>
+    Nombre: <strong>${nombre}</strong> &nbsp; Cédula: <strong>${cedEst}</strong> &nbsp;
+    Nivel: <strong>${nivelNom}</strong> &nbsp; Tel.: ${enc1.telefono||"—"}</p>
+    <p><strong>2. DATOS DEL ENCARGADO LEGAL</strong><br/>
+    Nombre: <strong>${enc1.primer_apellido||""} ${enc1.nombre||""}</strong> &nbsp;
+    Cédula: ${enc1.cedula||"—"} &nbsp; Tel.: ${enc1.telefono||"—"}<br/>
+    Relación: ${enc1.parentesco||"—"}</p>
+    <p><strong>3. INFORMACIÓN FAMILIAR</strong><br/>
+    Personas en el hogar: <strong>${datos.personas_hogar}</strong> &nbsp;
+    Tipo de vivienda: <strong>${datos.tipo_vivienda||"—"}</strong> &nbsp;
+    Vive con: ${datos.vive_con||"—"}</p>
+    <p><strong>4. SITUACIÓN ECONÓMICA</strong><br/>
+    Ingreso mensual: <strong>₡${Math.round(datos.ingreso_mensual).toLocaleString()}</strong> &nbsp;
+    Avancemos: ${datos.recibe_avancemos?"Sí ₡"+datos.monto_avancemos.toLocaleString():"No"} &nbsp;
+    Otros: ${datos.otros_ingresos||"—"}</p>
+    <p><strong>5. MOTIVO:</strong> ${datos.motivos||"No especificado"}</p>
     <p><strong>6. DECLARACIÓN</strong><br/>
-    Yo, ${enc1.nombre||'_________'} ${enc1.primer_apellido||''}, declaro bajo juramento que la información brindada es verídica.</p>
-    <div style="margin-top:30px;border-top:2px solid #374151;padding-top:10px;background:#f8fafc;">
-      <strong>9. USO INTERNO DEL CENTRO EDUCATIVO</strong><br/>
-      Total de ingresos: ₡${Math.round(datos.ingreso_mensual).toLocaleString()} &nbsp;|&nbsp;
+    Yo, ${enc1.nombre||"_________"} ${enc1.primer_apellido||""}, declaro bajo juramento que la información brindada es verídica.</p>
+    <div style="margin-top:20px;border-top:2px solid #374151;padding-top:10px;background:#f8fafc;padding:10px;border-radius:4px;">
+      <strong>9. USO INTERNO</strong><br/>
+      Total ingresos: ₡${Math.round(datos.ingreso_mensual).toLocaleString()} &nbsp;|&nbsp;
       Miembros: ${datos.personas_hogar} &nbsp;|&nbsp;
-      Ingreso per cápita: ₡${Math.round(resultado.percapita).toLocaleString()}<br/>
-      Clasificación: <strong>${resultado.clasificacion}</strong><br/>
+      Per cápita: <strong>₡${Math.round(resultado.percapita).toLocaleString()}</strong><br/>
+      Clasificación: <strong>${resultado.clasificacion}</strong> &nbsp;
       Resolución: <strong>${resultado.resolucion==="aprobado"?"✅ APROBADO":"⏳ PENDIENTE"}</strong><br/>
-      Encargado legal: ${enc1.primer_apellido||''} ${enc1.nombre||''} &nbsp; Firma: _____________________
+      Firma encargado: _________________________ &nbsp; Sello: _____________
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
-      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>Firma del encargado</div>
-      </div>
-      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>${auxNombre}</div><div>Nombre del funcionario</div><div>Sello: ___________</div>
-      </div>
+      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;"><div>Firma del encargado</div></div>
+      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;"><div>${auxNom}</div><div>Nombre del funcionario</div><div>Sello: ___________</div></div>
     </div>
     ${piePaginaMEP()}
   </div>`;
@@ -6124,46 +6313,45 @@ async function imprimirFormBeca(resultado, datos){
 }
 
 async function guardarAdecuacion(){
-  const motivo=document.getElementById("adec-motivo").value.trim();
-  if(!motivo){ sa("alert-mat-modal","El motivo es obligatorio.","danger"); matPaso(4); return; }
+  const motivo = document.getElementById("adec-motivo").value.trim();
+  if(!motivo){ sa("alert-mat-modal","El motivo de la solicitud es obligatorio.","danger"); matPaso(4); return; }
   try{
     await api("/api/matricula/adecuacion","POST",{
-      estudiante_id:matEstId,
-      motivo, antecedentes:document.getElementById("adec-antecedentes").value
+      estudiante_id: matEstId,
+      motivo,
+      antecedentes: document.getElementById("adec-antecedentes").value
     });
     await imprimirAdecuacion(motivo);
-    await finalizarMatricula();
+    document.getElementById("mat-btn-paso4-next").style.display="";
   }catch(e){ sa("alert-mat-modal",e.message,"danger"); matPaso(4); }
 }
 
 async function imprimirAdecuacion(motivo){
-  const nombre=`${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
-  const cedEst=document.getElementById("mat-cedula").value;
-  const encs=getEncargados(); const enc1=encs[0]||{};
-  let auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
-  const hoy=new Date();
-  const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const nombre = `${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
+  const cedEst = document.getElementById("mat-cedula").value;
+  const encs   = getEncargados(); const enc1=encs[0]||{};
+  const auxNom = `${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  const hoy    = new Date();
 
   let printArea=document.getElementById("print-boleta-area");
   if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
   printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:13px;">
+  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:13px;line-height:1.8;">
     ${encabezadoMEP("SOLICITUD DE VALORACIÓN DE ADECUACIÓN CURRICULAR")}
-    <br/>
-    <p>Fecha: ${hoy.getDate()} / ${hoy.getMonth()+1} / ${hoy.getFullYear()}</p>
+    <p>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</p>
     <p>Estudiante: <strong>${nombre}</strong> &nbsp;&nbsp; Cédula: <strong>${cedEst}</strong></p>
-    <p>Encargado(a): <strong>${enc1.nombre||''} ${enc1.primer_apellido||''}</strong> &nbsp;&nbsp; Teléfono: ${enc1.telefono||'___'}</p>
+    <p>Encargado(a): <strong>${enc1.nombre||""} ${enc1.primer_apellido||""}</strong> &nbsp;&nbsp; Teléfono: ${enc1.telefono||"—"}</p>
     <p><strong>Motivo de la solicitud:</strong><br/>${motivo}</p>
-    <p><strong>Antecedentes relevantes:</strong><br/>${document.getElementById("adec-antecedentes").value||'N/A'}</p>
+    <p><strong>Antecedentes relevantes:</strong><br/>${document.getElementById("adec-antecedentes").value||"N/A"}</p>
     <p>Por este medio se solicita la valoración del estudiante para determinar la necesidad de adecuación curricular, conforme a los lineamientos del MEP.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;">
       <div style="border-top:1px solid #374151;padding-top:8px;">
         <div>Firma del solicitante: _______________</div>
-        <div>Nombre: ${enc1.nombre||''} ${enc1.primer_apellido||''}</div>
+        <div>Nombre: ${enc1.nombre||""} ${enc1.primer_apellido||""}</div>
       </div>
       <div style="border-top:1px solid #374151;padding-top:8px;">
-        <div>Uso interno — Recibido por: ${auxNombre}</div>
+        <div>Recibido por: ${auxNom}</div>
         <div>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
       </div>
     </div>
@@ -6182,10 +6370,17 @@ async function finalizarMatricula(){
   iniciarMatricula();
 }
 
-async function continuarMatricula(id){
-  matEstId=id;
-  matPaso(1); // TODO: cargar datos y continuar donde quedó
-  document.getElementById("modal-matricula").classList.add("show");
+async function eliminarMatricula(id, nombre){
+  const just = prompt(`Eliminar matrícula de ${nombre}.
+
+Justificación obligatoria:`);
+  if(just===null) return;
+  if(!just.trim()){ alert("La justificación es obligatoria."); return; }
+  try{
+    await api(`/api/matricula/${id}`,"DELETE",{justificacion:just});
+    sa("alert-mat","✅ Matrícula eliminada.","success");
+    iniciarMatricula();
+  }catch(e){ sa("alert-mat",e.message,"danger"); }
 }
 
 // ════════════════════════════════════

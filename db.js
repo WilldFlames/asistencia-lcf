@@ -290,7 +290,7 @@ async function initDB() {
         centro_procedencia TEXT,
         -- Estado
         consecutivo_prematricula INTEGER,
-        estado TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente','matriculado','retirado')),
+        estado TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente','prematriculado','matriculado','retirado')),
         -- Control
         registrado_por INTEGER REFERENCES usuarios(id),
         created_at TIMESTAMP DEFAULT NOW()
@@ -379,6 +379,13 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+
+    // Actualizar CHECK de prematricula.estado para incluir 'prematriculado'
+    try {
+      await client.query(`ALTER TABLE prematricula DROP CONSTRAINT IF EXISTS prematricula_estado_check`);
+      await client.query(`ALTER TABLE prematricula ADD CONSTRAINT prematricula_estado_check
+        CHECK(estado IN ('pendiente','prematriculado','matriculado','retirado'))`);
+    } catch(e) {}
 
     // Migrar constraint UNIQUE de consecutivos a índice parcial (solo activos)
     // Esto permite reusar números eliminados

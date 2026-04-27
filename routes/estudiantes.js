@@ -274,6 +274,17 @@ router.post("/:id/archivar", canManage, async (req, res) => {
   res.json({ ok:true });
 });
 
+// ── ASIGNAR SECCIÓN (matrícula) ──────────────────────────────────────
+router.put("/:id/asignar-seccion", canManage, async (req, res) => {
+  const { seccion_id } = req.body;
+  if(!seccion_id) return res.status(400).json({ error:"Sección requerida." });
+  await pool.query(
+    "UPDATE estudiantes SET seccion_id=$1 WHERE id=$2",
+    [seccion_id, req.params.id]
+  );
+  res.json({ ok:true });
+});
+
 module.exports = router;
 
 // ── IMPORTAR MASIVO DESDE EXCEL ────────────────────────────────────────
