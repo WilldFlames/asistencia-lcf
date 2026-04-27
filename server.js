@@ -1,4 +1,4 @@
-// Version: 2026-04-27 19:22:22
+// Version: 2026-04-27 19:33:26
 require("dotenv").config();
 const express   = require("express");
 const session   = require("express-session");
@@ -42,6 +42,15 @@ app.use("/api/consecutivos",   requireAuth, require("./routes/consecutivos"));
 app.use("/api/prematricula",   requireAuth, require("./routes/prematricula"));
 app.use("/api/matricula",      requireAuth, require("./routes/matricula"));
 
+// Force no-cache for HTML to ensure users always get latest version
+app.use((req, res, next) => {
+  if(req.path === '/' || req.path.endsWith('.html')) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
