@@ -5483,6 +5483,66 @@ async function archivarTrasRetiro(){
 // ════════════════════════════════════
 let prematData = [], pmId = null, pmData = null;
 
+async function verPremat(id){
+  const p = await api(`/api/prematricula/${id}`);
+  if(!p){ sa("alert-premat","No se pudo cargar el registro.","danger"); return; }
+  const enc = p.encargado || {};
+  const estados = {pendiente:"⏳ Pendiente",matriculado:"✅ Matriculado",retirado:"❌ Retirado"};
+  const consec = p.consecutivo_prematricula ? `N°${String(p.consecutivo_prematricula).padStart(3,'0')}` : "Sin asignar";
+
+  // Show in a simple alert-like modal using the existing modal infrastructure
+  const detalle = `
+📋 PREMATRÍCULA — ${estados[p.estado]||p.estado}
+
+👤 ESTUDIANTE
+Nombre: ${p.primer_apellido} ${p.segundo_apellido}, ${p.nombre}
+Cédula: ${p.cedula}
+Nacimiento: ${p.fecha_nacimiento?.slice(0,10)||'—'}
+Nacionalidad: ${p.nacionalidad||'—'}
+Centro procedencia: ${p.centro_procedencia||'—'}
+
+👨‍👩‍👧 ENCARGADO
+Parentesco: ${enc.parentesco||'—'}
+Nombre: ${enc.primer_apellido||''} ${enc.segundo_apellido||''}, ${enc.nombre||'—'}
+Cédula: ${enc.cedula||'—'}
+Nacimiento: ${enc.fecha_nacimiento?.slice(0,10)||'—'}
+Nacionalidad: ${enc.nacionalidad||'—'}
+
+📄 Consecutivo: ${consec}`;
+
+  alert(detalle);
+}
+
+async function continuarMatricula(id){
+  // Cargar datos del estudiante y abrir en el paso correcto
+  try{
+    const rows = await api("/api/matricula") || [];
+    const est = rows.find(e=>e.id===id);
+    if(!est){ sa("alert-mat","No se encontró el registro.","danger"); return; }
+
+    matEstId = id; matEncIdx = 0;
+    document.getElementById("alert-mat-modal").className="alert";
+
+    // Pre-llenar cédula y cargar datos
+    document.getElementById("mat-buscar-cedula").value = est.cedula;
+    // Seleccionar tipo según el estudiante
+    const tipo = est.tipo_ingreso||"regular";
+    const radioTipo = document.querySelector(`input[name="mat-tipo"][value="${tipo}"]`);
+    if(radioTipo) radioTipo.checked = true;
+
+    matPaso(1);
+    document.getElementById("modal-matricula").classList.add("show");
+
+    // Cargar datos automáticamente
+    await cargarDatosMatricula();
+
+    // Si tiene pasos completados, ofrecer ir al paso correcto
+    if(est.matricula_completada){
+      sa("alert-mat-modal","Esta matrícula ya está completa. Podés reimprimir cualquier documento.","warning");
+    }
+  }catch(e){ sa("alert-mat","Error: "+e.message,"danger"); }
+}
+
 async function eliminarPremat(id, nombre){
   const just = prompt(`Eliminar prematrícula de ${nombre}.\n\nJustificación obligatoria (el consecutivo quedará libre):`);
   if(just===null) return; // canceló
@@ -5525,6 +5585,7 @@ function renderPremat(){
     <td style="font-weight:bold;color:var(--azul);">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
     <td><span class="badge" style="background:${p.estado==='matriculado'?'#dcfce7':p.estado==='retirado'?'#fee2e2':'#fef9c3'};color:#374151;">${estados[p.estado]||p.estado}</span></td>
     <td style="display:flex;gap:4px;">
+      <button class="btn btn-outline btn-xs" onclick="verPremat(${p.id})">👁️</button>
       <button class="btn btn-outline btn-xs" onclick="reimprimir(${p.id})">🖨️</button>
       ${p.estado!=='matriculado'?`<button class="btn btn-danger btn-xs" onclick="eliminarPremat(${p.id},'${(p.primer_apellido+' '+p.nombre).replace(/'/g,"\\'")}')">🗑️</button>`:''}
     </td>
@@ -5653,7 +5714,7 @@ async function imprimirConstanciaPremat(){
       <strong>${pmData.primer_apellido} ${pmData.segundo_apellido}, ${pmData.nombre}</strong>,
       portador(a) de la cédula de identidad número <strong>${pmData.cedula}</strong>,
       proveniente de la institución educativa <strong>${pmData.centro_procedencia}</strong>,
-      para cursar el nivel de Sétimo Año de la Educación Diversificada, correspondiente al curso lectivo 2027 en esta institución.</p>
+      para cursar el nivel de Sétimo Año del III Ciclo de la Educación General Básica, correspondiente al curso lectivo 2027 en esta institución.</p>
 
       <p style="text-indent:2em;">Se deja constancia de que la presente solicitud corresponde únicamente al proceso de prematrícula,
       por lo que el encargado(a) deberá completar el proceso mediante la ratificación de matrícula,
@@ -5737,51 +5798,79 @@ function matTipoChange(){
 async function cargarDatosMatricula(){
   const cedula = document.getElementById("mat-buscar-cedula").value.trim();
   if(!cedula){ sa("alert-mat-modal","Ingresá la cédula.","danger"); return; }
-  const tipo = document.querySelector('input[name="mat-tipo"]:checked')?.value||"regular";
   try{
     const data = await api(`/api/matricula/cedula/${cedula}`);
     const form = document.getElementById("mat-form-datos");
     form.style.display="";
     document.getElementById("mat-btn-paso1").style.display="";
+
     if(data){
       matEstId = data.id||null;
-      document.getElementById("mat-cedula").value=data.cedula||cedula;
-      document.getElementById("mat-nombre").value=data.nombre||"";
-      document.getElementById("mat-ap1").value=data.primer_apellido||"";
-      document.getElementById("mat-ap2").value=data.segundo_apellido||"";
-      document.getElementById("mat-fnac").value=data.fecha_nacimiento?.slice(0,10)||"";
-      document.getElementById("mat-sexo").value=data.sexo||"";
-      document.getElementById("mat-nac").value=data.nacionalidad||"Costa Rica";
-      document.getElementById("mat-correo").value=data.correo||"";
-      document.getElementById("mat-procedencia").value=data.centro_procedencia||data.institucion_procedencia||"";
-      document.getElementById("mat-provincia").value=data.provincia||"";
-      document.getElementById("mat-canton").value=data.canton||"";
-      document.getElementById("mat-distrito").value=data.distrito||"";
-      document.getElementById("mat-direccion").value=data.direccion_exacta||"";
-      document.getElementById("mat-habita").value=data.habita_con||"";
-      document.getElementById("mat-adecuacion").value=data.adecuacion||"ninguna";
-      document.getElementById("mat-nivel").value=data.nivel_matricula||"";
-      document.getElementById("mat-enfermedad").value=data.enfermedad||"";
-      document.getElementById("mat-medicamento").value=data.medicamento||"";
-      document.getElementById("mat-tels-emergencia").value=data.telefonos_emergencia||"";
-      // Encargados
-      const encs = data.encargados||[];
+      document.getElementById("mat-cedula").value = data.cedula||cedula;
+      document.getElementById("mat-nombre").value = data.nombre||"";
+      document.getElementById("mat-ap1").value = data.primer_apellido||"";
+      document.getElementById("mat-ap2").value = data.segundo_apellido||"";
+      document.getElementById("mat-fnac").value = data.fecha_nacimiento?.slice(0,10)||"";
+      document.getElementById("mat-sexo").value = data.sexo||"";
+      document.getElementById("mat-nac").value = data.nacionalidad||"Costa Rica";
+      document.getElementById("mat-correo").value = data.correo||"";
+      document.getElementById("mat-procedencia").value = data.centro_procedencia||data.institucion_procedencia||"";
+      document.getElementById("mat-provincia").value = data.provincia||"";
+      document.getElementById("mat-canton").value = data.canton||"";
+      document.getElementById("mat-distrito").value = data.distrito||"";
+      document.getElementById("mat-direccion").value = data.direccion_exacta||"";
+      document.getElementById("mat-habita").value = data.habita_con||"";
+      if(data.habita_con==="Otro") document.getElementById("mat-habita-otro-wrap").style.display="";
+      document.getElementById("mat-adecuacion").value = data.adecuacion||"ninguna";
+      // Para prematrícula siempre es sétimo (7)
+      document.getElementById("mat-nivel").value = data.nivel_matricula||7;
+      document.getElementById("mat-enfermedad").value = data.enfermedad||"";
+      document.getElementById("mat-medicamento").value = data.medicamento||"";
+      document.getElementById("mat-tels-emergencia").value = data.telefonos_emergencia||"";
+
+      // Encargados — manejar tanto estudiante regular como prematrícula
       document.getElementById("mat-encargados-container").innerHTML="";
-      matEncIdx=0;
-      if(encs.length){ encs.forEach(e=>agregarEncargadoMat(e)); }
-      else { agregarEncargadoMat(); }
-      sa("alert-mat-modal",`Datos cargados desde ${data.fuente==="prematricula"?"prematrícula":"sistema"}.`,"success");
+      matEncIdx = 0;
+      if(data.fuente === "prematricula"){
+        // Prematrícula devuelve encargado en campos planos (enc_nombre, enc_ap1, etc.)
+        if(data.enc_nombre){
+          agregarEncargadoMat({
+            parentesco: data.parentesco||"",
+            cedula: data.enc_cedula||"",
+            nombre: data.enc_nombre||"",
+            primer_apellido: data.enc_ap1||"",
+            segundo_apellido: data.enc_ap2||"",
+            nacionalidad: data.enc_nacionalidad||"Costa Rica",
+          });
+        } else {
+          agregarEncargadoMat();
+        }
+        // Marcar tipo como prematricula
+        const radioPremat = document.querySelector('input[name="mat-tipo"][value="prematricula"]');
+        if(radioPremat){ radioPremat.checked=true; matTipoChange(); }
+        sa("alert-mat-modal","✅ Datos cargados desde prematrícula. Completá la información faltante.","success");
+      } else {
+        // Estudiante regular — tiene array de encargados
+        const encs = data.encargados||[];
+        if(encs.length){ encs.forEach(e=>agregarEncargadoMat(e)); }
+        else { agregarEncargadoMat(); }
+        sa("alert-mat-modal","✅ Datos cargados desde el sistema.","success");
+      }
     } else {
-      // Nuevo — limpiar
-      matEstId=null;
-      document.getElementById("mat-cedula").value=cedula;
+      // No encontrado — nuevo ingreso en blanco
+      matEstId = null;
+      document.getElementById("mat-cedula").value = cedula;
       ["mat-nombre","mat-ap1","mat-ap2","mat-fnac","mat-correo","mat-procedencia",
        "mat-provincia","mat-canton","mat-distrito","mat-direccion","mat-enfermedad",
        "mat-medicamento","mat-tels-emergencia"].forEach(id=>{
-        const el=document.getElementById(id); if(el)el.value="";
+        const el=document.getElementById(id); if(el) el.value="";
       });
       document.getElementById("mat-encargados-container").innerHTML="";
-      matEncIdx=0; agregarEncargadoMat();
+      matEncIdx = 0;
+      agregarEncargadoMat();
+      const radioNuevo = document.querySelector('input[name="mat-tipo"][value="nuevo"]');
+      if(radioNuevo){ radioNuevo.checked=true; matTipoChange(); }
+      sa("alert-mat-modal","Estudiante nuevo — completá todos los datos.","warning");
     }
   }catch(e){ sa("alert-mat-modal",e.message,"danger"); }
 }
