@@ -4026,6 +4026,517 @@ function abrirNuevaMatricula(){
 }
 
 // ════════════════════════════════════
+//  CONSECUTIVOS
+// ════════════════════════════════════
+let consecData = [], consecTipoActivo = 'oficio';
+
+async function iniciarConsecutivos(){
+  if(ME.rol==="secretaria"||ME.rol==="admin"){
+    try{
+      const usuarios = await api("/api/admin/usuarios-activos")||[];
+      const sel = document.getElementById("consec-solicitante");
+      if(sel){
+        sel.innerHTML = '<option value="">— Seleccionar usuario —</option>' +
+          usuarios.map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${u.rol})</option>`).join("");
+      }
+      const wrap = document.getElementById("consec-sol-wrap");
+      if(wrap) wrap.style.display="";
+    }catch{}
+  }
+  // Poblar secciones en selects de minuta/proceso/protocolo
+  let secs = (allSecciones&&allSecciones.length)?allSecciones:[];
+  if(!secs.length){try{secs=await api("/api/admin/secciones")||[];}catch{}}
+  ['minuta','proceso','protocolo'].forEach(tipo=>{
+    const sel=document.getElementById(`consec-sec-${tipo}`);
+    if(sel) sel.innerHTML='<option value="">— Sección —</option>'+
+      secs.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+  });
+  // Cargar tipos de protocolo
+  try{
+    const tiposP = await api("/api/consecutivos/tipos-protocolo")||[];
+    const selP = document.getElementById("consec-tipo-protocolo");
+    if(selP) selP.innerHTML='<option value="">— Seleccionar —</option>'+
+      tiposP.map(t=>`<option value="${t}">${t}</option>`).join("");
+  }catch{}
+  // Fecha por defecto
+  const fd=document.getElementById("consec-fecha");
+  if(fd) fd.value=fechaHoyCR();
+  await cargarConsecutivos('oficio');
+  // Activar tab oficio
+  document.querySelectorAll(".consec-tab").forEach(t=>t.classList.remove("active"));
+  const tab=document.getElementById("tab-oficio");
+  if(tab) tab.classList.add("active");
+}
+
+async function cargarConsecutivos(tipo){
+  consecTipoActivo = tipo;
+  try{
+    const rows = await api(`/api/consecutivos?tipo=${tipo}`)||[];
+    consecData = rows;
+    renderConsecutivos(rows, tipo);
+  }catch(e){
+    const tbody=document.getElementById("consec-tbody");
+    if(tbody) tbody.innerHTML=`<tr><td colspan="6" class="empty">Error: ${e.message}</td></tr>`;
+  }
+}
+
+function renderConsecutivos(rows, tipo){
+  const tbody=document.getElementById("consec-tbody");
+  if(!tbody) return;
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="6" class="empty">No hay ${tipo}s registrados.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=rows.map(c=>{
+    const sol=`${c.sol_ap1||''} ${c.sol_nombre||''}`.trim();
+    let detalle='';
+    if(tipo==='oficio') detalle=c.destinatario||'—';
+    else if(tipo==='minuta'||tipo==='proceso') detalle=c.est_nombre?`${c.est_ap1} ${c.est_nombre}`:c.seccion_nombre||'—';
+    else if(tipo==='protocolo') detalle=(c.tipo_protocolo||'').slice(0,50)+(c.tipo_protocolo?.length>50?'...':'');
+    return `<tr>
+      <td style="font-weight:bold;color:var(--azul);">${c.numero}</td>
+      <td>${c.fecha?.slice(0,10)||'—'}</td>
+      <td>${detalle}</td>
+      <td>${sol||'—'}</td>
+      <td style="font-size:11px;color:var(--muted);">${c.solicitado_por_cargo||c.solicitante_cargo||c.digitado_por_cargo||'—'}</td>
+      <td>
+        <button class="btn btn-danger btn-xs" onclick="eliminarConsec(${c.id})">🗑️</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function cambiarTabConsec(tipo){
+  document.querySelectorAll(".consec-tab").forEach(t=>t.classList.remove("active"));
+  const tab=document.getElementById(`tab-${tipo}`);
+  if(tab) tab.classList.add("active");
+  cargarConsecutivos(tipo);
+}
+
+function abrirModalConsec(){
+  document.getElementById("consec-tipo").value="";
+  document.getElementById("consec-fecha").value=fechaHoyCR();
+  document.getElementById("alert-consec-modal").className="alert";
+  ['oficio','minuta','proceso','protocolo'].forEach(t=>{
+    const el=document.getElementById(`consec-campos-${t}`);
+    if(el) el.style.display="none";
+  });
+  document.getElementById("modal-consecutivo").classList.add("show");
+}
+
+function cambiarTipoConsecutivo(){
+  const tipo=document.getElementById("consec-tipo").value;
+  ['oficio','minuta','proceso','protocolo'].forEach(t=>{
+    const el=document.getElementById(`consec-campos-${t}`);
+    if(el) el.style.display=t===tipo?"":"none";
+  });
+}
+
+async function cargarEstConsec(tipo){
+  const secId=document.getElementById(`consec-sec-${tipo}`)?.value;
+  const sel=document.getElementById(`consec-est-${tipo}`);
+  if(!sel) return;
+  if(!secId){sel.innerHTML='<option value="">— Estudiante —</option>';return;}
+  try{
+    const rows=await api(`/api/estudiantes?seccion_id=${secId}`)||[];
+    sel.innerHTML='<option value="">— Estudiante —</option>'+
+      rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</option>`).join("");
+  }catch{}
+}
+
+async function guardarConsecutivo(){
+  const tipo=document.getElementById("consec-tipo").value;
+  const fecha=document.getElementById("consec-fecha").value;
+  if(!tipo||!fecha){sa("alert-consec-modal","Tipo y fecha son requeridos.","danger");return;}
+
+  let body={tipo,fecha};
+  const solId=document.getElementById("consec-solicitante")?.value;
+  if(solId) body.solicitante_id=+solId;
+
+  if(tipo==='oficio'){
+    const dest=document.getElementById("consec-destinatario").value.trim();
+    if(!dest){sa("alert-consec-modal","El destinatario es requerido.","danger");return;}
+    body.destinatario=dest;
+    body.motivo_oficio=document.getElementById("consec-motivo-oficio").value;
+    body.solicitado_por_cargo=document.getElementById("consec-cargo-oficio").value;
+  } else if(tipo==='minuta'){
+    body.estudiante_id=document.getElementById("consec-est-minuta").value||null;
+    body.seccion_id=document.getElementById("consec-sec-minuta").value||null;
+    body.solicitante_cargo=document.getElementById("consec-cargo-minuta").value;
+  } else if(tipo==='proceso'){
+    body.estudiante_id=document.getElementById("consec-est-proceso").value||null;
+    body.seccion_id=document.getElementById("consec-sec-proceso").value||null;
+    body.motivo_proceso=document.getElementById("consec-motivo-proceso").value;
+  } else if(tipo==='protocolo'){
+    const tp=document.getElementById("consec-tipo-protocolo").value;
+    if(!tp){sa("alert-consec-modal","Seleccioná el tipo de protocolo.","danger");return;}
+    body.tipo_protocolo=tp;
+    body.digitado_por_cargo=document.getElementById("consec-cargo-protocolo").value;
+    body.estudiante_id=document.getElementById("consec-est-protocolo").value||null;
+    body.seccion_id=document.getElementById("consec-sec-protocolo").value||null;
+  }
+
+  try{
+    const r=await api("/api/consecutivos","POST",body);
+    cerrarModal("modal-consecutivo");
+    // Show assigned number
+    const num=r.numero;
+    const tipos={oficio:"Oficio",minuta:"Minuta",proceso:"Debido Proceso",protocolo:"Protocolo"};
+    alert(`✅ ${tipos[tipo]} N° ${num} asignado correctamente.`);
+    cambiarTabConsec(tipo);
+  }catch(e){sa("alert-consec-modal",e.message,"danger");}
+}
+
+async function eliminarConsec(id){
+  const just=prompt("Justificación para eliminar este consecutivo (obligatorio):");
+  if(just===null) return;
+  if(!just.trim()){alert("La justificación es obligatoria.");return;}
+  try{
+    await api(`/api/consecutivos/${id}`,"DELETE",{justificacion:just});
+    cargarConsecutivos(consecTipoActivo);
+  }catch(e){alert(e.message);}
+}
+
+// ════════════════════════════════════
+//  CONDUCTA
+// ════════════════════════════════════
+async function iniciarConducta(){
+  const rows=await api("/api/conducta")||[];
+  renderInformesConducca(rows);
+}
+
+function renderInformesConducca(rows){
+  const tbody=document.getElementById("conducta-tbody");
+  if(!tbody) return;
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="5" class="empty">Sin informes.</td></tr>`;return;}
+  tbody.innerHTML=rows.map(r=>`<tr>
+    <td>${r.fecha?.slice(0,10)||'—'}</td>
+    <td><strong>${r.est_ap1||''} ${r.est_nombre||''}</strong></td>
+    <td>${r.seccion_nombre||'—'}</td>
+    <td style="font-size:12px;">${(r.descripcion||'').slice(0,60)}${r.descripcion?.length>60?'...':''}</td>
+    <td><button class="btn btn-outline btn-xs" onclick="verConducta(${r.id})">👁️</button></td>
+  </tr>`).join("");
+}
+
+async function guardarConducta(){
+  const eid=document.getElementById("conducta-estudiante")?.value;
+  const desc=document.getElementById("conducta-descripcion")?.value?.trim();
+  const fecha=document.getElementById("conducta-fecha")?.value||fechaHoyCR();
+  if(!eid||!desc){sa("alert-conducta","Estudiante y descripción son requeridos.","danger");return;}
+  try{
+    await api("/api/conducta","POST",{estudiante_id:+eid,descripcion:desc,fecha});
+    sa("alert-conducta","✅ Registro guardado.","success");
+    document.getElementById("conducta-descripcion").value="";
+    iniciarConducta();
+  }catch(e){sa("alert-conducta",e.message,"danger");}
+}
+
+async function verConducta(id){
+  try{
+    const r=await api(`/api/conducta/${id}`);
+    if(!r) return;
+    alert(`📋 Conducta\nFecha: ${r.fecha?.slice(0,10)}\nEstudiante: ${r.est_ap1||''} ${r.est_nombre||''}\nSección: ${r.seccion_nombre||'—'}\n\n${r.descripcion}`);
+  }catch{}
+}
+
+// ════════════════════════════════════
+//  EXPEDIENTE
+// ════════════════════════════════════
+async function iniciarExpediente(){
+  const tbody=document.getElementById("exp-tbody");
+  if(tbody) tbody.innerHTML=`<tr><td colspan="4" class="empty">Ingresá una cédula para buscar.</td></tr>`;
+}
+
+async function buscarExpediente(){
+  const cedula=document.getElementById("exp-cedula")?.value?.trim();
+  if(!cedula){sa("alert-exp","Ingresá una cédula.","danger");return;}
+  try{
+    const r=await api(`/api/expediente/${cedula}`);
+    if(!r){sa("alert-exp","No se encontró ningún estudiante.","warning");return;}
+    const tbody=document.getElementById("exp-tbody");
+    if(tbody){
+      tbody.innerHTML=`<tr>
+        <td><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong></td>
+        <td>${r.cedula}</td>
+        <td>${r.seccion_nombre||'—'}</td>
+        <td><button class="btn btn-outline btn-xs" onclick="verExpedienteCompleto('${r.cedula}')">👁️ Ver</button></td>
+      </tr>`;
+    }
+  }catch(e){sa("alert-exp",e.message,"danger");}
+}
+
+async function verExpedienteCompleto(cedula){
+  try{
+    const r=await api(`/api/expediente/${cedula}/completo`)||await api(`/api/expediente/${cedula}`);
+    alert(`Expediente: ${JSON.stringify(r, null, 2).slice(0,500)}`);
+  }catch(e){alert(e.message);}
+}
+
+// ════════════════════════════════════
+//  COMEDOR (stats + becas)
+// ════════════════════════════════════
+async function cargarStatsComedor(){
+  const fecha=document.getElementById("comedor-fecha-scan")?.value||fechaHoyCR();
+  try{
+    const stats=await api(`/api/comedor/stats/${fecha}`);
+    const hoy=document.getElementById("cd-hoy");const b=document.getElementById("cd-becados");const reg=document.getElementById("cd-regulares");
+    if(hoy) hoy.textContent=stats.total||0;
+    if(b) b.textContent=stats.becados||0;
+    if(reg) reg.textContent=stats.regulares||0;
+  }catch{}
+}
+
+async function guardarBecasComedor(){
+  if(!comedorData||!comedorData.length){alertComedor("No hay estudiantes cargados.","danger");return;}
+  const ids_con_beca=comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
+  const ids_sin_beca=comedorData.filter(e=>!document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
+  try{
+    const r=await api("/api/comedor/actualizar-becas","POST",{ids_con_beca,ids_sin_beca});
+    alertComedor(`✅ Becas actualizadas — ${ids_con_beca.length} con beca, ${ids_sin_beca.length} sin beca.`,"success");
+    await cargarListaComedor();
+  }catch(e){alertComedor(e.message,"danger");}
+}
+
+// ════════════════════════════════════
+//  CONSTANCIA DE RETIRO
+// ════════════════════════════════════
+let retiroEstId=null, retiroEstNombre="";
+
+async function abrirConstanciaRetiro(){
+  const sid=document.getElementById("const-seccion")?.value;
+  const eid=document.getElementById("const-estudiante")?.value;
+  document.getElementById("alert-retiro-modal").className="alert";
+  document.getElementById("retiro-fecha").value=fechaHoyCR();
+  let secciones=(allSecciones&&allSecciones.length)?allSecciones:[];
+  if(!secciones.length){try{secciones=await api("/api/admin/secciones")||[];}catch{}}
+  const selSec=document.getElementById("retiro-seccion");
+  selSec.innerHTML='<option value="">— Sección —</option>'+
+    secciones.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(s=>`<option value="${s.id}" ${s.id==sid?'selected':''}>${s.nombre}</option>`).join("");
+  if(sid) await cargarEstudiantesRetiro();
+  if(eid){document.getElementById("retiro-estudiante").value=eid;await cargarEncargadoRetiro();}
+  document.getElementById("modal-retiro").classList.add("show");
+}
+
+async function cargarEstudiantesRetiro(){
+  const sid=document.getElementById("retiro-seccion").value;
+  const selEst=document.getElementById("retiro-estudiante");
+  if(!sid){selEst.innerHTML='<option value="">— Estudiante —</option>';return;}
+  const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`)||[];
+  selEst.innerHTML='<option value="">— Estudiante —</option>'+
+    rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</option>`).join("");
+  let secciones=(allSecciones&&allSecciones.length)?allSecciones:[];
+  if(!secciones.length){try{secciones=await api("/api/admin/secciones")||[];}catch{}}
+  const sec=secciones.find(s=>s.id==sid);
+  if(sec){
+    const n=parseInt(sec.nombre.split('-')[0]);
+    const nivelTexto={7:"SÉTIMO",8:"OCTAVO",9:"NOVENO",10:"DÉCIMO",11:"UNDÉCIMO"}[n]||sec.nombre.toUpperCase();
+    document.getElementById("retiro-nivel").value=nivelTexto;
+  }
+}
+
+async function cargarEncargadoRetiro(){
+  const eid=document.getElementById("retiro-estudiante").value;
+  if(!eid) return;
+  try{
+    const encs=await api(`/api/encargados/estudiante/${eid}`)||[];
+    const enc=encs.find(e=>e.es_principal)||encs[0];
+    if(enc){
+      document.getElementById("retiro-enc-nombre").value=`${enc.nombre} ${enc.primer_apellido} ${enc.segundo_apellido||''}`.trim();
+      document.getElementById("retiro-enc-cedula").value=enc.cedula||"";
+    }
+  }catch{}
+}
+
+async function generarConstanciaRetiro(){
+  const sid=document.getElementById("retiro-seccion").value;
+  const eid=document.getElementById("retiro-estudiante").value;
+  const fechaRetiro=document.getElementById("retiro-fecha").value;
+  if(!sid||!eid||!fechaRetiro){sa("alert-retiro-modal","Seleccioná sección, estudiante y fecha.","danger");return;}
+  const todos=await api("/api/estudiantes");
+  const est=todos?.find(e=>e.id==eid);
+  if(!est){sa("alert-retiro-modal","Estudiante no encontrado.","danger");return;}
+  retiroEstId=eid;
+  retiroEstNombre=`${est.primer_apellido} ${est.segundo_apellido||''}, ${est.nombre}`;
+  let auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  let auxCedula=ME.cedula||"";
+  if(!auxCedula){try{const m=await api("/api/auth/me");auxCedula=m?.usuario?.cedula||"";}catch{}}
+  const nivel=document.getElementById("retiro-nivel").value||"";
+  const encNombre=document.getElementById("retiro-enc-nombre").value.trim()||"_______________________________";
+  const encCedula=document.getElementById("retiro-enc-cedula").value.trim()||"_______________________________";
+  const motivo=document.getElementById("retiro-motivo").value.trim()||"_______________________________";
+  const hRetiro=new Date(fechaRetiro+"T12:00:00");
+  const hoy=new Date();
+  const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const dias=["","uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve","treinta","treinta y uno"];
+  const anioLetra={2025:"dos mil veinticinco",2026:"dos mil veintiséis",2027:"dos mil veintisiete"};
+  const retiroDiaT=dias[hRetiro.getDate()]||hRetiro.getDate();
+  const retiroMesT=meses[hRetiro.getMonth()];
+  const retiroAnioT=anioLetra[hRetiro.getFullYear()]||hRetiro.getFullYear();
+  const hoyDiaT=dias[hoy.getDate()]||hoy.getDate();
+  const hoyMesT=meses[hoy.getMonth()];
+  const hoyAnioT=anioLetra[hoy.getFullYear()]||hoy.getFullYear();
+  let printArea=document.getElementById("print-boleta-area");
+  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+  printArea.innerHTML=`
+  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
+    ${encabezadoMEP()}
+    <h2 style="text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;">CONSTANCIA DE RETIRO DE ESTUDIANTE</h2>
+    <div style="font-size:13px;line-height:2;text-align:justify;">
+      <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
+      <strong>${est.primer_apellido} ${est.segundo_apellido||''}, ${est.nombre}</strong>,
+      portador(a) de la cédula de identidad número <strong>${est.cedula}</strong>,
+      estuvo matriculado(a) en esta institución educativa durante el curso lectivo
+      <strong>${retiroAnioT.toUpperCase()}</strong>, cursando el nivel de <strong>${nivel}</strong>.</p>
+      <p style="text-indent:2em;">Se deja constancia de que el(la) estudiante se retiró oficialmente de la institución en fecha
+      <strong>${retiroDiaT}</strong> días del mes de <strong>${retiroMesT}</strong> del año <strong>${retiroAnioT}</strong>,
+      de conformidad con la solicitud presentada por <strong>${encNombre}</strong>,
+      portador(a) de la cédula de identidad número <strong>${encCedula}</strong>.</p>
+      <p style="text-indent:2em;">El motivo del retiro, según lo indicado por el(la) encargado(a) legal, es: <strong>${motivo}</strong>.</p>
+      <p style="text-indent:2em;">Se extiende la presente constancia a solicitud del(la) interesado(a), para los fines que estime convenientes,
+      a los <strong>${hoyDiaT}</strong> días del mes de <strong>${hoyMesT}</strong> del año <strong>${hoyAnioT}</strong>.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:60px;">
+      <div style="text-align:center;"><div style="border-top:1px solid #374151;padding-top:8px;">
+        <div style="font-size:13px;font-weight:bold;">${auxNombre}</div>
+        <div style="font-size:12px;">Cédula: ${auxCedula}</div>
+        <div style="font-size:12px;">Auxiliar Administrativo</div>
+      </div></div>
+      <div style="text-align:center;"><div style="border-top:1px solid #374151;padding-top:8px;">
+        <div style="font-size:13px;font-weight:bold;">${encNombre}</div>
+        <div style="font-size:12px;">Cédula: ${encCedula}</div>
+        <div style="font-size:12px;">Encargado(a) Legal</div>
+      </div></div>
+    </div>
+    ${piePaginaMEP()}
+  </div>`;
+  const style=document.createElement("style");
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  document.head.appendChild(style);
+  cerrarModal("modal-retiro");
+  await imprimirConEncabezado(printArea,style);
+  setTimeout(()=>{
+    document.getElementById("archivar-retiro-est-id").value=retiroEstId;
+    document.getElementById("archivar-retiro-nombre").textContent=retiroEstNombre;
+    document.getElementById("modal-archivar-tras-retiro").classList.add("show");
+  },500);
+}
+
+async function archivarTrasRetiro(){
+  const id=document.getElementById("archivar-retiro-est-id").value;
+  const motivo=document.getElementById("retiro-motivo")?.value||"Retiro formal";
+  try{
+    await api(`/api/estudiantes/${id}/archivar`,"POST",{
+      justificacion:"Retiro formal documentado con Constancia de Retiro",
+      motivo:motivo||"Retiro voluntario"
+    });
+    cerrarModal("modal-archivar-tras-retiro");
+    sa("alert-const","📁 Estudiante archivado correctamente.","success");
+    cargarEstudiantes();
+  }catch(e){cerrarModal("modal-archivar-tras-retiro");sa("alert-const","⚠️ No se pudo archivar: "+e.message,"danger");}
+}
+
+// ════════════════════════════════════
+//  ARCHIVO DE ESTUDIANTES
+// ════════════════════════════════════
+let archivoData=[];
+
+async function iniciarArchivo(){
+  archivoData=await api("/api/estudiantes/archivados")||[];
+  renderArchivo();
+}
+
+function renderArchivo(){
+  const q=(document.getElementById("buscar-archivo")?.value||"").toLowerCase();
+  const tbody=document.getElementById("archivo-tbody");
+  const lista=q?archivoData.filter(e=>`${e.primer_apellido} ${e.segundo_apellido||''} ${e.nombre}`.toLowerCase().includes(q)||(e.cedula||"").includes(q)):archivoData;
+  if(!lista.length){if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay estudiantes archivados.</td></tr>`;return;}
+  if(tbody) tbody.innerHTML=lista.map((e,i)=>`<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+    <td>${e.cedula}</td>
+    <td>${e.seccion_nombre||'—'}</td>
+    <td>${e.fecha_archivo?fmtF(e.fecha_archivo):'—'}</td>
+    <td style="font-size:12px;color:var(--muted);">${e.motivo_archivo||'—'}</td>
+    <td><button class="btn btn-outline btn-xs" onclick="verDetalleArchivado(${e.id})">👁️ Ver</button></td>
+  </tr>`).join("");
+}
+
+function filtrarArchivo(){renderArchivo();}
+
+async function verDetalleArchivado(id){
+  const e=archivoData.find(x=>x.id===id);
+  if(!e) return;
+  try{
+    const encs=await api(`/api/encargados/estudiante/${id}`)||[];
+    alert(`📁 ${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}\nCédula: ${e.cedula}\nFecha retiro: ${e.fecha_archivo||'—'}\nMotivo: ${e.motivo_archivo||'—'}\nJustificación: ${e.justificacion_archivo||'—'}\n\nEncargados: ${encs.map(enc=>`${enc.nombre} ${enc.primer_apellido} (${enc.parentesco||''})`).join(', ')||'Sin encargados'}`);
+  }catch{
+    alert(`📁 ${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}\nCédula: ${e.cedula}\nFecha retiro: ${e.fecha_archivo||'—'}`);
+  }
+}
+
+function abrirArchivarEst(id,nombre){
+  document.getElementById("archivar-est-id").value=id;
+  document.getElementById("archivar-est-nombre").textContent=nombre;
+  document.getElementById("archivar-justificacion").value="";
+  document.getElementById("archivar-motivo").value="";
+  document.getElementById("alert-archivar").className="alert";
+  document.getElementById("modal-archivar-est").classList.add("show");
+}
+
+async function confirmarArchivarEst(){
+  const id=document.getElementById("archivar-est-id").value;
+  const justificacion=document.getElementById("archivar-justificacion").value.trim();
+  const motivo=document.getElementById("archivar-motivo").value;
+  if(!justificacion){sa("alert-archivar","La justificación es obligatoria.","danger");return;}
+  try{
+    await api(`/api/estudiantes/${id}/archivar`,"POST",{justificacion,motivo});
+    cerrarModal("modal-archivar-est");
+    sa("alert-est","📁 Estudiante archivado. Los profesores fueron notificados.","success");
+    cargarEstudiantes();
+  }catch(e){sa("alert-archivar",e.message,"danger");}
+}
+
+// ════════════════════════════════════
+//  COMITÉ MATRÍCULA (Admin)
+// ════════════════════════════════════
+async function abrirComiteMatricula(){
+  document.getElementById("alert-comite-mat").className="alert";
+  const usuarios=await api("/api/admin/usuarios-activos")||[];
+  const sel=document.getElementById("comite-mat-sel");
+  if(sel) sel.innerHTML='<option value="">— Seleccionar usuario —</option>'+
+    usuarios.map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${u.rol})</option>`).join("");
+  await cargarComiteMatricula();
+  document.getElementById("modal-comite-matricula").classList.add("show");
+}
+
+async function cargarComiteMatricula(){
+  const rows=await api("/api/prematricula/comite/lista")||[];
+  const div=document.getElementById("comite-mat-lista");
+  if(!div) return;
+  div.innerHTML=rows.length?rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+    <span>${r.primer_apellido} ${r.nombre} <span style="font-size:11px;color:var(--muted);">(${r.rol})</span></span>
+    <button class="btn btn-danger btn-xs" onclick="quitarComiteMatricula(${r.id})">✕</button>
+  </div>`).join(""):'<div style="color:var(--muted);font-size:13px;">Sin miembros asignados.</div>';
+}
+
+async function agregarComiteMatricula(){
+  const sel=document.getElementById("comite-mat-sel");
+  if(!sel||!sel.value){sa("alert-comite-mat","Seleccioná un usuario.","danger");return;}
+  try{
+    await api("/api/prematricula/comite/lista","POST",{usuario_id:+sel.value});
+    sel.value="";
+    cargarComiteMatricula();
+  }catch(e){sa("alert-comite-mat",e.message,"danger");}
+}
+
+async function quitarComiteMatricula(id){
+  await api(`/api/prematricula/comite/lista/${id}`,"DELETE");
+  cargarComiteMatricula();
+}
+
+
+// ════════════════════════════════════
 //  MATRÍCULA WIZARD
 // ════════════════════════════════════
 const NIVELES_MAT = {7:"Sétimo",8:"Octavo",9:"Noveno",10:"Décimo",11:"Undécimo"};
