@@ -340,7 +340,7 @@ tr:hover td{background:#f8fafc;}
 <nav class="sidebar" id="sidebar">
   <div style="height:10px"></div>
   <button class="nav-btn active" data-page="dashboard" onclick="goTo('dashboard')"><span class="icon">🏠</span><span>Dashboard</span></button>
-  <button class="nav-btn" data-page="mensajes" onclick="goTo('mensajes')"><span class="icon">📨</span><span>Mensajes</span></button>
+  <button class="nav-btn" id="nav-mensajes" data-page="mensajes" onclick="goTo('mensajes')" style="display:none"><span class="icon">📨</span><span>Mensajes</span></button>
   <div class="sidebar-section" id="sec-docente" style="display:none">Docente</div>
   <button class="nav-btn" data-page="asistencia" id="nav-asistencia" onclick="goTo('asistencia')" style="display:none"><span class="icon">✅</span><span>Asistencia</span></button>
   <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
@@ -349,14 +349,13 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
   <button class="nav-btn" data-page="reportes" id="nav-reportes" onclick="goTo('reportes')" style="display:none"><span class="icon">📊</span><span>Reportes</span></button>
   <button class="nav-btn" data-page="expediente" id="nav-expediente" onclick="goTo('expediente')" style="display:none"><span class="icon">📁</span><span>Expediente</span></button>
-  <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">📋</span><span>Matrícula</span></button>
+  <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
+  <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
   <div class="sidebar-section" id="sec-admin" style="display:none">Admin</div>
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
   <button class="nav-btn" data-page="comedor" id="nav-comedor" onclick="goTo('comedor')" style="display:none"><span class="icon">🍽️</span><span>Comedor</span></button>
   <button class="nav-btn" data-page="consecutivos" id="nav-consecutivos" onclick="goTo('consecutivos')" style="display:none"><span class="icon">🔢</span><span>Consecutivos</span></button>
-  <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
-  <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
   <button class="nav-btn" data-page="constancia" id="nav-constancia" onclick="goTo('constancia')" style="display:none"><span class="icon">📄</span><span>Constancia</span></button>
   <button class="nav-btn" data-page="archivo" id="nav-archivo" onclick="goTo('archivo')" style="display:none"><span class="icon">🗄️</span><span>Archivo</span></button>
   <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📈</span><span>Cumplimiento</span></button>
@@ -419,7 +418,10 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
         <h2 style="margin:0">📋 Asignaciones Docentes</h2>
-        <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Comité Comedor</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Comité Comedor</button>
+          <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Comité Matrícula</button>
+        </div>
       </div>
       <button class="btn btn-primary" onclick="abrirModalAsignacion()">+ Nueva</button>
     </div>
@@ -1794,6 +1796,24 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- Modal Comité Matrícula -->
+<div class="modal-overlay" id="modal-comite-matricula">
+  <div class="modal" style="max-width:500px;">
+    <h3>🎓 Comité de Matrícula</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Máximo 6 funcionarios autorizados. Aparecerán como <strong>"Funcionario autorizado"</strong> en las constancias de prematrícula y matrícula.</p>
+    <div id="comite-mat-lista" style="margin-bottom:14px;min-height:40px;"></div>
+    <div class="fg" style="margin-bottom:8px;">
+      <label>Agregar funcionario</label>
+      <select id="comite-mat-sel"><option value="">— Seleccionar usuario —</option></select>
+    </div>
+    <div id="alert-comite-mat" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-comite-matricula')">Cerrar</button>
+      <button class="btn btn-primary" onclick="agregarComiteMatricula()">+ Agregar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Archivar Año -->
 <div class="modal-overlay" id="modal-archivar">
   <div class="modal" style="max-width:440px;">
@@ -2140,79 +2160,114 @@ async function iniciarApp(){
     ? " + " + ME.funciones_extra.map(r=>RLBL[r]||r).join(", ")
     : "";
   document.getElementById("usuario-label").textContent=`${ME.primer_apellido} ${ME.nombre} (${RLBL[ME.rol]}${rolesExtra})`;
-  // Usar tieneAlgunRol para roles base + funciones extra (guía/orientador por asignación)
-  if(tieneAlgunRol("admin","profesor","profesor_guia","orientador")){
+
+  const fx = ME.funciones_extra || [];
+  const esAdmin     = ME.rol === "admin";
+  const esAuxiliar  = ME.rol === "auxiliar";
+  const esProfesor  = ME.rol === "profesor";
+  const esSecretaria= ME.rol === "secretaria";
+  const esCocinera  = ME.rol === "cocinera";
+  const esAdminIst  = ME.rol === "administrativo";
+  const esOrientador= ME.rol === "orientador" || fx.includes("orientador");
+  const esGuia      = ME.rol === "profesor_guia" || fx.includes("profesor_guia");
+
+  // ── DOCENTE ──────────────────────────────────────────────────
+  // Asistencia: admin, profe, guía, orientador
+  if(esAdmin||esProfesor||esGuia||esOrientador){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-asistencia").style.display="";
   }
-  // Consulta disponible para todos
-  if(tieneAlgunRol("admin","profesor","profesor_guia","orientador","auxiliar")){
-    document.getElementById("nav-consulta").style.display="";
-  }
-  if(tieneAlgunRol("admin","profesor_guia","orientador","auxiliar")){
+  // Conducta: admin, guía, orientador, auxiliar
+  if(esAdmin||esGuia||esOrientador||esAuxiliar){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-conducta").style.display="";
   }
-  // Gestión: solo admin, auxiliar, guía y orientador — NO profesores puros
-  const puedeGestion = ME.rol==="admin" || ME.rol==="auxiliar" ||
-    tieneAlgunRol("orientador","profesor_guia");
-  if(puedeGestion){
+  // Consulta: todos menos cocinera
+  if(!esCocinera){
+    document.getElementById("nav-consulta").style.display="";
+  }
+  // Mensajes: todos menos cocinera y secretaria
+  if(!esCocinera&&!esSecretaria){
+    document.getElementById("nav-mensajes").style.display="";
+  }
+
+  // ── GESTIÓN ───────────────────────────────────────────────────
+  if(esAdmin||esAuxiliar||esGuia||esOrientador){
     document.getElementById("sec-gestion").style.display="";
     document.getElementById("nav-estudiantes").style.display="";
     document.getElementById("nav-reportes").style.display="";
   }
-  if(tieneAlgunRol("admin","auxiliar")){
+  // Expediente: admin, auxiliar
+  if(esAdmin||esAuxiliar){
     document.getElementById("nav-expediente").style.display="";
-    document.getElementById("nav-matricula").style.display="";
   }
-  // Comedor: cocinera, admin, orientador (para marcar) y comité (para imprimir)
-  if(ME.rol==="cocinera"||ME.rol==="admin"||tieneAlgunRol("orientador")){
+  // Secretaria: consulta + lista estudiantes
+  if(esSecretaria){
+    document.getElementById("nav-consulta").style.display="";
+    document.getElementById("nav-estudiantes").style.display="";
+  }
+
+  // ── COMEDOR ──────────────────────────────────────────────────
+  if(esAdmin||esCocinera||esOrientador){
     document.getElementById("nav-comedor").style.display="";
   }
-  // Consecutivos: todos excepto cocinera y admin-solo
+
+  // ── CONSECUTIVOS ─────────────────────────────────────────────
   const rolesConsec=["secretaria","auxiliar","orientador","profesor","administrativo","profesor_guia"];
-  const fxConsec=(ME.funciones_extra||[]);
-  if(rolesConsec.includes(ME.rol)||fxConsec.includes("profesor_guia")||fxConsec.includes("orientador")||ME.rol==="admin"){
+  if(rolesConsec.includes(ME.rol)||fx.includes("profesor_guia")||fx.includes("orientador")||esAdmin){
     document.getElementById("nav-consecutivos").style.display="";
   }
-  // Constancia: solo auxiliar y admin
-  if(ME.rol==="auxiliar"||ME.rol==="admin"){
+
+  // ── CONSTANCIA / ARCHIVO ─────────────────────────────────────
+  if(esAdmin||esAuxiliar){
     document.getElementById("nav-constancia").style.display="";
     document.getElementById("nav-archivo").style.display="";
   }
-  // Prematrícula y Matrícula: auxiliar, admin, administrativo, y comité matrícula
-  if(ME.rol==="auxiliar"||ME.rol==="admin"||ME.rol==="administrativo"){
+
+  // ── PREMATRÍCULA / MATRÍCULA ─────────────────────────────────
+  if(esAdmin||esAuxiliar||esAdminIst){
     document.getElementById("nav-prematricula").style.display="";
     document.getElementById("nav-matricula").style.display="";
   }
-  // Secretaria: solo consulta, lista estudiantes y consecutivos (redirigir al init)
-  if(ME.rol==="secretaria"){
-    document.getElementById("nav-consulta").style.display="";
-    document.getElementById("nav-estudiantes").style.display="";
-  } else {
-    // Para otros roles, verificar si son comité de comedor (await para que aparezca antes de renderizar)
-    try{
-      const comite = await api("/api/comedor/comite");
-      if(comite && comite.some(c=>c.usuario_id===ME.id)){
-        document.getElementById("nav-comedor").style.display="";
-      }
-    }catch{}
-  }
-  if(ME.rol==="admin"){
+
+  // ── ADMIN ────────────────────────────────────────────────────
+  if(esAdmin){
     document.getElementById("sec-admin").style.display="";
     document.getElementById("nav-usuarios").style.display="";
     document.getElementById("nav-asignaciones").style.display="";
     document.getElementById("nav-cumplimiento").style.display="";
   }
-  if(tieneAlgunRol("profesor_guia","orientador","auxiliar")) document.getElementById("btn-nuevo-informe").style.display="";
-  if(ME.rol==="admin") document.getElementById("tab-todos").style.display="";
+
+  // ── BOTÓN NUEVO INFORME ──────────────────────────────────────
+  if(esGuia||esOrientador||esAuxiliar) document.getElementById("btn-nuevo-informe").style.display="";
+  if(esAdmin) document.getElementById("tab-todos").style.display="";
+
+  // ── VERIFICACIONES ASYNC (comités) ───────────────────────────
+  try{
+    // Comité comedor → puede ver Comedor
+    const comiteC = await api("/api/comedor/comite");
+    if(comiteC && comiteC.some(c=>c.usuario_id===ME.id)){
+      document.getElementById("nav-comedor").style.display="";
+    }
+  }catch{}
+  try{
+    // Comité matrícula → puede ver Prematrícula y Matrícula
+    const comiteM = await api("/api/prematricula/comite/lista");
+    if(comiteM && comiteM.some(c=>c.usuario_id===ME.id)){
+      document.getElementById("nav-prematricula").style.display="";
+      document.getElementById("nav-matricula").style.display="";
+      document.getElementById("sec-gestion").style.display="";
+    }
+  }catch{}
+
   await cargarCatalogos();
   verificarNotif();
   setInterval(verificarNotif,60000);
-  // Cocinera → va directo a Comedor, no tiene dashboard
-  if(ME.rol==="cocinera"){
+
+  // Redirigir según rol
+  if(esCocinera){
     goTo("comedor");
-  } else if(ME.rol==="secretaria"){
+  } else if(esSecretaria){
     goTo("consecutivos");
   } else {
     cargarDashboard();
@@ -6047,6 +6102,17 @@ async function continuarMatricula(id){
 // ════════════════════════════════════
 //  COMITÉ MATRÍCULA (en Admin)
 // ════════════════════════════════════
+async function abrirComiteMatricula(){
+  document.getElementById("alert-comite-mat").className="alert";
+  // Poblar selector con todos los usuarios activos
+  const usuarios = await api("/api/admin/usuarios-activos") || [];
+  const sel = document.getElementById("comite-mat-sel");
+  sel.innerHTML = '<option value="">— Seleccionar usuario —</option>' +
+    usuarios.map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${u.rol})</option>`).join("");
+  await cargarComiteMatricula();
+  document.getElementById("modal-comite-matricula").classList.add("show");
+}
+
 async function cargarComiteMatricula(){
   const rows = await api("/api/prematricula/comite/lista") || [];
   const div = document.getElementById("comite-mat-lista");
@@ -6059,11 +6125,12 @@ async function cargarComiteMatricula(){
 
 async function agregarComiteMatricula(){
   const sel=document.getElementById("comite-mat-sel");
-  if(!sel||!sel.value) return;
+  if(!sel||!sel.value){ sa("alert-comite-mat","Seleccioná un usuario.","danger"); return; }
   try{
     await api("/api/prematricula/comite/lista","POST",{usuario_id:+sel.value});
+    sel.value="";
     cargarComiteMatricula();
-  }catch(e){ alert(e.message); }
+  }catch(e){ sa("alert-comite-mat",e.message,"danger"); }
 }
 
 async function quitarComiteMatricula(id){
