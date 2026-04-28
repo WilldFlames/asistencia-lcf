@@ -3187,17 +3187,39 @@ async function cargarHistSesiones(){
   </tr>`).join("");
 }
 
-async function verSesion(fecha,lecc){
-  // Quitar restricción max para permitir cargar fechas pasadas del historial
+async function verSesion(fecha, lecc){
+  if(!asigActiva) return;
+  
+  // Llamar API directamente con la fecha del historial (sin depender del input)
+  const d = await api(`/api/asistencia/${asigActiva}/${fecha}`);
+  if(!d) return;
+
+  // Actualizar campo de fecha (quitar max primero)
   const fechaEl = document.getElementById("asis-fecha");
   fechaEl.removeAttribute("max");
   fechaEl.value = fecha;
   document.getElementById("asis-lecciones").value = lecc;
-  await cargarListaDia();
-  // Hacer scroll al campo de fecha y resaltarlo
-  fechaEl.scrollIntoView({behavior:"smooth", block:"start"});
-  fechaEl.style.outline = "3px solid var(--azul)";
-  setTimeout(()=>{ fechaEl.style.outline=""; }, 2000);
+
+  // Actualizar info de sesión
+  const info = document.getElementById("asis-sesion-info");
+  if(d.sesion){
+    info.style.display = "";
+    info.innerHTML = `📅 Sesión cargada: <strong>${d.sesion.lecciones} lección${d.sesion.lecciones>1?"es":""}</strong> — ${fmtF(fecha)}`;
+    document.getElementById("asis-lecciones").value = d.sesion.lecciones;
+  } else {
+    info.style.display = "";
+    info.innerHTML = `📅 Mostrando lista del <strong>${fmtF(fecha)}</strong> — sin sesión guardada`;
+  }
+
+  // Cargar registros y renderizar
+  registrosAsist = d.estudiantes.map(e=>({...e}));
+  renderTablaAsist();
+
+  // Scroll al inicio de la vista para ver la lista
+  const tablaEl = document.getElementById("asis-body");
+  if(tablaEl) tablaEl.closest(".card")?.scrollIntoView({behavior:"smooth", block:"start"});
+  fechaEl.style.outline = "3px solid var(--verde)";
+  setTimeout(()=>{ fechaEl.style.outline = ""; }, 3000);
 }
 
 async function elimSesion(id){
