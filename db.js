@@ -458,6 +458,35 @@ async function initDB() {
       }
       console.log("✅ Nuevas infracciones cargadas");
     }
+    // ── CORREGIR INFRACCIONES MUY GRAVES (Art. 156 REAC) ──────────────────
+    // Las muy_grave estaban mal — eran copias de las graves. Se reemplazan con Art. 156
+    try {
+      await client.query("DELETE FROM infracciones WHERE tipo='muy_grave'");
+      const muyGraves = [
+        "Incentivar o participar en la escenificación pública de conductas que atenten contra la dignidad, seguridad e integridad de cualquier persona.",
+        "Impedir que otros miembros de la comunidad educativa participen en el normal desarrollo de las actividades regulares del centro educativo, así como incitar a otros a actuar con idénticos propósitos, entre los que se contempla el cierre del centro educativo.",
+        "Incitación a los compañeros a que participen en acciones que perjudiquen la salud, seguridad individual o colectiva.",
+        "Portar armas, explosivos, objetos o sustancias peligrosas que pongan en peligro la integridad y seguridad de algún miembro de la comunidad educativa. Así como el uso inadecuado de materiales diseñados para fines didácticos con otros propósitos que constituyan un riesgo.",
+        "Cualquier tipo de acción discriminatoria asociada a género, edad, raza u origen étnico o nacional, condición socioeconómica o cualquier otra que viole la dignidad humana, incluidas aquellas realizadas mediante mecanismos o dispositivos tecnológicos.",
+        "Realizar, grabar, distribuir o ser cómplice en actos de violencia en todas sus manifestaciones: bullying, acoso, violencia psicológica y violencia material entre estudiantes dentro del centro educativo, incluyendo el uso de dispositivos electrónicos para registrar y difundir actos de agresión presencial o cibernética.",
+        "Sustracción, alteración o falsificación de documentos oficiales.",
+        "Otras faltas que se consideren como muy graves según la normativa interna del centro educativo."
+      ];
+      for(const desc of muyGraves){
+        await client.query("INSERT INTO infracciones (tipo, puntos, descripcion) VALUES ($1,$2,$3)", ['muy_grave', 35, desc]);
+      }
+      console.log("✅ Infracciones muy_grave corregidas (Art. 156 REAC)");
+    } catch(e) { console.log("muy_grave migration:", e.message); }
+
+    // ── AGREGAR FALTA MUY LEVE FALTANTE (Art. 153d) ───────────────────────
+    try {
+      const d = await client.query("SELECT COUNT(*) AS c FROM infracciones WHERE tipo='muy_leve'");
+      if(parseInt(d.rows[0].c) < 4) {
+        await client.query("INSERT INTO infracciones (tipo, puntos, descripcion) VALUES ($1,$2,$3)",
+          ['muy_leve', 5, 'Otras faltas que se consideren como muy leves según la normativa interna del centro educativo.']);
+      }
+    } catch(e) {}
+
     // Nuevas materias
     await client.query("INSERT INTO materias (nombre) VALUES ('Inglés Conversacional') ON CONFLICT DO NOTHING");
     await client.query("INSERT INTO materias (nombre) VALUES ('Diseño Publicitario') ON CONFLICT DO NOTHING");
