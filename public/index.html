@@ -1088,14 +1088,31 @@ tr:hover td{background:#f8fafc;}
 
     <!-- ════ PASO 2: Compromiso ════ -->
     <div id="mat-paso-2" style="display:none;">
-      <h3 style="margin-bottom:10px;">Paso 2 — Compromiso de Matrícula</h3>
+      <h3 style="margin-bottom:10px;">Paso 2 — Documentos de Matrícula</h3>
       <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px;font-size:13px;margin-bottom:16px;">
         <strong>✅ Datos guardados correctamente.</strong><br/>
-        Imprimí el compromiso para que el encargado legal lo firme.
+        Imprimí los documentos necesarios para completar la matrícula.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);">
+          <span style="font-size:20px;">📋</span>
+          <div style="flex:1;">
+            <strong style="font-size:13px;">Ficha de Matrícula</strong>
+            <div style="font-size:12px;color:var(--muted);">Datos completos del estudiante y encargados</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="imprimirFichaFuera()">🖨️ Imprimir</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);">
+          <span style="font-size:20px;">📄</span>
+          <div style="flex:1;">
+            <strong style="font-size:13px;">Compromiso de Matrícula</strong>
+            <div style="font-size:12px;color:var(--muted);">Para firma del encargado legal</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="imprimirCompromisoFuera()">🖨️ Imprimir</button>
+        </div>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-success" onclick="imprimirCompromiso()">🖨️ Imprimir Compromiso</button>
-        <button class="btn btn-primary" id="mat-btn-paso2-next" onclick="matPaso(3)" style="display:none;">Continuar → Beca</button>
+        <button class="btn btn-primary" onclick="matPaso(3)">Continuar → Beca</button>
       </div>
     </div>
 
@@ -4663,7 +4680,39 @@ const CICLO_MAT = {7:"III Ciclo de la Educación General Básica",
                    8:"III Ciclo de la Educación General Básica",
                    9:"III Ciclo de la Educación General Básica",
                    10:"Educación Diversificada",11:"Educación Diversificada"};
-let matEstId = null, matEncIdx = 0;
+let matEstId = null, matEncIdx = 0, matDatosGuardados = null;
+
+// Imprimir FUERA del modal (cierra modal → imprime → reabre)
+async function imprimirFichaFuera(){
+  if(!matDatosGuardados){ alert("Guardá los datos primero."); return; }
+  cerrarModal("modal-matricula");
+  await new Promise(r=>setTimeout(r,300));
+  await imprimirFichaMatricula(matDatosGuardados);
+  document.getElementById("modal-matricula").classList.add("show");
+}
+
+async function imprimirCompromisoFuera(){
+  cerrarModal("modal-matricula");
+  await new Promise(r=>setTimeout(r,300));
+  await imprimirCompromiso();
+  document.getElementById("modal-matricula").classList.add("show");
+}
+
+async function imprimirBecaFuera(resultado, datos){
+  cerrarModal("modal-matricula");
+  await new Promise(r=>setTimeout(r,300));
+  await imprimirFormBeca(resultado, datos);
+  document.getElementById("modal-matricula").classList.add("show");
+  document.getElementById("mat-btn-paso3-next").style.display="";
+}
+
+async function imprimirAdecuacionFuera(motivo){
+  cerrarModal("modal-matricula");
+  await new Promise(r=>setTimeout(r,300));
+  await imprimirAdecuacion(motivo);
+  document.getElementById("modal-matricula").classList.add("show");
+  document.getElementById("mat-btn-paso4-next").style.display="";
+}
 
 function matPaso(n){
   [1,2,3,4].forEach(i=>{
@@ -4847,10 +4896,12 @@ async function guardarMat1(){
   try{
     const r=await api("/api/matricula/guardar","POST",body);
     matEstId=r.estudiante_id;
-    await imprimirFichaMatricula(body);
+    // Guardar datos en variable para imprimir desde paso 2
+    matDatosGuardados = body;
+    sa("alert-mat-modal","","");
     matPaso(2);
     iniciarMatricula();
-  }catch(e){ sa("alert-mat-modal",e.message,"danger"); }
+  }catch(e){ sa("alert-mat-modal","Error: "+e.message,"danger"); }
 }
 
 async function imprimirFichaMatricula(datos){
@@ -4984,8 +5035,7 @@ async function guardarBecaMatricula(){
     const res=document.getElementById("beca-resultado");
     if(res){res.style.display="";res.style.background=r.resolucion==="aprobado"?"#dcfce7":"#fef9c3";
     res.textContent=`Per cápita: ₡${Math.round(r.percapita).toLocaleString()} — ${r.clasificacion} — ${r.resolucion==="aprobado"?"✅ APROBADO":"⏳ PENDIENTE"}`;}
-    await imprimirFormBeca(r,body);
-    document.getElementById("mat-btn-paso3-next").style.display="";
+    await imprimirBecaFuera(r,body);
   }catch(e){ sa("alert-mat-modal",e.message,"danger"); matPaso(3); }
 }
 
@@ -5028,8 +5078,7 @@ async function guardarAdecuacion(){
   if(!motivo){ sa("alert-mat-modal","El motivo es obligatorio.","danger"); matPaso(4); return; }
   try{
     await api("/api/matricula/adecuacion","POST",{estudiante_id:matEstId,motivo,antecedentes:document.getElementById("adec-antecedentes").value});
-    await imprimirAdecuacion(motivo);
-    document.getElementById("mat-btn-paso4-next").style.display="";
+    await imprimirAdecuacionFuera(motivo);
   }catch(e){ sa("alert-mat-modal",e.message,"danger"); matPaso(4); }
 }
 
@@ -5518,13 +5567,15 @@ async function guardarPM2(){
   }
   try{
     await api(`/api/prematricula/paso2/${pmId}`,"POST",body);
-    const r=await api(`/api/prematricula/paso3/${pmId}`,"POST",{});
-    pmData=r.prematricula;
-    document.getElementById("pm-res-nombre").textContent=`${pmData.primer_apellido} ${pmData.segundo_apellido||''}, ${pmData.nombre}`;
-    document.getElementById("pm-res-cedula").textContent=pmData.cedula;
-    document.getElementById("pm-res-centro").textContent=pmData.centro_procedencia;
-    document.getElementById("pm-res-enc").textContent=`${pmData.enc_ap1||''} ${pmData.enc_nombre||''} (${pmData.parentesco||''})`;
-    document.getElementById("pm-res-consec").textContent=String(r.consecutivo).padStart(3,'0');
+    // Cargar datos para mostrar resumen — el consecutivo se asigna al imprimir
+    const pData = await api(`/api/prematricula/${pmId}`);
+    pmData = pData;
+    const enc = pData.encargado||{};
+    document.getElementById("pm-res-nombre").textContent=`${pData.primer_apellido} ${pData.segundo_apellido||''}, ${pData.nombre}`;
+    document.getElementById("pm-res-cedula").textContent=pData.cedula;
+    document.getElementById("pm-res-centro").textContent=pData.centro_procedencia;
+    document.getElementById("pm-res-enc").textContent=`${enc.primer_apellido||''} ${enc.nombre||''} (${enc.parentesco||''})`;
+    document.getElementById("pm-res-consec").textContent="(se asigna al imprimir)";
     sa("alert-premat-modal","","");
     pmPaso(3);
     iniciarPrematricula();
@@ -5547,7 +5598,24 @@ async function reimprimir(id){
 }
 
 async function imprimirConstanciaPremat(){
-  if(!pmData){ alert("Sin datos para imprimir."); return; }
+  if(!pmData && !pmId){ alert("Sin datos para imprimir."); return; }
+
+  // Asignar consecutivo ahora (si no tiene)
+  if(!pmData?.consecutivo_prematricula){
+    try{
+      const r = await api(`/api/prematricula/paso3/${pmId}`,"POST",{});
+      pmData = r.prematricula;
+      document.getElementById("pm-res-consec").textContent = String(r.consecutivo).padStart(3,'0');
+      iniciarPrematricula();
+    }catch(e){
+      sa("alert-premat-modal", "Error asignando consecutivo: "+e.message, "danger");
+      return;
+    }
+  }
+
+  // Cerrar modal para imprimir sin conflicto
+  cerrarModal("modal-prematricula");
+  await new Promise(r=>setTimeout(r,300));
   let auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
   let auxCedula=ME.cedula||"";
   if(!auxCedula){ try{ const m=await api("/api/auth/me"); auxCedula=m?.usuario?.cedula||""; }catch{} }

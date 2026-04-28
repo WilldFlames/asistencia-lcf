@@ -62,7 +62,8 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
     estParams.push(subgrupo);
     estQuery += ` AND e.subgrupo=$${estParams.length}`;
   }
-  estQuery += ` ORDER BY e.cedula, e.primer_apellido, e.segundo_apellido, e.nombre`;
+  // DISTINCT ON requiere primer_apellido primero, luego cedula para deduplicar
+  estQuery += ` ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre, e.cedula`;
   const estR = await pool.query(estQuery, estParams);
 
   if (!sesR.rows.length) {
