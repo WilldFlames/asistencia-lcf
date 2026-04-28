@@ -4179,6 +4179,12 @@ function renderConsecutivos(rows, tipo){
     return;
   }
   const tipoLabel={oficio:"📨 Oficio",minuta:"📝 Minuta",proceso:"⚖️ Proceso",protocolo:"🛡️ Protocolo"};
+  const tipoColor={
+    oficio:  {bg:"#e0f2fe",color:"#0369a1",border:"#93c5fd"},
+    minuta:  {bg:"#fef9c3",color:"#854d0e",border:"#fde047"},
+    proceso: {bg:"#fce7f3",color:"#9d174d",border:"#f9a8d4"},
+    protocolo:{bg:"#dcfce7",color:"#166534",border:"#86efac"}
+  };
   tbody.innerHTML=rows.map(c=>{
     const sol=`${c.sol_ap1||''} ${c.sol_nombre||''}`.trim();
     let detalle='';
@@ -4188,10 +4194,11 @@ function renderConsecutivos(rows, tipo){
     else if(c.tipo==='protocolo')
       detalle=(c.tipo_protocolo||'').slice(0,50)+(c.tipo_protocolo?.length>50?'...':'');
     const cargo=c.solicitado_por_cargo||c.solicitante_cargo||c.digitado_por_cargo||'—';
-    return `<tr>
+    const tc = tipoColor[c.tipo]||{bg:'#f1f5f9',color:'#374151',border:'#cbd5e1'};
+    return `<tr style="border-left:4px solid ${tc.border};">
       <td style="font-weight:bold;color:var(--azul);">${c.numero}</td>
-      <td>${tipoLabel[c.tipo]||c.tipo}</td>
-      <td>${c.numero}</td>
+      <td><span style="background:${tc.bg};color:${tc.color};padding:2px 8px;border-radius:6px;font-size:12px;font-weight:bold;">${tipoLabel[c.tipo]||c.tipo}</span></td>
+      <td style="font-weight:bold;">${c.numero}</td>
       <td>${c.fecha?.slice(0,10)||'—'}</td>
       <td>${sol||'—'}</td>
       <td style="font-size:12px;">${detalle}</td>

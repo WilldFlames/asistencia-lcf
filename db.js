@@ -387,6 +387,23 @@ async function initDB() {
         CHECK(estado IN ('pendiente','prematriculado','matriculado','retirado'))`);
     } catch(e) {}
 
+    // Limpiar estudiantes duplicados (misma cédula en misma sección)
+    // Mantiene el más reciente, desactiva los anteriores
+    try {
+      await client.query(`
+        UPDATE estudiantes SET activo=false
+        WHERE id IN (
+          SELECT id FROM (
+            SELECT id,
+              ROW_NUMBER() OVER (PARTITION BY cedula, seccion_id ORDER BY id DESC) AS rn
+            FROM estudiantes
+            WHERE activo=true AND seccion_id IS NOT NULL
+          ) sub
+          WHERE rn > 1
+        )
+      `);
+    } catch(e) { console.log('Dedup migration:', e.message); }
+
     // Migrar constraint UNIQUE de consecutivos a índice parcial (solo activos)
     // Esto permite reusar números eliminados
     try {
