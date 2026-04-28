@@ -3191,7 +3191,14 @@ async function verSesion(fecha,lecc){
   document.getElementById("asis-fecha").value=fecha;
   document.getElementById("asis-lecciones").value=lecc;
   await cargarListaDia();
-  window.scrollTo({top:0,behavior:"smooth"});
+  // Scroll al selector de fecha para que el usuario vea la lista cargada
+  const fechaEl = document.getElementById("asis-fecha");
+  if(fechaEl){
+    fechaEl.scrollIntoView({behavior:"smooth", block:"start"});
+    // Resaltar brevemente el campo de fecha para indicar que cambió
+    fechaEl.style.outline="3px solid var(--azul)";
+    setTimeout(()=>{ fechaEl.style.outline=""; }, 2000);
+  }
 }
 
 async function elimSesion(id){
