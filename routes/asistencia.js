@@ -53,17 +53,20 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
 
   const { seccion_id, subgrupo } = asigR.rows[0];
 
-  // Filtrar estudiantes por subgrupo si aplica — excluir archivados, deduplicar por cédula
-  let estQuery = `SELECT DISTINCT ON (e.cedula) e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido
+  // DISTINCT ON requiere que la expresión coincida con el primer ORDER BY
+  // Luego ordenamos alfabéticamente con una subconsulta
+  let estQuery = `SELECT * FROM (
+    SELECT DISTINCT ON (e.cedula) e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido
     FROM estudiantes e
     WHERE e.seccion_id=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
   const estParams = [seccion_id];
+  // Solo filtrar por subgrupo si la asignación tiene uno (A o B)
+  // Si no tiene subgrupo = el profe tiene el grupo completo → mostrar todos
   if (subgrupo) {
     estParams.push(subgrupo);
-    estQuery += ` AND e.subgrupo=$${estParams.length}`;
+    estQuery += ` AND (e.subgrupo=$${estParams.length} OR e.subgrupo IS NULL OR e.subgrupo='')`;
   }
-  // DISTINCT ON requiere primer_apellido primero, luego cedula para deduplicar
-  estQuery += ` ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre, e.cedula`;
+  estQuery += ` ORDER BY e.cedula) sub ORDER BY sub.primer_apellido, sub.segundo_apellido, sub.nombre`;
   const estR = await pool.query(estQuery, estParams);
 
   if (!sesR.rows.length) {

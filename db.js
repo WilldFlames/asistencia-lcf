@@ -461,7 +461,11 @@ async function initDB() {
     // ── CORREGIR INFRACCIONES MUY GRAVES (Art. 156 REAC) ──────────────────
     // Las muy_grave estaban mal — eran copias de las graves. Se reemplazan con Art. 156
     try {
-      await client.query("DELETE FROM infracciones WHERE tipo='muy_grave'");
+      // No eliminar — actualizar descripción de las que tienen referencias (FK)
+      // Solo insertar las que faltan según Art. 156
+      await client.query("UPDATE infracciones SET descripcion='Falta muy grave (Art. 156 REAC)' WHERE tipo='muy_grave' AND descripcion NOT LIKE '%Art. 156%' AND id IN (SELECT infraccion_id FROM boletas_conducta)");
+      // Eliminar solo las que NO tienen referencias en boletas
+      await client.query("DELETE FROM infracciones WHERE tipo='muy_grave' AND id NOT IN (SELECT DISTINCT infraccion_id FROM boletas_conducta WHERE infraccion_id IS NOT NULL)");
       const muyGraves = [
         "Incentivar o participar en la escenificación pública de conductas que atenten contra la dignidad, seguridad e integridad de cualquier persona.",
         "Impedir que otros miembros de la comunidad educativa participen en el normal desarrollo de las actividades regulares del centro educativo, así como incitar a otros a actuar con idénticos propósitos, entre los que se contempla el cierre del centro educativo.",
