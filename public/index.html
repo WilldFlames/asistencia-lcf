@@ -3188,17 +3188,16 @@ async function cargarHistSesiones(){
 }
 
 async function verSesion(fecha,lecc){
-  document.getElementById("asis-fecha").value=fecha;
-  document.getElementById("asis-lecciones").value=lecc;
-  await cargarListaDia();
-  // Scroll al selector de fecha para que el usuario vea la lista cargada
+  // Quitar restricción max para permitir cargar fechas pasadas del historial
   const fechaEl = document.getElementById("asis-fecha");
-  if(fechaEl){
-    fechaEl.scrollIntoView({behavior:"smooth", block:"start"});
-    // Resaltar brevemente el campo de fecha para indicar que cambió
-    fechaEl.style.outline="3px solid var(--azul)";
-    setTimeout(()=>{ fechaEl.style.outline=""; }, 2000);
-  }
+  fechaEl.removeAttribute("max");
+  fechaEl.value = fecha;
+  document.getElementById("asis-lecciones").value = lecc;
+  await cargarListaDia();
+  // Hacer scroll al campo de fecha y resaltarlo
+  fechaEl.scrollIntoView({behavior:"smooth", block:"start"});
+  fechaEl.style.outline = "3px solid var(--azul)";
+  setTimeout(()=>{ fechaEl.style.outline=""; }, 2000);
 }
 
 async function elimSesion(id){
