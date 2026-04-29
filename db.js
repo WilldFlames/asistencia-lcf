@@ -416,6 +416,10 @@ async function initDB() {
           ON consecutivos(tipo, numero) WHERE eliminado=false
       `);
     } catch(e) {}
+    // Columnas faltantes en encargados (usadas en matrícula)
+    await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS nacionalidad TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS profesion TEXT DEFAULT NULL`);
+
     // Actualizar UNIQUE de asignaciones para incluir subgrupo
     await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_profesor_id_seccion_id_materia_id_key`);
     await client.query(`
