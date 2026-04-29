@@ -4980,26 +4980,53 @@ async function imprimirCompromiso(){
   const encCed=enc1.cedula||"_______________";
   const encTel=enc1.telefono||enc1.celular||"_______________";
   const auxNom=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
-  const hoy=new Date();
+
   let printArea=document.getElementById("print-boleta-area");
   if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
   printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.7;">
-    ${encabezadoMEP("Declaración de Compromiso de Matrícula Periodo Lectivo 2027")}
-    <p>Yo <strong>${encNom}</strong>, cédula <strong>${encCed}</strong>, teléfono <strong>${encTel}</strong>,
-    Representante legal del estudiante <strong>${nombre}</strong>, cédula <strong>${cedEst}</strong>,
-    nivel educativo a matricular <strong>${nivelNom}</strong>, declaro mi compromiso de cumplir los lineamientos institucionales y del Ministerio de Educación Pública de Costa Rica:</p>
-    <p><strong>1. NORMAS GENERALES DE SEGURIDAD</strong><br/>Las estipuladas por el MEP a través del REAC y la Normativa Institucional — CIRCULAR N° DM-DVM-PICR-0002-2026</p>
-    <p><strong>2.1. DE LOS ESTUDIANTES</strong><br/>Cítese el artículo 9, 13 del REAC. La institución no se hará responsable de la pérdida de artículos personales. CADA ESTUDIANTE ES RESPONSABLE DEL CUIDO DE SUS PERTENENCIAS.</p>
-    <p><strong>2.2. DE LOS PADRES, MADRES O ENCARGADOS LEGALES</strong><br/>Cítese el artículo 9, 14 del REAC — CIRCULAR N° DM-DVM-PICR-0002-2026. Declaro que he leído el REAC y la Normativa y asumo las responsabilidades indicadas.</p>
-    <p>Firmo conforme en el Liceo de Calle Fallas, día _____ del mes de ______________ del año 2027.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;">
-      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>${encNom}</div><div>NOMBRE Y FIRMA DEL ENCARGADO</div><div>Cédula: ${encCed}</div>
+  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.8;">
+    ${encabezadoMEP("Declaración de Compromiso de Matrícula Periodo Lectivo 2026")}
+
+    <p>Yo <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>,
+    cédula <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u><br/>
+    teléfono <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>, Representante legal del estudiante
+    <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>,<br/>
+    cédula <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>,
+    nivel educativo a matricular <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>,
+    declaro mi compromiso de cumplir los lineamientos institucionales y del Ministerio de Educación Pública de Costa Rica:</p>
+
+    <p><strong>1. NORMAS GENERALES DE SEGURIDAD</strong><br/>
+    Las estipuladas por el Ministerio de Educación publica a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional como método de mantener el bienestar y seguridad de la comunidad educativa CIRCULAR N° DM-DVM-PICR-0002-2026</p>
+
+    <p><strong>2. NORMAS ESPECÍFICAS.</strong></p>
+
+    <p><strong>2.1. DE LOS ESTUDIANTES</strong><br/>
+    Las estipuladas por el Ministerio de Educación Pública a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional como método de mantener el bienestar y seguridad de la comunidad educativa cítese el artículo 9, 13 del REAC</p>
+
+    <p>Recordemos que, la Institución no se hará responsable de la pérdida de los artículos como (celulares, laptops portátiles, ipad, etc), salveques, bultos, loncheras, mochilas, carteras, billeteras u otros objetos que el estudiantado ingrese a la Institución. Debido a que no son solicitados como útiles escolares. <strong>CADA ESTUDIANTE ES RESPONSABLE DEL CUIDO DE SUS PERTENENCIAS.</strong></p>
+
+    <p><strong>2.2. DE LOS PADRES, MADRES O ENCARGADOS LEGALES</strong></p>
+
+    <p>Las estipuladas por el Ministerio de Educación Pública a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional como método de mantener el bienestar y seguridad de la comunidad educativa cítese el artículo 9, 14 del REAC, CIRCULAR N° DM-DVM-PICR-0002-2026</p>
+
+    <p>Declaro que he leído tanto el REAC como Normativa y asumo las responsabilidades que indica tanto compromiso de matrícula como las leyes que se citan en este documento, por lo tanto, no puedo alegar desconocimiento de esta ley.</p>
+
+    <p>Firmo conforme en el Liceo de Calle Fallas &nbsp;&nbsp;&nbsp; día _______ mes _________________ 202___</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:50px;">
+      <div style="text-align:center;">
+        <div style="border-top:1px solid #374151;padding-top:8px;">
+          <div style="font-weight:bold;">________________________________</div>
+          <div>NOMBRE Y FIRMA DEL ENCARGADO</div>
+          <div style="margin-top:12px;">________________________________</div>
+          <div>NÚMERO DE CÉDULA</div>
+        </div>
       </div>
-      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>${auxNom}</div><div>Funcionario que tramita la matrícula</div>
+      <div style="text-align:left;padding-top:8px;">
+        <div>Nombre del funcionario que tramita la matrícula:</div>
+        <div style="margin-top:30px;border-bottom:1px solid #374151;width:100%;"></div>
+        <div style="margin-top:4px;">${auxNom}</div>
       </div>
     </div>
     ${piePaginaMEP()}
