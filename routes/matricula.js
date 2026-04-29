@@ -227,7 +227,18 @@ router.delete("/:id", canAccess, async (req, res) => {
     return res.status(400).json({ error:"La justificación es obligatoria." });
   const r = await pool.query("SELECT id FROM estudiantes WHERE id=$1", [req.params.id]);
   if(!r.rows.length) return res.status(404).json({ error:"No encontrado." });
+  // Get cedula to revert prematricula
+  const est = await pool.query("SELECT cedula FROM estudiantes WHERE id=$1", [req.params.id]);
   await pool.query("UPDATE estudiantes SET activo=false, matricula_completada=false WHERE id=$1", [req.params.id]);
+  // Revertir estado de prematrícula si existe
+  if(est.rows.length) {
+    try {
+      await pool.query(
+        "UPDATE prematricula SET estado='pendiente' WHERE cedula=$1 AND estado='matriculado'",
+        [est.rows[0].cedula]
+      );
+    } catch(e) {}
+  }
   res.json({ ok:true });
 });
 

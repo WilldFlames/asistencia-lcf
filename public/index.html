@@ -4872,8 +4872,9 @@ async function guardarMat1(){
   const nivel=parseInt(document.getElementById("mat-nivel").value)||0;
   if(!cedula||!nombre||!ap1||!nivel){ sa("alert-mat-modal","Cédula, nombre, apellido y nivel son obligatorios.","danger"); return; }
   const tipo=document.querySelector('input[name="mat-tipo"]:checked')?.value||"regular";
-  const body={
-    cedula,nombre,primer_apellido:ap1,
+  // Solo guardar datos localmente — la BD se actualiza al finalizar (paso 4)
+  matDatosGuardados = {
+    cedula, nombre, primer_apellido:ap1,
     segundo_apellido:document.getElementById("mat-ap2").value.trim(),
     fecha_nacimiento:document.getElementById("mat-fnac").value||null,
     sexo:document.getElementById("mat-sexo").value||null,
@@ -4887,21 +4888,14 @@ async function guardarMat1(){
     habita_con:document.getElementById("mat-habita").value,
     habita_con_otro:document.getElementById("mat-habita-otro")?.value||null,
     adecuacion:document.getElementById("mat-adecuacion").value,
-    tipo_ingreso:tipo,nivel_matricula:nivel,
+    tipo_ingreso:tipo, nivel_matricula:nivel,
     enfermedad:document.getElementById("mat-enfermedad").value,
     medicamento:document.getElementById("mat-medicamento").value,
     telefonos_emergencia:document.getElementById("mat-tels-emergencia").value,
     encargados:getEncargados()
   };
-  try{
-    const r=await api("/api/matricula/guardar","POST",body);
-    matEstId=r.estudiante_id;
-    // Guardar datos en variable para imprimir desde paso 2
-    matDatosGuardados = body;
-    sa("alert-mat-modal","","");
-    matPaso(2);
-    iniciarMatricula();
-  }catch(e){ sa("alert-mat-modal","Error: "+e.message,"danger"); }
+  sa("alert-mat-modal","","");
+  matPaso(2);
 }
 
 async function imprimirFichaMatricula(datos){
@@ -4971,14 +4965,15 @@ async function imprimirFichaMatricula(datos){
 }
 
 async function imprimirCompromiso(){
-  const nombre=`${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
-  const cedEst=document.getElementById("mat-cedula").value;
-  const nivelNum=parseInt(document.getElementById("mat-nivel").value)||7;
-  const nivelNom=NIVELES_MAT[nivelNum]||"Sétimo";
-  const encs=getEncargados(); const enc1=encs[0]||{};
+  if(!matDatosGuardados){ sa("alert-mat-modal","Completá los datos del paso 1 primero.","danger"); return; }
+  const d = matDatosGuardados;
+  const enc1 = (d.encargados&&d.encargados.length) ? d.encargados[0] : {};
+  const nombre=`${d.primer_apellido||""} ${d.segundo_apellido||""}, ${d.nombre||""}`.trim();
+  const cedEst=d.cedula||"";
+  const nivelNom=NIVELES_MAT[d.nivel_matricula]||"";
   const encNom=`${enc1.primer_apellido||""} ${enc1.segundo_apellido||""}, ${enc1.nombre||""}`.trim();
-  const encCed=enc1.cedula||"_______________";
-  const encTel=enc1.telefono||enc1.celular||"_______________";
+  const encCed=enc1.cedula||"";
+  const encTel=enc1.telefono||enc1.celular||"";
   const auxNom=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
 
   let printArea=document.getElementById("print-boleta-area");
@@ -4986,14 +4981,12 @@ async function imprimirCompromiso(){
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
   printArea.innerHTML=`
   <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.8;">
-    ${encabezadoMEP("Declaración de Compromiso de Matrícula Periodo Lectivo 2026")}
+    ${encabezadoMEP("Declaración de Compromiso de Matrícula Periodo Lectivo 2027")}
 
-    <p>Yo <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>,
-    cédula <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u><br/>
-    teléfono <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>, Representante legal del estudiante
-    <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>,<br/>
-    cédula <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>,
-    nivel educativo a matricular <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>,
+    <p>Yo <strong>${encNom}</strong>, cédula <strong>${encCed}</strong>,
+    teléfono <strong>${encTel}</strong>, Representante legal del estudiante
+    <strong>${nombre}</strong>, cédula <strong>${cedEst}</strong>,
+    nivel educativo a matricular <strong>${nivelNom}</strong>,
     declaro mi compromiso de cumplir los lineamientos institucionales y del Ministerio de Educación Pública de Costa Rica:</p>
 
     <p><strong>1. NORMAS GENERALES DE SEGURIDAD</strong><br/>
@@ -5012,21 +5005,21 @@ async function imprimirCompromiso(){
 
     <p>Declaro que he leído tanto el REAC como Normativa y asumo las responsabilidades que indica tanto compromiso de matrícula como las leyes que se citan en este documento, por lo tanto, no puedo alegar desconocimiento de esta ley.</p>
 
-    <p>Firmo conforme en el Liceo de Calle Fallas &nbsp;&nbsp;&nbsp; día _______ mes _________________ 202___</p>
+    <p>Firmo conforme en el Liceo de Calle Fallas &nbsp;&nbsp;&nbsp; día _______ mes _________________ 2027</p>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:50px;">
       <div style="text-align:center;">
         <div style="border-top:1px solid #374151;padding-top:8px;">
-          <div style="font-weight:bold;">________________________________</div>
+          <div style="font-weight:bold;">${encNom}</div>
           <div>NOMBRE Y FIRMA DEL ENCARGADO</div>
-          <div style="margin-top:12px;">________________________________</div>
+          <div style="margin-top:14px;font-weight:bold;">${encCed}</div>
           <div>NÚMERO DE CÉDULA</div>
         </div>
       </div>
-      <div style="text-align:left;padding-top:8px;">
+      <div style="padding-top:8px;">
         <div>Nombre del funcionario que tramita la matrícula:</div>
-        <div style="margin-top:30px;border-bottom:1px solid #374151;width:100%;"></div>
-        <div style="margin-top:4px;">${auxNom}</div>
+        <div style="margin-top:20px;border-bottom:1px solid #374151;width:100%;"></div>
+        <div style="margin-top:4px;font-weight:bold;">${auxNom}</div>
       </div>
     </div>
     ${piePaginaMEP()}
@@ -5035,7 +5028,6 @@ async function imprimirCompromiso(){
   style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
-  document.getElementById("mat-btn-paso2-next").style.display="";
 }
 
 function mostrarFormBeca(){
@@ -5140,10 +5132,18 @@ async function imprimirAdecuacion(motivo){
 }
 
 async function finalizarMatricula(){
-  if(matEstId) await api(`/api/matricula/completar/${matEstId}`,"POST",{});
-  cerrarModal("modal-matricula");
-  sa("alert-mat","✅ Matrícula finalizada exitosamente.","success");
-  iniciarMatricula();
+  if(!matDatosGuardados){ sa("alert-mat-modal","Error: no hay datos para guardar.","danger"); return; }
+  try{
+    // Guardar en BD recién al finalizar (paso 4)
+    const r=await api("/api/matricula/guardar","POST",matDatosGuardados);
+    matEstId=r.estudiante_id;
+    await api(`/api/matricula/completar/${matEstId}`,"POST",{});
+    cerrarModal("modal-matricula");
+    sa("alert-mat","✅ Matrícula finalizada y guardada exitosamente.","success");
+    iniciarMatricula();
+  }catch(e){
+    sa("alert-mat-modal","Error al guardar: "+e.message,"danger");
+  }
 }
 
 // ════════════════════════════════════
