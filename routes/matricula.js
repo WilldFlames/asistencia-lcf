@@ -66,6 +66,7 @@ router.get("/cedula/:cedula", canAccess, async (req, res) => {
 
 // ── GUARDAR DATOS DEL ESTUDIANTE (Paso 1) ────────────────────────────
 router.post("/guardar", canAccess, async (req, res) => {
+  try {
   const {
     cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento,
     sexo, nacionalidad, correo, institucion_procedencia,
@@ -78,6 +79,14 @@ router.post("/guardar", canAccess, async (req, res) => {
     return res.status(400).json({ error:"Datos incompletos." });
 
   const uid = req.session.usuario.id;
+  
+  // Verificar que las columnas nuevas existen (pueden no existir en DB antigua)
+  try {
+    await pool.query("SELECT sexo, correo, provincia, canton, distrito, direccion_exacta, habita_con, habita_con_otro, adecuacion, tipo_ingreso, nivel_matricula, institucion_procedencia, enfermedad, medicamento, telefonos_emergencia FROM estudiantes LIMIT 0");
+  } catch(colErr) {
+    return res.status(500).json({ error: "Columnas de matrícula no encontradas en BD. Reiniciá el servidor para aplicar la migración." });
+  }
+
   const existe = await pool.query("SELECT id FROM estudiantes WHERE cedula=$1", [cedula]);
   let estId;
 
@@ -144,6 +153,10 @@ router.post("/guardar", canAccess, async (req, res) => {
   } catch(e) {}
 
   res.json({ ok:true, estudiante_id: estId });
+  } catch(err) {
+    console.error('guardar matricula error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // ── GUARDAR BECA COMEDOR ──────────────────────────────────────────────
