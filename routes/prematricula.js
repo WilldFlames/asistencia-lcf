@@ -165,7 +165,7 @@ router.delete("/:id", canAccess, async (req, res) => {
   const r = await pool.query("SELECT * FROM prematricula WHERE id=$1", [req.params.id]);
   if(!r.rows.length) return res.status(404).json({ error:"No encontrada." });
   if(r.rows[0].estado === "matriculado")
-    return res.status(409).json({ error:"No se puede eliminar una prematrícula ya matriculada." });
+    return res.status(409).json({ error:"No se puede eliminar una prematrícula que ya fue matriculada. Eliminá primero la matrícula." });
 
   // Eliminar encargado y prematrícula — el consecutivo queda libre automáticamente
   await pool.query("DELETE FROM prematricula_encargado WHERE prematricula_id=$1", [req.params.id]);
