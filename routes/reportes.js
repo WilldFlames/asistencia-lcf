@@ -233,15 +233,17 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
     // Para profesores regulares, sus propios estudiantes
     const aus = await pool.query(`
       SELECT e.nombre, e.primer_apellido, e.segundo_apellido,
-        COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) AS total_ausencias,
-        m.nombre AS materia_nombre
+        s.nombre AS seccion_nombre,
+        m.nombre AS materia_nombre,
+        COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) AS total_ausencias
       FROM asignaciones a
       JOIN materias m ON m.id=a.materia_id
+      JOIN secciones s ON s.id=a.seccion_id
       JOIN estudiantes e ON e.seccion_id=a.seccion_id AND e.activo=true
       LEFT JOIN asistencia ast ON ast.estudiante_id=e.id AND ast.estado='A' AND ast.justificada=false
       LEFT JOIN sesiones_asistencia sa ON sa.id=ast.sesion_id AND sa.asignacion_id=a.id
       WHERE a.profesor_id=$1
-      GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido, m.nombre
+      GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido, s.nombre, m.nombre
       HAVING COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) >= 10
       ORDER BY total_ausencias DESC
       LIMIT 10
