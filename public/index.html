@@ -2503,7 +2503,8 @@ async function cargarDashboard(){
       }catch{}
     }
   }catch(e){
-    div.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px;">—</div>`;
+    div.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px;">Error cargando dashboard: ${e.message}</div>`;
+    console.error('Dashboard error:', e);
   }
 }
 

@@ -175,6 +175,7 @@ router.get("/seccion/:seccion_id/estudiantes", requireAuth, async (req, res) => 
 
 // ── DASHBOARD PROFESOR ───────────────────────────────────────────────────────
 router.get("/dashboard-profesor", requireAuth, async (req, res) => {
+  try {
   const u = req.session.usuario;
   const hoy = new Date().toISOString().slice(0,10);
 
@@ -282,6 +283,10 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
     informesSolicitados: parseInt(informesSolicitados.rows[0].c),
     esGuia, esOrientador, seccionId
   });
+  } catch(err) {
+    console.error("dashboard-profesor error:", err.message, err.stack);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── REPORTE DE CUMPLIMIENTO (admin) ──────────────────────────────────────────
