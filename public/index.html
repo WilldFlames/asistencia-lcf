@@ -2431,7 +2431,7 @@ async function cargarDashboard(){
             <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:9px 12px;font-size:13px;">
               <div style="font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
               ${e.seccion_nombre?`<div style="font-size:11px;color:var(--azul);font-weight:bold;">📚 ${e.seccion_nombre}</div>`:""}
-              ${e.materia_nombre?`<div style="font-size:11px;color:var(--muted);">📖 ${e.materia_nombre}</div>`:""}
+              ${e.materia_nombre?`<div style="font-size:11px;color:var(--muted);display:none;">📖 ${e.materia_nombre}</div>`:""}
               <div style="color:var(--rojo);font-weight:bold;margin-top:3px;">${e.total_ausencias} lecciones ausente</div>
             </div>`).join("")}
         </div>
