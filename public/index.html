@@ -2374,8 +2374,8 @@ async function cargarDashboard(){
     document.getElementById("dash-stats-admin").style.display="none";
   }
 
-  // Dashboard del profesor
-  if(!esDocente && ME.rol!=="auxiliar") return;
+  // Dashboard del profesor/guía/orientador/auxiliar/admin
+  if(!esDocente && !['auxiliar','admin','administrativo','secretaria'].includes(ME.rol)) return;
   const div = document.getElementById("dash-profesor-content");
   div.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px;">Cargando...</div>';
 

@@ -1,5 +1,6 @@
-// Version: 2026-05-05 21:14:20
+// Version: 2026-05-05 21:20:06
 require("dotenv").config();
+const compression = require("compression");
 const express   = require("express");
 const session   = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
@@ -8,6 +9,7 @@ const { pool, initDB } = require("./db");
 const { requireAuth } = require("./middleware/auth");
 
 const app  = express();
+app.use(compression()); // Gzip — reduces 411KB to ~100KB
 const PORT = process.env.PORT || 3002;
 
 app.set('trust proxy', 1);
