@@ -215,8 +215,10 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
   if (seccionId) {
     const aus = await pool.query(`
       SELECT e.nombre, e.primer_apellido, e.segundo_apellido,
+        s.nombre AS seccion_nombre,
         COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) AS total_ausencias
       FROM estudiantes e
+      LEFT JOIN secciones s ON s.id=e.seccion_id
       LEFT JOIN asistencia ast ON ast.estudiante_id=e.id AND ast.estado='A' AND ast.justificada=false
       LEFT JOIN sesiones_asistencia sa ON sa.id=ast.sesion_id
       WHERE e.seccion_id=$1 AND e.activo=true
