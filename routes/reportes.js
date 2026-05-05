@@ -223,7 +223,7 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
       LEFT JOIN asistencia ast ON ast.estudiante_id=e.id AND ast.estado='A' AND ast.justificada=false
       LEFT JOIN sesiones_asistencia sa ON sa.id=ast.sesion_id
       WHERE e.seccion_id=$1 AND e.activo=true
-      GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido
+      GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido, s.nombre
       HAVING COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) >= 10
       ORDER BY total_ausencias DESC
       LIMIT 10
