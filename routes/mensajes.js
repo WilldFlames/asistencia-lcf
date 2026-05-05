@@ -75,12 +75,32 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
   const { seccion_id, estudiante_id, conducta, participacion, trabajos, nota_estimada, recomendaciones, observaciones } = req.body;
   if (!seccion_id||!estudiante_id) return res.status(400).json({ error:"Datos incompletos" });
 
-  // Obtener todos los profesores de la sección (excepto quien envía)
-  const profsR = await pool.query(`
-    SELECT DISTINCT a.profesor_id FROM asignaciones a
-    WHERE a.seccion_id=$1 AND a.profesor_id!=$2
-  `, [seccion_id, remitente_id]);
+  // Obtener el subgrupo del estudiante (A, B o null)
+  const estR = await pool.query(
+    "SELECT subgrupo FROM estudiantes WHERE id=$1", [estudiante_id]
+  );
+  const subgrupoEst = estR.rows[0]?.subgrupo || null;
 
+  // Obtener profesores de la sección que corresponden al subgrupo del estudiante:
+  // - Si el estudiante tiene subgrupo A o B: solo profesores SIN subgrupo + profesores del mismo subgrupo
+  // - Si el estudiante no tiene subgrupo: todos los profesores de la sección
+  let profsQuery, profsParams;
+  if (subgrupoEst) {
+    profsQuery = `
+      SELECT DISTINCT a.profesor_id FROM asignaciones a
+      WHERE a.seccion_id=$1 AND a.profesor_id!=$2
+        AND (a.subgrupo IS NULL OR a.subgrupo='' OR a.subgrupo=$3)
+    `;
+    profsParams = [seccion_id, remitente_id, subgrupoEst];
+  } else {
+    profsQuery = `
+      SELECT DISTINCT a.profesor_id FROM asignaciones a
+      WHERE a.seccion_id=$1 AND a.profesor_id!=$2
+    `;
+    profsParams = [seccion_id, remitente_id];
+  }
+
+  const profsR = await pool.query(profsQuery, profsParams);
   if (!profsR.rows.length) return res.status(400).json({ error:"No hay profesores asignados a esta sección" });
 
   const insertados = [];
