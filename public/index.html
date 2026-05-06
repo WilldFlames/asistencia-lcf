@@ -2384,6 +2384,8 @@ async function iniciarApp(){
   }catch{}
 
   await cargarCatalogos();
+  // Cargar medidas activas para TODOS los roles (incluye profesores regulares)
+  try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
   verificarNotif();
   setInterval(verificarNotif,60000);
 
@@ -2402,7 +2404,7 @@ async function cargarCatalogos(){
   if(secs) allSecciones=secs;
   if(mats) allMaterias=mats;
   if(profs) allProfesores=profs;
-  // Cargar medidas activas para colorear lista de asistencia
+  // Cargar medidas activas - endpoint accesible para TODOS los roles
   try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
   poblarSel("ma-seccion",true,"— Seleccionar —");
   poblarSel("me-seccion",false,"Sin sección");
@@ -2716,13 +2718,16 @@ async function cargarDashboard(){
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">${docsHtml}</div>`;
     div.appendChild(docsCard);
 
-    // ── Tarjeta medidas activas (solo si hay) ──
+    // ── Tarjeta medidas activas ──
     if(allMedidasActivas.length > 0){
-      // Para profesores: solo mostrar estudiantes de sus secciones
-      const misSecIds = new Set(d.asignaciones?.map(a=>a.seccion_id)||[]);
-      const medidasFiltradas = (ME.rol==='profesor'||ME.rol==='profesor_guia')
-        ? allMedidasActivas.filter(m=>misSecIds.has(m.seccion_id))
-        : allMedidasActivas;
+      // Profesores: filtrar por sus secciones asignadas
+      // Orientador/admin: ver todas
+      const esProfeRegular = ME.rol==='profesor' || ME.rol==='profesor_guia';
+      let medidasFiltradas = allMedidasActivas;
+      if(esProfeRegular && d && d.asignaciones){
+        const misSecIds = new Set(d.asignaciones.map(a=>a.seccion_id).filter(Boolean));
+        medidasFiltradas = allMedidasActivas.filter(m=>misSecIds.has(m.seccion_id));
+      }
 
       if(medidasFiltradas.length > 0){
         const precautorias = medidasFiltradas.filter(m=>m.tipo==='precautoria');
@@ -3392,6 +3397,8 @@ async function cargarMisAsig(){
 }
 
 async function abrirAsistencia(id,titulo){
+  // Recargar medidas activas al entrar a asistencia
+  try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
   asigActiva=id;
   document.getElementById("asis-titulo").textContent=titulo;
   document.getElementById("asis-seccion-info").textContent="";
