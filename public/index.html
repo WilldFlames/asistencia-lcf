@@ -3459,11 +3459,11 @@ function renderTablaAsist(){
       const ff = (m.fecha_fin||'').slice(0,10);
       return fi<=fecha && ff>=fecha;
     });
-    const MC = medida ? {
+    const MC = medida ? ({
       precautoria:      {bg:'#fef9c3',border:'#fde047',color:'#854d0e',icono:'⚠️',label:'Precautoria'},
       suspension:       {bg:'#fee2e2',border:'#fca5a5',color:'#991b1b',icono:'🚫',label:'Suspensión'},
       educacion_hibrida:{bg:'#eff6ff',border:'#93c5fd',color:'#1d4ed8',icono:'🏠',label:'Ed. Híbrida'},
-    }[medida.tipo] : null;
+    }[medida.tipo] || null) : null;
 
     const rowStyle = MC ? `background:${MC.bg};border-left:4px solid ${MC.border};` : (e.escapado?'background:#fff7ed;':'');
 
@@ -3492,8 +3492,7 @@ function renderTablaAsist(){
         <span style="color:var(--muted)">de ${totalLecc}</span>
       </div>`:''}
     </td>
-    <td>${e.estado!=='P'&&e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${e.primer_apellido} ${e.nombre}','${e.estado}')">
-        ${e.justificada?"✅ Justif.":"📝 Justif."}</button>`:"—"}</td>
+    <td>${e.estado!=='P'?(e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${e.primer_apellido} ${e.nombre}','${e.estado}',${e.lecciones_ausentes||totalLecc})">${e.justificada?"✅ Justif.":"📝 Justif."}</button>`:"<span style='font-size:11px;color:var(--muted)'>Guardar primero</span>"):"—"}</td>
     <td>
       <button class="btn btn-xs ${e.escapado?'btn-warning':'btn-outline'}"
         onclick="toggleEscape(${e.id},'${e.primer_apellido} ${e.nombre}',${e.escapado?'true':'false'})"
@@ -3627,13 +3626,17 @@ function setLeccAus(id, val){
 // ────────────────────────────────────
 // Justificar ausencia
 // ────────────────────────────────────
-let jusId=null;
-function abrirJus(asistId, nombre, estado){
+let jusId=null, jusLecc=1;
+function abrirJus(asistId, nombre, estado, lecc){
   jusId=asistId;
+  jusLecc=lecc||1;
   document.getElementById("jus-nombre").textContent=nombre;
   document.getElementById("jus-estado").textContent=estado==="A"?"Ausente":"Tardía";
   document.getElementById("jus-motivo").value="";
   document.getElementById("jus-check").checked=false;
+  // Update lecciones display
+  const leccEl = document.getElementById("jus-lecciones");
+  if(leccEl) leccEl.textContent = lecc||1;
   document.getElementById("alert-jus").className="alert";
   document.getElementById("modal-justificar").classList.add("show");
 }
@@ -3683,8 +3686,19 @@ async function cargarObsEstudiante(estId, fecha){
     if(!lista) return;
     const hoy=rows.filter(o=>o.fecha&&o.fecha.slice(0,10)===fecha);
     const otros=rows.filter(o=>!o.fecha||o.fecha.slice(0,10)!==fecha);
-    lista.innerHTML=(hoy.length?`<div style="font-weight:bold;font-size:12px;color:var(--azul);margin-bottom:4px;">Hoy</div>`+hoy.map(o=>`<div style="background:#f0f9ff;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:12px;">${o.contenido}<span style="color:var(--muted);margin-left:6px;">${o.autor_ap1||""} ${o.autor_nombre||""}</span></div>`).join("")+`<hr style="margin:8px 0;"/>`:"")+
-    (otros.length?`<div style="font-weight:bold;font-size:12px;color:var(--muted);margin-bottom:4px;">Anteriores</div>`+otros.slice(0,5).map(o=>`<div style="background:#f8fafc;border-radius:6px;padding:5px 10px;margin-bottom:4px;font-size:11px;"><span style="color:var(--muted);">${fmtF(o.fecha)}</span> ${o.contenido}</div>`).join(""):"<div style='color:var(--muted);font-size:12px;'>Sin observaciones previas.</div>");
+    lista.innerHTML=(hoy.length?
+      `<div style="font-weight:bold;font-size:12px;color:var(--azul);margin-bottom:4px;">Hoy</div>`+
+      hoy.map(o=>`<div style="background:#f0f9ff;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:12px;">
+        ${o.observacion||o.contenido||''}
+        <span style="color:var(--muted);margin-left:6px;">${o.prof_ap1||o.autor_ap1||''} ${o.prof_nombre||o.autor_nombre||''}</span>
+      </div>`).join("")+`<hr style="margin:8px 0;"/>`:"")+
+    (otros.length?
+      `<div style="font-weight:bold;font-size:12px;color:var(--muted);margin-bottom:4px;">Anteriores</div>`+
+      otros.slice(0,5).map(o=>`<div style="background:#f8fafc;border-radius:6px;padding:5px 10px;margin-bottom:4px;font-size:11px;">
+        <span style="color:var(--muted);">${fmtF(o.fecha)}</span>
+        ${o.observacion||o.contenido||''}
+      </div>`).join(""):
+      "<div style='color:var(--muted);font-size:12px;'>Sin observaciones previas.</div>");
   }catch{}
 }
 async function guardarObservacion(){
@@ -3693,7 +3707,7 @@ async function guardarObservacion(){
   if(!texto){sa("alert-obs","Escribí la observación.","danger");return;}
   const fecha=document.getElementById("asis-fecha").value||fechaHoyCR();
   try{
-    await api("/api/observaciones","POST",{estudiante_id:+estId,contenido:texto,fecha});
+    await api("/api/observaciones","POST",{estudiante_id:+estId, observacion:texto, fecha});
     document.getElementById("obs-texto").value="";
     sa("alert-obs","✅ Guardado.","success");
     cargarObsEstudiante(estId, fecha);
@@ -6671,7 +6685,8 @@ async function pdfZoom(delta){
     <div id="alert-jus" class="alert"></div>
     <p style="font-size:13px;margin-bottom:10px;">
       Estudiante: <strong id="jus-nombre"></strong><br/>
-      Estado: <strong id="jus-estado"></strong>
+      Estado: <strong id="jus-estado"></strong><br/>
+      Lecciones ausente: <strong id="jus-lecciones"></strong>
     </p>
     <div class="fg" style="margin-bottom:12px;">
       <label><input type="checkbox" id="jus-check" style="margin-right:6px;"/>Marcar como justificada</label>
