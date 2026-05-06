@@ -2068,7 +2068,7 @@ tr:hover td{background:#f8fafc;}
 //  GLOBALS
 // ════════════════════════════════════
 let ME=null;
-let asigActiva=null;
+let asigActiva=null, consecTipoActivo='todos', consecData=[];
 
 // Verificar si el usuario tiene un rol o función extra
 function tieneRol(rol) {
@@ -4707,7 +4707,7 @@ async function eliminarMedida(id, tipo){
 // ════════════════════════════════════
 //  CONSECUTIVOS
 // ════════════════════════════════════
-let consecData = [], consecTipoActivo = 'todos';
+// consecutivos state (declarado al inicio del script)
 
 async function iniciarConsecutivos(){
   if(ME.rol==="secretaria"||ME.rol==="admin"){
@@ -4743,13 +4743,20 @@ function cambiarTabConsec(tipo){ filtrarConsecutivos(tipo); }
 
 async function filtrarConsecutivos(tipo){
   consecTipoActivo = tipo;
+  // Actualizar botón activo
+  document.querySelectorAll('.consec-tab').forEach(btn=>{
+    btn.classList.remove('active');
+    const btnTipo = btn.getAttribute('onclick')?.match(/'([^']+)'/)?.[1]||'';
+    if(btnTipo===tipo) btn.classList.add('active');
+  });
+  const tbody=document.getElementById("consec-tbody");
+  if(tbody) tbody.innerHTML='<tr><td colspan="7" class="empty">Cargando...</td></tr>';
   try{
     const url = tipo==='todos' ? '/api/consecutivos' : '/api/consecutivos?tipo='+tipo;
     const rows = await api(url)||[];
     consecData = rows;
     renderConsecutivos(rows, tipo);
   }catch(e){
-    const tbody=document.getElementById("consec-tbody");
     if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">Error: ${e.message}</td></tr>`;
   }
 }

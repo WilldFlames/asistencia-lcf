@@ -38,6 +38,7 @@ router.get("/historial/:asignacion_id", requireDocente, async (req, res) => {
 
 // ── OBTENER ASISTENCIA DE UNA SESIÓN ─────────────────────────────────────────
 router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
+  try {
   const { asignacion_id, fecha } = req.params;
 
   const sesR = await pool.query(
@@ -95,9 +96,13 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   }));
 
   res.json({ sesion, estudiantes });
+  } catch(err) {
+    console.error("GET asistencia error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// ── GUARDAR ASISTENCIA ────────────────────────────────────────────────────────
+// ── GUARDAR ASISTENCIA ─────────────────────────────────────────────────────
 router.post("/", requireDocente, async (req, res) => {
   const { asignacion_id, fecha, lecciones, registros } = req.body;
   if (!asignacion_id||!fecha||!lecciones||!registros)
@@ -200,24 +205,35 @@ router.post("/", requireDocente, async (req, res) => {
 router.put("/justificar/:asistencia_id", requireDocente, async (req, res) => {
   const { justificada, motivo } = req.body;
   const asistId = parseInt(req.params.asistencia_id);
+  if(!asistId) return res.status(400).json({ error:"ID de asistencia inválido" });
 
-  // Get current asistencia record
-  const aR = await pool.query("SELECT * FROM asistencia WHERE id=$1", [asistId]);
-  if (!aR.rows.length) return res.status(404).json({ error:"No encontrado" });
-  const asist = aR.rows[0];
+  try {
+    // Get current asistencia record
+    const aR = await pool.query("SELECT id, boleta_ausencia_id FROM asistencia WHERE id=$1", [asistId]);
+    if (!aR.rows.length) return res.status(404).json({ error:"Registro de asistencia no encontrado (id: "+asistId+")" });
+    const asist = aR.rows[0];
 
-  await pool.query(
-    "UPDATE asistencia SET justificada=$1, motivo=$2 WHERE id=$3",
-    [justificada, motivo||"", asistId]
-  );
+    // Update justificacion
+    await pool.query(
+      "UPDATE asistencia SET justificada=$1, motivo=$2 WHERE id=$3",
+      [justificada === true || justificada === 'true', motivo||"", asistId]
+    );
 
-  // Si se justifica Y había boleta automática → eliminarla
-  if (justificada && asist.boleta_ausencia_id) {
-    await pool.query("DELETE FROM boletas_conducta WHERE id=$1", [asist.boleta_ausencia_id]);
-    await pool.query("UPDATE asistencia SET boleta_ausencia_id=NULL WHERE id=$1", [asistId]);
+    // Si se justifica Y había boleta automática → eliminarla (sin fallar si no existe)
+    if (justificada && asist.boleta_ausencia_id) {
+      try {
+        await pool.query("DELETE FROM boletas_conducta WHERE id=$1", [asist.boleta_ausencia_id]);
+        await pool.query("UPDATE asistencia SET boleta_ausencia_id=NULL WHERE id=$1", [asistId]);
+      } catch(boletaErr) {
+        console.error("boleta delete error (no critical):", boletaErr.message);
+      }
+    }
+
+    res.json({ ok:true });
+  } catch(err) {
+    console.error("justificar error:", err.message);
+    res.status(500).json({ error: err.message });
   }
-
-  res.json({ ok:true });
 });
 
 // ── ELIMINAR SESIÓN (borra todos los registros del día) ───────────────────────
