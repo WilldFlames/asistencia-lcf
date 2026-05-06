@@ -179,23 +179,23 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   const hoy = new Date().toISOString().slice(0,10);
 
-  // 1. Asignaciones del profesor y si ya pasó lista hoy
-  const asigs = await pool.query(`
-    SELECT a.id, a.subgrupo, s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
-      sa.id AS sesion_hoy, sa.lecciones
-    FROM asignaciones a
-    JOIN secciones s ON s.id=a.seccion_id
-    JOIN materias m ON m.id=a.materia_id
-    LEFT JOIN sesiones_asistencia sa ON sa.asignacion_id=a.id AND sa.fecha=$2
-    WHERE a.profesor_id=$1
-    ORDER BY s.nombre, m.nombre
-  `, [u.id, hoy]);
-
-  // 2. Informes pendientes de responder
-  const informesPendientes = await pool.query(`
-    SELECT COUNT(*) AS c FROM informes
-    WHERE destinatario_id=$1 AND respondido=false AND leido=false
-  `, [u.id]);
+  // 1 y 2: Paralelo para mayor velocidad
+  const [asigs, informesPendientes] = await Promise.all([
+    pool.query(`
+      SELECT a.id, a.subgrupo, s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
+        sa.id AS sesion_hoy, sa.lecciones
+      FROM asignaciones a
+      JOIN secciones s ON s.id=a.seccion_id
+      JOIN materias m ON m.id=a.materia_id
+      LEFT JOIN sesiones_asistencia sa ON sa.asignacion_id=a.id AND sa.fecha=$2
+      WHERE a.profesor_id=$1
+      ORDER BY s.nombre, m.nombre
+    `, [u.id, hoy]),
+    pool.query(`
+      SELECT COUNT(*) AS c FROM informes
+      WHERE destinatario_id=$1 AND respondido=false AND leido=false
+    `, [u.id])
+  ]);
 
   // 3. Ausencias frecuentes (estudiantes con más de 10 lecciones ausentes en el período)
   const fx = u.funciones_extra || [];

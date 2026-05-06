@@ -56,7 +56,8 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   // DISTINCT ON requiere que la expresión coincida con el primer ORDER BY
   // Luego ordenamos alfabéticamente con una subconsulta
   let estQuery = `SELECT * FROM (
-    SELECT DISTINCT ON (e.cedula) e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido
+    SELECT DISTINCT ON (e.cedula) e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      COALESCE(e.escapado, false) AS escapado
     FROM estudiantes e
     WHERE e.seccion_id=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
   const estParams = [seccion_id];
@@ -125,6 +126,76 @@ router.post("/", requireDocente, async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    // ── BOLETAS AUTOMÁTICAS para Guía y Orientación ──────────────────────────
+    // Si la materia es de guía u orientación, generar boleta por ausencia injustificada
+    try {
+      const asigInfoR = await pool.query(`
+        SELECT a.id, m.nombre AS materia, u.id AS prof_id,
+          EXISTS(SELECT 1 FROM usuarios u2 WHERE u2.id=a.profesor_id AND
+            (u2.rol IN ('profesor_guia','orientador') OR
+             u2.funciones_extra::text ILIKE '%guia%' OR
+             u2.funciones_extra::text ILIKE '%orientador%'))
+          AS es_guia_ori
+        FROM asignaciones a
+        JOIN materias m ON m.id=a.materia_id
+        WHERE a.id=$1
+      `, [asignacion_id]);
+
+      if (asigInfoR.rows[0]?.es_guia_ori) {
+        // Get "Ausencias injustificadas" infraccion
+        const infR = await pool.query(
+          "SELECT id FROM infracciones WHERE tipo='leve' AND descripcion ILIKE '%Ausencias injustificadas%' LIMIT 1"
+        );
+        const infraccionId = infR.rows[0]?.id;
+
+        if (infraccionId) {
+          for (const reg of registros) {
+            if (reg.estado === 'A' && !reg.justificada) {
+              // Check if already has auto-boleta
+              const existR = await pool.query(
+                "SELECT id, boleta_ausencia_id FROM asistencia WHERE id=$1", [reg.id]
+              );
+              if (existR.rows[0]?.boleta_ausencia_id) continue; // already has boleta
+
+              const asistId = existR.rows[0]?.id;
+              if (!asistId) continue;
+
+              // Create boleta
+              const boletaR = await pool.query(`
+                INSERT INTO boletas_conducta
+                  (estudiante_id, infraccion_id, asignacion_id, registrado_por, fecha, observacion)
+                VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
+              `, [reg.estudiante_id, infraccionId, asignacion_id,
+                  req.session.usuario.id, fecha,
+                  'Boleta generada automáticamente por ausencia injustificada en clase de Guía/Orientación.']);
+
+              const boletaId = boletaR.rows[0].id;
+
+              // Link boleta to asistencia record
+              await pool.query(
+                "UPDATE asistencia SET boleta_ausencia_id=$1 WHERE id=$2",
+                [boletaId, asistId]
+              );
+            } else if ((reg.estado === 'P' || reg.justificada) ) {
+              // Student is present or justified → delete auto-boleta if exists
+              const existR = await pool.query(
+                "SELECT boleta_ausencia_id FROM asistencia WHERE id=$1", [reg.id]
+              );
+              const boletaId = existR.rows[0]?.boleta_ausencia_id;
+              if (boletaId) {
+                await pool.query("DELETE FROM boletas_conducta WHERE id=$1", [boletaId]);
+                await pool.query("UPDATE asistencia SET boleta_ausencia_id=NULL WHERE id=$1", [reg.id]);
+              }
+            }
+          }
+        }
+      }
+    } catch(autoBoletaErr) {
+      console.error("auto-boleta error:", autoBoletaErr.message);
+      // No fail the request for this
+    }
+
     res.json({ ok:true, sesion_id });
   } catch(e) {
     await client.query("ROLLBACK");
@@ -137,10 +208,24 @@ router.post("/", requireDocente, async (req, res) => {
 // ── JUSTIFICAR AUSENCIA ───────────────────────────────────────────────────────
 router.put("/justificar/:asistencia_id", requireDocente, async (req, res) => {
   const { justificada, motivo } = req.body;
+  const asistId = parseInt(req.params.asistencia_id);
+
+  // Get current asistencia record
+  const aR = await pool.query("SELECT * FROM asistencia WHERE id=$1", [asistId]);
+  if (!aR.rows.length) return res.status(404).json({ error:"No encontrado" });
+  const asist = aR.rows[0];
+
   await pool.query(
     "UPDATE asistencia SET justificada=$1, motivo=$2 WHERE id=$3",
-    [justificada, motivo||"", req.params.asistencia_id]
+    [justificada, motivo||"", asistId]
   );
+
+  // Si se justifica Y había boleta automática → eliminarla
+  if (justificada && asist.boleta_ausencia_id) {
+    await pool.query("DELETE FROM boletas_conducta WHERE id=$1", [asist.boleta_ausencia_id]);
+    await pool.query("UPDATE asistencia SET boleta_ausencia_id=NULL WHERE id=$1", [asistId]);
+  }
+
   res.json({ ok:true });
 });
 

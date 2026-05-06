@@ -3163,12 +3163,14 @@ async function cargarListaDia(){
 
 function renderTablaAsist(){
   const tbody=document.getElementById("asis-body");
-  if(!registrosAsist.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">No hay estudiantes en esta sección</td></tr>`;return;}
+  if(!registrosAsist.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay estudiantes en esta sección</td></tr>`;return;}
   const fecha=document.getElementById("asis-fecha").value;
   const totalLecc=parseInt(document.getElementById("asis-lecciones").value)||4;
-  tbody.innerHTML=registrosAsist.map((e,i)=>`<tr>
+  tbody.innerHTML=registrosAsist.map((e,i)=>`<tr style="${e.escapado?'background:#fff7ed;':''}" >
     <td style="color:var(--muted);font-size:11px">${i+1}</td>
-    <td style="font-size:13px">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}<br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
+    <td style="font-size:13px">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}<br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span>
+      ${e.escapado?`<br/><span style="font-size:11px;color:var(--naranja);font-weight:bold;">⚠️ Escapado</span>`:""}
+    </td>
     <td>
       <div class="asis-toggle">
         <button onclick="setE(${e.id},'P')" class="${e.estado==='P'?'sel-P':''}">P</button>
@@ -3185,8 +3187,33 @@ function renderTablaAsist(){
     </td>
     <td>${e.estado!=='P'&&e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${e.primer_apellido} ${e.nombre}','${e.estado}')">
         ${e.justificada?"✅ Justif.":"📝 Justif."}</button>`:"—"}</td>
+    <td>
+      <button class="btn btn-xs ${e.escapado?'btn-warning':'btn-outline'}" 
+        onclick="toggleEscape(${e.id},'${e.primer_apellido} ${e.nombre}',${e.escapado?'true':'false'})"
+        title="${e.escapado?'Quitar escape':'Marcar como escapado'}" style="${e.escapado?'background:#f97316;color:#fff;border-color:#f97316;':''}">
+        ${e.escapado?'🏃 Escape':'🏃'}
+      </button>
+    </td>
     <td><button class="btn btn-outline btn-xs" onclick="abrirObservaciones(${e.id},'${e.primer_apellido} ${e.nombre}','${fecha}')" title="Observaciones">📝</button></td>
   </tr>`).join("");
+}
+
+async function toggleEscape(estId, nombre, esEscapado){
+  if(!confirm(`¿${esEscapado?'Quitar':'Marcar'} a ${nombre} como ${esEscapado?'no escapado':'escapado'}?\n\n${esEscapado?'Se eliminará la boleta generada automáticamente.':'Se generará una boleta automática por fuga de lecciones en esta materia.'}`)) return;
+  try{
+    const r = await api(`/api/estudiantes/${estId}/escape`, "POST", {
+      escapado: !esEscapado,
+      asignacion_id: asigActiva  // La asignación activa = materia donde se escapó
+    });
+    const reg = registrosAsist.find(e=>e.id===estId);
+    if(reg) reg.escapado = !esEscapado;
+    renderTablaAsist();
+    if(!esEscapado){
+      sa("alert-asis", `⚠️ Boleta generada — ${nombre}: Fuga de lecciones en esta materia.`, "warning");
+    } else {
+      sa("alert-asis", `✅ Escape removido — boleta eliminada para ${nombre}.`, "success");
+    }
+  }catch(e){ alert("Error: "+e.message); }
 }
 
 function setE(id,estado){

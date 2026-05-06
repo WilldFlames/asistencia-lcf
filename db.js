@@ -316,6 +316,9 @@ async function initDB() {
 
     // ── MATRICULA (extiende estudiantes con campos 2027) ──────────────
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS sexo TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS escapado BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS boleta_escape_id INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS boleta_ausencia_id INTEGER DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS nacionalidad TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS correo TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS provincia TEXT DEFAULT NULL`);
@@ -579,6 +582,24 @@ async function initDB() {
         await client.query("INSERT INTO infracciones (tipo, puntos, descripcion) VALUES ($1,$2,$3)", [inf.tipo, inf.puntos, inf.desc]);
       }
       console.log("✅ Infracciones de conducta cargadas");
+    }
+
+    // ── ÍNDICES para mejorar rendimiento de queries ───────────────────
+    const dbIndexes = [
+      "CREATE INDEX IF NOT EXISTS idx_est_seccion ON estudiantes(seccion_id) WHERE activo=true",
+      "CREATE INDEX IF NOT EXISTS idx_est_cedula ON estudiantes(cedula)",
+      "CREATE INDEX IF NOT EXISTS idx_asist_estudiante ON asistencia(estudiante_id)",
+      "CREATE INDEX IF NOT EXISTS idx_asist_estado ON asistencia(estado)",
+      "CREATE INDEX IF NOT EXISTS idx_sesiones_asig ON sesiones_asistencia(asignacion_id)",
+      "CREATE INDEX IF NOT EXISTS idx_sesiones_fecha ON sesiones_asistencia(fecha)",
+      "CREATE INDEX IF NOT EXISTS idx_asig_profesor ON asignaciones(profesor_id)",
+      "CREATE INDEX IF NOT EXISTS idx_asig_seccion ON asignaciones(seccion_id)",
+      "CREATE INDEX IF NOT EXISTS idx_informes_dest ON informes(destinatario_id)",
+      "CREATE INDEX IF NOT EXISTS idx_consec_tipo ON consecutivos(tipo)",
+      "CREATE INDEX IF NOT EXISTS idx_premat_cedula ON prematricula(cedula)",
+    ];
+    for (const sql of dbIndexes) {
+      try { await client.query(sql); } catch(e) {}
     }
 
     console.log("✅ Base de datos lista");

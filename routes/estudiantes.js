@@ -285,6 +285,87 @@ router.put("/:id/asignar-seccion", canManage, async (req, res) => {
   res.json({ ok:true });
 });
 
+
+// ── MARCAR/DESMARCAR ESCAPE ─────────────────────────────────────────────────
+router.post("/:id/escape", requireDocente, async (req, res) => {
+  const { escapado, asignacion_id } = req.body;
+  const u = req.session.usuario;
+  const estId = parseInt(req.params.id);
+
+  try {
+    const estR = await pool.query(`
+      SELECT e.*, s.nombre AS seccion_nombre,
+        e.primer_apellido, e.segundo_apellido, e.nombre,
+        e.boleta_escape_id
+      FROM estudiantes e
+      LEFT JOIN secciones s ON s.id=e.seccion_id
+      WHERE e.id=$1`, [estId]);
+    if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
+    const est = estR.rows[0];
+
+    if (escapado) {
+      // ── MARCAR COMO ESCAPADO: generar boleta automática ──────────────────
+      const infR = await pool.query(
+        "SELECT id FROM infracciones WHERE tipo='leve' AND descripcion ILIKE '%Fuga de las lecciones%' LIMIT 1"
+      );
+      if (!infR.rows.length) return res.status(500).json({ error: "Infracción 'Fuga de lecciones' no encontrada" });
+      const infraccionId = infR.rows[0].id;
+
+      const hoy = new Date(new Date().toLocaleString('en-US', {timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
+
+      // Usar asignacion_id para registrar en qué materia se escapó
+      const asigId = asignacion_id ? parseInt(asignacion_id) : null;
+
+      const boletaR = await pool.query(`
+        INSERT INTO boletas_conducta
+          (estudiante_id, infraccion_id, asignacion_id, registrado_por, fecha, observacion)
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+      `, [
+        estId, infraccionId, asigId, u.id, hoy,
+        'Boleta generada automáticamente por fuga de lecciones.'
+      ]);
+      const boletaId = boletaR.rows[0].id;
+
+      await pool.query(
+        "UPDATE estudiantes SET escapado=true, boleta_escape_id=$1 WHERE id=$2",
+        [boletaId, estId]
+      );
+
+      // Notificar al profesor guía
+      try {
+        const guiaR = await pool.query(`
+          SELECT u.id FROM secciones s
+          JOIN usuarios u ON u.id=s.profesor_guia_id
+          WHERE s.id=$1`, [est.seccion_id]);
+        if (guiaR.rows.length && guiaR.rows[0].id !== u.id) {
+          await pool.query(`
+            INSERT INTO notificaciones (usuario_id, tipo, mensaje, referencia_id)
+            VALUES ($1, 'conducta', $2, $3)
+          `, [
+            guiaR.rows[0].id,
+            `⚠️ Boleta automática — ${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre} (${est.seccion_nombre}): Fuga de lecciones.`,
+            boletaId
+          ]);
+        }
+      } catch(e) {}
+
+      res.json({ ok: true, escapado: true, boleta_id: boletaId });
+
+    } else {
+      // ── DESMARCAR ESCAPE: eliminar boleta automática ─────────────────────
+      if (est.boleta_escape_id) {
+        await pool.query("DELETE FROM boletas_conducta WHERE id=$1", [est.boleta_escape_id]);
+      }
+      await pool.query(
+        "UPDATE estudiantes SET escapado=false, boleta_escape_id=NULL WHERE id=$1", [estId]
+      );
+      res.json({ ok: true, escapado: false });
+    }
+  } catch(err) {
+    console.error("escape error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 module.exports = router;
 
 // ── IMPORTAR MASIVO DESDE EXCEL ────────────────────────────────────────
