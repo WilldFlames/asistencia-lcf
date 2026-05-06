@@ -45,12 +45,12 @@ router.get("/estudiantes", requireAuth, async (req, res) => {
   let params = [fecha];
 
   if (esOrientador) {
-    // Obtener secciones donde este usuario es orientador
+    // Obtener secciones donde este usuario es orientador (tabla seccion_orientador)
     const secsR = await pool.query(
-      "SELECT id FROM secciones WHERE orientador_id=$1", [u.id]
+      "SELECT seccion_id FROM seccion_orientador WHERE orientador_id=$1", [u.id]
     );
-    if (!secsR.rows.length) return res.json([]); // Sin secciones asignadas
-    const secIds = secsR.rows.map(r => r.id);
+    if (!secsR.rows.length) return res.json([]);
+    const secIds = secsR.rows.map(r => r.seccion_id);
     params.push(secIds);
     whereSeccion = `AND e.seccion_id = ANY($${params.length}::int[])`;
   } else if (seccionId) {
