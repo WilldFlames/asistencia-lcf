@@ -8,6 +8,7 @@
 <meta http-equiv="Expires" content="0"/>
 <title>Asistencia – Liceo de Calle Fallas</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{--azul:#1a3a5c;--azul2:#2563a8;--verde:#16a34a;--rojo:#dc2626;--naranja:#d97706;--morado:#7c3aed;--bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--r:10px;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -2488,7 +2489,122 @@ async function cargarDashboard(){
     html += `</div>`;
     div.innerHTML = html;
 
-    // ── Dashboard auxiliar: resumen estudiantes por nivel ──
+    // ── Tarjeta fechas clave del curso (siempre visible para todos) ──
+    const hoyFechas = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
+    const hoyMs = hoyFechas.getTime();
+
+    const periodos = [
+      { tipo:'verde',  icono:'🟢', label:'Primer período',        desde: new Date('2026-02-23'), hasta: new Date('2026-07-03') },
+      { tipo:'naranja',icono:'🟠', label:'Semana Santa',           desde: new Date('2026-03-29'), hasta: new Date('2026-04-05') },
+      { tipo:'naranja',icono:'🟠', label:'Vacaciones de medio año',desde: new Date('2026-07-06'), hasta: new Date('2026-07-17') },
+      { tipo:'verde',  icono:'🟢', label:'Segundo período',        desde: new Date('2026-07-20'), hasta: new Date('2026-12-09') },
+      { tipo:'rojo',   icono:'🔴', label:'Fin de lecciones',       desde: new Date('2026-12-09'), hasta: new Date('2026-12-09') },
+      { tipo:'rojo',   icono:'🔴', label:'Actos de graduación',    desde: new Date('2026-12-10'), hasta: new Date('2026-12-11') },
+    ];
+
+    const colores = {
+      verde:  { bg:'#f0fdf4', border:'#86efac', text:'#166534', badge:'#dcfce7', badgeText:'#166534' },
+      naranja:{ bg:'#fff7ed', border:'#fdba74', text:'#9a3412', badge:'#fed7aa', badgeText:'#9a3412' },
+      rojo:   { bg:'#fef2f2', border:'#fca5a5', text:'#991b1b', badge:'#fee2e2', badgeText:'#991b1b' },
+    };
+
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const fmtCorto = d => `${d.getDate()} ${meses[d.getMonth()]}`;
+
+    const calHtml = periodos.map(p=>{
+      const c = colores[p.tipo];
+      const enCurso = hoyMs >= p.desde.getTime() && hoyMs <= p.hasta.getTime();
+      const pasado  = hoyMs > p.hasta.getTime();
+      const rango = p.desde.getTime()===p.hasta.getTime()
+        ? fmtCorto(p.desde)
+        : `${fmtCorto(p.desde)} — ${fmtCorto(p.hasta)}`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:${c.bg};border:1px solid ${c.border};opacity:${pasado?'0.5':'1'};">
+        <span style="font-size:18px;">${p.icono}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:bold;color:${c.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.label}</div>
+          <div style="font-size:11px;color:${c.text};opacity:0.8;">${rango}</div>
+        </div>
+        ${enCurso?`<span style="background:${c.badge};color:${c.badgeText};font-size:10px;font-weight:bold;padding:2px 7px;border-radius:10px;white-space:nowrap;">HOY</span>`:''}
+      </div>`;
+    }).join('');
+
+    const calCard = document.createElement('div');
+    calCard.className = 'card';
+    calCard.style.cssText = 'margin-top:14px;';
+    calCard.innerHTML = `
+      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📅 Fechas Clave — Curso Lectivo 2026</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">${calHtml}</div>`;
+    div.appendChild(calCard);
+
+    // ── Tarjeta fechas sindicatos 2026 ──
+    const sindicatos = [
+      { color:'#16a34a', bg:'#f0fdf4', border:'#86efac', sigla:'SEC',  nombre:'Sindicato de Educadores Costarricenses',
+        eventos:[{ label:'Congreso', desde:'2026-11-17', hasta:'2026-11-19' }] },
+      { color:'#d97706', bg:'#fffbeb', border:'#fcd34d', sigla:'ANDE', nombre:'Asociación Nacional de Educadores',
+        eventos:[
+          { label:'Reunión agosto', desde:'2026-08-01', hasta:'2026-08-31', indefinida:true },
+          { label:'Congreso',       desde:'2026-10-21', hasta:'2026-10-23' },
+        ] },
+      { color:'#dc2626', bg:'#fef2f2', border:'#fca5a5', sigla:'APSE', nombre:'Asociación de Profesores de Segunda Enseñanza',
+        eventos:[
+          { label:'Votaciones',      desde:'2026-06-09', hasta:'2026-06-09' },
+          { label:'Segunda reunión', desde:'2026-01-01', hasta:'2026-12-31', indefinida:true },
+          { label:'Congreso',        desde:'2026-08-12', hasta:'2026-08-14' },
+        ] },
+    ];
+
+    const sinHtml = sindicatos.map(s=>`
+      <div style="border:1px solid ${s.border};border-radius:10px;padding:12px;background:${s.bg};">
+        <div style="font-weight:bold;font-size:13px;color:${s.color};margin-bottom:8px;">
+          ${s.sigla} <span style="font-weight:normal;font-size:11px;color:#64748b;">${s.nombre}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          ${s.eventos.map(ev=>{
+            const d1 = new Date(ev.desde+'T12:00:00');
+            const d2 = new Date(ev.hasta+'T12:00:00');
+            const enCurso = !ev.indefinida && hoyMs>=d1.getTime() && hoyMs<=d2.getTime();
+            const rango = ev.indefinida ? 'Fecha por definir' :
+              d1.getTime()===d2.getTime() ? fmtCorto(d1) : `${fmtCorto(d1)} — ${fmtCorto(d2)}`;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+              <span style="color:#374151;">${ev.label}</span>
+              <span style="color:${ev.indefinida?'#94a3b8':s.color};font-weight:${ev.indefinida?'normal':'bold'};">
+                ${rango}${enCurso?' <span style="background:'+s.color+';color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;">HOY</span>':''}
+              </span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
+
+    const sinCard = document.createElement('div');
+    sinCard.className = 'card';
+    sinCard.style.cssText = 'margin-top:14px;';
+    sinCard.innerHTML = `
+      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">🏛️ Fechas Sindicatos 2026</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">${sinHtml}</div>`;
+    div.appendChild(sinCard);
+
+    // ── Tarjeta documentos institucionales ──
+    const docs = [
+      { icono:'📋', nombre:'REAC 2026', desc:'Reglamento de Evaluación de los Aprendizajes y Conducta', url:'/docs/REAC_2026.pdf' },
+    ];
+
+    const docsHtml = docs.map(d=>`
+      <div onclick="abrirVisorPDF('${d.url}','${d.nombre}')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:#f8fafc;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='var(--azul)'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
+        <span style="font-size:28px;">${d.icono}</span>
+        <div style="flex:1;">
+          <div style="font-weight:bold;font-size:13px;color:var(--azul);">${d.nombre}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${d.desc}</div>
+        </div>
+        <span style="font-size:18px;color:var(--azul);">📖</span>
+      </div>`).join('');
+
+    const docsCard = document.createElement('div');
+    docsCard.className = 'card';
+    docsCard.style.cssText = 'margin-top:14px;';
+    docsCard.innerHTML = `
+      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📁 Documentos Institucionales</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">${docsHtml}</div>`;
+    div.appendChild(docsCard);
     if(ME.rol==="auxiliar"||ME.rol==="admin"){
       try{
         const ests = await api("/api/estudiantes") || [];
@@ -6177,6 +6293,63 @@ async function continuarMatricula(id,cedula){
 
 
 // ════════════════════════════════════
+//  VISOR PDF (PDF.js)
+// ════════════════════════════════════
+let pdfDoc = null, pdfPagActual = 1, pdfScale = 1.2;
+
+async function abrirVisorPDF(url, titulo){
+  document.getElementById('pdf-viewer-titulo').textContent = titulo;
+  document.getElementById('pdf-download-link').href = url;
+  document.getElementById('pdf-canvas').getContext('2d').clearRect(0,0,9999,9999);
+  document.getElementById('pdf-loading').style.display = 'block';
+  document.getElementById('modal-pdf-viewer').classList.add('show');
+
+  try{
+    // Configurar workerSrc
+    if(typeof pdfjsLib !== 'undefined'){
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      pdfDoc = await pdfjsLib.getDocument(url).promise;
+      pdfPagActual = 1;
+      pdfScale = 1.2;
+      await pdfRenderPagina(pdfPagActual);
+    }
+  }catch(e){
+    document.getElementById('pdf-loading').style.display = 'none';
+    alert('Error cargando PDF: '+e.message);
+  }
+}
+
+async function pdfRenderPagina(num){
+  if(!pdfDoc) return;
+  document.getElementById('pdf-loading').style.display = 'block';
+  const page = await pdfDoc.getPage(num);
+  const viewport = page.getViewport({ scale: pdfScale });
+  const canvas = document.getElementById('pdf-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.height = viewport.height;
+  canvas.width  = viewport.width;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  document.getElementById('pdf-loading').style.display = 'none';
+  document.getElementById('pdf-pag-label').textContent = `${num} / ${pdfDoc.numPages}`;
+  document.getElementById('pdf-zoom-label').textContent = `${Math.round(pdfScale*100)}%`;
+}
+
+async function pdfPagina(delta){
+  if(!pdfDoc) return;
+  const nueva = pdfPagActual + delta;
+  if(nueva < 1 || nueva > pdfDoc.numPages) return;
+  pdfPagActual = nueva;
+  await pdfRenderPagina(pdfPagActual);
+}
+
+async function pdfZoom(delta){
+  if(!pdfDoc) return;
+  pdfScale = Math.max(0.5, Math.min(3.0, pdfScale + delta));
+  await pdfRenderPagina(pdfPagActual);
+}
+
+// ════════════════════════════════════
 //  AUTO-RELOAD al detectar nueva versión
 // ════════════════════════════════════
 (async function iniciarAutoReload(){
@@ -6212,5 +6385,37 @@ async function continuarMatricula(id,cedula){
 })();
 
 </script>
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: VISOR PDF ================================================= -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-pdf-viewer" style="z-index:9999;">
+  <div class="modal" style="max-width:95vw;width:960px;height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden;">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:#1e3a5f;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">📋</span>
+        <span id="pdf-viewer-titulo" style="font-weight:bold;font-size:14px;color:#fff;"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button onclick="pdfZoom(-0.25)" class="btn" style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:14px;">🔍−</button>
+        <span id="pdf-zoom-label" style="color:#fff;font-size:12px;min-width:40px;text-align:center;">100%</span>
+        <button onclick="pdfZoom(+0.25)" class="btn" style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:14px;">🔍+</button>
+        <span style="color:#fff5;margin:0 4px;">|</span>
+        <button onclick="pdfPagina(-1)" class="btn" style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;">◀</button>
+        <span id="pdf-pag-label" style="color:#fff;font-size:12px;min-width:60px;text-align:center;"></span>
+        <button onclick="pdfPagina(+1)" class="btn" style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;">▶</button>
+        <span style="color:#fff5;margin:0 4px;">|</span>
+        <a id="pdf-download-link" href="#" download style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:13px;text-decoration:none;">⬇️</a>
+        <button onclick="cerrarModal('modal-pdf-viewer')" style="background:#fff2;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:16px;cursor:pointer;">✕</button>
+      </div>
+    </div>
+    <!-- Canvas area -->
+    <div id="pdf-canvas-container" style="flex:1;overflow:auto;background:#525659;display:flex;justify-content:center;padding:20px;">
+      <canvas id="pdf-canvas" style="box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:100%;"></canvas>
+    </div>
+    <div id="pdf-loading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:14px;display:none;">⏳ Cargando documento...</div>
+  </div>
+</div>
+
 </body>
 </html>
