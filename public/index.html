@@ -3645,16 +3645,16 @@ function abrirJus(asistId, nombre, estado, lecc){
   document.getElementById("modal-justificar").classList.add("show");
 }
 async function guardarJustificacion(){
+  if(!jusId){ sa("alert-jus","Error: no hay ausencia seleccionada. Cerrá y volvé a dar clic en Justif.","danger"); return; }
   const justificada=document.getElementById("jus-check").checked;
   const motivo=document.getElementById("jus-motivo").value.trim();
-  if(justificada&&!motivo){sa("alert-jus","Ingresá el motivo de justificación.","danger");return;}
   try{
     await api(`/api/asistencia/justificar/${jusId}`,"PUT",{justificada,motivo});
     const r=registrosAsist.find(e=>e.asistencia_id===jusId);
     if(r){r.justificada=justificada;r.motivo=motivo;}
     cerrarModal("modal-justificar");
     renderTablaAsist();
-  }catch(e){sa("alert-jus",e.message,"danger");}
+  }catch(err){sa("alert-jus","Error: "+err.message,"danger");}
 }
 
 // ────────────────────────────────────
