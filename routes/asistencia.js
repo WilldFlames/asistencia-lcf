@@ -133,9 +133,7 @@ router.post("/", requireDocente, async (req, res) => {
       const asigInfoR = await pool.query(`
         SELECT a.id, m.nombre AS materia, a.profesor_id AS prof_id,
           EXISTS(SELECT 1 FROM usuarios u2 WHERE u2.id=a.profesor_id AND
-            (u2.rol IN ('profesor_guia','orientador') OR
-             u2.funciones_extra::text ILIKE '%guia%' OR
-             u2.funciones_extra::text ILIKE '%orientador%'))
+            u2.rol IN ('profesor_guia','orientador'))
           AS es_guia_ori
         FROM asignaciones a
         JOIN materias m ON m.id=a.materia_id
