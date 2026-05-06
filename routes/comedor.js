@@ -27,7 +27,7 @@ const canRegistrar = requireRol("admin","cocinera");
 function requireComedor(req, res, next){
   const u = req.session.usuario;
   if(!u) return res.status(401).json({ error:"No autorizado" });
-  if(u.rol==="admin" || u.rol==="cocinera" || u.rol==="auxiliar") return next();
+  if(u.rol==="admin" || u.rol==="cocinera") return next();
   pool.query("SELECT 1 FROM comedor_comite WHERE usuario_id=$1", [u.id])
     .then(r => r.rows.length ? next() : res.status(403).json({ error:"Sin permisos" }))
     .catch(() => res.status(403).json({ error:"Sin permisos" }));
@@ -35,10 +35,29 @@ function requireComedor(req, res, next){
 
 // ── ESTUDIANTES DEL COMEDOR (con estado de asistencia del día) ───────
 router.get("/estudiantes", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
   const fecha = req.query.fecha || fechaCR();
   const seccionId = req.query.seccion_id || null;
-  const whereSeccion = seccionId ? "AND e.seccion_id=$2" : "";
-  const params = seccionId ? [fecha, seccionId] : [fecha];
+
+  // Si es orientador → solo sus secciones asignadas
+  const esOrientador = u.rol === 'orientador' || u.rol === 'profesor_guia';
+  let whereSeccion = '';
+  let params = [fecha];
+
+  if (esOrientador) {
+    // Obtener secciones donde este usuario es orientador
+    const secsR = await pool.query(
+      "SELECT id FROM secciones WHERE orientador_id=$1", [u.id]
+    );
+    if (!secsR.rows.length) return res.json([]); // Sin secciones asignadas
+    const secIds = secsR.rows.map(r => r.id);
+    params.push(secIds);
+    whereSeccion = `AND e.seccion_id = ANY($${params.length}::int[])`;
+  } else if (seccionId) {
+    params.push(seccionId);
+    whereSeccion = `AND e.seccion_id=$${params.length}`;
+  }
+
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
       e.becado, s.nombre AS seccion_nombre,
@@ -47,7 +66,7 @@ router.get("/estudiantes", requireAuth, async (req, res) => {
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN comedor_asistencia ca ON ca.estudiante_id=e.id AND ca.fecha=$1
     WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL) ${whereSeccion}
-    ORDER BY e.becado DESC, e.primer_apellido, e.segundo_apellido, e.nombre
+    ORDER BY s.nombre, e.becado DESC, e.primer_apellido, e.segundo_apellido, e.nombre
   `, params);
   res.json(r.rows);
 });

@@ -4416,7 +4416,7 @@ async function iniciarComedor(){
   // Determinar rol y mostrar vista correcta
   const esCocinera  = ME.rol==='cocinera';
   const esOrientador= ME.rol==='orientador' || ME.rol==='profesor_guia';
-  const esComite    = ME.rol==='admin'||ME.rol==='auxiliar'||ME.rol==='administrativo'||ME.rol==='secretaria';
+  const esComite    = ME.rol==='admin';
 
   document.getElementById('comedor-vista-escaneo').style.display = (esCocinera||esComite) ? '' : 'none';
   document.getElementById('comedor-vista-lista').style.display   = esOrientador ? '' : 'none';
