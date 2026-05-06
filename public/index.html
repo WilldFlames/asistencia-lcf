@@ -3459,9 +3459,13 @@ function renderTablaAsist(){
 
   tbody.innerHTML=registrosAsist.map((e,i)=>{
     // Check medida activa para este estudiante en esta fecha
-    const medida = allMedidasActivas.find(m=>
-      m.estudiante_id===e.id && m.fecha_inicio<=fecha && m.fecha_fin>=fecha
-    );
+    const medida = allMedidasActivas.find(m=>{
+      if(m.estudiante_id!==e.id) return false;
+      // Normalizar fechas: PostgreSQL puede devolver "2026-01-15T00:00:00.000Z"
+      const fi = (m.fecha_inicio||'').slice(0,10);
+      const ff = (m.fecha_fin||'').slice(0,10);
+      return fi<=fecha && ff>=fecha;
+    });
     const MC = medida ? {
       precautoria:      {bg:'#fef9c3',border:'#fde047',color:'#854d0e',icono:'⚠️',label:'Precautoria'},
       suspension:       {bg:'#fee2e2',border:'#fca5a5',color:'#991b1b',icono:'🚫',label:'Suspensión'},
@@ -3531,7 +3535,7 @@ async function guardarAsistencia(){
   if(!fecha||!asigActiva){sa("alert-asis","Seleccioná una fecha y asignación.","danger");return;}
   if(!registrosAsist.length){sa("alert-asis","No hay estudiantes.","danger");return;}
   try{
-    await api("/api/asistencia","POST",{
+    const resp = await api("/api/asistencia","POST",{
       asignacion_id:asigActiva, fecha, lecciones:lecc,
       registros:registrosAsist.map(e=>({
         estudiante_id:e.id, estado:e.estado||"P",
@@ -3540,8 +3544,11 @@ async function guardarAsistencia(){
       }))
     });
     sa("alert-asis","✅ Asistencia guardada correctamente.","success");
+    // Recargar lista para obtener asistencia_id y poder justificar
+    const d = await api(`/api/asistencia/${asigActiva}/${fecha}`);
+    if(d && d.estudiantes) registrosAsist = d.estudiantes;
+    renderTablaAsist();
     await cargarHistSesiones();
-    // Recargar medidas activas
     try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
   }catch(err){sa("alert-asis","Error: "+err.message,"danger");}
 }

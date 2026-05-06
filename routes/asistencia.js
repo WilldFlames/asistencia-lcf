@@ -149,41 +149,34 @@ router.post("/", requireDocente, async (req, res) => {
 
         if (infraccionId) {
           for (const reg of registros) {
+            // Buscar por sesion_id + estudiante_id (reg.id no existe en el body)
+            const existR = await pool.query(
+              "SELECT id, boleta_ausencia_id FROM asistencia WHERE sesion_id=$1 AND estudiante_id=$2",
+              [sesion_id, reg.estudiante_id]
+            );
+            const asistRow = existR.rows[0];
+            if (!asistRow) continue;
+
             if (reg.estado === 'A' && !reg.justificada) {
-              // Check if already has auto-boleta
-              const existR = await pool.query(
-                "SELECT id, boleta_ausencia_id FROM asistencia WHERE id=$1", [reg.id]
-              );
-              if (existR.rows[0]?.boleta_ausencia_id) continue; // already has boleta
-
-              const asistId = existR.rows[0]?.id;
-              if (!asistId) continue;
-
-              // Create boleta
+              // Si ya tiene boleta no crear otra
+              if (asistRow.boleta_ausencia_id) continue;
               const boletaR = await pool.query(`
                 INSERT INTO boletas_conducta
                   (estudiante_id, infraccion_id, asignacion_id, registrado_por, fecha, observacion)
                 VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
               `, [reg.estudiante_id, infraccionId, asignacion_id,
                   req.session.usuario.id, fecha,
-                  'Boleta generada automáticamente por ausencia injustificada en clase de Guía/Orientación.']);
-
+                  'Boleta generada automáticamente por ausencia injustificada en Guía/Orientación.']);
               const boletaId = boletaR.rows[0].id;
-
-              // Link boleta to asistencia record
               await pool.query(
                 "UPDATE asistencia SET boleta_ausencia_id=$1 WHERE id=$2",
-                [boletaId, asistId]
+                [boletaId, asistRow.id]
               );
-            } else if ((reg.estado === 'P' || reg.justificada) ) {
-              // Student is present or justified → delete auto-boleta if exists
-              const existR = await pool.query(
-                "SELECT boleta_ausencia_id FROM asistencia WHERE id=$1", [reg.id]
-              );
-              const boletaId = existR.rows[0]?.boleta_ausencia_id;
-              if (boletaId) {
-                await pool.query("DELETE FROM boletas_conducta WHERE id=$1", [boletaId]);
-                await pool.query("UPDATE asistencia SET boleta_ausencia_id=NULL WHERE id=$1", [reg.id]);
+            } else {
+              // Presente o justificado → eliminar boleta automática si existe
+              if (asistRow.boleta_ausencia_id) {
+                await pool.query("DELETE FROM boletas_conducta WHERE id=$1", [asistRow.boleta_ausencia_id]);
+                await pool.query("UPDATE asistencia SET boleta_ausencia_id=NULL WHERE id=$1", [asistRow.id]);
               }
             }
           }

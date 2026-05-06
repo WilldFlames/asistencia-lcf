@@ -18,14 +18,17 @@ const fechaCR = () => new Date(new Date().toLocaleString('en-US',{timeZone:'Amer
 router.get("/activas", requireAuth, async (req, res) => {
   const hoy = fechaCR();
   const r = await pool.query(`
-    SELECT m.*, e.nombre, e.primer_apellido, e.segundo_apellido, e.cedula,
+    SELECT m.id, m.tipo, m.observacion, m.creado_por,
+      m.fecha_inicio::text AS fecha_inicio, m.fecha_fin::text AS fecha_fin,
+      m.estudiante_id,
+      e.nombre, e.primer_apellido, e.segundo_apellido, e.cedula,
       s.nombre AS seccion_nombre, s.id AS seccion_id,
       u.nombre AS creado_nombre, u.primer_apellido AS creado_ap1
     FROM medidas_estudiantiles m
     JOIN estudiantes e ON e.id=m.estudiante_id
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN usuarios u ON u.id=m.creado_por
-    WHERE m.fecha_inicio <= $1 AND m.fecha_fin >= $1
+    WHERE m.fecha_inicio <= $1::date AND m.fecha_fin >= $1::date
     ORDER BY m.tipo, e.primer_apellido, e.nombre
   `, [hoy]);
   res.json(r.rows);
