@@ -287,7 +287,7 @@ router.put("/:id/asignar-seccion", canManage, async (req, res) => {
 
 
 // ── MARCAR/DESMARCAR ESCAPE ─────────────────────────────────────────────────
-router.post("/:id/escape", requireDocente, async (req, res) => {
+router.post("/:id/escape", requireAuth, async (req, res) => {
   const { escapado, asignacion_id } = req.body;
   const u = req.session.usuario;
   const estId = parseInt(req.params.id);
