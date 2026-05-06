@@ -3547,12 +3547,12 @@ async function cargarHistSesiones(){
       tbody.innerHTML='<tr><td colspan="6" class="empty">Sin sesiones registradas.</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(r=>`<tr style="cursor:pointer;" onclick="verSesion('${r.fecha}',${r.lecciones})">
-      <td style="font-size:12px;">${fmtF(r.fecha)}</td>
+    tbody.innerHTML = rows.map(r=>`<tr style="cursor:pointer;" onclick="verSesion('${(r.fecha||'').slice(0,10)}',${r.lecciones})">
+      <td style="font-size:12px;">${fmtF((r.fecha||"").slice(0,10))}</td>
       <td style="text-align:center;">${r.lecciones}</td>
-      <td style="text-align:center;color:var(--verde);">${r.presentes||0}</td>
-      <td style="text-align:center;color:var(--rojo);">${r.ausentes||0}</td>
-      <td style="text-align:center;color:var(--naranja);">${r.tardias||0}</td>
+      <td style="text-align:center;color:var(--verde);">${r.total_presentes||0}</td>
+      <td style="text-align:center;color:var(--rojo);">${r.total_ausentes||0}</td>
+      <td style="text-align:center;color:var(--naranja);">${r.total_tardias||0}</td>
       <td><button onclick="event.stopPropagation();elimSesion(${r.id})" class="btn btn-danger btn-xs">🗑️</button></td>
     </tr>`).join('');
   }catch(e){ console.error('cargarHistSesiones:', e.message); }
