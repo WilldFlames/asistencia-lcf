@@ -730,7 +730,12 @@ tr:hover td{background:#f8fafc;}
           <h2 style="margin:0">🎓 Gestión de Becas — Mi Sección</h2>
           <div style="font-size:12px;color:var(--muted);margin-top:3px;">Marcá los estudiantes que tienen beca de comedor</div>
         </div>
-        <button class="btn btn-success" onclick="guardarBecasComedor()">💾 Guardar Becas</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="comedor-filtro-seccion" onchange="filtrarSeccionComedor()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;">
+            <option value="">— Todas mis secciones —</option>
+          </select>
+          <button class="btn btn-success" onclick="guardarBecasComedor()">💾 Guardar Becas</button>
+        </div>
       </div>
       <div id="alert-comedor-ori" class="alert"></div>
 
@@ -4429,6 +4434,18 @@ async function iniciarComedor(){
     await cargarStatsComedor();
   }
   if(esOrientador){
+    // Poblar selector de secciones con las secciones del orientador
+    try{
+      const rows = await api('/api/comedor/estudiantes')||[];
+      const secciones = [...new Map(rows.map(e=>[e.seccion_nombre, e])).values()]
+        .filter(e=>e.seccion_nombre)
+        .sort((a,b)=>a.seccion_nombre.localeCompare(b.seccion_nombre));
+      const sel = document.getElementById('comedor-filtro-seccion');
+      if(sel){
+        sel.innerHTML = '<option value="">— Todas mis secciones —</option>' +
+          secciones.map(e=>`<option value="${e.seccion_nombre}">${e.seccion_nombre}</option>`).join('');
+      }
+    }catch{}
     await cargarListaComedor();
   }
 }
@@ -4486,6 +4503,42 @@ function actualizarStatsBeca(){
   if(bec) bec.textContent = becados;
   if(reg) reg.textContent = sinBeca;
 }
+
+function filtrarSeccionComedor(){
+  const filtro = document.getElementById('comedor-filtro-seccion')?.value||'';
+  const filtered = filtro ? comedorData.filter(e=>e.seccion_nombre===filtro) : comedorData;
+
+  const becados   = filtered.filter(e=>e.becado);
+  const regulares = filtered.filter(e=>!e.becado);
+
+  const secB = document.getElementById('comedor-becados-section');
+  const secR = document.getElementById('comedor-regulares-section');
+  if(secB) secB.style.display = becados.length ? '' : 'none';
+  if(secR) secR.style.display = regulares.length ? '' : 'none';
+
+  const rowBecado = (e,i) => `<tr style="background:#f0fdf4;">
+    <td><input type="checkbox" id="cd-${e.id}" checked onchange="actualizarStatsBeca()"/></td>
+    <td style="color:var(--muted);font-size:11px;">${i+1}</td>
+    <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+    <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
+    <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
+  </tr>`;
+  const rowRegular = (e,i) => `<tr>
+    <td><input type="checkbox" id="cd-${e.id}" onchange="actualizarStatsBeca()"/></td>
+    <td style="color:var(--muted);font-size:11px;">${i+1}</td>
+    <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+    <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
+    <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
+  </tr>`;
+
+  const tbB = document.getElementById('comedor-tbody-becados');
+  const tbR = document.getElementById('comedor-tbody-regulares');
+  if(tbB) tbB.innerHTML = becados.map(rowBecado).join('') || '<tr><td colspan="5" class="empty">Sin becados.</td></tr>';
+  if(tbR) tbR.innerHTML = regulares.map(rowRegular).join('') || '<tr><td colspan="5" class="empty">Sin estudiantes sin beca.</td></tr>';
+
+  actualizarStatsBeca();
+}
+
 
 function marcarTodosComedor(grupo, valor){
   const lista = grupo==='becados'   ? comedorData.filter(e=>e.becado)  :
