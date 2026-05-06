@@ -1282,7 +1282,60 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
-</div></div><!-- /main /app-body -->
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- PRECAUTORIA                                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-precautoria">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;">⚠️ Precautoria</h2>
+      <button class="btn btn-primary" onclick="abrirNuevaMedida('precautoria')">+ Nueva Precautoria</button>
+    </div>
+    <div id="alert-precautoria" class="alert"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
+      <tbody id="precautoria-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SUSPENSIÓN                                                -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-suspension">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;">🚫 Suspensión</h2>
+      <button class="btn btn-primary" onclick="abrirNuevaMedida('suspension')">+ Nueva Suspensión</button>
+    </div>
+    <div id="alert-suspension" class="alert"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
+      <tbody id="suspension-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- EDUCACIÓN HÍBRIDA                                         -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-hibrida">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;">🏠 Educación Híbrida</h2>
+      <button class="btn btn-primary" onclick="abrirNuevaMedida('educacion_hibrida')">+ Nueva Ed. Híbrida</button>
+    </div>
+    <div id="alert-hibrida" class="alert"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
+      <tbody id="hibrida-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+</div><!-- /main /app-body -->
 
 <!-- ═══ MODALES ═══ -->
 
@@ -1971,57 +2024,6 @@ tr:hover td{background:#f8fafc;}
     </div>
   </div>
 </div>
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- PRECAUTORIA                                               -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div class="page" id="page-precautoria">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <h2 style="margin:0;">⚠️ Precautoria</h2>
-      <button class="btn btn-primary" onclick="abrirNuevaMedida('precautoria')">+ Nueva Precautoria</button>
-    </div>
-    <div id="alert-precautoria" class="alert"></div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
-      <tbody id="precautoria-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
-    </table></div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- SUSPENSIÓN                                                -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div class="page" id="page-suspension">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <h2 style="margin:0;">🚫 Suspensión</h2>
-      <button class="btn btn-primary" onclick="abrirNuevaMedida('suspension')">+ Nueva Suspensión</button>
-    </div>
-    <div id="alert-suspension" class="alert"></div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
-      <tbody id="suspension-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
-    </table></div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- EDUCACIÓN HÍBRIDA                                         -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div class="page" id="page-hibrida">
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <h2 style="margin:0;">🏠 Educación Híbrida</h2>
-      <button class="btn btn-primary" onclick="abrirNuevaMedida('educacion_hibrida')">+ Nueva Ed. Híbrida</button>
-    </div>
-    <div id="alert-hibrida" class="alert"></div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
-      <tbody id="hibrida-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
-    </table></div>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: NUEVA MEDIDA                                       -->
 <!-- ══════════════════════════════════════════════════════════ -->
@@ -3513,8 +3515,147 @@ function verMedida(id, tipo){
 
 
 
-// ════════════════════════════════════
-//  REPORTES
+// ────────────────────────────────────
+// Guardar asistencia del día
+// ────────────────────────────────────
+async function guardarAsistencia(){
+  const fecha=document.getElementById("asis-fecha").value;
+  const lecc=parseInt(document.getElementById("asis-lecciones").value)||4;
+  if(!fecha||!asigActiva){sa("alert-asis","Seleccioná una fecha y asignación.","danger");return;}
+  if(!registrosAsist.length){sa("alert-asis","No hay estudiantes.","danger");return;}
+  try{
+    await api("/api/asistencia","POST",{
+      asignacion_id:asigActiva, fecha, lecciones:lecc,
+      registros:registrosAsist.map(e=>({
+        estudiante_id:e.id, estado:e.estado||"P",
+        lecciones_ausentes:e.lecciones_ausentes||lecc,
+        justificada:e.justificada||false, motivo:e.motivo||""
+      }))
+    });
+    sa("alert-asis","✅ Asistencia guardada correctamente.","success");
+    await cargarHistSesiones();
+    // Recargar medidas activas
+    try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
+  }catch(err){sa("alert-asis","Error: "+err.message,"danger");}
+}
+
+// ────────────────────────────────────
+// Ver sesión histórica
+// ────────────────────────────────────
+async function verSesion(fecha, lecc){
+  if(!asigActiva) return;
+  const d = await api(`/api/asistencia/${asigActiva}/${fecha}`);
+  if(!d) return;
+  const fechaEl = document.getElementById("asis-fecha");
+  fechaEl.removeAttribute("max");
+  fechaEl.value = fecha;
+  document.getElementById("asis-lecciones").value = lecc;
+  const info = document.getElementById("asis-sesion-info");
+  if(d.sesion){
+    info.style.display="";
+    info.innerHTML=`📅 Sesión cargada: <strong>${d.sesion.lecciones} lección${d.sesion.lecciones>1?"es":""}</strong> — ${fmtF(fecha)}`;
+    document.getElementById("asis-lecciones").value=d.sesion.lecciones;
+  }else{
+    info.style.display="";
+    info.innerHTML=`📅 Mostrando lista del <strong>${fmtF(fecha)}</strong> — sin sesión guardada`;
+  }
+  registrosAsist=d.estudiantes.map(e=>({...e}));
+  renderTablaAsist();
+  const tablaEl=document.getElementById("asis-body");
+  if(tablaEl) tablaEl.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"});
+  fechaEl.style.outline="3px solid var(--verde)";
+  setTimeout(()=>{fechaEl.style.outline="";},3000);
+}
+
+// ────────────────────────────────────
+// setE / setLeccAus helpers
+// ────────────────────────────────────
+function setE(id, estado){
+  const r=registrosAsist.find(e=>e.id===id);
+  if(r){ r.estado=estado; renderTablaAsist(); }
+}
+function setLeccAus(id, val){
+  const r=registrosAsist.find(e=>e.id===id);
+  if(r) r.lecciones_ausentes=parseInt(val);
+}
+
+// ────────────────────────────────────
+// Justificar ausencia
+// ────────────────────────────────────
+let jusId=null;
+function abrirJus(asistId, nombre, estado){
+  jusId=asistId;
+  document.getElementById("jus-nombre").textContent=nombre;
+  document.getElementById("jus-estado").textContent=estado==="A"?"Ausente":"Tardía";
+  document.getElementById("jus-motivo").value="";
+  document.getElementById("jus-check").checked=false;
+  document.getElementById("alert-jus").className="alert";
+  document.getElementById("modal-justificar").classList.add("show");
+}
+async function guardarJustificacion(){
+  const justificada=document.getElementById("jus-check").checked;
+  const motivo=document.getElementById("jus-motivo").value.trim();
+  if(justificada&&!motivo){sa("alert-jus","Ingresá el motivo de justificación.","danger");return;}
+  try{
+    await api(`/api/asistencia/justificar/${jusId}`,"PUT",{justificada,motivo});
+    const r=registrosAsist.find(e=>e.asistencia_id===jusId);
+    if(r){r.justificada=justificada;r.motivo=motivo;}
+    cerrarModal("modal-justificar");
+    renderTablaAsist();
+  }catch(e){sa("alert-jus",e.message,"danger");}
+}
+
+// ────────────────────────────────────
+// Eliminar sesión
+// ────────────────────────────────────
+async function elimSesion(sesionId){
+  if(!confirm("¿Eliminar esta sesión de asistencia? Se borrarán todos los registros del día.")) return;
+  try{
+    await api(`/api/asistencia/sesion/${sesionId}`,"DELETE");
+    sa("alert-asis","✅ Sesión eliminada.","success");
+    registrosAsist=[];
+    renderTablaAsist();
+    await cargarHistSesiones();
+  }catch(e){sa("alert-asis",e.message,"danger");}
+}
+
+// ────────────────────────────────────
+// Observaciones diarias
+// ────────────────────────────────────
+function abrirObservaciones(estId, nombre, fecha){
+  document.getElementById("obs-est-id").value=estId;
+  document.getElementById("obs-nombre").textContent=nombre;
+  document.getElementById("obs-fecha").textContent=fmtF(fecha);
+  document.getElementById("obs-texto").value="";
+  document.getElementById("alert-obs").className="alert";
+  cargarObsEstudiante(estId, fecha);
+  document.getElementById("modal-observaciones").classList.add("show");
+}
+async function cargarObsEstudiante(estId, fecha){
+  try{
+    const rows=await api(`/api/observaciones/estudiante/${estId}`)||[];
+    const lista=document.getElementById("obs-lista");
+    if(!lista) return;
+    const hoy=rows.filter(o=>o.fecha&&o.fecha.slice(0,10)===fecha);
+    const otros=rows.filter(o=>!o.fecha||o.fecha.slice(0,10)!==fecha);
+    lista.innerHTML=(hoy.length?`<div style="font-weight:bold;font-size:12px;color:var(--azul);margin-bottom:4px;">Hoy</div>`+hoy.map(o=>`<div style="background:#f0f9ff;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:12px;">${o.contenido}<span style="color:var(--muted);margin-left:6px;">${o.autor_ap1||""} ${o.autor_nombre||""}</span></div>`).join("")+`<hr style="margin:8px 0;"/>`:"")+
+    (otros.length?`<div style="font-weight:bold;font-size:12px;color:var(--muted);margin-bottom:4px;">Anteriores</div>`+otros.slice(0,5).map(o=>`<div style="background:#f8fafc;border-radius:6px;padding:5px 10px;margin-bottom:4px;font-size:11px;"><span style="color:var(--muted);">${fmtF(o.fecha)}</span> ${o.contenido}</div>`).join(""):"<div style='color:var(--muted);font-size:12px;'>Sin observaciones previas.</div>");
+  }catch{}
+}
+async function guardarObservacion(){
+  const estId=document.getElementById("obs-est-id").value;
+  const texto=document.getElementById("obs-texto").value.trim();
+  if(!texto){sa("alert-obs","Escribí la observación.","danger");return;}
+  const fecha=document.getElementById("asis-fecha").value||fechaHoyCR();
+  try{
+    await api("/api/observaciones","POST",{estudiante_id:+estId,contenido:texto,fecha});
+    document.getElementById("obs-texto").value="";
+    sa("alert-obs","✅ Guardado.","success");
+    cargarObsEstudiante(estId, fecha);
+  }catch(e){sa("alert-obs",e.message,"danger");}
+}
+
+
 // ════════════════════════════════════
 async function initReportes(){
   const secs=await api("/api/reportes/mis-secciones");if(!secs)return;
