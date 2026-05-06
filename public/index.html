@@ -492,7 +492,7 @@ tr:hover td{background:#f8fafc;}
       </div>
       <div id="asis-sesion-info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:13px;"></div>
       <div class="table-wrap"><table>
-        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Asistencia</th><th>Justificación</th><th>📝</th></tr></thead>
+        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Asistencia</th><th>Justificar</th><th>Escape</th><th>Obs.</th></tr></thead>
         <tbody id="asis-body"></tbody>
       </table></div>
     </div>
@@ -3287,12 +3287,7 @@ async function eliminarEncargado(id){
   cargarEncargadosLista();
 }
 
-function limpiarFormEnc(){
-  document.getElementById("enc-edit-id").value="";
-  document.getElementById("enc-form-titulo").textContent="➕ Agregar Encargado";
-  ["enc-nombre","enc-ap1","enc-ap2","enc-parentesco","enc-tel","enc-cel","enc-email","enc-direccion"].forEach(id=>document.getElementById(id).value="");
-  document.getElementById("enc-principal").value="true";
-}
+
 
 // ════════════════════════════════════
 //  CONSULTA
@@ -3511,6 +3506,24 @@ function renderTablaAsist(){
   }).join("");
 }
 
+async function toggleEscape(estId, nombre, esEscapado){
+  if(!confirm(`¿${esEscapado?'Quitar':'Marcar'} a ${nombre} como ${esEscapado?'no escapado':'escapado'}?\n\n${esEscapado?'Se eliminará la boleta generada automáticamente.':'Se generará una boleta automática por fuga de lecciones en esta materia.'}`)) return;
+  try{
+    await api(`/api/estudiantes/${estId}/escape`,"POST",{
+      escapado: !esEscapado,
+      asignacion_id: asigActiva
+    });
+    const reg = registrosAsist.find(e=>e.id===estId);
+    if(reg) reg.escapado = !esEscapado;
+    renderTablaAsist();
+    if(!esEscapado){
+      sa("alert-asis",`⚠️ Boleta generada — ${nombre}: Fuga de lecciones.`,"warning");
+    } else {
+      sa("alert-asis",`✅ Escape removido — boleta eliminada para ${nombre}.`,"success");
+    }
+  }catch(e){ alert("Error: "+e.message); }
+}
+
 function verMedida(id, tipo){
   const m = allMedidasActivas.find(x=>x.id===id);
   if(!m) return;
@@ -3528,23 +3541,20 @@ async function cargarHistSesiones(){
   if(!asigActiva) return;
   try{
     const rows = await api(`/api/asistencia/historial/${asigActiva}`)||[];
-    const div = document.getElementById("asis-historial");
-    if(!div) return;
+    const tbody = document.getElementById("hist-sesiones-body");
+    if(!tbody) return;
     if(!rows.length){
-      div.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;padding:10px;">Sin sesiones registradas.</div>';
+      tbody.innerHTML='<tr><td colspan="6" class="empty">Sin sesiones registradas.</td></tr>';
       return;
     }
-    div.innerHTML = rows.map(r=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:#f8fafc;margin-bottom:5px;font-size:12px;cursor:pointer;" onclick="verSesion('${r.fecha}',${r.lecciones})">
-        <div>
-          <strong>${fmtF(r.fecha)}</strong>
-          <span style="color:var(--muted);margin-left:6px;">${r.lecciones} lecc.</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="color:var(--rojo);">${r.ausentes||0} aus</span>
-          <button onclick="event.stopPropagation();elimSesion(${r.id})" class="btn btn-danger btn-xs" title="Eliminar sesión">🗑️</button>
-        </div>
-      </div>`).join('');
+    tbody.innerHTML = rows.map(r=>`<tr style="cursor:pointer;" onclick="verSesion('${r.fecha}',${r.lecciones})">
+      <td style="font-size:12px;">${fmtF(r.fecha)}</td>
+      <td style="text-align:center;">${r.lecciones}</td>
+      <td style="text-align:center;color:var(--verde);">${r.presentes||0}</td>
+      <td style="text-align:center;color:var(--rojo);">${r.ausentes||0}</td>
+      <td style="text-align:center;color:var(--naranja);">${r.tardias||0}</td>
+      <td><button onclick="event.stopPropagation();elimSesion(${r.id})" class="btn btn-danger btn-xs">🗑️</button></td>
+    </tr>`).join('');
   }catch(e){ console.error('cargarHistSesiones:', e.message); }
 }
 
@@ -4006,15 +4016,7 @@ async function eliminarInforme(id){
 // ════════════════════════════════════
 //  OBSERVACIONES DIARIAS
 // ════════════════════════════════════
-async function abrirObservaciones(estId, nombre, fecha){
-  document.getElementById("mobs-est-id").value = estId;
-  document.getElementById("mobs-fecha").value  = fecha;
-  document.getElementById("mobs-titulo").textContent = `Observaciones — ${nombre}`;
-  document.getElementById("mobs-texto").value = "";
-  document.getElementById("alert-mobs").className = "alert";
-  await cargarObsLista(estId, fecha);
-  document.getElementById("modal-obs").classList.add("show");
-}
+
 
 async function cargarObsLista(estId, fecha){
   const rows = await api(`/api/observaciones/estudiante/${estId}/fecha/${fecha}`);
@@ -4029,18 +4031,7 @@ async function cargarObsLista(estId, fecha){
     </div>`).join("");
 }
 
-async function guardarObservacion(){
-  const estId = document.getElementById("mobs-est-id").value;
-  const fecha  = document.getElementById("mobs-fecha").value;
-  const texto  = document.getElementById("mobs-texto").value.trim();
-  if(!texto){ sa("alert-mobs","Escribí una observación.","danger"); return; }
-  try{
-    await api("/api/observaciones","POST",{estudiante_id:+estId, fecha, observacion:texto});
-    document.getElementById("mobs-texto").value = "";
-    await cargarObsLista(estId, fecha);
-    sa("alert-mobs","✅ Observación guardada.","success");
-  }catch(e){ sa("alert-mobs",e.message,"danger"); }
-}
+
 
 async function eliminarObs(id, estId, fecha){
   if(!confirm("¿Eliminar esta observación?")) return;
@@ -5319,27 +5310,9 @@ async function verExpedienteCompleto(cedula){
 // ════════════════════════════════════
 //  COMEDOR (stats + becas)
 // ════════════════════════════════════
-async function cargarStatsComedor(){
-  const fecha=document.getElementById("comedor-fecha-scan")?.value||fechaHoyCR();
-  try{
-    const stats=await api(`/api/comedor/stats/${fecha}`);
-    const hoy=document.getElementById("cd-hoy");const b=document.getElementById("cd-becados");const reg=document.getElementById("cd-regulares");
-    if(hoy) hoy.textContent=stats.total||0;
-    if(b) b.textContent=stats.becados||0;
-    if(reg) reg.textContent=stats.regulares||0;
-  }catch{}
-}
 
-async function guardarBecasComedor(){
-  if(!comedorData||!comedorData.length){alertComedor("No hay estudiantes cargados.","danger");return;}
-  const ids_con_beca=comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
-  const ids_sin_beca=comedorData.filter(e=>!document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
-  try{
-    const r=await api("/api/comedor/actualizar-becas","POST",{ids_con_beca,ids_sin_beca});
-    alertComedor(`✅ Becas actualizadas — ${ids_con_beca.length} con beca, ${ids_sin_beca.length} sin beca.`,"success");
-    await cargarListaComedor();
-  }catch(e){alertComedor(e.message,"danger");}
-}
+
+
 
 // ════════════════════════════════════
 //  CONSTANCIA DE RETIRO
@@ -6057,41 +6030,13 @@ async function finalizarMatricula(){
 // ════════════════════════════════════
 //  COMITÉ MATRÍCULA (en Admin)
 // ════════════════════════════════════
-async function abrirComiteMatricula(){
-  document.getElementById("alert-comite-mat").className="alert";
-  // Poblar selector con todos los usuarios activos
-  const usuarios = await api("/api/admin/usuarios-activos") || [];
-  const sel = document.getElementById("comite-mat-sel");
-  sel.innerHTML = '<option value="">— Seleccionar usuario —</option>' +
-    usuarios.map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${u.rol})</option>`).join("");
-  await cargarComiteMatricula();
-  document.getElementById("modal-comite-matricula").classList.add("show");
-}
 
-async function cargarComiteMatricula(){
-  const rows = await api("/api/prematricula/comite/lista") || [];
-  const div = document.getElementById("comite-mat-lista");
-  if(!div) return;
-  div.innerHTML = rows.length ? rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
-    <span>${r.primer_apellido} ${r.nombre} <span style="font-size:11px;color:var(--muted);">(${r.rol})</span></span>
-    <button class="btn btn-danger btn-xs" onclick="quitarComiteMatricula(${r.id})">✕</button>
-  </div>`).join("") : '<div style="color:var(--muted);font-size:13px;">Sin miembros asignados.</div>';
-}
 
-async function agregarComiteMatricula(){
-  const sel=document.getElementById("comite-mat-sel");
-  if(!sel||!sel.value){ sa("alert-comite-mat","Seleccioná un usuario.","danger"); return; }
-  try{
-    await api("/api/prematricula/comite/lista","POST",{usuario_id:+sel.value});
-    sel.value="";
-    cargarComiteMatricula();
-  }catch(e){ sa("alert-comite-mat",e.message,"danger"); }
-}
 
-async function quitarComiteMatricula(id){
-  await api(`/api/prematricula/comite/lista/${id}`,"DELETE");
-  cargarComiteMatricula();
-}
+
+
+
+
 
 // ════════════════════════════════════
 //  CONSTANCIA DE ESTUDIANTE
@@ -6719,6 +6664,48 @@ async function pdfZoom(delta){
 })();
 
 </script>
+<!-- MODAL JUSTIFICAR -->
+<div class="modal-overlay" id="modal-justificar">
+  <div class="modal" style="max-width:420px;">
+    <h3>📝 Justificar Ausencia</h3>
+    <div id="alert-jus" class="alert"></div>
+    <p style="font-size:13px;margin-bottom:10px;">
+      Estudiante: <strong id="jus-nombre"></strong><br/>
+      Estado: <strong id="jus-estado"></strong>
+    </p>
+    <div class="fg" style="margin-bottom:12px;">
+      <label><input type="checkbox" id="jus-check" style="margin-right:6px;"/>Marcar como justificada</label>
+    </div>
+    <div class="fg" style="margin-bottom:14px;">
+      <label>Motivo</label>
+      <textarea id="jus-motivo" rows="3" placeholder="Describe el motivo..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-justificar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarJustificacion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OBSERVACIONES -->
+<div class="modal-overlay" id="modal-observaciones">
+  <div class="modal" style="max-width:480px;">
+    <h3>📝 Observaciones — <span id="obs-nombre"></span></h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Fecha: <span id="obs-fecha"></span></div>
+    <input type="hidden" id="obs-est-id"/>
+    <div id="obs-lista" style="max-height:200px;overflow-y:auto;margin-bottom:12px;"></div>
+    <div id="alert-obs" class="alert"></div>
+    <div class="fg" style="margin-bottom:10px;">
+      <label>Nueva observación</label>
+      <textarea id="obs-texto" rows="3" placeholder="Escribí la observación..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-observaciones')">Cerrar</button>
+      <button class="btn btn-primary" onclick="guardarObservacion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: VISOR PDF ================================================= -->
 <!-- ══════════════════════════════════════════════════════════ -->
