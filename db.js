@@ -391,6 +391,23 @@ async function initDB() {
         CHECK(estado IN ('pendiente','prematriculado','matriculado','retirado'))`);
     } catch(e) {}
 
+    // ── TABLA MEDIDAS ESTUDIANTILES ─────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS medidas_estudiantiles (
+        id            SERIAL PRIMARY KEY,
+        estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        tipo          TEXT NOT NULL CHECK(tipo IN ('precautoria','suspension','educacion_hibrida')),
+        fecha_inicio  DATE NOT NULL,
+        fecha_fin     DATE NOT NULL,
+        observacion   TEXT DEFAULT '',
+        creado_por    INTEGER REFERENCES usuarios(id),
+        created_at    TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_est ON medidas_estudiantiles(estudiante_id)");
+    await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_tipo ON medidas_estudiantiles(tipo)");
+    await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_fechas ON medidas_estudiantiles(fecha_inicio, fecha_fin)");
+
     // Limpiar estudiantes duplicados (misma cédula en misma sección)
     // Mantiene el más reciente, desactiva los anteriores
     try {

@@ -364,6 +364,9 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="constancia" id="nav-constancia" onclick="goTo('constancia')" style="display:none"><span class="icon">📄</span><span>Constancia</span></button>
   <button class="nav-btn" data-page="archivo" id="nav-archivo" onclick="goTo('archivo')" style="display:none"><span class="icon">🗄️</span><span>Archivo</span></button>
   <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📈</span><span>Cumplimiento</span></button>
+  <button class="nav-btn" data-page="precautoria" id="nav-precautoria" onclick="goTo('precautoria')" style="display:none"><span class="icon">⚠️</span><span>Precautoria</span></button>
+  <button class="nav-btn" data-page="suspension" id="nav-suspension" onclick="goTo('suspension')" style="display:none"><span class="icon">🚫</span><span>Suspensión</span></button>
+  <button class="nav-btn" data-page="hibrida" id="nav-hibrida" onclick="goTo('hibrida')" style="display:none"><span class="icon">🏠</span><span>Ed. Híbrida</span></button>
 </nav>
 
 <div class="main-content">
@@ -1968,6 +1971,97 @@ tr:hover td{background:#f8fafc;}
     </div>
   </div>
 </div>
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- PRECAUTORIA                                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-precautoria">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;">⚠️ Precautoria</h2>
+      <button class="btn btn-primary" onclick="abrirNuevaMedida('precautoria')">+ Nueva Precautoria</button>
+    </div>
+    <div id="alert-precautoria" class="alert"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
+      <tbody id="precautoria-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SUSPENSIÓN                                                -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-suspension">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;">🚫 Suspensión</h2>
+      <button class="btn btn-primary" onclick="abrirNuevaMedida('suspension')">+ Nueva Suspensión</button>
+    </div>
+    <div id="alert-suspension" class="alert"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
+      <tbody id="suspension-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- EDUCACIÓN HÍBRIDA                                         -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-hibrida">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;">🏠 Educación Híbrida</h2>
+      <button class="btn btn-primary" onclick="abrirNuevaMedida('educacion_hibrida')">+ Nueva Ed. Híbrida</button>
+    </div>
+    <div id="alert-hibrida" class="alert"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Sección</th><th>Inicio</th><th>Vence</th><th>Estado</th><th>Registrado por</th><th></th></tr></thead>
+      <tbody id="hibrida-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: NUEVA MEDIDA                                       -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-medida">
+  <div class="modal" style="max-width:500px;">
+    <h3 id="medida-modal-titulo">Nueva Medida</h3>
+    <div id="alert-medida-modal" class="alert"></div>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1">
+        <label>Sección *</label>
+        <select id="medida-seccion" onchange="cargarEstudiantesMedida()">
+          <option value="">— Seleccionar sección —</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Estudiante *</label>
+        <select id="medida-estudiante">
+          <option value="">— Seleccionar estudiante —</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Fecha de inicio *</label>
+        <input type="date" id="medida-inicio"/>
+      </div>
+      <div class="fg">
+        <label>Fecha de fin *</label>
+        <input type="date" id="medida-fin"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Observación</label>
+        <textarea id="medida-obs" rows="3" placeholder="Motivo o detalle..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-medida')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarMedida()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 // ════════════════════════════════════
@@ -1989,7 +2083,7 @@ function tieneAlgunRol(...roles) {
 let registrosAsist=[];
 let editIdU=null,editIdE=null,encEstId=null,cambSecEstId=null,informeRespId=null;
 let reporteEstId=null;
-let allSecciones=[],allMaterias=[],allProfesores=[];
+let allSecciones=[],allMaterias=[],allProfesores=[],allMedidasActivas=[];
 
 // ════════════════════════════════════
 //  API
@@ -2159,7 +2253,9 @@ function goTo(page){
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
   if(page==="expediente")  document.getElementById("exp-cedula").focus();
   if(page==="comedor")     iniciarComedor();
-  if(page==="consecutivos") iniciarConsecutivos();
+  if(page==="precautoria") iniciarMedidas('precautoria');
+  if(page==="suspension")  iniciarMedidas('suspension');
+  if(page==="hibrida")     iniciarMedidas('educacion_hibrida');
   if(page==="constancia")   iniciarConstancia();
   if(page==="archivo")      iniciarArchivo();
   if(page==="prematricula") iniciarPrematricula();
@@ -2247,6 +2343,14 @@ async function iniciarApp(){
     document.getElementById("nav-matricula").style.display="";
   }
 
+  // ── MEDIDAS (precautoria, suspensión, ed. híbrida) ───────────────
+  const rolesMedidas = ["admin","auxiliar","orientador","secretaria","administrativo","profesor_guia"];
+  if(rolesMedidas.includes(ME.rol)){
+    document.getElementById("nav-precautoria").style.display="";
+    document.getElementById("nav-suspension").style.display="";
+    document.getElementById("nav-hibrida").style.display="";
+  }
+
   // ── ADMIN ────────────────────────────────────────────────────
   if(esAdmin){
     document.getElementById("sec-admin").style.display="";
@@ -2296,6 +2400,8 @@ async function cargarCatalogos(){
   if(secs) allSecciones=secs;
   if(mats) allMaterias=mats;
   if(profs) allProfesores=profs;
+  // Cargar medidas activas para colorear lista de asistencia
+  try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
   poblarSel("ma-seccion",true,"— Seleccionar —");
   poblarSel("me-seccion",false,"Sin sección");
   poblarSel("rep-seccion",false,"— Sección —");
@@ -2607,6 +2713,39 @@ async function cargarDashboard(){
       <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📁 Documentos Institucionales</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">${docsHtml}</div>`;
     div.appendChild(docsCard);
+
+    // ── Tarjeta medidas activas (solo si hay) ──
+    if(allMedidasActivas.length > 0){
+      // Para profesores: solo mostrar estudiantes de sus secciones
+      const misSecIds = new Set(d.asignaciones?.map(a=>a.seccion_id)||[]);
+      const medidasFiltradas = (ME.rol==='profesor'||ME.rol==='profesor_guia')
+        ? allMedidasActivas.filter(m=>misSecIds.has(m.seccion_id))
+        : allMedidasActivas;
+
+      if(medidasFiltradas.length > 0){
+        const precautorias = medidasFiltradas.filter(m=>m.tipo==='precautoria');
+        const suspendidos  = medidasFiltradas.filter(m=>m.tipo==='suspension');
+        const hibridos     = medidasFiltradas.filter(m=>m.tipo==='educacion_hibrida');
+
+        const medRow = (m) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px;">
+          <span><strong>${m.primer_apellido} ${m.segundo_apellido||''}, ${m.nombre}</strong> <span style="color:var(--muted);">${m.seccion_nombre||'—'}</span></span>
+          <span style="color:var(--muted);font-size:11px;">Vence: ${fmtF(m.fecha_fin)}</span>
+        </div>`;
+
+        let medidasHtml = '';
+        if(suspendidos.length)  medidasHtml += `<div style="margin-bottom:10px;"><div style="font-weight:bold;font-size:12px;color:#991b1b;margin-bottom:4px;">🚫 Suspendidos (${suspendidos.length})</div>${suspendidos.map(medRow).join('')}</div>`;
+        if(precautorias.length) medidasHtml += `<div style="margin-bottom:10px;"><div style="font-weight:bold;font-size:12px;color:#854d0e;margin-bottom:4px;">⚠️ Precautoria (${precautorias.length})</div>${precautorias.map(medRow).join('')}</div>`;
+        if(hibridos.length)     medidasHtml += `<div style="margin-bottom:10px;"><div style="font-weight:bold;font-size:12px;color:#1d4ed8;margin-bottom:4px;">🏠 Ed. Híbrida (${hibridos.length})</div>${hibridos.map(medRow).join('')}</div>`;
+
+        const medidasCard = document.createElement('div');
+        medidasCard.className='card';
+        medidasCard.style.cssText='margin-top:14px;border-left:4px solid #f97316;';
+        medidasCard.innerHTML=`
+          <div style="font-weight:bold;font-size:14px;color:var(--naranja);margin-bottom:12px;">🎯 Estudiantes con Medidas Activas</div>
+          ${medidasHtml}`;
+        div.appendChild(medidasCard);
+      }
+    }
     if(ME.rol==="auxiliar"||ME.rol==="admin"){
       try{
         const ests = await api("/api/estudiantes") || [];
@@ -3308,9 +3447,29 @@ function renderTablaAsist(){
   if(!registrosAsist.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay estudiantes en esta sección</td></tr>`;return;}
   const fecha=document.getElementById("asis-fecha").value;
   const totalLecc=parseInt(document.getElementById("asis-lecciones").value)||4;
-  tbody.innerHTML=registrosAsist.map((e,i)=>`<tr style="${e.escapado?'background:#fff7ed;':''}" >
+
+  tbody.innerHTML=registrosAsist.map((e,i)=>{
+    // Check medida activa para este estudiante en esta fecha
+    const medida = allMedidasActivas.find(m=>
+      m.estudiante_id===e.id && m.fecha_inicio<=fecha && m.fecha_fin>=fecha
+    );
+    const MC = medida ? {
+      precautoria:      {bg:'#fef9c3',border:'#fde047',color:'#854d0e',icono:'⚠️',label:'Precautoria'},
+      suspension:       {bg:'#fee2e2',border:'#fca5a5',color:'#991b1b',icono:'🚫',label:'Suspensión'},
+      educacion_hibrida:{bg:'#eff6ff',border:'#93c5fd',color:'#1d4ed8',icono:'🏠',label:'Ed. Híbrida'},
+    }[medida.tipo] : null;
+
+    const rowStyle = MC ? `background:${MC.bg};border-left:4px solid ${MC.border};` : (e.escapado?'background:#fff7ed;':'');
+
+    const nombreStyle = MC ? `text-decoration:underline;text-decoration-color:${MC.border};text-decoration-thickness:2px;color:${MC.color};` : '';
+
+    const medidaBadge = MC ? `<button onclick="verMedida(${medida.id},'${medida.tipo}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;" title="Ver medida: vence ${fmtF(medida.fecha_fin)}">${MC.icono}</button>` : '';
+
+    return `<tr style="${rowStyle}">
     <td style="color:var(--muted);font-size:11px">${i+1}</td>
-    <td style="font-size:13px">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}<br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span>
+    <td style="font-size:13px">
+      <span style="${nombreStyle}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</span>${medidaBadge}
+      <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span>
       ${e.escapado?`<br/><span style="font-size:11px;color:var(--naranja);font-weight:bold;">⚠️ Escapado</span>`:""}
     </td>
     <td>
@@ -3330,140 +3489,29 @@ function renderTablaAsist(){
     <td>${e.estado!=='P'&&e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${e.primer_apellido} ${e.nombre}','${e.estado}')">
         ${e.justificada?"✅ Justif.":"📝 Justif."}</button>`:"—"}</td>
     <td>
-      <button class="btn btn-xs ${e.escapado?'btn-warning':'btn-outline'}" 
+      <button class="btn btn-xs ${e.escapado?'btn-warning':'btn-outline'}"
         onclick="toggleEscape(${e.id},'${e.primer_apellido} ${e.nombre}',${e.escapado?'true':'false'})"
         title="${e.escapado?'Quitar escape':'Marcar como escapado'}" style="${e.escapado?'background:#f97316;color:#fff;border-color:#f97316;':''}">
         ${e.escapado?'🏃 Escape':'🏃'}
       </button>
     </td>
     <td><button class="btn btn-outline btn-xs" onclick="abrirObservaciones(${e.id},'${e.primer_apellido} ${e.nombre}','${fecha}')" title="Observaciones">📝</button></td>
-  </tr>`).join("");
+  </tr>`;
+  }).join("");
 }
 
-async function toggleEscape(estId, nombre, esEscapado){
-  if(!confirm(`¿${esEscapado?'Quitar':'Marcar'} a ${nombre} como ${esEscapado?'no escapado':'escapado'}?\n\n${esEscapado?'Se eliminará la boleta generada automáticamente.':'Se generará una boleta automática por fuga de lecciones en esta materia.'}`)) return;
-  try{
-    const r = await api(`/api/estudiantes/${estId}/escape`, "POST", {
-      escapado: !esEscapado,
-      asignacion_id: asigActiva  // La asignación activa = materia donde se escapó
-    });
-    const reg = registrosAsist.find(e=>e.id===estId);
-    if(reg) reg.escapado = !esEscapado;
-    renderTablaAsist();
-    if(!esEscapado){
-      sa("alert-asis", `⚠️ Boleta generada — ${nombre}: Fuga de lecciones en esta materia.`, "warning");
-    } else {
-      sa("alert-asis", `✅ Escape removido — boleta eliminada para ${nombre}.`, "success");
-    }
-  }catch(e){ alert("Error: "+e.message); }
+function verMedida(id, tipo){
+  const m = allMedidasActivas.find(x=>x.id===id);
+  if(!m) return;
+  const cfg = {
+    precautoria:      {label:'Precautoria',       icono:'⚠️'},
+    suspension:       {label:'Suspensión',         icono:'🚫'},
+    educacion_hibrida:{label:'Educación Híbrida',  icono:'🏠'},
+  }[tipo]||{label:tipo,icono:'📋'};
+  alert(`${cfg.icono} ${cfg.label}\n\nEstudiante: ${m.primer_apellido} ${m.segundo_apellido||''}, ${m.nombre}\nSección: ${m.seccion_nombre||'—'}\n\nInicio: ${fmtF(m.fecha_inicio)}\nVence: ${fmtF(m.fecha_fin)}\n${m.observacion?'\nObservación: '+m.observacion:''}\nRegistrado por: ${m.creado_ap1||''} ${m.creado_nombre||''}`);
 }
 
-function setE(id,estado){
-  const r=registrosAsist.find(x=>x.id===id);
-  if(r){ r.estado=estado; if(estado!=='A') r.lecciones_ausentes=null; }
-  renderTablaAsist();
-}
 
-function setLeccAus(id,val){
-  const r=registrosAsist.find(x=>x.id===id);
-  if(r) r.lecciones_ausentes=parseInt(val);
-}
-
-function marcarTodos(estado){
-  registrosAsist.forEach(r=>r.estado=estado);
-  renderTablaAsist();
-}
-
-async function guardarAsistencia(){
-  const fecha=document.getElementById("asis-fecha").value;
-  const lecc=parseInt(document.getElementById("asis-lecciones").value);
-  if(!fecha||!asigActiva){sa("alert-asis","Seleccioná una fecha.","danger");return;}
-  if(!registrosAsist.length){sa("alert-asis","No hay estudiantes.","danger");return;}
-  try{
-    await api("/api/asistencia","POST",{asignacion_id:asigActiva,fecha,lecciones:lecc,
-      registros:registrosAsist.map(e=>({estudiante_id:e.id,estado:e.estado,lecciones_ausentes:e.lecciones_ausentes||null}))});
-    sa("alert-asis","✅ Lista guardada.","success");
-    await cargarListaDia();await cargarHistSesiones();
-  }catch(e){sa("alert-asis",e.message,"danger");}
-}
-
-async function cargarHistSesiones(){
-  const rows=await api(`/api/asistencia/historial/${asigActiva}`);if(!rows)return;
-  const tbody=document.getElementById("hist-sesiones-body");
-  if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin sesiones</td></tr>`;return;}
-  tbody.innerHTML=rows.map(s=>`<tr>
-    <td>${fmtF(s.fecha)}</td><td>${s.lecciones}</td>
-    <td>${s.total_presentes||0}</td><td>${s.total_ausentes||0}</td><td>${s.total_tardias||0}</td>
-    <td style="white-space:nowrap;">
-      <button class="btn btn-outline btn-xs" onclick="verSesion('${s.fecha}',${s.lecciones})">Ver</button>
-      <button class="btn btn-danger btn-xs" onclick="elimSesion(${s.id})">🗑️</button>
-    </td>
-  </tr>`).join("");
-}
-
-async function verSesion(fecha, lecc){
-  if(!asigActiva) return;
-  
-  // Llamar API directamente con la fecha del historial (sin depender del input)
-  const d = await api(`/api/asistencia/${asigActiva}/${fecha}`);
-  if(!d) return;
-
-  // Actualizar campo de fecha (quitar max primero)
-  const fechaEl = document.getElementById("asis-fecha");
-  fechaEl.removeAttribute("max");
-  fechaEl.value = fecha;
-  document.getElementById("asis-lecciones").value = lecc;
-
-  // Actualizar info de sesión
-  const info = document.getElementById("asis-sesion-info");
-  if(d.sesion){
-    info.style.display = "";
-    info.innerHTML = `📅 Sesión cargada: <strong>${d.sesion.lecciones} lección${d.sesion.lecciones>1?"es":""}</strong> — ${fmtF(fecha)}`;
-    document.getElementById("asis-lecciones").value = d.sesion.lecciones;
-  } else {
-    info.style.display = "";
-    info.innerHTML = `📅 Mostrando lista del <strong>${fmtF(fecha)}</strong> — sin sesión guardada`;
-  }
-
-  // Cargar registros y renderizar
-  registrosAsist = d.estudiantes.map(e=>({...e}));
-  renderTablaAsist();
-
-  // Scroll al inicio de la vista para ver la lista
-  const tablaEl = document.getElementById("asis-body");
-  if(tablaEl) tablaEl.closest(".card")?.scrollIntoView({behavior:"smooth", block:"start"});
-  fechaEl.style.outline = "3px solid var(--verde)";
-  setTimeout(()=>{ fechaEl.style.outline = ""; }, 3000);
-}
-
-async function elimSesion(id){
-  if(!confirm("¿Eliminar esta sesión?"))return;
-  await api(`/api/asistencia/sesion/${id}`,"DELETE");
-  await cargarHistSesiones();await cargarListaDia();
-}
-
-function abrirJus(id,nombre,estado){
-  document.getElementById("jus-id").value=id;
-  document.getElementById("jus-info").textContent=`${nombre} — ${estado==='A'?'Ausente':'Tardía'}`;
-  document.getElementById("jus-motivo").value="";
-  // Preseleccionar las lecciones ausentes actuales
-  const reg = registrosAsist.find(e=>e.asistencia_id===id);
-  const leccAus = reg?.lecciones_ausentes || parseInt(document.getElementById("asis-lecciones").value) || 4;
-  document.getElementById("jus-lecciones").value = Math.min(leccAus, 6);
-  document.getElementById("alert-jus").className="alert";
-  document.getElementById("modal-jus").classList.add("show");
-}
-
-async function guardarJus(){
-  const id=document.getElementById("jus-id").value;
-  const jus=document.getElementById("jus-estado").value==="true";
-  const lecc=parseInt(document.getElementById("jus-lecciones").value)||1;
-  const motivo=document.getElementById("jus-motivo").value.trim();
-  try{
-    await api(`/api/asistencia/justificar/${id}`,"PUT",{justificada:jus,motivo,lecciones_justificadas:lecc});
-    cerrarModal("modal-jus");sa("alert-asis","✅ Justificación guardada.","success");await cargarListaDia();
-  }catch(e){sa("alert-jus",e.message,"danger");}
-}
 
 // ════════════════════════════════════
 //  REPORTES
@@ -4361,6 +4409,114 @@ function abrirNuevaMatricula(){
   matTipoChange();
   matPaso(1);
   document.getElementById("modal-matricula").classList.add("show");
+}
+
+// ════════════════════════════════════
+//  MEDIDAS ESTUDIANTILES
+// ════════════════════════════════════
+let medidasData = [], medidaTipoActivo = null;
+
+const MEDIDA_CFG = {
+  precautoria:      { label:'Precautoria',       icono:'⚠️', color:'#854d0e', bg:'#fef9c3', border:'#fde047', tbodyId:'precautoria-tbody', alertId:'alert-precautoria' },
+  suspension:       { label:'Suspensión',         icono:'🚫', color:'#991b1b', bg:'#fee2e2', border:'#fca5a5', tbodyId:'suspension-tbody',  alertId:'alert-suspension' },
+  educacion_hibrida:{ label:'Educación Híbrida',  icono:'🏠', color:'#1d4ed8', bg:'#eff6ff', border:'#93c5fd', tbodyId:'hibrida-tbody',     alertId:'alert-hibrida' },
+};
+
+async function iniciarMedidas(tipo){
+  medidaTipoActivo = tipo;
+  const cfg = MEDIDA_CFG[tipo];
+  const rows = await api(`/api/medidas/tipo/${tipo}`)||[];
+  medidasData = rows;
+  renderMedidas(rows, tipo);
+}
+
+function renderMedidas(rows, tipo){
+  const cfg = MEDIDA_CFG[tipo];
+  const tbody = document.getElementById(cfg.tbodyId);
+  if(!tbody) return;
+  if(!rows.length){ tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay registros de ${cfg.label}.</td></tr>`; return; }
+  const hoy = new Date().toISOString().slice(0,10);
+  tbody.innerHTML = rows.map(r=>{
+    const activa = r.fecha_inicio<=hoy && r.fecha_fin>=hoy;
+    const vencida = r.fecha_fin<hoy;
+    const estado = activa?`<span class="badge" style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border};">Activa</span>`
+                 : vencida?`<span class="badge" style="background:#f1f5f9;color:#64748b;">Vencida</span>`
+                 : `<span class="badge" style="background:#f0fdf4;color:#166534;">Próxima</span>`;
+    return `<tr style="${activa?`background:${cfg.bg};border-left:4px solid ${cfg.border};`:''}">
+      <td><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong><br/><span style="font-size:11px;color:var(--muted);">${r.cedula}</span></td>
+      <td style="font-size:12px;">${r.seccion_nombre||'—'}</td>
+      <td style="font-size:12px;">${fmtF(r.fecha_inicio)}</td>
+      <td style="font-size:12px;font-weight:bold;color:${activa?cfg.color:'#64748b'};">${fmtF(r.fecha_fin)}</td>
+      <td>${estado}</td>
+      <td style="font-size:12px;color:var(--muted);">${r.creado_ap1||''} ${r.creado_nombre||''}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+let medidaTipoModal = null;
+
+async function abrirNuevaMedida(tipo){
+  medidaTipoModal = tipo;
+  const cfg = MEDIDA_CFG[tipo];
+  document.getElementById('medida-modal-titulo').textContent = `${cfg.icono} Nueva ${cfg.label}`;
+  document.getElementById('alert-medida-modal').className='alert';
+  document.getElementById('medida-estudiante').innerHTML='<option value="">— Seleccionar estudiante —</option>';
+  document.getElementById('medida-obs').value='';
+
+  // Fecha inicio hoy por defecto
+  const hoy = fechaHoyCR();
+  document.getElementById('medida-inicio').value=hoy;
+  document.getElementById('medida-fin').value='';
+
+  // Poblar secciones
+  let secs = (allSecciones&&allSecciones.length)?allSecciones:[];
+  if(!secs.length){ try{ secs=await api("/api/admin/secciones")||[]; }catch{} }
+  document.getElementById('medida-seccion').innerHTML =
+    '<option value="">— Seleccionar sección —</option>'+
+    secs.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+
+  document.getElementById('modal-medida').classList.add('show');
+}
+
+async function cargarEstudiantesMedida(){
+  const secId = document.getElementById('medida-seccion').value;
+  const sel = document.getElementById('medida-estudiante');
+  if(!secId){ sel.innerHTML='<option value="">— Seleccionar estudiante —</option>'; return; }
+  try{
+    const rows = await api(`/api/estudiantes?seccion_id=${secId}`)||[];
+    sel.innerHTML='<option value="">— Seleccionar estudiante —</option>'+
+      rows.sort((a,b)=>a.primer_apellido.localeCompare(b.primer_apellido))
+          .map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</option>`).join('');
+  }catch{}
+}
+
+async function guardarMedida(){
+  const estId  = document.getElementById('medida-estudiante').value;
+  const inicio = document.getElementById('medida-inicio').value;
+  const fin    = document.getElementById('medida-fin').value;
+  if(!estId||!inicio||!fin){ sa('alert-medida-modal','Sección, estudiante y fechas son requeridos.','danger'); return; }
+  if(fin<inicio){ sa('alert-medida-modal','La fecha de fin debe ser mayor o igual a la de inicio.','danger'); return; }
+  try{
+    await api('/api/medidas','POST',{
+      estudiante_id:+estId, tipo:medidaTipoModal,
+      fecha_inicio:inicio, fecha_fin:fin,
+      observacion:document.getElementById('medida-obs').value
+    });
+    cerrarModal('modal-medida');
+    await iniciarMedidas(medidaTipoModal);
+    // Reload medidas activas para asistencia
+    allMedidasActivas = await api('/api/medidas/activas')||[];
+  }catch(e){ sa('alert-medida-modal',e.message,'danger'); }
+}
+
+async function eliminarMedida(id, tipo){
+  if(!confirm('¿Eliminar este registro?')) return;
+  try{
+    await api(`/api/medidas/${id}`,'DELETE');
+    await iniciarMedidas(tipo);
+    allMedidasActivas = await api('/api/medidas/activas')||[];
+  }catch(e){ alert(e.message); }
 }
 
 // ════════════════════════════════════

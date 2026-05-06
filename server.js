@@ -1,4 +1,4 @@
-// Version: 2026-05-06 17:10:37
+// Version: 2026-05-06 18:45:14
 require("dotenv").config();
 const compression = require("compression");
 const express   = require("express");
@@ -41,6 +41,7 @@ app.use("/api/conducta",       requireAuth, require("./routes/conducta"));
 app.use("/api/expediente",     requireAuth, require("./routes/expediente"));
 app.use("/api/comedor",        requireAuth, require("./routes/comedor"));
 app.use("/api/consecutivos",   requireAuth, require("./routes/consecutivos"));
+app.use("/api/medidas",        requireAuth, require("./routes/medidas"));
 app.use("/api/prematricula",   requireAuth, require("./routes/prematricula"));
 app.use("/api/matricula",      requireAuth, require("./routes/matricula"));
 
