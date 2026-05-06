@@ -741,18 +741,37 @@ tr:hover td{background:#f8fafc;}
         <div class="stat"><div class="num green" id="cd-hoy-ori">0</div><div class="lbl">Total estudiantes</div></div>
       </div>
 
-      <!-- Lista única -->
-      <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-weight:bold;font-size:13px;color:var(--azul);">👤 Estudiantes de mi sección</span>
-        <div style="display:flex;gap:5px;">
-          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('todos',true)">✅ Todos</button>
-          <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('todos',false)">❌ Ninguno</button>
+      <!-- Sección BECADOS (pre-marcados, fondo verde) -->
+      <div id="comedor-becados-section" style="display:none;margin-bottom:16px;">
+        <div style="font-weight:bold;font-size:12px;color:var(--verde);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>🎓 Con Beca <span style="font-weight:normal;color:var(--muted);">— ya marcados, desmarcar si ya no tienen beca</span></span>
+          <div style="display:flex;gap:5px;">
+            <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('becados',true)">✅ Todos</button>
+            <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('becados',false)">❌ Ninguno</button>
+          </div>
         </div>
+        <div class="table-wrap"><table style="font-size:12px;">
+          <thead><tr><th>🎓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
+          <tbody id="comedor-tbody-becados"></tbody>
+        </table></div>
       </div>
-      <div class="table-wrap"><table style="font-size:13px;">
-        <thead><tr><th>🎓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
-        <tbody id="comedor-tbody-lista"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
-      </table></div>
+
+      <!-- Sección NO BECADOS (sin marcar) -->
+      <div id="comedor-regulares-section" style="display:none;">
+        <div style="font-weight:bold;font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>👤 Sin Beca <span style="font-weight:normal;">— marcar para otorgar beca</span></span>
+          <div style="display:flex;gap:5px;">
+            <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('regulares',true)">✅ Todos</button>
+            <button class="btn btn-outline btn-xs" onclick="marcarTodosComedor('regulares',false)">❌ Ninguno</button>
+          </div>
+        </div>
+        <div class="table-wrap"><table style="font-size:12px;">
+          <thead><tr><th>🎓</th><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th></tr></thead>
+          <tbody id="comedor-tbody-regulares"></tbody>
+        </table></div>
+      </div>
+
+      <div id="comedor-lista-empty" style="display:none;color:var(--muted);text-align:center;padding:20px;">Sin estudiantes en esta sección.</div>
     </div>
   </div>
 
@@ -4389,8 +4408,339 @@ async function eliminarConsec(id){
 
 
 // ════════════════════════════════════
-//  CONDUCTA
+//  COMEDOR
 // ════════════════════════════════════
+let comedorData = [];
+
+async function iniciarComedor(){
+  // Determinar rol y mostrar vista correcta
+  const esCocinera  = ME.rol==='cocinera';
+  const esOrientador= ME.rol==='orientador' || ME.rol==='profesor_guia';
+  const esComite    = ME.rol==='admin'||ME.rol==='auxiliar'||ME.rol==='administrativo'||ME.rol==='secretaria';
+
+  document.getElementById('comedor-vista-escaneo').style.display = (esCocinera||esComite) ? '' : 'none';
+  document.getElementById('comedor-vista-lista').style.display   = esOrientador ? '' : 'none';
+  document.getElementById('comedor-vista-reporte').style.display = esComite ? '' : 'none';
+
+  if(esCocinera||esComite){
+    // Fecha por defecto hoy
+    const fd = document.getElementById('comedor-fecha-scan');
+    if(fd && !fd.value) fd.value = fechaHoyCR();
+    await cargarStatsComedor();
+  }
+  if(esOrientador){
+    await cargarListaComedor();
+  }
+}
+
+async function cargarListaComedor(){
+  try{
+    const rows = await api('/api/comedor/estudiantes')||[];
+    comedorData = rows;
+    const becados  = rows.filter(e=>e.becado);
+    const regulares= rows.filter(e=>!e.becado);
+
+    // Sección becados
+    const secB = document.getElementById('comedor-becados-section');
+    const secR = document.getElementById('comedor-regulares-section');
+    if(secB) secB.style.display = becados.length?'':'none';
+    if(secR) secR.style.display = regulares.length?'':'none';
+
+    // Becados: fondo verde, pre-marcados (siempre tienen beca)
+    const rowBecado = (e,i) => `<tr style="background:#f0fdf4;">
+      <td><input type="checkbox" id="cd-${e.id}" checked onchange="actualizarStatsBeca()"/></td>
+      <td style="color:var(--muted);font-size:11px;">${i+1}</td>
+      <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+      <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
+      <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
+    </tr>`;
+
+    // No becados: sin marcar
+    const rowRegular = (e,i) => `<tr>
+      <td><input type="checkbox" id="cd-${e.id}" onchange="actualizarStatsBeca()"/></td>
+      <td style="color:var(--muted);font-size:11px;">${i+1}</td>
+      <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+      <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
+      <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
+    </tr>`;
+
+    const tbB = document.getElementById('comedor-tbody-becados');
+    const tbR = document.getElementById('comedor-tbody-regulares');
+    if(tbB) tbB.innerHTML = becados.length ? becados.map(rowBecado).join('') : '<tr><td colspan="5" class="empty">Sin becados.</td></tr>';
+    if(tbR) tbR.innerHTML = regulares.length ? regulares.map(rowRegular).join('') : '<tr><td colspan="5" class="empty">Sin regulares.</td></tr>';
+
+    actualizarStatsBeca();
+  }catch(e){ alertComedor(e.message,'danger'); }
+}
+
+function actualizarStatsBeca(){
+  let becados=0, sinBeca=0;
+  comedorData.forEach(e=>{
+    const cb = document.getElementById(`cd-${e.id}`);
+    if(cb?.checked) becados++; else sinBeca++;
+  });
+  const tot = document.getElementById('cd-hoy-ori');
+  const bec = document.getElementById('cd-becados-ori');
+  const reg = document.getElementById('cd-regulares-ori');
+  if(tot) tot.textContent = comedorData.length;
+  if(bec) bec.textContent = becados;
+  if(reg) reg.textContent = sinBeca;
+}
+
+function marcarTodosComedor(grupo, valor){
+  const lista = grupo==='becados'   ? comedorData.filter(e=>e.becado)  :
+                grupo==='regulares' ? comedorData.filter(e=>!e.becado) : comedorData;
+  lista.forEach(e=>{ const cb=document.getElementById(`cd-${e.id}`); if(cb) cb.checked=valor; });
+  actualizarStatsBeca();
+}
+
+async function guardarBecasComedor(){
+  if(!comedorData||!comedorData.length){ alertComedor('No hay estudiantes cargados.','danger'); return; }
+  const ids_con_beca  = comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
+  const ids_sin_beca  = comedorData.filter(e=>!document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
+  try{
+    await api('/api/comedor/actualizar-becas','POST',{ids_con_beca, ids_sin_beca});
+    alertComedor(`✅ Becas actualizadas — ${ids_con_beca.length} con beca, ${ids_sin_beca.length} sin beca.`,'success');
+    await cargarListaComedor();
+  }catch(e){ alertComedor(e.message,'danger'); }
+}
+
+async function cargarResumenComedor(){
+  const fecha = document.getElementById('comedor-fecha-rep')?.value;
+  if(!fecha) return;
+
+  try{
+    const rows = await api(`/api/comedor/asistencia/${fecha}`)||[];
+    const statsEl  = document.getElementById('comedor-rep-stats');
+    const tablaEl  = document.getElementById('comedor-rep-tabla');
+    const vacioEl  = document.getElementById('comedor-rep-vacio');
+
+    if(!rows.length){
+      if(statsEl) statsEl.style.display='none';
+      if(tablaEl) tablaEl.innerHTML='';
+      if(vacioEl) vacioEl.style.display='';
+      return;
+    }
+
+    // Stats
+    const becados  = rows.filter(r=>r.becado).length;
+    const regulares= rows.filter(r=>!r.becado).length;
+    if(statsEl){
+      statsEl.style.display='';
+      document.getElementById('rep-total').textContent = rows.length;
+      document.getElementById('rep-becados').textContent = becados;
+      document.getElementById('rep-regulares').textContent = regulares;
+    }
+    if(vacioEl) vacioEl.style.display='none';
+
+    // Tabla
+    if(tablaEl){
+      tablaEl.innerHTML=`
+        <div style="margin-bottom:8px;font-weight:bold;font-size:13px;color:var(--azul);">
+          🎓 Becados (${becados})
+        </div>
+        <div class="table-wrap" style="margin-bottom:16px;"><table style="font-size:12px;">
+          <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th><th>Hora</th></tr></thead>
+          <tbody>${rows.filter(r=>r.becado).map((r,i)=>`<tr>
+            <td style="color:var(--muted)">${i+1}</td>
+            <td><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong></td>
+            <td style="font-size:11px;">${r.cedula}</td>
+            <td style="font-size:11px;">${r.seccion_nombre||'—'}</td>
+            <td style="font-size:11px;">${r.hora||'—'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        <div style="margin-bottom:8px;font-weight:bold;font-size:13px;color:var(--muted);">
+          👤 No Becados (${regulares})
+        </div>
+        <div class="table-wrap"><table style="font-size:12px;">
+          <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th><th>Hora</th></tr></thead>
+          <tbody>${rows.filter(r=>!r.becado).map((r,i)=>`<tr>
+            <td style="color:var(--muted)">${i+1}</td>
+            <td>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</td>
+            <td style="font-size:11px;">${r.cedula}</td>
+            <td style="font-size:11px;">${r.seccion_nombre||'—'}</td>
+            <td style="font-size:11px;">${r.hora||'—'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`;
+    }
+  }catch(e){
+    sa('alert-comedor-rep', e.message, 'danger');
+  }
+}
+
+async function imprimirReporteComedor(){
+  const fecha = document.getElementById('comedor-fecha-rep')?.value;
+  if(!fecha){ sa('alert-comedor-rep','Seleccioná una fecha primero.','danger'); return; }
+
+  const rows = await api(`/api/comedor/asistencia/${fecha}`)||[];
+  if(!rows.length){ sa('alert-comedor-rep','No hay registros para esta fecha.','warning'); return; }
+
+  const becados   = rows.filter(r=>r.becado);
+  const regulares = rows.filter(r=>!r.becado);
+
+  const plato    = document.getElementById('menu-plato')?.value||'—';
+  const ensalada = document.getElementById('menu-ensalada')?.value||'—';
+  const fruta    = document.getElementById('menu-fruta')?.value||'—';
+
+  const hoy = new Date(fecha+'T12:00:00');
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const fechaLarga = `${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
+
+  let printArea = document.getElementById('print-boleta-area');
+  if(!printArea){ printArea=document.createElement('div'); printArea.id='print-boleta-area'; document.body.appendChild(printArea); }
+  printArea.style.cssText='position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
+
+  const rowHtml = (r,i) => `<tr>
+    <td style="padding:3px 6px;text-align:center;">${i+1}</td>
+    <td style="padding:3px 6px;"><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong></td>
+    <td style="padding:3px 6px;">${r.cedula}</td>
+    <td style="padding:3px 6px;">${r.seccion_nombre||'—'}</td>
+    <td style="padding:3px 6px;text-align:center;">${r.hora||'—'}</td>
+  </tr>`;
+
+  printArea.innerHTML=`
+  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;">
+    ${encabezadoMEP('REPORTE DIARIO DE COMEDOR ESCOLAR')}
+
+    <div style="display:flex;justify-content:space-between;margin:14px 0;font-size:12px;">
+      <div><strong>Fecha:</strong> ${fechaLarga}</div>
+      <div><strong>Total atendidos:</strong> ${rows.length} estudiantes</div>
+    </div>
+
+    <!-- Menú del día -->
+    <div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:14px;background:#f8fafc;">
+      <div style="font-weight:bold;margin-bottom:6px;">🍽️ Menú del Día</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
+        <div><strong>Plato:</strong> ${plato}</div>
+        <div><strong>Ensalada:</strong> ${ensalada}</div>
+        <div><strong>Fruta:</strong> ${fruta}</div>
+      </div>
+    </div>
+
+    <!-- Resumen -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;">
+      <div style="border:1px solid #86efac;border-radius:6px;padding:8px;background:#f0fdf4;">
+        <div style="font-size:22px;font-weight:bold;color:#166534;">${rows.length}</div>
+        <div style="font-size:11px;">Total</div>
+      </div>
+      <div style="border:1px solid #fde047;border-radius:6px;padding:8px;background:#fefce8;">
+        <div style="font-size:22px;font-weight:bold;color:#854d0e;">${becados.length}</div>
+        <div style="font-size:11px;">Becados</div>
+      </div>
+      <div style="border:1px solid #bfdbfe;border-radius:6px;padding:8px;background:#eff6ff;">
+        <div style="font-size:22px;font-weight:bold;color:#1d4ed8;">${regulares.length}</div>
+        <div style="font-size:11px;">No Becados</div>
+      </div>
+    </div>
+
+    <!-- Tabla becados -->
+    ${becados.length?`
+    <div style="font-weight:bold;font-size:12px;color:#166534;margin-bottom:4px;">🎓 Becados (${becados.length})</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;">
+      <thead><tr style="background:#f0fdf4;">
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Apellidos, Nombre</th>
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Cédula</th>
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Sección</th>
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
+      </tr></thead>
+      <tbody>${becados.map(rowHtml).join('')}</tbody>
+    </table>`:''}
+
+    <!-- Tabla no becados -->
+    ${regulares.length?`
+    <div style="font-weight:bold;font-size:12px;color:#374151;margin-bottom:4px;">👤 No Becados (${regulares.length})</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;">
+      <thead><tr style="background:#f8fafc;">
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Apellidos, Nombre</th>
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Cédula</th>
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Sección</th>
+        <th style="padding:4px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
+      </tr></thead>
+      <tbody>${regulares.map(rowHtml).join('')}</tbody>
+    </table>`:''}
+
+    <!-- Firma -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;">
+      <div style="text-align:center;">
+        <div style="border-top:1px solid #374151;padding-top:8px;">
+          <div style="font-size:12px;">Firma Encargada de Comedor</div>
+          <div style="font-size:12px;margin-top:4px;">(Sello)</div>
+        </div>
+      </div>
+      <div style="text-align:center;">
+        <div style="border-top:1px solid #374151;padding-top:8px;">
+          <div style="font-size:12px;">Firma Director(a)</div>
+          <div style="font-size:12px;margin-top:4px;">(Sello)</div>
+        </div>
+      </div>
+    </div>
+    ${piePaginaMEP()}
+  </div>`;
+
+  const style=document.createElement('style');
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  document.head.appendChild(style);
+  await imprimirConEncabezado(printArea, style);
+}
+
+
+function alertComedor(msg, tipo=''){
+  // Try both alert elements
+  const el = document.getElementById('alert-comedor-ori') || document.getElementById('alert-comedor');
+  if(el) sa(el.id, msg, tipo);
+}
+
+async function cargarStatsComedor(){
+  const fecha = document.getElementById('comedor-fecha-scan')?.value||fechaHoyCR();
+  try{
+    const stats = await api(`/api/comedor/stats/${fecha}`);
+    const hoy=document.getElementById('cd-hoy');
+    const b=document.getElementById('cd-becados');
+    const reg=document.getElementById('cd-regulares');
+    const tot=document.getElementById('cd-total-reg');
+    if(hoy) hoy.textContent=stats.total||0;
+    if(b) b.textContent=stats.becados||0;
+    if(reg) reg.textContent=stats.regulares||0;
+    if(tot) tot.textContent=stats.total_registrados||'—';
+  }catch{}
+}
+
+async function escanearComedor(){
+  const input = document.getElementById('comedor-scan-input');
+  const cedula = input?.value?.trim();
+  if(!cedula) return;
+  const result = document.getElementById('comedor-scan-result');
+  try{
+    const r = await api('/api/comedor/registrar','POST',{cedula});
+    if(result){
+      result.style.display='';
+      result.style.background = r.tipo==='becado'?'#dcfce7':r.tipo==='regular'?'#e0f2fe':'#fef9c3';
+      document.getElementById('csr-nombre').textContent = `${r.primer_apellido} ${r.nombre}`;
+      document.getElementById('csr-cedula').textContent = r.cedula;
+      document.getElementById('csr-tipo').innerHTML = r.tipo==='becado'
+        ?'<span style="color:#166534;font-weight:bold;">🎓 BECADO</span>'
+        :'<span style="color:#0369a1;font-weight:bold;">💳 REGULAR</span>';
+      document.getElementById('csr-msg').textContent = r.mensaje||'';
+    }
+    if(input) input.value='';
+    await cargarStatsComedor();
+    setTimeout(()=>{ if(result) result.style.display='none'; },3000);
+  }catch(e){
+    if(result){
+      result.style.display='';
+      result.style.background='#fee2e2';
+      document.getElementById('csr-nombre').textContent='Error';
+      document.getElementById('csr-cedula').textContent='';
+      document.getElementById('csr-tipo').textContent='';
+      document.getElementById('csr-msg').textContent=e.message;
+    }
+  }
+  input?.focus();
+}
+
+
 async function iniciarConducta(){
   const rows=await api("/api/conducta")||[];
   renderInformesConducca(rows);
