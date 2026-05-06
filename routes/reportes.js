@@ -182,7 +182,7 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
   // 1 y 2: Paralelo para mayor velocidad
   const [asigs, informesPendientes] = await Promise.all([
     pool.query(`
-      SELECT a.id, a.subgrupo, s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
+      SELECT a.id, a.seccion_id, a.subgrupo, s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
         sa.id AS sesion_hoy, sa.lecciones
       FROM asignaciones a
       JOIN secciones s ON s.id=a.seccion_id

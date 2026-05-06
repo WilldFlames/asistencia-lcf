@@ -1282,8 +1282,6 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
-</div>
-
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- PRECAUTORIA                                               -->
 <!-- ══════════════════════════════════════════════════════════ -->
@@ -1483,7 +1481,7 @@ tr:hover td{background:#f8fafc;}
     <div id="alert-enc" class="alert"></div>
     <div id="enc-lista" style="margin-bottom:14px;"></div>
     <div style="border-top:1px solid var(--border);padding-top:12px;">
-      <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;" id="enc-form-titulo">➕ Agregar Encargado</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="font-size:13px;font-weight:bold;color:var(--azul);" id="enc-form-titulo">➕ Agregar Encargado</div><button class="btn btn-outline btn-xs" onclick="limpiarFormEnc()" title="Limpiar formulario para nuevo encargado">🔄 Nuevo</button></div>
       <input type="hidden" id="enc-edit-id"/>
       <div class="form-grid">
         <div class="fg"><label>Cédula</label><input type="text" id="enc-cedula" placeholder="Número de cédula"/></div>
@@ -3526,8 +3524,31 @@ function verMedida(id, tipo){
 
 
 
-// ────────────────────────────────────
-// Guardar asistencia del día
+async function cargarHistSesiones(){
+  if(!asigActiva) return;
+  try{
+    const rows = await api(`/api/asistencia/historial/${asigActiva}`)||[];
+    const div = document.getElementById("asis-historial");
+    if(!div) return;
+    if(!rows.length){
+      div.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;padding:10px;">Sin sesiones registradas.</div>';
+      return;
+    }
+    div.innerHTML = rows.map(r=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:#f8fafc;margin-bottom:5px;font-size:12px;cursor:pointer;" onclick="verSesion('${r.fecha}',${r.lecciones})">
+        <div>
+          <strong>${fmtF(r.fecha)}</strong>
+          <span style="color:var(--muted);margin-left:6px;">${r.lecciones} lecc.</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--rojo);">${r.ausentes||0} aus</span>
+          <button onclick="event.stopPropagation();elimSesion(${r.id})" class="btn btn-danger btn-xs" title="Eliminar sesión">🗑️</button>
+        </div>
+      </div>`).join('');
+  }catch(e){ console.error('cargarHistSesiones:', e.message); }
+}
+
+
 // ────────────────────────────────────
 async function guardarAsistencia(){
   const fecha=document.getElementById("asis-fecha").value;
