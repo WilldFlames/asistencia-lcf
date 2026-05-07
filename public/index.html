@@ -2629,21 +2629,6 @@ async function cargarDashboard(){
       </div>`;
     }
 
-    html += `</div>`;
-    div.innerHTML = html;
-
-
-    // ── Tarjetas informativas en grid de 3 columnas ──────────────────────────
-    const hoyFechas = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
-    const hoyMs = hoyFechas.getTime();
-    const mesesN = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-    const fC = d => `${d.getDate()} ${mesesN[d.getMonth()]}`;
-
-    // Cards appended directly to main grid div
-
-
-
-
     // Medidas activas
     if(allMedidasActivas.length>0){
       const esProf=ME.rol==='profesor'||ME.rol==='profesor_guia';
@@ -2656,11 +2641,15 @@ async function cargarDashboard(){
         if(susp.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#991b1b;margin:5px 0 2px;">🚫 Suspendidos (${susp.length})</div>${susp.map(mRow).join('')}`;
         if(prec.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#854d0e;margin:5px 0 2px;">⚠️ Precautoria (${prec.length})</div>${prec.map(mRow).join('')}`;
         if(hibr.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#1d4ed8;margin:5px 0 2px;">🏠 Ed. Híbrida (${hibr.length})</div>${hibr.map(mRow).join('')}`;
-        const mCard=document.createElement('div');mCard.className='card';mCard.style.cssText='margin:0;border-left:3px solid #f97316;';
-        mCard.innerHTML=`<div style="font-weight:bold;font-size:13px;color:var(--naranja);margin-bottom:8px;">🎯 Medidas Activas</div>${mHtml}`;
-        div.appendChild(mCard);
+        html += `<div class="card" style="margin:0;border-left:3px solid #f97316;"><div style="font-weight:bold;font-size:13px;color:var(--naranja);margin-bottom:8px;">🎯 Medidas Activas</div>${mHtml}</div>`;
       }
     }
+    html += `</div>`;
+    div.innerHTML = html;
+
+
+
+
     if(ME.rol==="auxiliar"||ME.rol==="admin"){
       try{
         const ests = await api("/api/estudiantes") || [];
