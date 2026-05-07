@@ -2482,6 +2482,57 @@ document.addEventListener("click",e=>{
 // ════════════════════════════════════
 //  DASHBOARD
 // ════════════════════════════════════
+// ════════════════════════════════════
+//  HORARIOS (datos de archivos Word)
+// ════════════════════════════════════
+let horariosCargados = null;
+
+async function cargarHorarios(){
+  if(horariosCargados) return horariosCargados;
+  try{
+    const r = await fetch('/horarios.json');
+    horariosCargados = await r.json();
+  }catch{ horariosCargados = []; }
+  return horariosCargados;
+}
+
+function normalizarNombre(n){
+  return (n||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+
+function obtenerHorarioHoy(horarios, nombreUsuario){
+  const diasES = ['DOMINGO','LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO'];
+  const hoy = diasES[new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).getDay()];
+  const nombreNorm = normalizarNombre(nombreUsuario);
+  
+  // Buscar por apellidos+nombre (fuzzy)
+  const matches = horarios.filter(h => {
+    const hn = normalizarNombre(h.teacher);
+    // Check if any word of the user's name appears in the schedule name
+    const partes = nombreNorm.split(' ').filter(p=>p.length>3);
+    return partes.some(p => hn.includes(p));
+  });
+  
+  if(!matches.length) return null;
+  
+  // Consolidar todas las materias de ese profesor para hoy
+  const seccionesHoy = {};
+  matches.forEach(m => {
+    const diaData = m.schedule[hoy];
+    if(diaData){
+      Object.entries(diaData).forEach(([sec,lecc])=>{
+        const key = sec;
+        if(!seccionesHoy[key]) seccionesHoy[key] = {secciones: sec, lecciones: lecc, materias: []};
+        else seccionesHoy[key].lecciones = Math.max(seccionesHoy[key].lecciones, lecc);
+        if(m.subject && !seccionesHoy[key].materias.includes(m.subject))
+          seccionesHoy[key].materias.push(m.subject);
+      });
+    }
+  });
+  
+  return {dia: hoy, secciones: Object.values(seccionesHoy)};
+}
+
 async function cargarDashboard(){
   const dias=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
   const hoy=new Date();
@@ -2525,6 +2576,10 @@ async function cargarDashboard(){
     let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;align-items:start;">`;
 
     // ── TARJETA 1: Asistencia hoy ──
+    // Cargar horario del profesor
+    const horarios = await cargarHorarios();
+    const nombreCompleto = `${ME.primer_apellido} ${ME.segundo_apellido} ${ME.nombre}`;
+    const horarioHoy = obtenerHorarioHoy(horarios, nombreCompleto);
     html += `<div class="card" style="margin:0;">
       <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">✅ Asistencia de Hoy</div>
       ${d.asignaciones.length===0?`<div style="color:var(--muted);font-size:13px;">Sin asignaciones registradas.</div>`:""}
@@ -2538,7 +2593,8 @@ async function cargarDashboard(){
           <span><strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}${a.subgrupo?` (G${a.subgrupo})`:""}</span>
           <span class="badge" style="background:#fef9c3;color:#92400e;">⏳ Sin registrar</span>
         </div>`).join("")}
-      ${d.asignaciones.length>0?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">${asigsOk.length}/${d.asignaciones.length} registradas hoy</div>`:""}
+      ${d.asignaciones.length>0?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">${asigsOk.length}/${d.asignaciones.length} registradas hoy</div>
+      ${horarioHoy && horarioHoy.secciones.length>0?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><div style="font-size:11px;font-weight:bold;color:var(--azul);margin-bottom:4px;">📅 ${horarioHoy.dia}</div>${horarioHoy.secciones.filter(s=>!/cood|plaza|vacante/i.test(s.secciones)).sort((a,b)=>a.secciones.localeCompare(b.secciones)).map(s=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #f1f5f9;"><span style="font-weight:bold;">Sec. ${s.secciones}</span><span style="color:var(--muted);">${s.lecciones} lecc.</span></div>`).join('')}</div>`:""}`:""}
     </div>`;
 
     html += `<div style="display:flex;flex-direction:column;gap:12px;min-width:0;">`;
