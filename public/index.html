@@ -2256,6 +2256,7 @@ function goTo(page){
   if(page==="precautoria") iniciarMedidas('precautoria');
   if(page==="suspension")  iniciarMedidas('suspension');
   if(page==="hibrida")     iniciarMedidas('educacion_hibrida');
+  if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
   if(page==="archivo")      iniciarArchivo();
   if(page==="prematricula") iniciarPrematricula();
@@ -2597,6 +2598,14 @@ async function cargarDashboard(){
     html += `</div>`;
     div.innerHTML = html;
 
+    // ── Wrapper para tarjetas informativas (2 columnas en desktop) ──
+    const infoGrid = document.createElement('div');
+    infoGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px;';
+    div.appendChild(infoGrid);
+
+    // Helper para añadir a infoGrid
+    const addCard = (el) => { el.style.margin='0'; infoGrid.appendChild(el); };
+
     // ── Tarjeta fechas clave del curso (siempre visible para todos) ──
     const hoyFechas = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
     const hoyMs = hoyFechas.getTime();
@@ -2642,7 +2651,7 @@ async function cargarDashboard(){
     calCard.innerHTML = `
       <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📅 Fechas Clave — Curso Lectivo 2026</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">${calHtml}</div>`;
-    div.appendChild(calCard);
+    addCard(calCard);
 
     // ── Tarjeta fechas sindicatos 2026 ──
     const sindicatos = [
@@ -2689,7 +2698,7 @@ async function cargarDashboard(){
     sinCard.innerHTML = `
       <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">🏛️ Fechas Sindicatos 2026</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">${sinHtml}</div>`;
-    div.appendChild(sinCard);
+    addCard(sinCard);
 
     // ── Tarjeta documentos institucionales ──
     const docs = [
@@ -2714,7 +2723,7 @@ async function cargarDashboard(){
     docsCard.innerHTML = `
       <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📁 Documentos Institucionales</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">${docsHtml}</div>`;
-    div.appendChild(docsCard);
+    addCard(docsCard);
 
     // ── Tarjeta medidas activas ──
     if(allMedidasActivas.length > 0){
@@ -2748,7 +2757,7 @@ async function cargarDashboard(){
         medidasCard.innerHTML=`
           <div style="font-weight:bold;font-size:14px;color:var(--naranja);margin-bottom:12px;">🎯 Estudiantes con Medidas Activas</div>
           ${medidasHtml}`;
-        div.appendChild(medidasCard);
+        addCard(medidasCard);
       }
     }
     if(ME.rol==="auxiliar"||ME.rol==="admin"){
@@ -3638,18 +3647,27 @@ function abrirJus(asistId, nombre, estado, lecc){
   document.getElementById("jus-estado").textContent=estado==="A"?"Ausente":"Tardía";
   document.getElementById("jus-motivo").value="";
   document.getElementById("jus-check").checked=false;
-  // Update lecciones display
   const leccEl = document.getElementById("jus-lecciones");
   if(leccEl) leccEl.textContent = lecc||1;
+  // Pre-cargar selector de lecciones a justificar
+  const selLecc = document.getElementById("jus-lecc-sel");
+  if(selLecc){
+    selLecc.innerHTML='';
+    for(let i=1;i<=(lecc||1);i++){
+      selLecc.innerHTML+=`<option value="${i}" ${i===(lecc||1)?'selected':''}>${i} lección${i>1?'es':''}</option>`;
+    }
+  }
   document.getElementById("alert-jus").className="alert";
   document.getElementById("modal-justificar").classList.add("show");
 }
+
 async function guardarJustificacion(){
-  if(!jusId){ sa("alert-jus","Error: no hay ausencia seleccionada. Cerrá y volvé a dar clic en Justif.","danger"); return; }
+  if(!jusId){ sa("alert-jus","Error: no hay ausencia seleccionada.","danger"); return; }
   const justificada=document.getElementById("jus-check").checked;
   const motivo=document.getElementById("jus-motivo").value.trim();
+  const leccionesJustificadas=parseInt(document.getElementById("jus-lecc-sel")?.value||jusLecc);
   try{
-    await api(`/api/asistencia/justificar/${jusId}`,"PUT",{justificada,motivo});
+    await api(`/api/asistencia/justificar/${jusId}`,"PUT",{justificada, motivo, lecciones_justificadas: leccionesJustificadas});
     const r=registrosAsist.find(e=>e.asistencia_id===jusId);
     if(r){r.justificada=justificada;r.motivo=motivo;}
     cerrarModal("modal-justificar");
@@ -6699,6 +6717,17 @@ async function pdfZoom(delta){
       Estado: <strong id="jus-estado"></strong><br/>
       Lecciones ausente: <strong id="jus-lecciones"></strong>
     </p>
+    <div class="fg" style="margin-bottom:10px;">
+      <label>Lecciones a justificar</label>
+      <select id="jus-lecc-sel" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;">
+        <option value="1">1 lección</option>
+        <option value="2">2 lecciones</option>
+        <option value="3">3 lecciones</option>
+        <option value="4">4 lecciones</option>
+        <option value="5">5 lecciones</option>
+        <option value="6">6 lecciones</option>
+      </select>
+    </div>
     <div class="fg" style="margin-bottom:12px;">
       <label><input type="checkbox" id="jus-check" style="margin-right:6px;"/>Marcar como justificada</label>
     </div>

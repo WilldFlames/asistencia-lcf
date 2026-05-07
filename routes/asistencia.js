@@ -126,7 +126,9 @@ router.post("/", requireDocente, async (req, res) => {
       await client.query(`
         INSERT INTO asistencia (sesion_id, estudiante_id, estado, lecciones_ausentes, justificada, motivo)
         VALUES ($1,$2,$3,$4,false,'')
-        ON CONFLICT (sesion_id, estudiante_id) DO UPDATE SET estado=$3, lecciones_ausentes=$4
+        ON CONFLICT (sesion_id, estudiante_id) DO UPDATE 
+          SET estado=$3, lecciones_ausentes=$4
+          -- NO resetear justificada ni boleta_ausencia_id al re-guardar
       `, [sesion_id, r.estudiante_id, r.estado, lecAus]);
     }
 
@@ -145,6 +147,7 @@ router.post("/", requireDocente, async (req, res) => {
         WHERE a.id=$1
       `, [asignacion_id]);
 
+      console.log("auto-boleta check: es_guia_ori=", asigInfoR.rows[0]?.es_guia_ori, "asig_id=", asignacion_id);
       if (asigInfoR.rows[0]?.es_guia_ori) {
         // Get "Ausencias injustificadas" infraccion
         const infR = await pool.query(
@@ -152,6 +155,7 @@ router.post("/", requireDocente, async (req, res) => {
         );
         const infraccionId = infR.rows[0]?.id;
 
+        console.log("auto-boleta: infraccionId=", infraccionId);
         if (infraccionId) {
           for (const reg of registros) {
             // Buscar por sesion_id + estudiante_id (reg.id no existe en el body)
