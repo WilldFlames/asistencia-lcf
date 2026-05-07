@@ -2598,166 +2598,64 @@ async function cargarDashboard(){
     html += `</div>`;
     div.innerHTML = html;
 
-    // ── Wrapper para tarjetas informativas (2 columnas en desktop) ──
-    const infoGrid = document.createElement('div');
-    infoGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px;';
-    div.appendChild(infoGrid);
 
-    // Helper para añadir a infoGrid
-    const addCard = (el) => { el.style.margin='0'; infoGrid.appendChild(el); };
-
-    // ── Tarjeta fechas clave del curso (siempre visible para todos) ──
+    // ── Tarjetas informativas en grid de 3 columnas ──────────────────────────
     const hoyFechas = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
     const hoyMs = hoyFechas.getTime();
+    const mesesN = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const fC = d => `${d.getDate()} ${mesesN[d.getMonth()]}`;
 
-    const periodos = [
-      { tipo:'verde',  icono:'🟢', label:'Primer período',        desde: new Date('2026-02-23'), hasta: new Date('2026-07-03') },
-      { tipo:'naranja',icono:'🟠', label:'Semana Santa',           desde: new Date('2026-03-29'), hasta: new Date('2026-04-05') },
-      { tipo:'naranja',icono:'🟠', label:'Vacaciones de medio año',desde: new Date('2026-07-06'), hasta: new Date('2026-07-17') },
-      { tipo:'verde',  icono:'🟢', label:'Segundo período',        desde: new Date('2026-07-20'), hasta: new Date('2026-12-09') },
-      { tipo:'rojo',   icono:'🔴', label:'Fin de lecciones',       desde: new Date('2026-12-09'), hasta: new Date('2026-12-09') },
-      { tipo:'rojo',   icono:'🔴', label:'Actos de graduación',    desde: new Date('2026-12-10'), hasta: new Date('2026-12-11') },
+    const infoGrid = document.createElement('div');
+    infoGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:12px;';
+    div.appendChild(infoGrid);
+
+    // Fechas clave
+    const periodos=[
+      {tipo:'verde', icono:'🟢',label:'Primer período',   d1:'2026-02-23',d2:'2026-07-03'},
+      {tipo:'naran', icono:'🟠',label:'Semana Santa',      d1:'2026-03-29',d2:'2026-04-05'},
+      {tipo:'naran', icono:'🟠',label:'Vacaciones',        d1:'2026-07-06',d2:'2026-07-17'},
+      {tipo:'verde', icono:'🟢',label:'Segundo período',   d1:'2026-07-20',d2:'2026-12-09'},
+      {tipo:'rojo',  icono:'🔴',label:'Fin de lecciones',  d1:'2026-12-09',d2:'2026-12-09'},
+      {tipo:'rojo',  icono:'🔴',label:'Graduación',        d1:'2026-12-10',d2:'2026-12-11'},
     ];
+    const pCol={verde:{bg:'#f0fdf4',c:'#166534'},naran:{bg:'#fff7ed',c:'#9a3412'},rojo:{bg:'#fef2f2',c:'#991b1b'}};
+    const calCard=document.createElement('div');calCard.className='card';calCard.style.cssText='margin:0;';
+    calCard.innerHTML=`<div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">📅 Fechas Clave 2026</div><div style="display:flex;flex-direction:column;gap:4px;">${periodos.map(p=>{const c=pCol[p.tipo];const da=new Date(p.d1+'T12:00:00'),db=new Date(p.d2+'T12:00:00');const act=hoyMs>=da.getTime()&&hoyMs<=db.getTime();const pas=hoyMs>db.getTime();const rng=da.getTime()===db.getTime()?fC(da):`${fC(da)}–${fC(db)}`;return `<div style="display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:5px;background:${c.bg};opacity:${pas?'.4':'1'};"><span style="font-size:13px;">${p.icono}</span><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:bold;color:${c.c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.label}</div><div style="font-size:10px;color:${c.c};opacity:.8;">${rng}</div></div>${act?`<span style="background:${c.c};color:#fff;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:8px;">HOY</span>`:''}</div>`;}).join('')}</div>`;
+    infoGrid.appendChild(calCard);
 
-    const colores = {
-      verde:  { bg:'#f0fdf4', border:'#86efac', text:'#166534', badge:'#dcfce7', badgeText:'#166534' },
-      naranja:{ bg:'#fff7ed', border:'#fdba74', text:'#9a3412', badge:'#fed7aa', badgeText:'#9a3412' },
-      rojo:   { bg:'#fef2f2', border:'#fca5a5', text:'#991b1b', badge:'#fee2e2', badgeText:'#991b1b' },
-    };
+    // Sindicatos
+    const sinCard=document.createElement('div');sinCard.className='card';sinCard.style.cssText='margin:0;';
+    sinCard.innerHTML=`<div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">🏛️ Sindicatos 2026</div><div style="display:flex;flex-direction:column;gap:7px;">
+      <div style="padding:6px 9px;border-radius:6px;background:#f0fdf4;"><div style="font-weight:bold;font-size:12px;color:#16a34a;margin-bottom:2px;">SEC</div><div style="display:flex;justify-content:space-between;font-size:11px;"><span>Congreso</span><span style="font-weight:bold;color:#16a34a;">17–19 nov</span></div></div>
+      <div style="padding:6px 9px;border-radius:6px;background:#fffbeb;"><div style="font-weight:bold;font-size:12px;color:#d97706;margin-bottom:2px;">ANDE</div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>Reunión ago.</span><span style="color:#94a3b8;">Por definir</span></div><div style="display:flex;justify-content:space-between;font-size:11px;"><span>Congreso</span><span style="font-weight:bold;color:#d97706;">21–23 oct</span></div></div>
+      <div style="padding:6px 9px;border-radius:6px;background:#fef2f2;"><div style="font-weight:bold;font-size:12px;color:#dc2626;margin-bottom:2px;">APSE</div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>Votaciones</span><span style="font-weight:bold;color:#dc2626;">9 jun</span></div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>Segunda reunión</span><span style="color:#94a3b8;">Por definir</span></div><div style="display:flex;justify-content:space-between;font-size:11px;"><span>Congreso</span><span style="font-weight:bold;color:#dc2626;">12–14 ago</span></div></div>
+    </div>`;
+    infoGrid.appendChild(sinCard);
 
-    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-    const fmtCorto = d => `${d.getDate()} ${meses[d.getMonth()]}`;
+    // Documentos
+    const docsCard=document.createElement('div');docsCard.className='card';docsCard.style.cssText='margin:0;';
+    docsCard.innerHTML=`<div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">📁 Documentos</div><div style="display:flex;flex-direction:column;gap:6px;">
+      <div onclick="abrirVisorPDF('/docs/REAC_2026.pdf','REAC 2026')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:#f8fafc;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'"><span style="font-size:18px;">📋</span><span style="font-size:12px;font-weight:bold;color:var(--azul);flex:1;">REAC 2026</span><span style="color:var(--azul);">📖</span></div>
+      <div onclick="abrirVisorPDF('/docs/Prueba_escrita_2026_.pdf','Prueba Escrita 2026')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:#f8fafc;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'"><span style="font-size:18px;">📝</span><span style="font-size:12px;font-weight:bold;color:var(--azul);flex:1;">Prueba Escrita 2026</span><span style="color:var(--azul);">📖</span></div>
+      <div onclick="abrirVisorPDF('/docs/Lineamientos_t%C3%A9cnicos_2026.pdf','Lineamientos Técnicos 2026')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:#f8fafc;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'"><span style="font-size:18px;">📐</span><span style="font-size:12px;font-weight:bold;color:var(--azul);flex:1;">Lineamientos Técnicos 2026</span><span style="color:var(--azul);">📖</span></div>
+    </div>`;
+    infoGrid.appendChild(docsCard);
 
-    const calHtml = periodos.map(p=>{
-      const c = colores[p.tipo];
-      const enCurso = hoyMs >= p.desde.getTime() && hoyMs <= p.hasta.getTime();
-      const pasado  = hoyMs > p.hasta.getTime();
-      const rango = p.desde.getTime()===p.hasta.getTime()
-        ? fmtCorto(p.desde)
-        : `${fmtCorto(p.desde)} — ${fmtCorto(p.hasta)}`;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:${c.bg};border:1px solid ${c.border};opacity:${pasado?'0.5':'1'};">
-        <span style="font-size:18px;">${p.icono}</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:12px;font-weight:bold;color:${c.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.label}</div>
-          <div style="font-size:11px;color:${c.text};opacity:0.8;">${rango}</div>
-        </div>
-        ${enCurso?`<span style="background:${c.badge};color:${c.badgeText};font-size:10px;font-weight:bold;padding:2px 7px;border-radius:10px;white-space:nowrap;">HOY</span>`:''}
-      </div>`;
-    }).join('');
-
-    const calCard = document.createElement('div');
-    calCard.className = 'card';
-    calCard.style.cssText = 'margin-top:14px;';
-    calCard.innerHTML = `
-      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📅 Fechas Clave — Curso Lectivo 2026</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">${calHtml}</div>`;
-    addCard(calCard);
-
-    // ── Tarjeta fechas sindicatos 2026 ──
-    const sindicatos = [
-      { color:'#16a34a', bg:'#f0fdf4', border:'#86efac', sigla:'SEC',  nombre:'Sindicato de Educadores Costarricenses',
-        eventos:[{ label:'Congreso', desde:'2026-11-17', hasta:'2026-11-19' }] },
-      { color:'#d97706', bg:'#fffbeb', border:'#fcd34d', sigla:'ANDE', nombre:'Asociación Nacional de Educadores',
-        eventos:[
-          { label:'Reunión agosto', desde:'2026-08-01', hasta:'2026-08-31', indefinida:true },
-          { label:'Congreso',       desde:'2026-10-21', hasta:'2026-10-23' },
-        ] },
-      { color:'#dc2626', bg:'#fef2f2', border:'#fca5a5', sigla:'APSE', nombre:'Asociación de Profesores de Segunda Enseñanza',
-        eventos:[
-          { label:'Votaciones',      desde:'2026-06-09', hasta:'2026-06-09' },
-          { label:'Segunda reunión', desde:'2026-01-01', hasta:'2026-12-31', indefinida:true },
-          { label:'Congreso',        desde:'2026-08-12', hasta:'2026-08-14' },
-        ] },
-    ];
-
-    const sinHtml = sindicatos.map(s=>`
-      <div style="border:1px solid ${s.border};border-radius:10px;padding:12px;background:${s.bg};">
-        <div style="font-weight:bold;font-size:13px;color:${s.color};margin-bottom:8px;">
-          ${s.sigla} <span style="font-weight:normal;font-size:11px;color:#64748b;">${s.nombre}</span>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:5px;">
-          ${s.eventos.map(ev=>{
-            const d1 = new Date(ev.desde+'T12:00:00');
-            const d2 = new Date(ev.hasta+'T12:00:00');
-            const enCurso = !ev.indefinida && hoyMs>=d1.getTime() && hoyMs<=d2.getTime();
-            const rango = ev.indefinida ? 'Fecha por definir' :
-              d1.getTime()===d2.getTime() ? fmtCorto(d1) : `${fmtCorto(d1)} — ${fmtCorto(d2)}`;
-            return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
-              <span style="color:#374151;">${ev.label}</span>
-              <span style="color:${ev.indefinida?'#94a3b8':s.color};font-weight:${ev.indefinida?'normal':'bold'};">
-                ${rango}${enCurso?' <span style="background:'+s.color+';color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;">HOY</span>':''}
-              </span>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`).join('');
-
-    const sinCard = document.createElement('div');
-    sinCard.className = 'card';
-    sinCard.style.cssText = 'margin-top:14px;';
-    sinCard.innerHTML = `
-      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">🏛️ Fechas Sindicatos 2026</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">${sinHtml}</div>`;
-    addCard(sinCard);
-
-    // ── Tarjeta documentos institucionales ──
-    const docs = [
-      { icono:'📋', nombre:'REAC 2026',                    desc:'Reglamento de Evaluación de los Aprendizajes y Conducta',          url:'/docs/REAC_2026.pdf' },
-      { icono:'📝', nombre:'Prueba Escrita 2026',           desc:'Lineamientos para la aplicación de pruebas escritas',              url:'/docs/Prueba_escrita_2026_.pdf' },
-      { icono:'📐', nombre:'Lineamientos Técnicos 2026',    desc:'Lineamientos técnicos del curso lectivo 2026',                     url:'/docs/Lineamientos_t%C3%A9cnicos_2026.pdf' },
-    ];
-
-    const docsHtml = docs.map(d=>`
-      <div onclick="abrirVisorPDF('${d.url}','${d.nombre}')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:#f8fafc;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='var(--azul)'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
-        <span style="font-size:28px;">${d.icono}</span>
-        <div style="flex:1;">
-          <div style="font-weight:bold;font-size:13px;color:var(--azul);">${d.nombre}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${d.desc}</div>
-        </div>
-        <span style="font-size:18px;color:var(--azul);">📖</span>
-      </div>`).join('');
-
-    const docsCard = document.createElement('div');
-    docsCard.className = 'card';
-    docsCard.style.cssText = 'margin-top:14px;';
-    docsCard.innerHTML = `
-      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📁 Documentos Institucionales</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">${docsHtml}</div>`;
-    addCard(docsCard);
-
-    // ── Tarjeta medidas activas ──
-    if(allMedidasActivas.length > 0){
-      // Profesores: filtrar por sus secciones asignadas
-      // Orientador/admin: ver todas
-      const esProfeRegular = ME.rol==='profesor' || ME.rol==='profesor_guia';
-      let medidasFiltradas = allMedidasActivas;
-      if(esProfeRegular && d && d.asignaciones){
-        const misSecIds = new Set(d.asignaciones.map(a=>a.seccion_id).filter(Boolean));
-        medidasFiltradas = allMedidasActivas.filter(m=>misSecIds.has(m.seccion_id));
-      }
-
-      if(medidasFiltradas.length > 0){
-        const precautorias = medidasFiltradas.filter(m=>m.tipo==='precautoria');
-        const suspendidos  = medidasFiltradas.filter(m=>m.tipo==='suspension');
-        const hibridos     = medidasFiltradas.filter(m=>m.tipo==='educacion_hibrida');
-
-        const medRow = (m) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px;">
-          <span><strong>${m.primer_apellido} ${m.segundo_apellido||''}, ${m.nombre}</strong> <span style="color:var(--muted);">${m.seccion_nombre||'—'}</span></span>
-          <span style="color:var(--muted);font-size:11px;">Vence: ${fmtF(m.fecha_fin)}</span>
-        </div>`;
-
-        let medidasHtml = '';
-        if(suspendidos.length)  medidasHtml += `<div style="margin-bottom:10px;"><div style="font-weight:bold;font-size:12px;color:#991b1b;margin-bottom:4px;">🚫 Suspendidos (${suspendidos.length})</div>${suspendidos.map(medRow).join('')}</div>`;
-        if(precautorias.length) medidasHtml += `<div style="margin-bottom:10px;"><div style="font-weight:bold;font-size:12px;color:#854d0e;margin-bottom:4px;">⚠️ Precautoria (${precautorias.length})</div>${precautorias.map(medRow).join('')}</div>`;
-        if(hibridos.length)     medidasHtml += `<div style="margin-bottom:10px;"><div style="font-weight:bold;font-size:12px;color:#1d4ed8;margin-bottom:4px;">🏠 Ed. Híbrida (${hibridos.length})</div>${hibridos.map(medRow).join('')}</div>`;
-
-        const medidasCard = document.createElement('div');
-        medidasCard.className='card';
-        medidasCard.style.cssText='margin-top:14px;border-left:4px solid #f97316;';
-        medidasCard.innerHTML=`
-          <div style="font-weight:bold;font-size:14px;color:var(--naranja);margin-bottom:12px;">🎯 Estudiantes con Medidas Activas</div>
-          ${medidasHtml}`;
-        addCard(medidasCard);
+    // Medidas activas
+    if(allMedidasActivas.length>0){
+      const esProf=ME.rol==='profesor'||ME.rol==='profesor_guia';
+      let mFilt=allMedidasActivas;
+      if(esProf&&d&&d.asignaciones){const ss=new Set(d.asignaciones.map(a=>a.seccion_id).filter(Boolean));mFilt=allMedidasActivas.filter(m=>ss.has(m.seccion_id));}
+      if(mFilt.length>0){
+        const susp=mFilt.filter(m=>m.tipo==='suspension'),prec=mFilt.filter(m=>m.tipo==='precautoria'),hibr=mFilt.filter(m=>m.tipo==='educacion_hibrida');
+        const mRow=m=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid var(--border);"><span><strong>${m.primer_apellido}, ${m.nombre}</strong> <span style="color:var(--muted);">${m.seccion_nombre||''}</span></span><span style="color:var(--muted);white-space:nowrap;">vence ${fmtF(m.fecha_fin)}</span></div>`;
+        let mHtml='';
+        if(susp.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#991b1b;margin:5px 0 2px;">🚫 Suspendidos (${susp.length})</div>${susp.map(mRow).join('')}`;
+        if(prec.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#854d0e;margin:5px 0 2px;">⚠️ Precautoria (${prec.length})</div>${prec.map(mRow).join('')}`;
+        if(hibr.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#1d4ed8;margin:5px 0 2px;">🏠 Ed. Híbrida (${hibr.length})</div>${hibr.map(mRow).join('')}`;
+        const mCard=document.createElement('div');mCard.className='card';mCard.style.cssText='margin:0;border-left:3px solid #f97316;grid-column:1/-1;';
+        mCard.innerHTML=`<div style="font-weight:bold;font-size:13px;color:var(--naranja);margin-bottom:8px;">🎯 Medidas Activas</div>${mHtml}`;
+        infoGrid.appendChild(mCard);
       }
     }
     if(ME.rol==="auxiliar"||ME.rol==="admin"){

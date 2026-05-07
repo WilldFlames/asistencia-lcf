@@ -139,15 +139,21 @@ router.post("/", requireDocente, async (req, res) => {
     try {
       const asigInfoR = await pool.query(`
         SELECT a.id, m.nombre AS materia, a.profesor_id AS prof_id,
-          EXISTS(SELECT 1 FROM usuarios u2 WHERE u2.id=a.profesor_id AND
-            u2.rol IN ('profesor_guia','orientador'))
-          AS es_guia_ori
+          (
+            -- Es guía/orientación si el profesor tiene ese rol
+            EXISTS(SELECT 1 FROM usuarios u2 WHERE u2.id=a.profesor_id AND
+              u2.rol IN ('profesor_guia','orientador'))
+            OR
+            -- O si el nombre de la materia contiene "guía" u "orientación"
+            m.nombre ILIKE '%guía%' OR m.nombre ILIKE '%guia%' OR
+            m.nombre ILIKE '%orientaci%'
+          ) AS es_guia_ori
         FROM asignaciones a
         JOIN materias m ON m.id=a.materia_id
         WHERE a.id=$1
       `, [asignacion_id]);
 
-      console.log("auto-boleta check: es_guia_ori=", asigInfoR.rows[0]?.es_guia_ori, "asig_id=", asignacion_id);
+      console.log("auto-boleta: materia=", asigInfoR.rows[0]?.materia, "es_guia_ori=", asigInfoR.rows[0]?.es_guia_ori);
       if (asigInfoR.rows[0]?.es_guia_ori) {
         // Get "Ausencias injustificadas" infraccion
         const infR = await pool.query(
