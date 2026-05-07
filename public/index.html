@@ -2569,6 +2569,11 @@ async function cargarDashboard(){
     const d = await api("/api/reportes/dashboard-profesor");
     if(!d){ div.innerHTML=""; return; }
 
+    // Cargar horario del profesor desde horarios.json
+    const horarios = await cargarHorarios();
+    const nombreCompleto = `${ME.primer_apellido||''} ${ME.segundo_apellido||''} ${ME.nombre||''}`;
+    const horarioHoy = obtenerHorarioHoy(horarios, nombreCompleto);
+
     const hoyStr = hoy.toISOString().slice(0,10);
     const asigsPendientes = d.asignaciones.filter(a=>!a.sesion_hoy);
     const asigsOk = d.asignaciones.filter(a=>a.sesion_hoy);
