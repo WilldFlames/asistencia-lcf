@@ -2575,27 +2575,60 @@ async function cargarDashboard(){
 
     let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;align-items:start;">`;
 
-    // ── TARJETA 1: Asistencia hoy ──
-    // Cargar horario del profesor
-    const horarios = await cargarHorarios();
-    const nombreCompleto = `${ME.primer_apellido} ${ME.segundo_apellido} ${ME.nombre}`;
-    const horarioHoy = obtenerHorarioHoy(horarios, nombreCompleto);
-    html += `<div class="card" style="margin:0;">
-      <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">✅ Asistencia de Hoy</div>
-      ${d.asignaciones.length===0?`<div style="color:var(--muted);font-size:13px;">Sin asignaciones registradas.</div>`:""}
-      ${asigsOk.map(a=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
-          <span><strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}${a.subgrupo?` (G${a.subgrupo})`:""}</span>
-          <span class="badge b-prof">✅ Registrada</span>
-        </div>`).join("")}
-      ${asigsPendientes.map(a=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
-          <span><strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}${a.subgrupo?` (G${a.subgrupo})`:""}</span>
-          <span class="badge" style="background:#fef9c3;color:#92400e;">⏳ Sin registrar</span>
-        </div>`).join("")}
-      ${d.asignaciones.length>0?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">${asigsOk.length}/${d.asignaciones.length} registradas hoy</div>
-      ${horarioHoy && horarioHoy.secciones.length>0?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><div style="font-size:11px;font-weight:bold;color:var(--azul);margin-bottom:4px;">📅 ${horarioHoy.dia}</div>${horarioHoy.secciones.filter(s=>!/cood|plaza|vacante/i.test(s.secciones)).sort((a,b)=>a.secciones.localeCompare(b.secciones)).map(s=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid #f1f5f9;"><span style="font-weight:bold;">Sec. ${s.secciones}</span><span style="color:var(--muted);">${s.lecciones} lecc.</span></div>`).join('')}</div>`:""}`:""}
-    </div>`;
+    // ── TARJETA 1: Horario de Hoy ──
+    {
+      const seccionesHoy = horarioHoy
+        ? horarioHoy.secciones.filter(s=>!/cood|plaza|vacante/i.test(s.secciones))
+            .sort((a,b)=>a.secciones.localeCompare(b.secciones))
+        : [];
+      const diasOk = d.asignaciones.filter(a=>a.sesion_hoy).length;
+      const diasTotal = d.asignaciones.length;
+      const dia = horarioHoy ? horarioHoy.dia : '';
+
+      let rowsHtml = '';
+      if(seccionesHoy.length > 0){
+        seccionesHoy.forEach(s=>{
+          const asig = d.asignaciones.find(a=>
+            (a.seccion_nombre||'').replace(/\s/g,'') === s.secciones.replace(/\s/g,'')
+          );
+          const ok = !!(asig && asig.sesion_hoy);
+          const materia = asig ? (' · ' + asig.materia_nombre + (asig.subgrupo?' (G'+asig.subgrupo+')':'')) : '';
+          const btn = (!ok && asig)
+            ? '<button class="btn btn-primary btn-xs" onclick="abrirAsistencia('+asig.id+',\''+asig.seccion_nombre+'\')" style="white-space:nowrap;">Pasar lista</button>'
+            : '';
+          rowsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);">'
+            + '<span style="font-size:20px;min-width:24px;">' + (ok ? '✅' : '❌') + '</span>'
+            + '<div style="flex:1;min-width:0;">'
+            + '<div style="font-weight:bold;font-size:13px;">Sección ' + s.secciones + '</div>'
+            + '<div style="font-size:11px;color:var(--muted);">' + s.lecciones + ' lecc.' + materia + '</div>'
+            + '</div>' + btn + '</div>';
+        });
+      } else if(!horarioHoy){
+        // Fallback: mostrar asignaciones del sistema
+        d.asignaciones.forEach(a=>{
+          const ok = !!a.sesion_hoy;
+          rowsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);">'
+            + '<span style="font-size:20px;min-width:24px;">' + (ok ? '✅' : '❌') + '</span>'
+            + '<div style="flex:1;min-width:0;">'
+            + '<div style="font-weight:bold;font-size:13px;">' + a.seccion_nombre + '</div>'
+            + '<div style="font-size:11px;color:var(--muted);">' + a.materia_nombre + '</div>'
+            + '</div>'
+            + (!ok ? '<button class="btn btn-primary btn-xs" onclick="abrirAsistencia('+a.id+',\''+a.seccion_nombre+'\')">Pasar lista</button>' : '')
+            + '</div>';
+        });
+      } else {
+        rowsHtml = '<div style="text-align:center;padding:18px;color:var(--muted);font-size:13px;">✅ Sin lecciones programadas hoy</div>';
+      }
+
+      const subtitulo = dia ? '<div style="font-size:11px;font-weight:bold;color:var(--muted);margin-bottom:8px;">'+dia+'</div>' : '';
+      const resumen = diasTotal > 0 ? '<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:right;">'+diasOk+'/'+diasTotal+' secciones registradas</div>' : '';
+
+      html += '<div class="card" style="margin:0;">'
+        + '<div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">📋 Mi Horario Hoy</div>'
+        + subtitulo + rowsHtml + resumen
+        + '</div>';
+    }
+
 
     html += `<div style="display:flex;flex-direction:column;gap:12px;min-width:0;">`;
     // ── TARJETA 2: Informes pendientes ──
