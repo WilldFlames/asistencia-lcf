@@ -1,4 +1,4 @@
-// Version: 2026-05-07 17:17:31
+// Version: 2026-05-07 19:56:34
 require("dotenv").config();
 const compression = require("compression");
 const express   = require("express");
@@ -13,7 +13,8 @@ app.use(compression()); // Gzip — reduces 411KB to ~100KB
 const PORT = process.env.PORT || 3002;
 
 app.set('trust proxy', 1);
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(session({
   store: new pgSession({ pool, createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || "lcf-asistencia-secret-2024",

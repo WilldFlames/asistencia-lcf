@@ -62,11 +62,11 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
     FROM estudiantes e
     WHERE e.seccion_id=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
   const estParams = [seccion_id];
-  // Solo filtrar por subgrupo si la asignación tiene uno (A o B)
-  // Si no tiene subgrupo = el profe tiene el grupo completo → mostrar todos
-  if (subgrupo) {
-    estParams.push(subgrupo);
-    estQuery += ` AND (e.subgrupo=$${estParams.length} OR e.subgrupo IS NULL OR e.subgrupo='')`;
+  // Si la asignación tiene subgrupo → mostrar SOLO estudiantes de ese subgrupo
+  // Si NO tiene subgrupo → el profe tiene el grupo completo → mostrar todos
+  if (subgrupo && subgrupo.trim() !== '') {
+    estParams.push(subgrupo.trim().toUpperCase());
+    estQuery += ` AND UPPER(COALESCE(e.subgrupo,'')) = $${estParams.length}`;
   }
   estQuery += ` ORDER BY e.cedula) sub ORDER BY sub.primer_apellido, sub.segundo_apellido, sub.nombre`;
   const estR = await pool.query(estQuery, estParams);
