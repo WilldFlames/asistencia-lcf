@@ -2605,9 +2605,7 @@ async function cargarDashboard(){
     const mesesN = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
     const fC = d => `${d.getDate()} ${mesesN[d.getMonth()]}`;
 
-    const infoGrid = document.createElement('div');
-    infoGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:12px;';
-    div.appendChild(infoGrid);
+    // Cards appended directly to main grid div
 
     // Fechas clave
     const periodos=[
@@ -2621,7 +2619,7 @@ async function cargarDashboard(){
     const pCol={verde:{bg:'#f0fdf4',c:'#166534'},naran:{bg:'#fff7ed',c:'#9a3412'},rojo:{bg:'#fef2f2',c:'#991b1b'}};
     const calCard=document.createElement('div');calCard.className='card';calCard.style.cssText='margin:0;';
     calCard.innerHTML=`<div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">📅 Fechas Clave 2026</div><div style="display:flex;flex-direction:column;gap:4px;">${periodos.map(p=>{const c=pCol[p.tipo];const da=new Date(p.d1+'T12:00:00'),db=new Date(p.d2+'T12:00:00');const act=hoyMs>=da.getTime()&&hoyMs<=db.getTime();const pas=hoyMs>db.getTime();const rng=da.getTime()===db.getTime()?fC(da):`${fC(da)}–${fC(db)}`;return `<div style="display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:5px;background:${c.bg};opacity:${pas?'.4':'1'};"><span style="font-size:13px;">${p.icono}</span><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:bold;color:${c.c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.label}</div><div style="font-size:10px;color:${c.c};opacity:.8;">${rng}</div></div>${act?`<span style="background:${c.c};color:#fff;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:8px;">HOY</span>`:''}</div>`;}).join('')}</div>`;
-    infoGrid.appendChild(calCard);
+    div.appendChild(calCard);
 
     // Sindicatos
     const sinCard=document.createElement('div');sinCard.className='card';sinCard.style.cssText='margin:0;';
@@ -2630,7 +2628,7 @@ async function cargarDashboard(){
       <div style="padding:6px 9px;border-radius:6px;background:#fffbeb;"><div style="font-weight:bold;font-size:12px;color:#d97706;margin-bottom:2px;">ANDE</div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>Reunión ago.</span><span style="color:#94a3b8;">Por definir</span></div><div style="display:flex;justify-content:space-between;font-size:11px;"><span>Congreso</span><span style="font-weight:bold;color:#d97706;">21–23 oct</span></div></div>
       <div style="padding:6px 9px;border-radius:6px;background:#fef2f2;"><div style="font-weight:bold;font-size:12px;color:#dc2626;margin-bottom:2px;">APSE</div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>Votaciones</span><span style="font-weight:bold;color:#dc2626;">9 jun</span></div><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;"><span>Segunda reunión</span><span style="color:#94a3b8;">Por definir</span></div><div style="display:flex;justify-content:space-between;font-size:11px;"><span>Congreso</span><span style="font-weight:bold;color:#dc2626;">12–14 ago</span></div></div>
     </div>`;
-    infoGrid.appendChild(sinCard);
+    div.appendChild(sinCard);
 
     // Documentos
     const docsCard=document.createElement('div');docsCard.className='card';docsCard.style.cssText='margin:0;';
@@ -2639,7 +2637,7 @@ async function cargarDashboard(){
       <div onclick="abrirVisorPDF('/docs/Prueba_escrita_2026_.pdf','Prueba Escrita 2026')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:#f8fafc;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'"><span style="font-size:18px;">📝</span><span style="font-size:12px;font-weight:bold;color:var(--azul);flex:1;">Prueba Escrita 2026</span><span style="color:var(--azul);">📖</span></div>
       <div onclick="abrirVisorPDF('/docs/Lineamientos_t%C3%A9cnicos_2026.pdf','Lineamientos Técnicos 2026')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:#f8fafc;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'"><span style="font-size:18px;">📐</span><span style="font-size:12px;font-weight:bold;color:var(--azul);flex:1;">Lineamientos Técnicos 2026</span><span style="color:var(--azul);">📖</span></div>
     </div>`;
-    infoGrid.appendChild(docsCard);
+    div.appendChild(docsCard);
 
     // Medidas activas
     if(allMedidasActivas.length>0){
@@ -2655,7 +2653,7 @@ async function cargarDashboard(){
         if(hibr.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#1d4ed8;margin:5px 0 2px;">🏠 Ed. Híbrida (${hibr.length})</div>${hibr.map(mRow).join('')}`;
         const mCard=document.createElement('div');mCard.className='card';mCard.style.cssText='margin:0;border-left:3px solid #f97316;grid-column:1/-1;';
         mCard.innerHTML=`<div style="font-weight:bold;font-size:13px;color:var(--naranja);margin-bottom:8px;">🎯 Medidas Activas</div>${mHtml}`;
-        infoGrid.appendChild(mCard);
+        div.appendChild(mCard);
       }
     }
     if(ME.rol==="auxiliar"||ME.rol==="admin"){
