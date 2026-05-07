@@ -2540,6 +2540,7 @@ async function cargarDashboard(){
       ${d.asignaciones.length>0?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">${asigsOk.length}/${d.asignaciones.length} registradas hoy</div>`:""}
     </div>`;
 
+    html += `<div style="display:flex;flex-direction:column;gap:12px;min-width:0;">`;
     // ── TARJETA 2: Informes pendientes ──
     html += `<div class="card" style="margin:0;">
       <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">📨 Informes</div>
@@ -2555,6 +2556,31 @@ async function cargarDashboard(){
         </div>`:""}
       </div>
     </div>`;
+
+    // ── TARJETA 4: Estado conducta (solo guía/orientador) ──
+    if(d.estadoConducta && esGuiaOri){
+      const {total,criticos,en_riesgo} = d.estadoConducta;
+      html += `<div class="card" style="margin:0;">
+        <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">📋 Conducta de la Sección</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="text-align:center;padding:10px;background:#f0fdf4;border-radius:8px;flex:1;">
+            <div style="font-size:22px;font-weight:bold;color:var(--verde);">${total-criticos-en_riesgo}</div>
+            <div style="font-size:11px;color:var(--muted);">En buen estado</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:#fef9c3;border-radius:8px;flex:1;">
+            <div style="font-size:22px;font-weight:bold;color:var(--naranja);">${en_riesgo}</div>
+            <div style="font-size:11px;color:var(--muted);">En riesgo (60-79)</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:#fee2e2;border-radius:8px;flex:1;">
+            <div style="font-size:22px;font-weight:bold;color:var(--rojo);">${criticos}</div>
+            <div style="font-size:11px;color:var(--muted);">Críticos (<60)</div>
+          </div>
+        </div>
+        ${parseInt(criticos)>0||parseInt(en_riesgo)>0?`<button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="goTo('conducta')">Ver conducta completa →</button>`:""}
+      </div>`;
+    }
+
+    html += `</div>`; // close col informes+conducta
 
     // ── INFO CARDS: Fechas, Sindicatos, Documentos (inline en el grid) ──
     const _hoyMs2 = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).getTime();
@@ -2589,29 +2615,6 @@ async function cargarDashboard(){
         <div onclick="abrirVisorPDF('/docs/Lineamientos_t%C3%A9cnicos_2026.pdf','Lineamientos 2026')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;background:#f8fafc;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'"><span style="font-size:18px;">📐</span><span style="font-size:12px;font-weight:bold;color:var(--azul);flex:1;">Lineamientos 2026</span><span>📖</span></div>
       </div>
     </div>`;
-
-    // ── TARJETA 4: Estado conducta (solo guía/orientador) ──
-    if(d.estadoConducta && esGuiaOri){
-      const {total,criticos,en_riesgo} = d.estadoConducta;
-      html += `<div class="card" style="margin:0;">
-        <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">📋 Conducta de la Sección</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <div style="text-align:center;padding:10px;background:#f0fdf4;border-radius:8px;flex:1;">
-            <div style="font-size:22px;font-weight:bold;color:var(--verde);">${total-criticos-en_riesgo}</div>
-            <div style="font-size:11px;color:var(--muted);">En buen estado</div>
-          </div>
-          <div style="text-align:center;padding:10px;background:#fef9c3;border-radius:8px;flex:1;">
-            <div style="font-size:22px;font-weight:bold;color:var(--naranja);">${en_riesgo}</div>
-            <div style="font-size:11px;color:var(--muted);">En riesgo (60-79)</div>
-          </div>
-          <div style="text-align:center;padding:10px;background:#fee2e2;border-radius:8px;flex:1;">
-            <div style="font-size:22px;font-weight:bold;color:var(--rojo);">${criticos}</div>
-            <div style="font-size:11px;color:var(--muted);">Críticos (<60)</div>
-          </div>
-        </div>
-        ${parseInt(criticos)>0||parseInt(en_riesgo)>0?`<button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="goTo('conducta')">Ver conducta completa →</button>`:""}
-      </div>`;
-    }
 
     // ── TARJETA 3: Ausencias frecuentes ──
     if(d.ausenciasFrecuentes.length>0){
