@@ -2590,22 +2590,6 @@ async function cargarDashboard(){
       </div>
     </div>`;
 
-    // ── TARJETA 3: Ausencias frecuentes ──
-    if(d.ausenciasFrecuentes.length>0){
-      html += `<div class="card" style="margin:0;">
-        <div style="font-weight:bold;font-size:13px;color:var(--rojo);margin-bottom:8px;">⚠️ Ausencias Frecuentes (≥10 lecciones)</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">
-          ${d.ausenciasFrecuentes.map(e=>`
-            <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:9px 12px;font-size:13px;">
-              <div style="font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
-              ${e.seccion_nombre?`<div style="font-size:11px;color:var(--azul);font-weight:bold;">📚 ${e.seccion_nombre}</div>`:""}
-              ${e.materia_nombre?`<div style="font-size:11px;color:var(--muted);display:none;">📖 ${e.materia_nombre}</div>`:""}
-              <div style="color:var(--rojo);font-weight:bold;margin-top:3px;">${e.total_ausencias} lecciones ausente</div>
-            </div>`).join("")}
-        </div>
-      </div>`;
-    }
-
     // ── TARJETA 4: Estado conducta (solo guía/orientador) ──
     if(d.estadoConducta && esGuiaOri){
       const {total,criticos,en_riesgo} = d.estadoConducta;
@@ -2626,6 +2610,22 @@ async function cargarDashboard(){
           </div>
         </div>
         ${parseInt(criticos)>0||parseInt(en_riesgo)>0?`<button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="goTo('conducta')">Ver conducta completa →</button>`:""}
+      </div>`;
+    }
+
+    // ── TARJETA 3: Ausencias frecuentes ──
+    if(d.ausenciasFrecuentes.length>0){
+      html += `<div class="card" style="margin:0;">
+        <div style="font-weight:bold;font-size:13px;color:var(--rojo);margin-bottom:8px;">⚠️ Ausencias Frecuentes (≥10 lecciones)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">
+          ${d.ausenciasFrecuentes.map(e=>`
+            <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:9px 12px;font-size:13px;">
+              <div style="font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
+              ${e.seccion_nombre?`<div style="font-size:11px;color:var(--azul);font-weight:bold;">📚 ${e.seccion_nombre}</div>`:""}
+              ${e.materia_nombre?`<div style="font-size:11px;color:var(--muted);display:none;">📖 ${e.materia_nombre}</div>`:""}
+              <div style="color:var(--rojo);font-weight:bold;margin-top:3px;">${e.total_ausencias} lecciones ausente</div>
+            </div>`).join("")}
+        </div>
       </div>`;
     }
 
