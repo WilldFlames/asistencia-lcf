@@ -2542,8 +2542,13 @@ async function cargarDashboard(){
   const _y = _crRaw.getFullYear(), _m = _crRaw.getMonth(), _d = _crRaw.getDate();
   const _h = _crRaw.getHours();
   const hoyStr = _y+'-'+String(_m+1).padStart(2,'0')+'-'+String(_d).padStart(2,'0');
-  const hoy = { getDay: ()=> _crRaw.getDay(), getHours: ()=> _h,
-    toLocaleDateString: (loc,opts)=> new Date(_y,_m,_d).toLocaleDateString(loc,opts) };
+  // hoy como objeto que siempre usa fecha CR correcta
+  const hoy = {
+    getDay: ()=> _crRaw.getDay(),
+    getHours: ()=> _h,
+    toLocaleDateString: (loc,opts)=> new Date(_y,_m,_d).toLocaleDateString(loc,opts),
+    toISOString: ()=> hoyStr+'T00:00:00.000Z'
+  };
   const fx = ME.funciones_extra||[];
   const esDocente = tieneAlgunRol("profesor","profesor_guia","orientador");
   const esGuiaOri = tieneAlgunRol("profesor_guia","orientador") || fx.includes("profesor_guia") || fx.includes("orientador");
