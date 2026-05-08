@@ -66,7 +66,7 @@ router.post("/", requireAuth, canUse, async (req, res) => {
 
   const solicitante_id = (u.rol === "secretaria" && sol_id_body) ? sol_id_body : u.id;
   const inicio = INICIO[tipo];
-  const fechaVal = fecha || new Date().toISOString().slice(0,10);
+  const fechaVal = fecha || new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
 
   // Reintentos con backoff — sin LOCK TABLE para evitar deadlocks
   for(let intento = 0; intento < 10; intento++){

@@ -177,7 +177,7 @@ router.get("/seccion/:seccion_id/estudiantes", requireAuth, async (req, res) => 
 router.get("/dashboard-profesor", requireAuth, async (req, res) => {
   try {
   const u = req.session.usuario;
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
 
   // 1 y 2: Paralelo para mayor velocidad
   const [asigs, informesPendientes] = await Promise.all([
@@ -294,7 +294,7 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
 // ── REPORTE DE CUMPLIMIENTO (admin) ──────────────────────────────────────────
 router.get("/cumplimiento", requireAuth, async (req, res) => {
   const { desde, hasta } = req.query;
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
   const d = desde || hoy.slice(0,8) + '01';
   const h = hasta || hoy;
 
