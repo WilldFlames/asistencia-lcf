@@ -2580,6 +2580,14 @@ async function cargarDashboard(){
     const nombreCompleto = `${ME.primer_apellido||''} ${ME.segundo_apellido||''} ${ME.nombre||''}`;
     const horarioHoy = obtenerHorarioHoy(horarios, nombreCompleto);
 
+    // DEBUG - borrar después
+    console.log('=== DASHBOARD DEBUG ===');
+    console.log('hoyStr:', hoyStr);
+    console.log('nombreCompleto:', nombreCompleto);
+    console.log('horarioHoy:', JSON.stringify(horarioHoy));
+    console.log('asignaciones:', JSON.stringify(d.asignaciones?.map(a=>({id:a.id,seccion:a.seccion_nombre,sesion_hoy:a.sesion_hoy}))));
+
+
     const hoyStr = hoy.toISOString().slice(0,10);
     const asigsPendientes = d.asignaciones.filter(a=>!a.sesion_hoy);
     const asigsOk = d.asignaciones.filter(a=>a.sesion_hoy);
@@ -2641,9 +2649,15 @@ async function cargarDashboard(){
       const subtitulo = dia ? '<div style="font-size:11px;font-weight:bold;color:var(--muted);margin-bottom:8px;">'+dia+'</div>' : '';
       const resumen = diasTotal > 0 ? '<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:right;">'+diasOk+'/'+diasTotal+' secciones registradas</div>' : '';
 
+      // DEBUG TEMPORAL - borrar después
+      const debugInfo = '<div style="background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:8px;margin-top:10px;font-size:10px;font-family:monospace;">'
+        + '<b>DEBUG:</b> hoyStr='+hoyStr+' | dia='+(horarioHoy?horarioHoy.dia:'null')+'<br>'
+        + 'asigs='+JSON.stringify(d.asignaciones?.map(a=>({sec:a.seccion_nombre,hoy:a.sesion_hoy!=null?'SI':'NO'}))||[])
+        + '</div>';
+
       html += '<div class="card" style="margin:0;">'
         + '<div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">📋 Mi Horario Hoy</div>'
-        + subtitulo + rowsHtml + resumen
+        + subtitulo + rowsHtml + resumen + debugInfo
         + '</div>';
     }
 
