@@ -2537,18 +2537,11 @@ function obtenerHorarioHoy(horarios, nombreUsuario){
 
 async function cargarDashboard(){
   const dias=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
-  // Siempre usar hora de Costa Rica (UTC-6, sin cambio de horario)
-  const _crRaw = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
-  const _y = _crRaw.getFullYear(), _m = _crRaw.getMonth(), _d = _crRaw.getDate();
-  const _h = _crRaw.getHours();
-  const hoyStr = _y+'-'+String(_m+1).padStart(2,'0')+'-'+String(_d).padStart(2,'0');
-  // hoy como objeto que siempre usa fecha CR correcta
-  const hoy = {
-    getDay: ()=> _crRaw.getDay(),
-    getHours: ()=> _h,
-    toLocaleDateString: (loc,opts)=> new Date(_y,_m,_d).toLocaleDateString(loc,opts),
-    toISOString: ()=> hoyStr+'T00:00:00.000Z'
-  };
+  // Fecha/hora en Costa Rica - extraer año/mes/día directamente sin toISOString
+  const _cr = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
+  const hoyStr = _cr.getFullYear()+'-'+String(_cr.getMonth()+1).padStart(2,'0')+'-'+String(_cr.getDate()).padStart(2,'0');
+  // Usar _cr directamente para día de semana y hora
+  const hoy = _cr;
   const fx = ME.funciones_extra||[];
   const esDocente = tieneAlgunRol("profesor","profesor_guia","orientador");
   const esGuiaOri = tieneAlgunRol("profesor_guia","orientador") || fx.includes("profesor_guia") || fx.includes("orientador");
@@ -4696,7 +4689,7 @@ function renderMedidas(rows, tipo){
   const tbody = document.getElementById(cfg.tbodyId);
   if(!tbody) return;
   if(!rows.length){ tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay registros de ${cfg.label}.</td></tr>`; return; }
-  const hoy = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
+  const hoy = (()=>{const _c=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));return _c.getFullYear()+'-'+String(_c.getMonth()+1).padStart(2,'0')+'-'+String(_c.getDate()).padStart(2,'0');})();
   tbody.innerHTML = rows.map(r=>{
     const fi=(r.fecha_inicio||'').slice(0,10);
     const ff=(r.fecha_fin||'').slice(0,10);
