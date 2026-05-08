@@ -2583,8 +2583,14 @@ async function cargarDashboard(){
     // ── TARJETA 1: Horario de Hoy ──
     {
       const seccionesHoy = horarioHoy
-        ? horarioHoy.secciones.filter(s=>!/cood|plaza|vacante/i.test(s.secciones))
-            .sort((a,b)=>a.secciones.localeCompare(b.secciones))
+        ? horarioHoy.secciones
+            .filter(s=>!/club/i.test(s.secciones) && !/cood|plaza|vacante/i.test(s.secciones))
+            .map(s=>({
+              ...s,
+              // Extraer sección base: "10-1 (Guía)" → "10-1"
+              seccionBase: (s.secciones.match(/^(\d+[-–]\d+)/)||[,''])[1] || s.secciones
+            }))
+            .sort((a,b)=>a.seccionBase.localeCompare(b.seccionBase))
         : [];
       const diasOk = d.asignaciones.filter(a=>a.sesion_hoy).length;
       const diasTotal = d.asignaciones.length;
@@ -2593,9 +2599,10 @@ async function cargarDashboard(){
       let rowsHtml = '';
       if(seccionesHoy.length > 0){
         seccionesHoy.forEach(s=>{
-          const asig = d.asignaciones.find(a=>
-            (a.seccion_nombre||'').replace(/\s/g,'') === s.secciones.replace(/\s/g,'')
-          );
+          const asig = d.asignaciones.find(a=>{
+            const an = (a.seccion_nombre||'').replace(/\s/g,'');
+            return an === s.seccionBase.replace(/\s/g,'') || an === s.secciones.replace(/\s/g,'');
+          });
           const ok = !!(asig && asig.sesion_hoy);
           const materia = asig ? (' · ' + asig.materia_nombre + (asig.subgrupo?' (G'+asig.subgrupo+')':'')) : '';
           const btn = (!ok && asig)
@@ -2604,7 +2611,7 @@ async function cargarDashboard(){
           rowsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);">'
             + '<span style="font-size:20px;min-width:24px;">' + (ok ? '✅' : '❌') + '</span>'
             + '<div style="flex:1;min-width:0;">'
-            + '<div style="font-weight:bold;font-size:13px;">Sección ' + s.secciones + '</div>'
+            + '<div style="font-weight:bold;font-size:13px;">Sección ' + s.seccionBase + '</div>'
             + '<div style="font-size:11px;color:var(--muted);">' + s.lecciones + ' lecc.' + materia + '</div>'
             + '</div>' + btn + '</div>';
         });
