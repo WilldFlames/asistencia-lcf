@@ -2580,15 +2580,7 @@ async function cargarDashboard(){
     const nombreCompleto = `${ME.primer_apellido||''} ${ME.segundo_apellido||''} ${ME.nombre||''}`;
     const horarioHoy = obtenerHorarioHoy(horarios, nombreCompleto);
 
-    // DEBUG - borrar después
-    console.log('=== DASHBOARD DEBUG ===');
-    console.log('hoyStr:', hoyStr);
-    console.log('nombreCompleto:', nombreCompleto);
-    console.log('horarioHoy:', JSON.stringify(horarioHoy));
-    console.log('asignaciones:', JSON.stringify(d.asignaciones?.map(a=>({id:a.id,seccion:a.seccion_nombre,sesion_hoy:a.sesion_hoy}))));
-
-
-    const hoyStr = hoy.toISOString().slice(0,10);
+    // hoyStr ya definido arriba con timezone CR
     const asigsPendientes = d.asignaciones.filter(a=>!a.sesion_hoy);
     const asigsOk = d.asignaciones.filter(a=>a.sesion_hoy);
 
