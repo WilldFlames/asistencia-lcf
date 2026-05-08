@@ -2502,7 +2502,9 @@ function normalizarNombre(n){
 
 function obtenerHorarioHoy(horarios, nombreUsuario){
   const diasES = ['DOMINGO','LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO'];
-  const hoy = diasES[new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).getDay()];
+  // Extraer día de CR sin depender de toISOString ni de la zona local del browser
+  const _cr = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
+  const hoy = diasES[_cr.getDay()];
   const nombreNorm = normalizarNombre(nombreUsuario);
   
   // Buscar por apellidos+nombre (fuzzy)
@@ -2535,7 +2537,13 @@ function obtenerHorarioHoy(horarios, nombreUsuario){
 
 async function cargarDashboard(){
   const dias=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
-  const hoy=new Date();
+  // Siempre usar hora de Costa Rica (UTC-6, sin cambio de horario)
+  const _crRaw = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
+  const _y = _crRaw.getFullYear(), _m = _crRaw.getMonth(), _d = _crRaw.getDate();
+  const _h = _crRaw.getHours();
+  const hoyStr = _y+'-'+String(_m+1).padStart(2,'0')+'-'+String(_d).padStart(2,'0');
+  const hoy = { getDay: ()=> _crRaw.getDay(), getHours: ()=> _h,
+    toLocaleDateString: (loc,opts)=> new Date(_y,_m,_d).toLocaleDateString(loc,opts) };
   const fx = ME.funciones_extra||[];
   const esDocente = tieneAlgunRol("profesor","profesor_guia","orientador");
   const esGuiaOri = tieneAlgunRol("profesor_guia","orientador") || fx.includes("profesor_guia") || fx.includes("orientador");
