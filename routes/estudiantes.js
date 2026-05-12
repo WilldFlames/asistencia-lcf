@@ -311,7 +311,8 @@ router.post("/:id/escape", requireAuth, async (req, res) => {
       if (!infR.rows.length) return res.status(500).json({ error: "Infracción 'Fuga de lecciones' no encontrada" });
       const infraccionId = infR.rows[0].id;
 
-      const hoy = new Date(new Date().toLocaleString('en-US', {timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
+      const _crN = new Date(new Date().toLocaleString('en-US', {timeZone:'America/Costa_Rica'}));
+      const hoy = _crN.getFullYear()+'-'+String(_crN.getMonth()+1).padStart(2,'0')+'-'+String(_crN.getDate()).padStart(2,'0');
 
       // Usar asignacion_id para registrar en qué materia se escapó
       const asigId = asignacion_id ? parseInt(asignacion_id) : null;
@@ -330,6 +331,20 @@ router.post("/:id/escape", requireAuth, async (req, res) => {
         "UPDATE estudiantes SET escapado=true, boleta_escape_id=$1 WHERE id=$2",
         [boletaId, estId]
       );
+
+      // Marcar escapado en la sesión activa de hoy también
+      if (asigId) {
+        const sesHoyR = await pool.query(
+          "SELECT id FROM sesiones_asistencia WHERE asignacion_id=$1 AND fecha=$2",
+          [asigId, hoy]
+        );
+        if (sesHoyR.rows.length) {
+          await pool.query(
+            "UPDATE asistencia SET escapado=true WHERE sesion_id=$1 AND estudiante_id=$2",
+            [sesHoyR.rows[0].id, estId]
+          );
+        }
+      }
 
       // Notificar al profesor guía
       try {
@@ -359,6 +374,21 @@ router.post("/:id/escape", requireAuth, async (req, res) => {
       await pool.query(
         "UPDATE estudiantes SET escapado=false, boleta_escape_id=NULL WHERE id=$1", [estId]
       );
+      // Resetear escapado en la sesión activa también
+      if (asigId) {
+        const _crN2 = new Date(new Date().toLocaleString('en-US', {timeZone:'America/Costa_Rica'}));
+        const hoy2 = _crN2.getFullYear()+'-'+String(_crN2.getMonth()+1).padStart(2,'0')+'-'+String(_crN2.getDate()).padStart(2,'0');
+        const sesHoyR2 = await pool.query(
+          "SELECT id FROM sesiones_asistencia WHERE asignacion_id=$1 AND fecha=$2",
+          [parseInt(asigId), hoy2]
+        );
+        if (sesHoyR2.rows.length) {
+          await pool.query(
+            "UPDATE asistencia SET escapado=false WHERE sesion_id=$1 AND estudiante_id=$2",
+            [sesHoyR2.rows[0].id, estId]
+          );
+        }
+      }
       res.json({ ok: true, escapado: false });
     }
   } catch(err) {

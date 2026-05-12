@@ -58,7 +58,7 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   // Luego ordenamos alfabéticamente con una subconsulta
   let estQuery = `SELECT * FROM (
     SELECT DISTINCT ON (e.cedula) e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
-      COALESCE(e.escapado, false) AS escapado
+      false AS escapado
     FROM estudiantes e
     WHERE e.seccion_id=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
   const estParams = [seccion_id];
@@ -72,10 +72,10 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   const estR = await pool.query(estQuery, estParams);
 
   if (!sesR.rows.length) {
-    // Sesión vacía, todos presentes por defecto
+    // Sesión nueva → todos presentes y escapado=false por defecto
     return res.json({
       sesion: null,
-      estudiantes: estR.rows.map(e => ({ ...e, estado:"P", justificada:false, motivo:"" }))
+      estudiantes: estR.rows.map(e => ({ ...e, escapado: false, estado:"P", justificada:false, motivo:"" }))
     });
   }
 
@@ -88,6 +88,7 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
 
   const estudiantes = estR.rows.map(e => ({
     ...e,
+    escapado: asistMap[e.id]?.escapado || false,  // escapado por sesión, no del estudiante
     estado: asistMap[e.id]?.estado || "P",
     lecciones_ausentes: asistMap[e.id]?.lecciones_ausentes || null,
     justificada: asistMap[e.id]?.justificada || false,
@@ -124,12 +125,12 @@ router.post("/", requireDocente, async (req, res) => {
       // lecciones_ausentes: si es Ausente y no se especifica, usar total de lecciones
       const lecAus = r.estado === 'A' ? (r.lecciones_ausentes || lecciones) : null;
       await client.query(`
-        INSERT INTO asistencia (sesion_id, estudiante_id, estado, lecciones_ausentes, justificada, motivo)
-        VALUES ($1,$2,$3,$4,false,'')
+        INSERT INTO asistencia (sesion_id, estudiante_id, estado, lecciones_ausentes, justificada, motivo, escapado)
+        VALUES ($1,$2,$3,$4,false,'',$5)
         ON CONFLICT (sesion_id, estudiante_id) DO UPDATE 
-          SET estado=$3, lecciones_ausentes=$4
+          SET estado=$3, lecciones_ausentes=$4, escapado=$5
           -- NO resetear justificada ni boleta_ausencia_id al re-guardar
-      `, [sesion_id, r.estudiante_id, r.estado, lecAus]);
+      `, [sesion_id, r.estudiante_id, r.estado, lecAus, r.escapado || false]);
     }
 
     await client.query("COMMIT");

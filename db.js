@@ -316,6 +316,7 @@ async function initDB() {
 
     // ── MATRICULA (extiende estudiantes con campos 2027) ──────────────
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS sexo TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS escapado BOOLEAN DEFAULT FALSE`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS escapado BOOLEAN DEFAULT FALSE`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS boleta_escape_id INTEGER DEFAULT NULL`);
     await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS boleta_ausencia_id INTEGER DEFAULT NULL`);

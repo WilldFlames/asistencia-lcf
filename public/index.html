@@ -3598,7 +3598,8 @@ async function guardarAsistencia(){
       registros:registrosAsist.map(e=>({
         estudiante_id:e.id, estado:e.estado||"P",
         lecciones_ausentes:e.lecciones_ausentes||lecc,
-        justificada:e.justificada||false, motivo:e.motivo||""
+        justificada:e.justificada||false, motivo:e.motivo||"",
+        escapado:e.escapado||false
       }))
     });
     sa("alert-asis","✅ Asistencia guardada correctamente.","success");
