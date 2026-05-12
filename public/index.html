@@ -2584,7 +2584,140 @@ async function cargarDashboard(){
     const asigsPendientes = d.asignaciones.filter(a=>!a.sesion_hoy);
     const asigsOk = d.asignaciones.filter(a=>a.sesion_hoy);
 
-    let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;align-items:start;">`;
+    // ── CALENDARIO DE EVALUACIÓN — II Pruebas Parciales · I Período 2026 ─────────
+    // Semana del 26 de junio al 3 de julio de 2026 (sétimo a undécimo).
+    // Codificación de color por nivel idéntica a "Estudiantes por Nivel".
+    let examenesHtml = '';
+    {
+      const _exHoy = new Date(hoyStr+'T12:00:00').getTime();
+      const _mkTs = (m,d) => new Date(`2026-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}T12:00:00`).getTime();
+      const exDias = [
+        {dia:'Vie', num:'26', mes:'JUN', ts:_mkTs(6,26)},
+        {dia:'Lun', num:'29', mes:'JUN', ts:_mkTs(6,29)},
+        {dia:'Mar', num:'30', mes:'JUN', ts:_mkTs(6,30)},
+        {dia:'Mié', num:'1°', mes:'JUL', ts:_mkTs(7,1)},
+        {dia:'Jue', num:'2',  mes:'JUL', ts:_mkTs(7,2)},
+        {dia:'Vie', num:'3',  mes:'JUL', ts:_mkTs(7,3)},
+      ];
+      const exHorarios = ['7:00 – 9:15 am','9:15 – 11:20 am','12:00 – 2:10 pm','2:10 – 4:15 pm'];
+      // Matriz: filas = horarios, columnas = días. Cada celda es un array de exámenes.
+      // Cada examen tiene {sub, lvls}: lvls de 1 elemento = nivel único; 2 elementos = mismo examen para varios niveles ("y").
+      // Una celda con varios objetos = exámenes distintos al mismo tiempo (ej. "Español 10° / Física 11°").
+      const exMatrix = [
+        [
+          [{sub:'Español', lvls:[7]}],
+          [{sub:'Sociales', lvls:[7]}],
+          [{sub:'Ciencias', lvls:[7]}],
+          [{sub:'Matemática', lvls:[7]}],
+          [{sub:'Inglés', lvls:[7]}],
+          [{sub:'Francés', lvls:[7]}],
+        ],
+        [
+          [{sub:'Español', lvls:[8,9]}],
+          [{sub:'Inglés', lvls:[8]}],
+          [{sub:'Ciencias', lvls:[8]}],
+          [{sub:'Matemática', lvls:[8]}],
+          [{sub:'Sociales', lvls:[8]}],
+          [{sub:'Francés', lvls:[8,9]}],
+        ],
+        [
+          [{sub:'Español', lvls:[10]}, {sub:'Física', lvls:[11]}],
+          [{sub:'Sociales', lvls:[9]}],
+          [{sub:'Química', lvls:[10,11]}],
+          [{sub:'Matemática', lvls:[10,11]}],
+          [{sub:'Inglés', lvls:[9]}, {sub:'Tecnología', lvls:[11]}],
+          [{sub:'Cívica', lvls:[10]}],
+        ],
+        [
+          [{sub:'Español', lvls:[11]}, {sub:'Física', lvls:[10]}],
+          [{sub:'Sociales', lvls:[10,11]}],
+          [{sub:'Ciencias', lvls:[9]}, {sub:'Tecnología', lvls:[10]}],
+          [{sub:'Matemática', lvls:[9]}],
+          [{sub:'Biología', lvls:[10,11]}],
+          [{sub:'Cívica', lvls:[11]}],
+        ],
+      ];
+      // Paleta por nivel — alineada con "Estudiantes por Nivel" (azul/morado/verde/naranja/rojo)
+      const exCol = {
+        7:  {bg:'#dbeafe', fg:'#1e3a8a', bd:'#bfdbfe'},
+        8:  {bg:'#ede9fe', fg:'#5b21b6', bd:'#ddd6fe'},
+        9:  {bg:'#dcfce7', fg:'#166534', bd:'#bbf7d0'},
+        10: {bg:'#ffedd5', fg:'#9a3412', bd:'#fed7aa'},
+        11: {bg:'#fee2e2', fg:'#991b1b', bd:'#fecaca'},
+      };
+      const exPill = (ex) => {
+        const lblNiv = ex.lvls.map(l=>l+'°').join(' y ');
+        if (ex.lvls.length > 1) {
+          // Examen compartido entre niveles — gradiente suave entre los dos colores
+          const a = exCol[ex.lvls[0]], b = exCol[ex.lvls[ex.lvls.length-1]];
+          return `<div style="background:linear-gradient(135deg,${a.bg},${b.bg});color:var(--azul);border:1px solid ${a.bd};font-size:11px;font-weight:bold;padding:5px 7px;border-radius:6px;text-align:center;line-height:1.25;">${ex.sub}<br><span style="font-size:10px;opacity:.85;">${lblNiv}</span></div>`;
+        }
+        const c = exCol[ex.lvls[0]];
+        return `<div style="background:${c.bg};color:${c.fg};border:1px solid ${c.bd};font-size:11px;font-weight:bold;padding:5px 7px;border-radius:6px;text-align:center;line-height:1.25;">${ex.sub}<br><span style="font-size:10px;opacity:.8;">${lblNiv}</span></div>`;
+      };
+      // Badge de estado en la cabecera (siguiendo el patrón de "Fechas Clave")
+      const _exFirst = exDias[0].ts, _exLast = exDias[exDias.length-1].ts;
+      let badge = '';
+      if (_exHoy > _exLast) {
+        badge = `<span style="background:#e2e8f0;color:var(--muted);font-size:10px;font-weight:bold;padding:3px 9px;border-radius:10px;letter-spacing:.5px;">FINALIZADAS</span>`;
+      } else if (_exHoy >= _exFirst) {
+        badge = `<span style="background:var(--rojo);color:#fff;font-size:10px;font-weight:bold;padding:3px 9px;border-radius:10px;letter-spacing:.5px;">EN CURSO</span>`;
+      } else {
+        const dFalt = Math.ceil((_exFirst - _exHoy) / 86400000);
+        if (dFalt > 0) {
+          const c = dFalt <= 14 ? {bg:'#fef3c7',fg:'#92400e'} : {bg:'#eff6ff',fg:'var(--azul)'};
+          badge = `<span style="background:${c.bg};color:${c.fg};font-size:10px;font-weight:bold;padding:3px 9px;border-radius:10px;letter-spacing:.3px;">Faltan ${dFalt} día${dFalt===1?'':'s'}</span>`;
+        }
+      }
+      examenesHtml = `<div class="card" style="margin:0 0 14px 0;border-left:4px solid var(--azul2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:3px;flex-wrap:wrap;">
+          <div style="font-weight:bold;font-size:15px;color:var(--azul);">📝 II Pruebas Parciales · I Período 2026</div>
+          ${badge}
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Semana del 26 de junio al 3 de julio · Sétimo a Undécimo</div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;">
+          <table style="width:100%;border-collapse:separate;border-spacing:4px;min-width:760px;">
+            <thead><tr>
+              <th style="background:transparent;padding:0;width:78px;border:none;"></th>
+              ${exDias.map(dia=>{
+                const past = dia.ts < _exHoy;
+                const today = dia.ts === _exHoy;
+                const bg = today ? 'var(--azul)' : past ? '#f1f5f9' : '#eff6ff';
+                const fg = today ? '#fff' : past ? 'var(--muted)' : 'var(--azul)';
+                return `<th style="background:${bg};color:${fg};padding:7px 4px;border-radius:7px;text-align:center;white-space:nowrap;border:none;opacity:${past?.55:1};">
+                  <div style="font-size:10px;font-weight:600;opacity:.85;text-transform:uppercase;letter-spacing:.5px;">${dia.dia}</div>
+                  <div style="font-size:18px;font-weight:bold;line-height:1.1;margin:1px 0;">${dia.num}</div>
+                  <div style="font-size:10px;font-weight:600;opacity:.85;">${dia.mes}</div>
+                  ${today?'<div style="font-size:8px;background:#fff;color:var(--azul);padding:1px 5px;border-radius:3px;margin-top:3px;font-weight:bold;letter-spacing:.5px;">HOY</div>':''}
+                </th>`;
+              }).join('')}
+            </tr></thead>
+            <tbody>
+              ${exMatrix.map((row,ri)=>`
+                <tr>
+                  <td style="background:#f8fafc;padding:6px 6px;border-radius:7px;font-size:10px;font-weight:bold;color:var(--azul);text-align:center;line-height:1.3;border:none;">
+                    ${exHorarios[ri].split(' – ').join('<br><span style="opacity:.6;font-size:9px;">a</span><br>')}
+                  </td>
+                  ${row.map((cell, ci)=>{
+                    const dia = exDias[ci];
+                    const past = dia.ts < _exHoy;
+                    return `<td style="padding:0;vertical-align:middle;border:none;opacity:${past?.5:1};">
+                      <div style="display:flex;flex-direction:column;gap:3px;">${cell.map(exPill).join('')}</div>
+                    </td>`;
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);">
+          <span style="font-weight:bold;color:var(--text);">Niveles:</span>
+          ${[7,8,9,10,11].map(n=>`<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:${exCol[n].bg};border:1px solid ${exCol[n].bd};display:inline-block;"></span>${n}°</span>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    let html = examenesHtml + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;align-items:start;">`;
 
     // ── TARJETA 1: Asistencia de Hoy ──
     {
