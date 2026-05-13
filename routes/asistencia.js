@@ -38,6 +38,10 @@ router.get("/historial/:asignacion_id", requireDocente, async (req, res) => {
 
 // ── OBTENER ASISTENCIA DE UNA SESIÓN ─────────────────────────────────────────
 router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
+  // Anti-cache: la asistencia es datos en vivo, nunca debe servirse desde caché
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
   try {
   const { asignacion_id, fecha } = req.params;
 

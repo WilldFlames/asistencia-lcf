@@ -1500,7 +1500,7 @@ tr:hover td{background:#f8fafc;}
         <div class="fg" style="grid-column:1/-1"><label>Dirección</label><input type="text" id="enc-direccion"/></div>
       </div>
       <div class="form-actions">
-        <button class="btn btn-success btn-sm" onclick="guardarEncargado()">💾 Guardar Encargado</button>
+        <button class="btn btn-success btn-sm" id="btn-guardar-enc" onclick="guardarEncargado()">💾 Guardar Encargado</button>
         <button class="btn btn-outline btn-sm" onclick="limpiarFormEnc()">Limpiar</button>
       </div>
     </div>
@@ -2123,6 +2123,14 @@ const fmtF=d=>{
   const [y,m,dia] = s.split("-");
   return `${dia}/${m}/${y}`;
 };
+
+// Normaliza cualquier formato de fecha (Date, string ISO, string YYYY-MM-DD, null) a YYYY-MM-DD
+// para asignar a inputs type="date". Devuelve "" si no se puede parsear.
+function toDateInput(v){
+  if(!v) return "";
+  if(typeof v === "string") return v.slice(0,10);
+  try { return new Date(v).toISOString().slice(0,10); } catch(_) { return ""; }
+}
 
 // Detectar período según fecha
 function detectarPeriodo(fechaStr) {
@@ -3210,7 +3218,7 @@ async function editarEstudiante(id){
   document.getElementById("me-nombre").value=e.nombre;
   document.getElementById("me-ap1").value=e.primer_apellido;
   document.getElementById("me-ap2").value=e.segundo_apellido;
-  document.getElementById("me-nac").value=e.fecha_nacimiento?e.fecha_nacimiento.slice(0,10):"";
+  document.getElementById("me-nac").value=toDateInput(e.fecha_nacimiento);
   document.getElementById("me-seccion").value=e.seccion_id||"";
   document.getElementById("me-subgrupo").value=e.subgrupo||"";
   if(document.getElementById("me-becado")) document.getElementById("me-becado").value=String(!!e.becado);
@@ -3401,6 +3409,8 @@ async function editarEncargado(id){
 }
 
 async function guardarEncargado(){
+  const btn=document.getElementById("btn-guardar-enc");
+  if(btn && btn.disabled) return;          // anti-doble-click
   const eid=document.getElementById("enc-edit-id").value;
   const data={
     estudiante_id:encEstId,
@@ -3418,12 +3428,15 @@ async function guardarEncargado(){
     es_principal:document.getElementById("enc-principal").value==="true"
   };
   if(!data.nombre||!data.primer_apellido){sa("alert-enc","Nombre y primer apellido son requeridos.","danger");return;}
+  if(btn){ btn.disabled=true; btn.dataset._txt=btn.innerHTML; btn.innerHTML="⏳ Guardando..."; }
   try{
     if(eid) await api(`/api/encargados/${eid}`,"PUT",data);
     else await api("/api/encargados","POST",data);
     limpiarFormEnc();
-    cargarEncargadosLista();
+    await cargarEncargadosLista();           // awaitea para que el usuario vea la lista actualizada
+    sa("alert-enc", eid ? "✅ Encargado actualizado." : "✅ Encargado agregado.", "success");
   }catch(e){sa("alert-enc",e.message,"danger");}
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML=btn.dataset._txt||"💾 Guardar Encargado"; } }
 }
 
 function limpiarFormEnc(){
@@ -3592,7 +3605,13 @@ function volverAsignaciones(){
 async function cargarListaDia(){
   const fecha=document.getElementById("asis-fecha").value;
   if(!fecha||!asigActiva)return;
-  const d=await api(`/api/asistencia/${asigActiva}/${fecha}`);if(!d)return;
+  // ⚠️ Limpiar estado ANTES del fetch para evitar que datos del día anterior queden visibles
+  // si el fetch falla, se demora, o el navegador cachea.
+  registrosAsist=[];
+  const tbody=document.getElementById("asis-body");
+  if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty" style="color:var(--muted);font-size:13px;">⏳ Cargando lista del ${fmtF(fecha)}...</td></tr>`;
+  // Cache-buster: garantiza que no se sirva una respuesta cacheada del navegador
+  const d=await api(`/api/asistencia/${asigActiva}/${fecha}?_=${Date.now()}`);if(!d)return;
   const info=document.getElementById("asis-sesion-info");
   if(d.sesion){
     info.style.display="";
@@ -3739,7 +3758,7 @@ async function guardarAsistencia(){
     });
     sa("alert-asis","✅ Asistencia guardada correctamente.","success");
     // Recargar lista para obtener asistencia_id y poder justificar
-    const d = await api(`/api/asistencia/${asigActiva}/${fecha}`);
+    const d = await api(`/api/asistencia/${asigActiva}/${fecha}?_=${Date.now()}`);
     if(d && d.estudiantes) registrosAsist = d.estudiantes;
     renderTablaAsist();
     await cargarHistSesiones();
@@ -3752,7 +3771,10 @@ async function guardarAsistencia(){
 // ────────────────────────────────────
 async function verSesion(fecha, lecc){
   if(!asigActiva) return;
-  const d = await api(`/api/asistencia/${asigActiva}/${fecha}`);
+  registrosAsist=[];
+  const tbody=document.getElementById("asis-body");
+  if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty" style="color:var(--muted);font-size:13px;">⏳ Cargando sesión del ${fmtF(fecha)}...</td></tr>`;
+  const d = await api(`/api/asistencia/${asigActiva}/${fecha}?_=${Date.now()}`);
   if(!d) return;
   const fechaEl = document.getElementById("asis-fecha");
   fechaEl.removeAttribute("max");
@@ -5831,7 +5853,7 @@ async function cargarDatosMatricula(){
       document.getElementById("mat-nombre").value = data.nombre||"";
       document.getElementById("mat-ap1").value = data.primer_apellido||"";
       document.getElementById("mat-ap2").value = data.segundo_apellido||"";
-      document.getElementById("mat-fnac").value = data.fecha_nacimiento?.slice(0,10)||"";
+      document.getElementById("mat-fnac").value = toDateInput(data.fecha_nacimiento);
       document.getElementById("mat-sexo").value = data.sexo||"";
       document.getElementById("mat-nac").value = data.nacionalidad||"Costa Rica";
       document.getElementById("mat-correo").value = data.correo||"";
