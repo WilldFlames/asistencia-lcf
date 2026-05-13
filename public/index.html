@@ -3455,34 +3455,36 @@ async function buscarEstudianteConsulta(){
   const div=document.getElementById("consulta-resultado");
   div.innerHTML='<div style="color:var(--muted);font-size:13px;">Buscando...</div>';
   try{
-    // Si parece cédula (solo números) buscar por cédula, si no buscar por apellido
-    const esCedula = /^\d+$/.test(q);
-    if(!esCedula){
-      // Buscar por apellido — puede devolver varios resultados
+    // 1) Intentar primero como cédula exacta (acepta cualquier formato: dígitos, DIMEX "Co...", etc.)
+    //    Si el endpoint /consulta/:cedula encuentra al estudiante, lo mostramos directo.
+    let d = null;
+    try { d = await api(`/api/estudiantes/consulta/${encodeURIComponent(q)}`); } catch(_){ d = null; }
+    if(!d){
+      // 2) No matchea como cédula exacta → buscar por texto en cédula/apellido/nombre
       const rows=await api(`/api/estudiantes?q=${encodeURIComponent(q)}`)||[];
       if(!rows.length){div.innerHTML='<div style="color:var(--muted);font-size:13px;">No se encontraron estudiantes.</div>';return;}
       if(rows.length===1){
-        // Un solo resultado — cargar detalle directo
+        // Un solo resultado — cargar su detalle directamente (sin recursión)
         document.getElementById("consulta-cedula").value=rows[0].cedula;
-        await buscarEstudianteConsulta();
+        try { d = await api(`/api/estudiantes/consulta/${encodeURIComponent(rows[0].cedula)}`); } catch(_){ d = null; }
+        if(!d){div.innerHTML='<div style="color:var(--muted);font-size:13px;">No se pudo cargar el detalle.</div>';return;}
+      } else {
+        // Varios — mostrar lista para seleccionar
+        div.innerHTML=`
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Se encontraron ${rows.length} estudiantes:</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${rows.map(e=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;cursor:pointer;" onclick="document.getElementById('consulta-cedula').value='${e.cedula}';buscarEstudianteConsulta()">
+                <div>
+                  <strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong>
+                  <span style="font-size:12px;color:var(--muted);margin-left:8px;">${e.seccion_nombre||'Sin sección'}</span>
+                </div>
+                <span style="font-size:12px;color:var(--muted);">${e.cedula}</span>
+              </div>`).join('')}
+          </div>`;
         return;
       }
-      // Varios — mostrar lista para seleccionar
-      div.innerHTML=`
-        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Se encontraron ${rows.length} estudiantes con ese apellido:</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          ${rows.map(e=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;cursor:pointer;" onclick="document.getElementById('consulta-cedula').value='${e.cedula}';buscarEstudianteConsulta()">
-              <div>
-                <strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong>
-                <span style="font-size:12px;color:var(--muted);margin-left:8px;">${e.seccion_nombre||'Sin sección'}</span>
-              </div>
-              <span style="font-size:12px;color:var(--muted);">${e.cedula}</span>
-            </div>`).join('')}
-        </div>`;
-      return;
     }
-    const d=await api(`/api/estudiantes/consulta/${q}`);if(!d){div.innerHTML='<div style="color:var(--muted);font-size:13px;">No se encontró ningún estudiante.</div>';return;}
     const encs=d.encargados||[];
     div.innerHTML=`
       <div class="consulta-card">
