@@ -18,10 +18,14 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
       SUM(sa.lecciones) AS total_lecciones,
       SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
       SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
-      COUNT(*) FILTER (WHERE a.estado='T') AS tardias,
+      -- Tardías ahora SUMA lecciones tardías (no cuenta eventos), igual que ausencias
+      SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') AS tardias,
+      -- Regla MEP: 2 tardías equivalen a 1 ausencia. Se calcula en frontend pero se expone aquí también.
+      FLOOR(SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') / 2.0) AS tardias_equiv_ausencias,
       JSON_AGG(JSON_BUILD_OBJECT(
         'fecha',sa.fecha,'lecciones',sa.lecciones,
         'lecciones_ausentes',a.lecciones_ausentes,
+        'lecciones_tardias',a.lecciones_tardias,
         'estado',a.estado,'justificada',a.justificada,
         'motivo',a.motivo,'asistencia_id',a.id
       ) ORDER BY sa.fecha) FILTER (WHERE a.estado IN ('A','T')) AS detalle
@@ -73,9 +77,10 @@ router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
     const matR = await pool.query(`
       SELECT m.nombre AS materia,
         SUM(sa.lecciones) AS total_lecciones,
-        SUM(sa.lecciones) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
-        SUM(sa.lecciones) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
-        COUNT(*) FILTER (WHERE a.estado='T') AS tardias
+        SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
+        SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
+        SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') AS tardias,
+        FLOOR(SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') / 2.0) AS tardias_equiv_ausencias
       FROM asistencia a
       JOIN sesiones_asistencia sa ON sa.id=a.sesion_id
       JOIN asignaciones asig ON asig.id=sa.asignacion_id
@@ -110,18 +115,27 @@ router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
               </tr>
             </thead>
             <tbody>
-              ${matR.rows.map(m => `
+              ${matR.rows.map(m => {
+                const tar = parseInt(m.tardias)||0;
+                const tarEq = Math.floor(tar/2);
+                const aus = parseInt(m.ausencias)||0;
+                const ausEf = aus + tarEq;
+                const lecc = parseInt(m.total_lecciones)||0;
+                return `
                 <tr>
                   <td style="padding:7px 8px;border:1px solid #e2e8f0;">${m.materia}</td>
-                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;">${m.total_lecciones||0}</td>
-                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#dc2626;font-weight:bold;">${m.ausencias||0}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;">${lecc}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#dc2626;font-weight:bold;">${aus}</td>
                   <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#16a34a;">${m.justificadas||0}</td>
-                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#d97706;">${m.tardias||0}</td>
-                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;">${m.total_lecciones>0?Math.round((m.ausencias||0)/m.total_lecciones*100):0}%</td>
-                </tr>
-              `).join("")}
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#d97706;">${tar}${tarEq>0?` <span style="font-size:10px;color:#64748b;">(≈${tarEq})</span>`:''}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;">${lecc>0?Math.round(ausEf/lecc*100):0}%</td>
+                </tr>`;
+              }).join("")}
             </tbody>
           </table>
+          <p style="margin-top:10px;font-size:11px;color:#64748b;font-style:italic;">
+            Nota: el valor entre paréntesis (≈N) indica las ausencias equivalentes según la regla MEP (2 tardías = 1 ausencia). El % se calcula sumando ausencias y equivalentes.
+          </p>
           <p style="margin-top:20px;font-size:12px;color:#64748b;">
             Enviado por: ${remitente.primer_apellido} ${remitente.nombre} — ${new Date().toLocaleDateString("es-CR")}
           </p>

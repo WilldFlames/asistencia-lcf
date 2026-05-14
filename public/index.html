@@ -3669,6 +3669,13 @@ function renderTablaAsist(){
         </select>
         <span style="color:var(--muted)">de ${totalLecc}</span>
       </div>`:''}
+      ${e.estado==='T'?`<div style="margin-top:4px;display:flex;align-items:center;gap:4px;font-size:12px;">
+        <span style="color:var(--muted)">Lecc. tardía:</span>
+        <select onchange="setLeccTar(${e.id},this.value)" style="padding:2px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;">
+          ${Array.from({length:totalLecc},(_,k)=>k+1).map(n=>`<option value="${n}" ${(e.lecciones_tardias||1)==n?'selected':''}>${n}</option>`).join('')}
+        </select>
+        <span style="color:var(--muted)">de ${totalLecc}</span>
+      </div>`:''}
     </td>
     <td>${e.estado!=='P'?(e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${e.primer_apellido} ${e.nombre}','${e.estado}',${e.lecciones_ausentes||totalLecc})">${e.justificada?"✅ Justif.":"📝 Justif."}</button>`:"<span style='font-size:11px;color:var(--muted)'>Guardar primero</span>"):"—"}</td>
     <td>
@@ -3752,6 +3759,7 @@ async function guardarAsistencia(){
       registros:registrosAsist.map(e=>({
         estudiante_id:e.id, estado:e.estado||"P",
         lecciones_ausentes:e.lecciones_ausentes||lecc,
+        lecciones_tardias: e.lecciones_tardias||1,
         justificada:e.justificada||false, motivo:e.motivo||"",
         escapado:e.escapado||false
       }))
@@ -3802,11 +3810,22 @@ async function verSesion(fecha, lecc){
 // ────────────────────────────────────
 function setE(id, estado){
   const r=registrosAsist.find(e=>e.id===id);
-  if(r){ r.estado=estado; renderTablaAsist(); }
+  if(r){
+    r.estado=estado;
+    // Inicializar el contador correspondiente al estado nuevo (si no lo tenía)
+    const totalLecc = parseInt(document.getElementById("asis-lecciones")?.value) || 4;
+    if(estado === 'T' && !r.lecciones_tardias)  r.lecciones_tardias  = 1;
+    if(estado === 'A' && !r.lecciones_ausentes) r.lecciones_ausentes = totalLecc;
+    renderTablaAsist();
+  }
 }
 function setLeccAus(id, val){
   const r=registrosAsist.find(e=>e.id===id);
   if(r) r.lecciones_ausentes=parseInt(val);
+}
+function setLeccTar(id, val){
+  const r=registrosAsist.find(e=>e.id===id);
+  if(r) r.lecciones_tardias=parseInt(val);
 }
 
 // ────────────────────────────────────
@@ -3942,6 +3961,9 @@ async function generarReporte(){
   document.getElementById("btn-enviar-email").style.display=canEmail?"":"none";
   let totalA=0,totalJ=0,totalT=0,totalL=0;
   d.materias.forEach(m=>{totalA+=(parseInt(m.ausencias)||0);totalJ+=(parseInt(m.justificadas)||0);totalT+=(parseInt(m.tardias)||0);totalL+=(parseInt(m.total_lecciones)||0);});
+  // Regla MEP: 2 tardías equivalen a 1 ausencia. Se aplica sobre el total de lecciones tardías.
+  const totalTeqA = Math.floor(totalT / 2);
+  const totalAusenciasEfectivas = totalA + totalTeqA;
   document.getElementById("reporte-contenido").innerHTML=`
     <div id="print-header" class="print-only-block" style="margin-bottom:16px;max-width:720px;margin-left:auto;margin-right:auto;">
       <div id="print-header-mep"></div>
@@ -3957,27 +3979,31 @@ async function generarReporte(){
         <div class="stat"><div class="num">${totalL}</div><div class="lbl">Lecciones</div></div>
         <div class="stat"><div class="num red">${totalA}</div><div class="lbl">Ausencias</div></div>
         <div class="stat"><div class="num green">${totalJ}</div><div class="lbl">Justificadas</div></div>
-        <div class="stat"><div class="num orange">${totalT}</div><div class="lbl">Tardías</div></div>
-        <div class="stat"><div class="num ${totalL>0&&(totalA/totalL*100)>20?'red':'green'}">${totalL>0?Math.round(totalA/totalL*100):0}%</div><div class="lbl">% Ausencias</div></div>
+        <div class="stat"><div class="num orange">${totalT}</div><div class="lbl">Tardías${totalTeqA>0?` <span style="font-size:9px;color:var(--muted);font-weight:normal;">(≈${totalTeqA} aus.)</span>`:''}</div></div>
+        <div class="stat"><div class="num ${totalL>0&&(totalAusenciasEfectivas/totalL*100)>20?'red':'green'}">${totalL>0?Math.round(totalAusenciasEfectivas/totalL*100):0}%</div><div class="lbl">% Ausencias${totalTeqA>0?' efectivas':''}</div></div>
       </div>
-      ${d.materias.map(m=>`
+      ${d.materias.map(m=>{
+        const tarMat = parseInt(m.tardias)||0;
+        const tarEqMat = Math.floor(tarMat/2);
+        return `
         <div class="reporte-materia">
           <h4>${m.materia} <small style="font-weight:normal;color:var(--muted);">— ${m.prof_ap1} ${m.prof_nombre}</small></h4>
           <div style="display:flex;gap:14px;font-size:13px;margin-bottom:8px;flex-wrap:wrap;">
             <span>📚 ${m.total_lecciones||0} lecc.</span>
             <span style="color:var(--rojo)">❌ ${m.ausencias||0} lecc. ausentes</span>
             <span style="color:var(--verde)">✅ ${m.justificadas||0} justificadas</span>
-            <span style="color:var(--naranja)">⏰ ${m.tardias||0} tardías</span>
+            <span style="color:var(--naranja)">⏰ ${tarMat} lecc. tardías${tarEqMat>0?` <span style="font-size:11px;color:var(--muted);">(≈${tarEqMat} aus.)</span>`:''}</span>
           </div>
           ${m.detalle&&m.detalle.length?m.detalle.map(det=>`
             <div class="ausencia-item">
               <span class="badge ${det.estado==='A'?'b-A':'b-T'}">${det.estado==='A'?'A':'T'}</span>
               <span>${fmtF(det.fecha)}</span>
-              <span style="color:var(--muted)">${det.estado==='A'?(det.lecciones_ausentes||det.lecciones)+' lecc.':det.lecciones+' lecc.'}</span>
+              <span style="color:var(--muted)">${det.estado==='A'?(det.lecciones_ausentes||det.lecciones)+' lecc.':(det.lecciones_tardias||1)+' lecc. tarde'}</span>
               ${det.justificada?'<span class="badge b-J">✅ Justif.</span>':""}
               ${det.motivo?`<span style="color:var(--muted);font-style:italic;font-size:12px">${det.motivo}</span>`:""}
             </div>`).join(""):"<div style='font-size:12px;color:var(--muted);'>Sin ausencias ni tardías.</div>"}
-        </div>`).join("")}
+        </div>`;
+      }).join("")}
 
       ${d.observaciones&&d.observaciones.length?`
         <div class="reporte-materia" style="border-color:var(--azul2);">

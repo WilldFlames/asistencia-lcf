@@ -95,6 +95,7 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
     escapado: asistMap[e.id]?.escapado || false,  // escapado por sesión, no del estudiante
     estado: asistMap[e.id]?.estado || "P",
     lecciones_ausentes: asistMap[e.id]?.lecciones_ausentes || null,
+    lecciones_tardias:  asistMap[e.id]?.lecciones_tardias  || null,
     justificada: asistMap[e.id]?.justificada || false,
     motivo: asistMap[e.id]?.motivo || "",
     asistencia_id: asistMap[e.id]?.id || null
@@ -128,13 +129,18 @@ router.post("/", requireDocente, async (req, res) => {
     for (const r of registros) {
       // lecciones_ausentes: si es Ausente y no se especifica, usar total de lecciones
       const lecAus = r.estado === 'A' ? (r.lecciones_ausentes || lecciones) : null;
+      // lecciones_tardias: si es Tardía y no se especifica, usar 1 (comportamiento histórico).
+      // Acepta valores 1..lecciones. Para P/A → NULL.
+      const lecTar = r.estado === 'T'
+        ? Math.min(Math.max(parseInt(r.lecciones_tardias) || 1, 1), lecciones)
+        : null;
       await client.query(`
-        INSERT INTO asistencia (sesion_id, estudiante_id, estado, lecciones_ausentes, justificada, motivo, escapado)
-        VALUES ($1,$2,$3,$4,false,'',$5)
-        ON CONFLICT (sesion_id, estudiante_id) DO UPDATE 
-          SET estado=$3, lecciones_ausentes=$4, escapado=$5
+        INSERT INTO asistencia (sesion_id, estudiante_id, estado, lecciones_ausentes, lecciones_tardias, justificada, motivo, escapado)
+        VALUES ($1,$2,$3,$4,$5,false,'',$6)
+        ON CONFLICT (sesion_id, estudiante_id) DO UPDATE
+          SET estado=$3, lecciones_ausentes=$4, lecciones_tardias=$5, escapado=$6
           -- NO resetear justificada ni boleta_ausencia_id al re-guardar
-      `, [sesion_id, r.estudiante_id, r.estado, lecAus, r.escapado || false]);
+      `, [sesion_id, r.estudiante_id, r.estado, lecAus, lecTar, r.escapado || false]);
     }
 
     await client.query("COMMIT");

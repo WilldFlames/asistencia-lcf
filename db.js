@@ -110,6 +110,7 @@ async function initDB() {
         estudiante_id     INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
         estado            TEXT NOT NULL CHECK(estado IN ('P','A','T')),
         lecciones_ausentes INTEGER DEFAULT NULL,
+        lecciones_tardias  INTEGER DEFAULT NULL,
         justificada       BOOLEAN DEFAULT false,
         motivo            TEXT DEFAULT '',
         UNIQUE(sesion_id, estudiante_id)
@@ -251,6 +252,10 @@ async function initDB() {
 
     // ── MIGRACIONES ────────────────────────────────────────────────────────────
     await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS lecciones_ausentes INTEGER DEFAULT NULL`);
+    // lecciones_tardias: cantidad de lecciones en que el estudiante llegó tarde.
+    // Aplica solo cuando estado='T'. NULL para P y A. Para T sin valor explícito = 1 (comportamiento histórico).
+    // Regla MEP: 2 tardías = 1 ausencia (se aplica en reportes y cálculos derivados).
+    await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS lecciones_tardias INTEGER DEFAULT NULL`);
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_asistencia TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_trabajo_cotidiano TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_tareas TEXT DEFAULT ''`);
