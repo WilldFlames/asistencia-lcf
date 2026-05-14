@@ -47,8 +47,11 @@ app.use("/api/prematricula",   requireAuth, require("./routes/prematricula"));
 app.use("/api/matricula",      requireAuth, require("./routes/matricula"));
 
 // Force no-cache for HTML to ensure users always get latest version
-// Versión actual del sistema (se actualiza con cada deploy)
-const APP_VERSION = "2026-04-27 21:17:58";
+// Versión actual del sistema — se calcula al arrancar el proceso.
+// Cada deploy de Railway arranca un proceso nuevo → APP_VERSION cambia automáticamente
+// → el frontend detecta el cambio vía /api/version y se recarga solo (sin Ctrl+F5).
+// Si Railway define RAILWAY_DEPLOYMENT_ID se usa, si no, timestamp del arranque.
+const APP_VERSION = process.env.RAILWAY_DEPLOYMENT_ID || new Date().toISOString();
 app.get("/api/version", (req, res) => {
   res.json({ version: APP_VERSION });
 });
