@@ -217,18 +217,42 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
   const esGuia = u.rol==='profesor_guia' || fx.includes('profesor_guia');
   const esOrientador = u.rol==='orientador' || fx.includes('orientador');
 
+  // Determinar el período lectivo actual (I o II Período 2026).
+  // I Período: 23/feb–3/jul. II Período: 20/jul–9/dic. Si estamos fuera de ambos
+  // (vacaciones de medio año o fin de año), uso el último que cerró.
+  const _hoy = new Date();
+  const _esIPeriodo = _hoy < new Date('2026-07-04T00:00:00');
+  const periodoActual = {
+    nombre: _esIPeriodo ? 'I Período' : 'II Período',
+    desde:  _esIPeriodo ? '2026-02-23' : '2026-07-20',
+    hasta:  _esIPeriodo ? '2026-07-03' : '2026-12-09'
+  };
+
   let ausenciasFrecuentes = [];
-  let seccionId = null;
+  let seccionesGuia = [];   // array de {id, nombre, nivel} — todas las secciones del usuario
 
   if (esGuia) {
-    const sg = await pool.query('SELECT seccion_id FROM seccion_guia WHERE profesor_id=$1 LIMIT 1', [u.id]);
-    if (sg.rows.length) seccionId = sg.rows[0].seccion_id;
+    const sg = await pool.query(
+      `SELECT s.id, s.nombre, s.nivel FROM seccion_guia sg
+       JOIN secciones s ON s.id=sg.seccion_id
+       WHERE sg.profesor_id=$1
+       ORDER BY s.nivel, s.nombre`, [u.id]);
+    seccionesGuia = sg.rows;
   } else if (esOrientador) {
-    const so = await pool.query('SELECT seccion_id FROM seccion_orientador WHERE orientador_id=$1 LIMIT 1', [u.id]);
-    if (so.rows.length) seccionId = so.rows[0].seccion_id;
+    const so = await pool.query(
+      `SELECT s.id, s.nombre, s.nivel FROM seccion_orientador so
+       JOIN secciones s ON s.id=so.seccion_id
+       WHERE so.orientador_id=$1
+       ORDER BY s.nivel, s.nombre`, [u.id]);
+    seccionesGuia = so.rows;
   }
 
-  if (seccionId) {
+  // Compat hacia atrás: seccionId era un único valor antes
+  const seccionId = seccionesGuia[0]?.id || null;
+
+  if (seccionesGuia.length > 0) {
+    // Ausencias frecuentes en TODAS las secciones del guía/orientador
+    const ids = seccionesGuia.map(s => s.id);
     const aus = await pool.query(`
       SELECT e.nombre, e.primer_apellido, e.segundo_apellido,
         s.nombre AS seccion_nombre,
@@ -237,12 +261,13 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
       LEFT JOIN secciones s ON s.id=e.seccion_id
       LEFT JOIN asistencia ast ON ast.estudiante_id=e.id AND ast.estado='A' AND ast.justificada=false
       LEFT JOIN sesiones_asistencia sa ON sa.id=ast.sesion_id
-      WHERE e.seccion_id=$1 AND e.activo=true
+        AND sa.fecha BETWEEN $2 AND $3
+      WHERE e.seccion_id = ANY($1::int[]) AND e.activo=true
       GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido, s.nombre
       HAVING COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) >= 10
       ORDER BY total_ausencias DESC
       LIMIT 10
-    `, [seccionId]);
+    `, [ids, periodoActual.desde, periodoActual.hasta]);
     ausenciasFrecuentes = aus.rows;
   } else {
     // Para profesores regulares, sus propios estudiantes
@@ -257,34 +282,45 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
       JOIN estudiantes e ON e.seccion_id=a.seccion_id AND e.activo=true
       LEFT JOIN asistencia ast ON ast.estudiante_id=e.id AND ast.estado='A' AND ast.justificada=false
       LEFT JOIN sesiones_asistencia sa ON sa.id=ast.sesion_id AND sa.asignacion_id=a.id
+        AND sa.fecha BETWEEN $2 AND $3
       WHERE a.profesor_id=$1
       GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido, s.nombre, m.nombre
       HAVING COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) >= 10
       ORDER BY total_ausencias DESC
       LIMIT 10
-    `, [u.id]);
+    `, [u.id, periodoActual.desde, periodoActual.hasta]);
     ausenciasFrecuentes = aus.rows;
   }
 
-  // 4. Estado conducta de la sección (solo guía/orientador)
-  let estadoConducta = null;
-  if (seccionId) {
+  // 4. Estado conducta — UNA fila por sección, filtrada por período actual.
+  //    Antes: un solo objeto, todo el histórico → cifras desactualizadas y faltaba la 2ª sección.
+  let estadosConducta = [];
+  if (seccionesGuia.length > 0) {
+    const ids = seccionesGuia.map(s => s.id);
     const cond = await pool.query(`
       SELECT
+        s.id AS seccion_id,
+        s.nombre AS seccion_nombre,
         COUNT(DISTINCT e.id) AS total,
         COUNT(DISTINCT CASE WHEN (100 - COALESCE(rebajo,0)) < 60 THEN e.id END) AS criticos,
         COUNT(DISTINCT CASE WHEN (100 - COALESCE(rebajo,0)) < 80
           AND (100 - COALESCE(rebajo,0)) >= 60 THEN e.id END) AS en_riesgo
-      FROM estudiantes e
+      FROM secciones s
+      LEFT JOIN estudiantes e ON e.seccion_id=s.id AND e.activo=true
       LEFT JOIN (
         SELECT bc.estudiante_id, SUM(i.puntos) AS rebajo
         FROM boletas_conducta bc JOIN infracciones i ON i.id=bc.infraccion_id
+        WHERE bc.fecha BETWEEN $2 AND $3
         GROUP BY bc.estudiante_id
       ) r ON r.estudiante_id=e.id
-      WHERE e.seccion_id=$1 AND e.activo=true
-    `, [seccionId]);
-    estadoConducta = cond.rows[0];
+      WHERE s.id = ANY($1::int[])
+      GROUP BY s.id, s.nombre
+      ORDER BY s.nivel, s.nombre
+    `, [ids, periodoActual.desde, periodoActual.hasta]);
+    estadosConducta = cond.rows;
   }
+  // Compat hacia atrás: el frontend viejo lee estadoConducta (singular)
+  const estadoConducta = estadosConducta[0] || null;
 
   // 5. Informes solicitados sin responder (guía/orientador)
   const informesSolicitados = await pool.query(`
@@ -296,7 +332,10 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
     asignaciones: asigs.rows,
     informesPendientes: parseInt(informesPendientes.rows[0].c),
     ausenciasFrecuentes,
-    estadoConducta,
+    estadoConducta,        // legacy: primera sección
+    estadosConducta,       // NUEVO: array completo (una entrada por sección)
+    seccionesGuia,         // NUEVO: lista de secciones del usuario (id, nombre, nivel)
+    periodoActual,         // NUEVO: período usado para los filtros
     informesSolicitados: parseInt(informesSolicitados.rows[0].c),
     esGuia, esOrientador, seccionId
   });

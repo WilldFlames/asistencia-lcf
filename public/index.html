@@ -2770,27 +2770,40 @@ async function cargarDashboard(){
       </div>
     </div>`;
 
-    // ── TARJETA 4: Estado conducta (solo guía/orientador) ──
-    if(d.estadoConducta && esGuiaOri){
-      const {total,criticos,en_riesgo} = d.estadoConducta;
-      html += `<div class="card" style="margin:0;">
-        <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:10px;">📋 Conducta de la Sección</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <div style="text-align:center;padding:10px;background:#f0fdf4;border-radius:8px;flex:1;">
-            <div style="font-size:22px;font-weight:bold;color:var(--verde);">${total-criticos-en_riesgo}</div>
-            <div style="font-size:11px;color:var(--muted);">En buen estado</div>
+    // ── TARJETA 4: Estado conducta — UNA POR CADA SECCIÓN del guía/orientador ─────
+    // El backend devuelve estadosConducta como array. Si recibimos respuesta vieja
+    // (solo estadoConducta singular), la convertimos a array para no romper.
+    const _estados = Array.isArray(d.estadosConducta) ? d.estadosConducta
+                   : (d.estadoConducta ? [d.estadoConducta] : []);
+    if(_estados.length && esGuiaOri){
+      const _periodoLbl = d.periodoActual?.nombre || 'I Período';
+      _estados.forEach(ec => {
+        const {total,criticos,en_riesgo,seccion_nombre} = ec;
+        const _total = parseInt(total)||0, _crit = parseInt(criticos)||0, _ries = parseInt(en_riesgo)||0;
+        const _bien  = Math.max(0, _total - _crit - _ries);
+        html += `<div class="card" style="margin:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px;flex-wrap:wrap;">
+            <div style="font-weight:bold;font-size:14px;color:var(--azul);">📋 Conducta${seccion_nombre?` · ${seccion_nombre}`:''}</div>
+            ${seccion_nombre?`<span style="background:#eff6ff;color:var(--azul);font-size:10px;font-weight:bold;padding:2px 7px;border-radius:8px;">${seccion_nombre}</span>`:''}
           </div>
-          <div style="text-align:center;padding:10px;background:#fef9c3;border-radius:8px;flex:1;">
-            <div style="font-size:22px;font-weight:bold;color:var(--naranja);">${en_riesgo}</div>
-            <div style="font-size:11px;color:var(--muted);">En riesgo (60-79)</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:9px;">${_periodoLbl} · ${_total} estudiante${_total===1?'':'s'}</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="text-align:center;padding:10px;background:#f0fdf4;border-radius:8px;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--verde);">${_bien}</div>
+              <div style="font-size:11px;color:var(--muted);">En buen estado</div>
+            </div>
+            <div style="text-align:center;padding:10px;background:#fef9c3;border-radius:8px;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--naranja);">${_ries}</div>
+              <div style="font-size:11px;color:var(--muted);">En riesgo (60-79)</div>
+            </div>
+            <div style="text-align:center;padding:10px;background:#fee2e2;border-radius:8px;flex:1;">
+              <div style="font-size:22px;font-weight:bold;color:var(--rojo);">${_crit}</div>
+              <div style="font-size:11px;color:var(--muted);">Críticos (<60)</div>
+            </div>
           </div>
-          <div style="text-align:center;padding:10px;background:#fee2e2;border-radius:8px;flex:1;">
-            <div style="font-size:22px;font-weight:bold;color:var(--rojo);">${criticos}</div>
-            <div style="font-size:11px;color:var(--muted);">Críticos (<60)</div>
-          </div>
-        </div>
-        ${parseInt(criticos)>0||parseInt(en_riesgo)>0?`<button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="goTo('conducta')">Ver conducta completa →</button>`:""}
-      </div>`;
+          ${_crit>0||_ries>0?`<button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="goTo('conducta')">Ver conducta completa →</button>`:""}
+        </div>`;
+      });
     }
 
     html += `</div>`; // close col informes+conducta
