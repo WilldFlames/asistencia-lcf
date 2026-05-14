@@ -38,6 +38,8 @@ router.post("/", canManage, async (req, res) => {
 router.put("/:id", canManage, async (req, res) => {
   const { cedula, nombre, primer_apellido, segundo_apellido, parentesco,
           telefono, celular, telefono_trabajo, lugar_trabajo, email, direccion, es_principal } = req.body;
+  if (!nombre || !primer_apellido)
+    return res.status(400).json({ error: "Nombre y primer apellido son requeridos" });
 
   if (es_principal) {
     const enc = await pool.query("SELECT estudiante_id FROM encargados WHERE id=$1", [req.params.id]);

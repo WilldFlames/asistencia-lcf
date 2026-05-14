@@ -191,10 +191,19 @@ router.post("/beca-comedor", canAccess, async (req, res) => {
         vive_con||null, ingreso, recibe_avancemos||false, monto_avancemos||0,
         otros_ingresos||null, motivos||null, percapita, clasificacion,
         resolucion, req.session.usuario.id]);
-  } catch(e) {}
+  } catch(e) {
+    console.error('beca-comedor INSERT error:', e.message);
+    return res.status(500).json({ error: "No se pudo guardar la solicitud: " + e.message });
+  }
 
-  if(resolucion==="aprobado" && estudiante_id){
-    try { await pool.query("UPDATE estudiantes SET becado=true WHERE id=$1", [estudiante_id]); } catch(e) {}
+  // Sincronizar el campo `becado` del estudiante con la resolución actual:
+  // aprobado → becado=true; pendiente o rechazado → becado=false
+  // (antes solo marcaba a true; si la situación cambiaba, la beca quedaba pegada)
+  if(estudiante_id){
+    try {
+      await pool.query("UPDATE estudiantes SET becado=$1 WHERE id=$2",
+        [resolucion === "aprobado", estudiante_id]);
+    } catch(e){ console.error('beca-comedor UPDATE estudiante:', e.message); }
   }
 
   res.json({ ok:true, percapita, clasificacion, resolucion });
@@ -210,7 +219,10 @@ router.post("/adecuacion", canAccess, async (req, res) => {
     `, [estudiante_id||null, motivo||null, antecedentes||null, req.session.usuario.id]);
     if(estudiante_id)
       await pool.query("UPDATE estudiantes SET adecuacion='significativa' WHERE id=$1", [estudiante_id]);
-  } catch(e) {}
+  } catch(e) {
+    console.error('adecuacion error:', e.message);
+    return res.status(500).json({ error: "No se pudo guardar la solicitud: " + e.message });
+  }
   res.json({ ok:true });
 });
 

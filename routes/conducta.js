@@ -38,7 +38,7 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
   sql += " ORDER BY b.fecha DESC, b.created_at DESC";
 
   const r = await pool.query(sql, params);
-  const totalRebajado = r.rows.reduce((s, b) => s + b.puntos, 0);
+  const totalRebajado = r.rows.reduce((s, b) => s + (b.puntos || 0), 0);
   const notaConduccion = Math.max(0, 100 - totalRebajado);
 
   res.json({ boletas: r.rows, totalRebajado, notaConducta: notaConduccion });

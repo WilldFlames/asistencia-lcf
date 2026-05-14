@@ -158,7 +158,10 @@ router.get("/comite", requireAuth, async (req, res) => {
 
 router.post("/comite", requireRol("admin"), async (req, res) => {
   const { usuario_id } = req.body;
-  await pool.query("DELETE FROM comedor_comite");
+  if(!usuario_id) return res.status(400).json({ error:"usuario_id requerido" });
+  // Insertar nuevo miembro sin borrar los existentes (antes borraba TODO el comité)
+  const existe = await pool.query("SELECT 1 FROM comedor_comite WHERE usuario_id=$1", [usuario_id]);
+  if(existe.rows.length) return res.status(409).json({ error:"Este usuario ya está en el comité." });
   await pool.query("INSERT INTO comedor_comite (usuario_id) VALUES ($1)", [usuario_id]);
   res.json({ ok: true });
 });

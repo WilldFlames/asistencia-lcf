@@ -110,13 +110,23 @@ router.post("/aplicar-matriculas", canManage, async (req, res) => {
 
 // ── ESTADÍSTICAS DE MATRÍCULA ─────────────────────────────────────────────────
 router.get("/matricula/stats/:anio", canManage, async (req, res) => {
-  const total = await pool.query("SELECT COUNT(*) AS c FROM estudiantes WHERE activo=true");
-  const matriculados = await pool.query("SELECT COUNT(*) AS c FROM matricula WHERE anio=$1", [req.params.anio]);
-  const pendientes = parseInt(total.rows[0].c) - parseInt(matriculados.rows[0].c);
+  const anio = req.params.anio;
+  // Contar estudiantes activos
+  const total = await pool.query(
+    "SELECT COUNT(*) AS c FROM estudiantes WHERE activo=true AND (archivado=false OR archivado IS NULL)"
+  );
+  // Solo contar matrículas de estudiantes que SIGUEN activos (evita pendientes negativos)
+  const matriculados = await pool.query(`
+    SELECT COUNT(*) AS c FROM matricula m
+    JOIN estudiantes e ON e.id=m.estudiante_id
+    WHERE m.anio=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
+  `, [anio]);
+  const totalN = parseInt(total.rows[0].c);
+  const matN   = parseInt(matriculados.rows[0].c);
   res.json({
-    total: parseInt(total.rows[0].c),
-    matriculados: parseInt(matriculados.rows[0].c),
-    pendientes
+    total: totalN,
+    matriculados: matN,
+    pendientes: Math.max(0, totalN - matN)   // nunca negativo
   });
 });
 

@@ -55,6 +55,8 @@ router.post("/", canAccess, async (req, res) => {
   const { estudiante_id, tipo, fecha_inicio, fecha_fin, observacion } = req.body;
   if(!estudiante_id||!tipo||!fecha_inicio||!fecha_fin)
     return res.status(400).json({ error:"Todos los campos son requeridos" });
+  if(fecha_inicio > fecha_fin)
+    return res.status(400).json({ error:"La fecha de inicio no puede ser posterior a la fecha de fin." });
   const r = await pool.query(`
     INSERT INTO medidas_estudiantiles (estudiante_id,tipo,fecha_inicio,fecha_fin,observacion,creado_por)
     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id

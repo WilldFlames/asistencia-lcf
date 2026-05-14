@@ -18,7 +18,7 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
       SUM(sa.lecciones) AS total_lecciones,
       SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
       SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
-      SUM(sa.lecciones) FILTER (WHERE a.estado='T') AS tardias,
+      COUNT(*) FILTER (WHERE a.estado='T') AS tardias,
       JSON_AGG(JSON_BUILD_OBJECT(
         'fecha',sa.fecha,'lecciones',sa.lecciones,
         'lecciones_ausentes',a.lecciones_ausentes,
@@ -75,7 +75,7 @@ router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
         SUM(sa.lecciones) AS total_lecciones,
         SUM(sa.lecciones) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
         SUM(sa.lecciones) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
-        SUM(sa.lecciones) FILTER (WHERE a.estado='T') AS tardias
+        COUNT(*) FILTER (WHERE a.estado='T') AS tardias
       FROM asistencia a
       JOIN sesiones_asistencia sa ON sa.id=a.sesion_id
       JOIN asignaciones asig ON asig.id=sa.asignacion_id
