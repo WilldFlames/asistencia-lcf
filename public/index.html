@@ -6652,11 +6652,16 @@ async function cargarEstCartas(){
   cartasDatos = null;
   if(!sid) return;
   try {
-    const r = await api(`/api/estudiantes?seccion_id=${sid}`) || [];
-    const activos = r.filter(e => e.activo && !e.archivado);
-    selEst.innerHTML += activos
-      .sort((a,b)=>`${a.primer_apellido} ${a.nombre}`.localeCompare(`${b.primer_apellido} ${b.nombre}`))
-      .map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</option>`).join("");
+    // Endpoint específico de cartas: respeta subgrupo del profesor y excluye Guía/Orientación
+    const r = await api(`/api/cartas/estudiantes-disponibles/${sid}`) || [];
+    if(!r.length){
+      selEst.innerHTML += '<option value="" disabled>No tenés estudiantes asignados en esta sección</option>';
+      sa("alert-cart","No tenés estudiantes asignados en esta sección (revisá tus subgrupos).","danger");
+      return;
+    }
+    sa("alert-cart","","");
+    selEst.innerHTML += r
+      .map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}${e.subgrupo?` (${e.subgrupo})`:''}</option>`).join("");
   } catch(e){ sa("alert-cart","Error cargando estudiantes: "+e.message,"danger"); }
 }
 
@@ -6703,13 +6708,10 @@ function actualizarVistaCarta(){
 function renderVistaPreviaCarta(asig){
   const d = cartasDatos;
   const e = d.estudiante;
-  const enc = d.encargado;
   const p = d.periodo;
   const periodoLbl = p.nombre === 'I Período' ? 'primer' : 'segundo';
   const fechaHoy = fmtF(fechaHoyCR());
   const nombreEst = `${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}`.trim();
-  const nombreEnc = enc ? `${enc.primer_apellido} ${enc.segundo_apellido||''}, ${enc.nombre}`.trim() : '__________________________________';
-  const cedulaEnc = enc?.cedula || '__________________________';
 
   document.getElementById("carta-contenido").innerHTML = `
     <style id="cart-print-style">
@@ -6789,8 +6791,8 @@ function renderVistaPreviaCarta(asig){
 
           <p style="margin:14px 0 6px 0;"><strong>Recibido conforme:</strong></p>
           <div style="font-size:11.5px;line-height:1.7;">
-            Nombre del encargado(a) legal: <strong>${nombreEnc}</strong><br/>
-            Cédula: <strong>${cedulaEnc}</strong><br/>
+            Nombre del encargado(a) legal: ______________________________<br/>
+            Cédula: ______________________________<br/>
             Firma: ______________________________<br/>
             Fecha de recibido: ______________________
           </div>

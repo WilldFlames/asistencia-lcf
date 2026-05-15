@@ -26,7 +26,7 @@ router.get("/datos/:estudiante_id", requireDocente, async (req, res) => {
 
     // Estudiante + sección + primer encargado
     const estR = await pool.query(`
-      SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido, e.subgrupo,
         s.id AS seccion_id, s.nombre AS seccion_nombre
       FROM estudiantes e
       LEFT JOIN secciones s ON s.id=e.seccion_id
@@ -41,20 +41,36 @@ router.get("/datos/:estudiante_id", requireDocente, async (req, res) => {
 
     // Asignaciones del docente que coinciden con la sección del estudiante.
     // Admin/auxiliar pueden ver todas las asignaciones de la sección.
+    // EXCLUYE Guía y Orientación porque la carta de ausentismo no aplica a esas materias.
     const esAdminAux = ['admin','auxiliar'].includes(u.rol);
     const asigR = await pool.query(`
-      SELECT a.id, m.nombre AS materia, a.lecciones_semana,
+      SELECT a.id, m.nombre AS materia, a.lecciones_semana, a.subgrupo,
         u.id AS prof_id, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.segundo_apellido AS prof_ap2
       FROM asignaciones a
       JOIN materias m ON m.id=a.materia_id
       JOIN usuarios u ON u.id=a.profesor_id
-      WHERE a.seccion_id=$1 ${esAdminAux ? '' : 'AND a.profesor_id=$2'}
+      WHERE a.seccion_id=$1
+        AND LOWER(m.nombre) NOT LIKE '%guía%'
+        AND LOWER(m.nombre) NOT LIKE '%guia%'
+        AND LOWER(m.nombre) NOT LIKE '%orientac%'
+        ${esAdminAux ? '' : 'AND a.profesor_id=$2'}
       ORDER BY m.nombre`,
       esAdminAux ? [est.seccion_id] : [est.seccion_id, u.id]);
 
-    // Para cada asignación, calcular ausencias del período actual
+    // Filtrar adicionalmente por subgrupo: si la asignación tiene subgrupo, solo aplica
+    // si el estudiante también tiene ese subgrupo (o no tiene asignado).
+    // Si la asignación NO tiene subgrupo, aplica a todos los estudiantes de la sección.
+    const estSubgrupo = (est.subgrupo || '').trim().toUpperCase();
+    const asigsFiltradas = asigR.rows.filter(a => {
+      const asigSubgrupo = (a.subgrupo || '').trim().toUpperCase();
+      if (!asigSubgrupo) return true;        // Asignación al grupo completo
+      if (!estSubgrupo) return true;         // Estudiante sin subgrupo (edge case)
+      return asigSubgrupo === estSubgrupo;   // Coinciden
+    });
+
+    // Para cada asignación filtrada, calcular ausencias del período actual
     const asignaciones = [];
-    for (const a of asigR.rows) {
+    for (const a of asigsFiltradas) {
       const stats = await pool.query(`
         SELECT
           COALESCE(SUM(sa.lecciones), 0) AS total_lecciones,
@@ -95,8 +111,74 @@ router.get("/datos/:estudiante_id", requireDocente, async (req, res) => {
   }
 });
 
-// ── BUSCAR estudiantes por sección (helper para el form) ──────────────────────
-// El profesor regular solo ve secciones donde tiene asignación; admin/aux ven todas.
+// ── ESTUDIANTES QUE EL DOCENTE PUEDE USAR PARA UNA CARTA ─────────────────────
+// Devuelve solo los estudiantes que el docente realmente da clase en esa sección,
+// respetando subgrupos. Si el docente tiene asignación sin subgrupo (grupo completo),
+// devuelve todos. Si tiene subgrupo "B", solo devuelve estudiantes con subgrupo "B" o sin subgrupo.
+// EXCLUYE materias de Guía y Orientación (la carta de ausentismo no aplica a esas).
+router.get("/estudiantes-disponibles/:seccion_id", requireDocente, async (req, res) => {
+  const u = req.session.usuario;
+  const secId = parseInt(req.params.seccion_id);
+  if (!secId) return res.status(400).json({ error: "seccion_id inválido" });
+  const esAdminAux = ['admin','auxiliar'].includes(u.rol);
+
+  try {
+    // Determinar qué subgrupos puede ver el docente en esa sección,
+    // excluyendo materias de Guía y Orientación (case-insensitive).
+    let subgrupos = null;  // null = sin restricción de subgrupo
+    let tieneAsignacionAplicable = false;
+
+    if (!esAdminAux) {
+      const asigR = await pool.query(`
+        SELECT a.subgrupo
+        FROM asignaciones a
+        JOIN materias m ON m.id=a.materia_id
+        WHERE a.profesor_id=$1 AND a.seccion_id=$2
+          AND LOWER(m.nombre) NOT LIKE '%guía%'
+          AND LOWER(m.nombre) NOT LIKE '%guia%'
+          AND LOWER(m.nombre) NOT LIKE '%orientac%'
+      `, [u.id, secId]);
+
+      if (!asigR.rows.length) {
+        // No tiene materia aplicable en esa sección
+        return res.json([]);
+      }
+      tieneAsignacionAplicable = true;
+
+      // Si alguna asignación NO tiene subgrupo, el profe ve TODOS los estudiantes
+      const tieneGrupoCompleto = asigR.rows.some(r => !r.subgrupo || !r.subgrupo.trim());
+      if (!tieneGrupoCompleto) {
+        // Recopilar todos los subgrupos donde tiene asignación
+        subgrupos = [...new Set(asigR.rows.map(r => r.subgrupo.trim().toUpperCase()))];
+      }
+    }
+
+    // Construir query de estudiantes
+    let sql = `
+      SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido, e.subgrupo
+      FROM estudiantes e
+      WHERE e.seccion_id=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
+    const params = [secId];
+
+    if (subgrupos && subgrupos.length > 0) {
+      // Filtrar por subgrupo: el estudiante debe tener uno de los subgrupos del profe,
+      // o NO tener subgrupo asignado (caso edge: estudiante sin clasificar todavía)
+      params.push(subgrupos);
+      sql += ` AND (UPPER(COALESCE(e.subgrupo,'')) = ANY($${params.length}::text[]) OR COALESCE(e.subgrupo,'') = '')`;
+    }
+
+    sql += ` ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre`;
+    const r = await pool.query(sql, params);
+    res.json(r.rows);
+  } catch (err) {
+    console.error('cartas/estudiantes-disponibles error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── SECCIONES DISPONIBLES (helper para el form) ──────────────────────────────
+// El profesor regular solo ve secciones donde tiene asignación de materias REGULARES
+// (excluye Guía y Orientación). Admin/aux ven todas.
 router.get("/secciones-disponibles", requireDocente, async (req, res) => {
   const u = req.session.usuario;
   const esAdminAux = ['admin','auxiliar'].includes(u.rol);
@@ -106,7 +188,11 @@ router.get("/secciones-disponibles", requireDocente, async (req, res) => {
         ? `SELECT DISTINCT s.id, s.nombre, s.nivel FROM secciones s ORDER BY s.nivel, s.nombre`
         : `SELECT DISTINCT s.id, s.nombre, s.nivel FROM secciones s
            JOIN asignaciones a ON a.seccion_id=s.id
+           JOIN materias m ON m.id=a.materia_id
            WHERE a.profesor_id=$1
+             AND LOWER(m.nombre) NOT LIKE '%guía%'
+             AND LOWER(m.nombre) NOT LIKE '%guia%'
+             AND LOWER(m.nombre) NOT LIKE '%orientac%'
            ORDER BY s.nivel, s.nombre`,
       esAdminAux ? [] : [u.id]
     );
