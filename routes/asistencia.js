@@ -198,6 +198,29 @@ router.post("/", requireDocente, async (req, res) => {
                 "UPDATE asistencia SET boleta_ausencia_id=$1 WHERE id=$2",
                 [boletaId, asistRow.id]
               );
+
+              // ── Notificar al profesor guía de la sección ──
+              // Antes no se notificaba — el guía no se enteraba de la boleta automática.
+              try {
+                const guiaR = await pool.query(`
+                  SELECT sg.profesor_id AS id,
+                    e.primer_apellido, e.segundo_apellido, e.nombre,
+                    s.nombre AS seccion_nombre
+                  FROM seccion_guia sg
+                  JOIN estudiantes e ON e.id=$1
+                  LEFT JOIN secciones s ON s.id=e.seccion_id
+                  WHERE sg.seccion_id = e.seccion_id`, [reg.estudiante_id]);
+                for (const g of guiaR.rows) {
+                  if (g.id === req.session.usuario.id) continue;  // no auto-notificar
+                  await pool.query(`
+                    INSERT INTO notificaciones (usuario_id, tipo, mensaje)
+                    VALUES ($1, 'conducta', $2)
+                  `, [
+                    g.id,
+                    `⚠️ Boleta automática — ${g.primer_apellido} ${g.segundo_apellido}, ${g.nombre} (${g.seccion_nombre||'sin sección'}): Ausencia injustificada en Guía/Orientación.`
+                  ]);
+                }
+              } catch(notifErr){ console.error('notif auto-boleta:', notifErr.message); }
             } else {
               // Presente o justificado → eliminar boleta automática si existe
               if (asistRow.boleta_ausencia_id) {

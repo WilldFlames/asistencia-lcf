@@ -256,6 +256,36 @@ async function initDB() {
     // Aplica solo cuando estado='T'. NULL para P y A. Para T sin valor explícito = 1 (comportamiento histórico).
     // Regla MEP: 2 tardías = 1 ausencia (se aplica en reportes y cálculos derivados).
     await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS lecciones_tardias INTEGER DEFAULT NULL`);
+
+    // ── CARTAS DE AUSENTISMO ─────────────────────────────────────────────────
+    // Registro histórico de las cartas que entrega el profesorado al encargado.
+    // Snapshot de los datos en el momento de emisión (cantidad de ausencias y %)
+    // para que el registro sea auditable aunque cambien después.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS cartas_ausentismo (
+        id                  SERIAL PRIMARY KEY,
+        estudiante_id       INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        asignacion_id       INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        emitida_por         INTEGER NOT NULL REFERENCES usuarios(id),
+        fecha               DATE NOT NULL DEFAULT CURRENT_DATE,
+        periodo             TEXT NOT NULL,
+        materia             TEXT NOT NULL,
+        ausencias           INTEGER NOT NULL DEFAULT 0,
+        total_lecciones     INTEGER NOT NULL DEFAULT 0,
+        porcentaje          NUMERIC(5,2) NOT NULL DEFAULT 0,
+        observaciones       TEXT DEFAULT '',
+        created_at          TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_cartas_ausentismo_est ON cartas_ausentismo(estudiante_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_cartas_ausentismo_emit ON cartas_ausentismo(emitida_por)`);
+
+    // notificaciones.referencia_id: enlaza la notificación con la entidad referida (ej. boleta).
+    // Permite que al hacer click en la notificación, el sistema pueda navegar al objeto.
+    // Antes el código intentaba insertar este campo pero la columna no existía → INSERT
+    // fallaba silenciosamente (catch en el caller) y el guía nunca recibía notificaciones
+    // de boletas automáticas.
+    await client.query(`ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS referencia_id INTEGER DEFAULT NULL`);
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_asistencia TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_trabajo_cotidiano TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_tareas TEXT DEFAULT ''`);
@@ -553,6 +583,33 @@ async function initDB() {
     // Materias
     for (const m of MATERIAS_DEFAULT) {
       await client.query("INSERT INTO materias (nombre) VALUES ($1) ON CONFLICT DO NOTHING", [m]);
+    }
+
+    // ── MIGRACIÓN: garantizar infracciones requeridas para boletas automáticas ─
+    // El sistema busca "Fuga de las lecciones" (leve 10pt) y "Ausencias injustificadas"
+    // (leve 10pt) para auto-generar boletas. En una BD que ya tenía otra estructura,
+    // el seed inicial completo no corre (porque ya hay registros), y estas dos pueden
+    // faltar — entonces las auto-boletas fallan silenciosamente. Esta migración las
+    // inserta si no existen.
+    const infFuga = await client.query(
+      "SELECT id FROM infracciones WHERE descripcion ILIKE '%Fuga de las lecciones%' LIMIT 1"
+    );
+    if (!infFuga.rows.length) {
+      await client.query(
+        "INSERT INTO infracciones (tipo, puntos, descripcion) VALUES ('leve', 10, $1)",
+        ['Fuga de las lecciones y de actividades curriculares o cocurriculares programadas por el centro educativo.']
+      );
+      console.log("✅ Infracción 'Fuga de lecciones' añadida (requerida para auto-boletas)");
+    }
+    const infAusInj = await client.query(
+      "SELECT id FROM infracciones WHERE descripcion ILIKE '%Ausencias injustificadas%' LIMIT 1"
+    );
+    if (!infAusInj.rows.length) {
+      await client.query(
+        "INSERT INTO infracciones (tipo, puntos, descripcion) VALUES ('leve', 10, $1)",
+        ['Ausencias injustificadas a actividades debidamente convocadas.']
+      );
+      console.log("✅ Infracción 'Ausencias injustificadas' añadida (requerida para auto-boletas)");
     }
 
     // Infracciones pre-cargadas

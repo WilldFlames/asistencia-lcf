@@ -353,6 +353,7 @@ tr:hover td{background:#f8fafc;}
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
   <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
   <button class="nav-btn" data-page="reportes" id="nav-reportes" onclick="goTo('reportes')" style="display:none"><span class="icon">📊</span><span>Reportes</span></button>
+  <button class="nav-btn" data-page="cartas" id="nav-cartas" onclick="goTo('cartas')" style="display:none"><span class="icon">📨</span><span>Cartas Ausentismo</span></button>
   <button class="nav-btn" data-page="expediente" id="nav-expediente" onclick="goTo('expediente')" style="display:none"><span class="icon">📁</span><span>Expediente</span></button>
   <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
   <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
@@ -536,6 +537,28 @@ tr:hover td{background:#f8fafc;}
   </div>
   <div id="reporte-contenido"></div>
 </div>
+
+<!-- CARTAS DE AUSENTISMO -->
+<div class="page" id="page-cartas">
+  <div class="card no-print">
+    <h2>📨 Carta de Ausentismo</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+      Generá una carta dirigida al encargado(a) del estudiante para notificar su nivel de ausentismo en una asignatura, según el REAC vigente.
+      Los datos del estudiante, ausencias y porcentaje se calculan automáticamente para el período actual.
+    </p>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="fg"><label>Sección</label><select id="cart-seccion" onchange="cargarEstCartas()"><option value="">— Sección —</option></select></div>
+      <div class="fg"><label>Estudiante</label><select id="cart-estudiante" onchange="cargarDatosCarta()"><option value="">— Estudiante —</option></select></div>
+      <div class="fg"><label>Asignatura</label><select id="cart-asignacion" onchange="actualizarVistaCarta()"><option value="">— Asignatura —</option></select></div>
+      <button class="btn btn-success no-print" id="btn-guardar-carta" onclick="guardarYImprimirCarta()" disabled>💾 Guardar e Imprimir</button>
+      <button class="btn btn-outline no-print" onclick="verHistorialCartas()">📋 Historial</button>
+    </div>
+    <div id="alert-cart" class="alert"></div>
+  </div>
+  <div id="carta-contenido"></div>
+  <div id="cartas-historial" style="display:none;"></div>
+</div>
+<!-- /CARTAS DE AUSENTISMO -->
 
 <!-- CONDUCTA -->
 <div class="page" id="page-conducta">
@@ -2271,6 +2294,7 @@ function goTo(page){
   if(page==="prematricula") iniciarPrematricula();
   if(page==="matricula")    iniciarMatricula();
   if(page==="reportes")    initReportes();
+  if(page==="cartas")      iniciarCartas();
   if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
 }
 
@@ -2319,6 +2343,11 @@ async function iniciarApp(){
     document.getElementById("sec-gestion").style.display="";
     document.getElementById("nav-estudiantes").style.display="";
     document.getElementById("nav-reportes").style.display="";
+  }
+  // Cartas de Ausentismo: TODOS los profesores (incluyendo profesor regular)
+  if(esAdmin||esAuxiliar||esGuia||esOrientador||esProfesor){
+    document.getElementById("sec-gestion").style.display="";
+    document.getElementById("nav-cartas").style.display="";
   }
   // Expediente: admin, auxiliar
   if(esAdmin||esAuxiliar){
@@ -6587,6 +6616,260 @@ function cerrarModal(id){document.getElementById(id).classList.remove("show");}
 document.querySelectorAll(".modal-overlay").forEach(o=>{
   o.addEventListener("click",e=>{if(e.target===o)o.classList.remove("show");});
 });
+
+// ════════════════════════════════════
+//  CARTAS DE AUSENTISMO
+// ════════════════════════════════════
+let cartasDatos = null;  // datos completos del estudiante seleccionado
+
+async function iniciarCartas(){
+  document.getElementById("alert-cart").className="alert";
+  document.getElementById("carta-contenido").innerHTML="";
+  document.getElementById("cartas-historial").style.display="none";
+  document.getElementById("cart-estudiante").innerHTML='<option value="">— Estudiante —</option>';
+  document.getElementById("cart-asignacion").innerHTML='<option value="">— Asignatura —</option>';
+  document.getElementById("btn-guardar-carta").disabled = true;
+  cartasDatos = null;
+  // Poblar el select de secciones con las que el docente tiene asignación
+  try {
+    const secs = await api("/api/cartas/secciones-disponibles") || [];
+    const sel = document.getElementById("cart-seccion");
+    sel.innerHTML = '<option value="">— Sección —</option>' +
+      secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+    if(!secs.length){
+      sa("alert-cart","No tenés secciones asignadas. Pedile a admin que te asigne al menos una materia.","danger");
+    }
+  } catch(e){ sa("alert-cart","Error cargando secciones: "+e.message,"danger"); }
+}
+
+async function cargarEstCartas(){
+  const sid = document.getElementById("cart-seccion").value;
+  const selEst = document.getElementById("cart-estudiante");
+  selEst.innerHTML = '<option value="">— Estudiante —</option>';
+  document.getElementById("cart-asignacion").innerHTML='<option value="">— Asignatura —</option>';
+  document.getElementById("carta-contenido").innerHTML="";
+  document.getElementById("btn-guardar-carta").disabled = true;
+  cartasDatos = null;
+  if(!sid) return;
+  try {
+    const r = await api(`/api/estudiantes?seccion=${sid}`) || [];
+    const activos = r.filter(e => e.activo && !e.archivado);
+    selEst.innerHTML += activos
+      .sort((a,b)=>`${a.primer_apellido} ${a.nombre}`.localeCompare(`${b.primer_apellido} ${b.nombre}`))
+      .map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</option>`).join("");
+  } catch(e){ sa("alert-cart","Error cargando estudiantes: "+e.message,"danger"); }
+}
+
+async function cargarDatosCarta(){
+  const eid = document.getElementById("cart-estudiante").value;
+  document.getElementById("cart-asignacion").innerHTML='<option value="">— Asignatura —</option>';
+  document.getElementById("carta-contenido").innerHTML="";
+  document.getElementById("btn-guardar-carta").disabled = true;
+  cartasDatos = null;
+  if(!eid) return;
+  try {
+    const d = await api(`/api/cartas/datos/${eid}`);
+    if(!d){ sa("alert-cart","No se pudieron obtener los datos.","danger"); return; }
+    cartasDatos = d;
+    const sel = document.getElementById("cart-asignacion");
+    if(!d.asignaciones || !d.asignaciones.length){
+      sa("alert-cart","Este estudiante no tiene asignaturas tuyas en su sección.","danger");
+      return;
+    }
+    sel.innerHTML = '<option value="">— Asignatura —</option>' +
+      d.asignaciones.map(a=>`<option value="${a.asignacion_id}">${a.materia} (${a.ausencias}/${a.total_lecciones} lecc. — ${a.porcentaje}%)</option>`).join("");
+    sa("alert-cart","","");
+    // Si hay solo una asignatura, seleccionarla automáticamente
+    if(d.asignaciones.length === 1){
+      sel.value = d.asignaciones[0].asignacion_id;
+      actualizarVistaCarta();
+    }
+  } catch(e){ sa("alert-cart","Error: "+e.message,"danger"); }
+}
+
+function actualizarVistaCarta(){
+  const asigId = parseInt(document.getElementById("cart-asignacion").value);
+  if(!asigId || !cartasDatos){
+    document.getElementById("carta-contenido").innerHTML="";
+    document.getElementById("btn-guardar-carta").disabled = true;
+    return;
+  }
+  const a = cartasDatos.asignaciones.find(x => x.asignacion_id === asigId);
+  if(!a) return;
+  document.getElementById("btn-guardar-carta").disabled = false;
+  renderVistaPreviaCarta(a);
+}
+
+function renderVistaPreviaCarta(asig){
+  const d = cartasDatos;
+  const e = d.estudiante;
+  const enc = d.encargado;
+  const p = d.periodo;
+  const periodoLbl = p.nombre === 'I Período' ? 'primer' : 'segundo';
+  const fechaHoy = fmtF(fechaHoyCR());
+  const nombreEst = `${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}`.trim();
+  const nombreEnc = enc ? `${enc.primer_apellido} ${enc.segundo_apellido||''}, ${enc.nombre}`.trim() : '__________________________________';
+  const cedulaEnc = enc?.cedula || '__________________________';
+
+  document.getElementById("carta-contenido").innerHTML = `
+    <style id="cart-print-style">
+      @media print {
+        .no-print { display: none !important; }
+        #carta-contenido .card { padding-bottom: 60px; box-shadow: none; border: none; }
+        .carta-body { font-size: 11px !important; line-height: 1.4 !important; }
+        .carta-body p { margin: 0 0 6px 0 !important; }
+        .carta-body ul { margin: 6px 0 !important; padding-left: 18px !important; }
+        .carta-body li { margin-bottom: 4px !important; }
+        .carta-firmas { margin-top: 16px !important; }
+      }
+    </style>
+    <div class="card" id="carta-imprimible" style="max-width:720px;margin:0 auto;padding:24px;background:#fff;">
+      <div id="carta-print-header" class="print-only-block" style="margin-bottom:16px;">
+        ${encabezadoMEP("INFORME DE AUSENTISMO")}
+      </div>
+      <div class="no-print" style="font-weight:bold;font-size:15px;color:var(--azul);text-align:center;margin-bottom:8px;">📨 Vista previa de la carta</div>
+      <div class="no-print" style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:14px;">Al imprimir se incluye encabezado y pie de página oficiales</div>
+
+      <div class="carta-body" style="font-family:Arial,sans-serif;font-size:12.5px;line-height:1.5;color:#222;">
+        <p style="text-align:right;margin-bottom:14px;"><strong>Fecha:</strong> ${fechaHoy}</p>
+
+        <p style="margin-bottom:12px;"><strong>Señor(a) padre, madre de familia o encargado(a) legal:</strong></p>
+
+        <p style="text-align:justify;margin-bottom:12px;">
+          Reciba un cordial saludo. Por este medio le informo, en mi condición de docente de la asignatura de
+          <strong>${asig.materia}</strong>, que él o la estudiante
+          <strong>${nombreEst}</strong>, de la sección <strong>${e.seccion_nombre || '—'}</strong>,
+          presenta a la fecha un total de <strong>${asig.ausencias}</strong> ausencias injustificadas,
+          equivalentes a un <strong>${asig.porcentaje}%</strong> de ausentismo durante el <strong>${periodoLbl}</strong> período del presente curso lectivo.
+        </p>
+
+        <p style="text-align:justify;margin-bottom:10px;">
+          De conformidad con el Reglamento de Evaluación de los Aprendizajes y de la Conducta (REAC),
+          Decreto Ejecutivo N.º 45509-MEP, publicado en La Gaceta el 26 de febrero de 2026 y vigente para
+          el presente curso lectivo, le comunico las consecuencias académicas que pueden derivarse de mantener este nivel de ausentismo:
+        </p>
+
+        <ul style="margin:8px 0 12px 0;padding-left:22px;">
+          <li style="margin-bottom:6px;text-align:justify;">
+            <strong>Pérdida del derecho a la prueba de ampliación:</strong> Conforme a lo dispuesto por el REAC en su Sección VII del Capítulo II,
+            sobre Promoción en la Educación General Básica y la Educación Diversificada, la persona estudiante deberá haber asistido al menos
+            al 80% de la totalidad de las lecciones impartidas en la asignatura para tener derecho a realizar la prueba de ampliación.
+          </li>
+          <li style="margin-bottom:6px;text-align:justify;">
+            <strong>Pérdida del derecho a la estrategia de promoción (artículo 60° del REAC):</strong> En el Tercer Ciclo y la Educación Diversificada,
+            para optar por la estrategia de promoción —recurso al que se accede una vez no aprobada la prueba de ampliación—, se requiere, además
+            de haber realizado todas las evaluaciones del curso y presentado todas las tareas, haber asistido al menos al 80% de las lecciones.
+          </li>
+          <li style="margin-bottom:6px;text-align:justify;">
+            <strong>Eliminación del adelantamiento de materias (artículo 50° del REAC):</strong> El nuevo REAC eliminó la figura del adelantamiento
+            o arrastre de materias. En consecuencia, de reprobar la asignatura, su hijo(a) deberá repetir íntegramente el año lectivo.
+          </li>
+        </ul>
+
+        <p style="margin-bottom:8px;"><strong>Deber del padre, madre o encargado(a) legal</strong></p>
+
+        <p style="text-align:justify;margin-bottom:12px;">
+          El REAC establece como deber de las personas encargadas legales dar seguimiento al proceso educativo del estudiantado,
+          justificar por escrito y de forma oportuna las ausencias o llegadas tardías ante el centro educativo (dentro de los tres días hábiles
+          posteriores a la reincorporación), así como mantener comunicación constante con el personal docente y administrativo de la institución.
+        </p>
+
+        <p style="text-align:justify;margin-bottom:14px;">
+          Por lo anterior, le solicito de manera respetuosa tomar las medidas pertinentes en el hogar para revertir esta situación y evitar
+          consecuencias académicas mayores al cierre del curso lectivo. Quedo a sus órdenes para coordinar una reunión o brindar cualquier aclaración que requiera.
+        </p>
+
+        <p style="margin-bottom:8px;">Atentamente,</p>
+
+        <div class="carta-firmas" style="margin-top:24px;">
+          <div style="border-top:1px solid #333;width:280px;padding-top:3px;margin-bottom:14px;font-size:11px;">
+            <strong>${d.docente.nombre_completo}</strong><br/>
+            Docente de ${asig.materia}
+          </div>
+
+          <p style="margin:14px 0 6px 0;"><strong>Recibido conforme:</strong></p>
+          <div style="font-size:11.5px;line-height:1.7;">
+            Nombre del encargado(a) legal: <strong>${nombreEnc}</strong><br/>
+            Cédula: <strong>${cedulaEnc}</strong><br/>
+            Firma: ______________________________<br/>
+            Fecha de recibido: ______________________
+          </div>
+        </div>
+      </div>
+
+      ${piePaginaMEP()}
+    </div>`;
+}
+
+async function guardarYImprimirCarta(){
+  const btn = document.getElementById("btn-guardar-carta");
+  if(btn.disabled) return;
+  const asigId = parseInt(document.getElementById("cart-asignacion").value);
+  if(!asigId || !cartasDatos){ sa("alert-cart","Seleccioná estudiante y asignatura.","danger"); return; }
+  const a = cartasDatos.asignaciones.find(x => x.asignacion_id === asigId);
+  if(!a) return;
+  btn.disabled = true;
+  const txt = btn.innerHTML;
+  btn.innerHTML = "⏳ Guardando...";
+  try {
+    await api("/api/cartas","POST",{
+      estudiante_id: cartasDatos.estudiante.id,
+      asignacion_id: a.asignacion_id,
+      materia: a.materia,
+      ausencias: a.ausencias,
+      total_lecciones: a.total_lecciones,
+      porcentaje: a.porcentaje
+    });
+    sa("alert-cart","✅ Carta guardada en el histórico. Imprimiendo...","success");
+    // Imprimir esperando que carguen las imágenes del encabezado
+    const area = document.getElementById("carta-imprimible");
+    const imgs = area.querySelectorAll("img");
+    await Promise.all(Array.from(imgs).map(img =>
+      img.complete && img.naturalWidth > 0
+        ? Promise.resolve()
+        : new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 3000); })
+    ));
+    window.print();
+  } catch(e){ sa("alert-cart","Error: "+e.message,"danger"); }
+  finally { btn.disabled = false; btn.innerHTML = txt; }
+}
+
+async function verHistorialCartas(){
+  document.getElementById("carta-contenido").innerHTML="";
+  document.getElementById("cartas-historial").style.display="";
+  document.getElementById("cartas-historial").innerHTML = '<div class="card">⏳ Cargando histórico...</div>';
+  try {
+    const r = await api("/api/cartas") || [];
+    if(!r.length){
+      document.getElementById("cartas-historial").innerHTML = `<div class="card" style="text-align:center;color:var(--muted);padding:30px;">📭 No se han emitido cartas todavía.</div>`;
+      return;
+    }
+    document.getElementById("cartas-historial").innerHTML = `
+      <div class="card">
+        <h3 style="margin-bottom:12px;">📋 Histórico de Cartas Emitidas</h3>
+        <div class="table-wrap"><table style="width:100%;">
+          <thead><tr>
+            <th>Fecha</th><th>Estudiante</th><th>Sección</th><th>Materia</th><th>Período</th>
+            <th style="text-align:center;">Aus.</th><th style="text-align:center;">%</th><th>Emitida por</th>
+          </tr></thead>
+          <tbody>
+            ${r.map(c=>`<tr>
+              <td>${fmtF(c.fecha)}</td>
+              <td><strong>${c.est_ap1} ${c.est_ap2||''}, ${c.est_nombre}</strong></td>
+              <td>${c.seccion_nombre || '—'}</td>
+              <td>${c.materia}</td>
+              <td>${c.periodo}</td>
+              <td style="text-align:center;color:var(--rojo);font-weight:bold;">${c.ausencias}</td>
+              <td style="text-align:center;color:${c.porcentaje>=20?'var(--rojo)':'var(--text)'};font-weight:bold;">${c.porcentaje}%</td>
+              <td style="font-size:12px;color:var(--muted);">${c.prof_ap1} ${c.prof_nombre}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table></div>
+      </div>`;
+  } catch(e){
+    document.getElementById("cartas-historial").innerHTML = `<div class="card" style="color:var(--rojo);">❌ Error: ${e.message}</div>`;
+  }
+}
 
 // ════════════════════════════════════
 //  INIT

@@ -346,23 +346,23 @@ router.post("/:id/escape", requireAuth, async (req, res) => {
         }
       }
 
-      // Notificar al profesor guía
+      // Notificar al profesor guía de la sección
+      // (antes consultaba s.profesor_guia_id que no existe — la relación está en seccion_guia)
       try {
         const guiaR = await pool.query(`
-          SELECT u.id FROM secciones s
-          JOIN usuarios u ON u.id=s.profesor_guia_id
-          WHERE s.id=$1`, [est.seccion_id]);
-        if (guiaR.rows.length && guiaR.rows[0].id !== u.id) {
+          SELECT profesor_id FROM seccion_guia WHERE seccion_id=$1`, [est.seccion_id]);
+        if (guiaR.rows.length && guiaR.rows[0].profesor_id && guiaR.rows[0].profesor_id !== u.id) {
           await pool.query(`
-            INSERT INTO notificaciones (usuario_id, tipo, mensaje, referencia_id)
-            VALUES ($1, 'conducta', $2, $3)
+            INSERT INTO notificaciones (usuario_id, tipo, mensaje)
+            VALUES ($1, 'conducta', $2)
           `, [
-            guiaR.rows[0].id,
-            `⚠️ Boleta automática — ${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre} (${est.seccion_nombre}): Fuga de lecciones.`,
-            boletaId
+            guiaR.rows[0].profesor_id,
+            `⚠️ Boleta automática — ${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre} (${est.seccion_nombre || 'Sin sección'}): Fuga de lecciones.`
           ]);
         }
-      } catch(e) {}
+      } catch(e) {
+        console.error('notificar-guia-escape error:', e.message);
+      }
 
       res.json({ ok: true, escapado: true, boleta_id: boletaId });
 

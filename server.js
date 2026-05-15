@@ -45,6 +45,7 @@ app.use("/api/consecutivos",   requireAuth, require("./routes/consecutivos"));
 app.use("/api/medidas",        requireAuth, require("./routes/medidas"));
 app.use("/api/prematricula",   requireAuth, require("./routes/prematricula"));
 app.use("/api/matricula",      requireAuth, require("./routes/matricula"));
+app.use("/api/cartas",         requireAuth, require("./routes/cartas"));
 
 // Force no-cache for HTML to ensure users always get latest version
 // Versión actual del sistema — se calcula al arrancar el proceso.
