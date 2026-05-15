@@ -6652,7 +6652,7 @@ async function cargarEstCartas(){
   cartasDatos = null;
   if(!sid) return;
   try {
-    const r = await api(`/api/estudiantes?seccion=${sid}`) || [];
+    const r = await api(`/api/estudiantes?seccion_id=${sid}`) || [];
     const activos = r.filter(e => e.activo && !e.archivado);
     selEst.innerHTML += activos
       .sort((a,b)=>`${a.primer_apellido} ${a.nombre}`.localeCompare(`${b.primer_apellido} ${b.nombre}`))
