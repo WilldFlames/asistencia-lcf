@@ -1025,6 +1025,30 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: ELIMINAR PREMATRÍCULA -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-eliminar-premat">
+  <div class="modal" style="max-width:500px;">
+    <h3 style="color:var(--rojo);">🗑️ Eliminar Prematrícula</h3>
+    <p id="del-premat-nombre" style="font-weight:bold;margin:8px 0 6px;font-size:14px;"></p>
+    <p id="del-premat-consec" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></p>
+    <input type="hidden" id="del-premat-id"/>
+    <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:10px 12px;border-radius:6px;margin-bottom:12px;font-size:12.5px;color:#78350f;">
+      <strong>⚠️ Atención:</strong> Al eliminar esta prematrícula, el consecutivo asignado quedará <strong>libre</strong> y podrá ser reutilizado por la próxima prematrícula registrada. Esta acción no se puede deshacer.
+    </div>
+    <div class="fg">
+      <label>Justificación <span style="color:var(--rojo)">*</span></label>
+      <textarea id="del-premat-justificacion" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;" placeholder="Indique el motivo de la eliminación (ej: duplicado, datos incorrectos, estudiante no asistió...)"></textarea>
+    </div>
+    <div id="alert-del-premat" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-eliminar-premat')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarEliminarPremat()">🗑️ Eliminar y Liberar Consecutivo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: MATRÍCULA WIZARD -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: MATRÍCULA WIZARD -->
@@ -7383,6 +7407,8 @@ function renderPremat(){
   const lista = q ? prematData.filter(p=>
     `${p.primer_apellido} ${p.nombre} ${p.cedula}`.toLowerCase().includes(q)
   ) : prematData;
+  // Cachear por id para que los botones no necesiten pasar nombres (evita bug apóstrofe).
+  window.prematCache = new Map(prematData.map(p=>[p.id,p]));
   const estados = {pendiente:"⏳ Pendiente",prematriculado:"✅ Listo para matrícula",matriculado:"🎓 Matriculado",retirado:"❌ Retirado"};
   document.getElementById("premat-tbody").innerHTML = lista.length ? lista.map((p,i)=>`<tr>
     <td style="color:var(--muted)">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
@@ -7392,9 +7418,9 @@ function renderPremat(){
     <td style="font-weight:bold;color:var(--azul);">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
     <td><span class="badge" style="background:${p.estado==='matriculado'?'#dcfce7':p.estado==='prematriculado'?'#d1fae5':p.estado==='retirado'?'#fee2e2':'#fef9c3'};color:#374151;">${estados[p.estado]||p.estado}</span></td>
     <td style="display:flex;gap:4px;">
-      <button class="btn btn-outline btn-xs" onclick="verPremat(${p.id})">👁️</button>
-      <button class="btn btn-outline btn-xs" onclick="reimprimir(${p.id})">🖨️</button>
-      ${p.estado!=='matriculado'?`<button class="btn btn-danger btn-xs" onclick="eliminarPremat(${p.id},'${(p.primer_apellido+' '+p.nombre).replace(/'/g,"\'")}')">🗑️</button>`:''}
+      <button class="btn btn-outline btn-xs" onclick="verPremat(${p.id})" title="Ver detalles">👁️</button>
+      <button class="btn btn-outline btn-xs" onclick="reimprimir(${p.id})" title="Reimprimir constancia">🖨️</button>
+      ${p.estado!=='matriculado'?`<button class="btn btn-danger btn-xs" onclick="abrirEliminarPremat(${p.id})" title="Eliminar (libera consecutivo)">🗑️</button>`:''}
     </td>
   </tr>`).join("") : `<tr><td colspan="7" class="empty">No hay prematrículas.</td></tr>`;
 }
@@ -7569,16 +7595,36 @@ async function imprimirConstanciaPremat(){
   await imprimirConEncabezado(printArea,style);
 }
 
-async function eliminarPremat(id,nombre){
-  const just=prompt(`Eliminar prematrícula de ${nombre}.\n\nJustificación obligatoria (el consecutivo quedará libre):`);
-  if(just===null) return;
-  if(!just.trim()){ alert("La justificación es obligatoria."); return; }
+function abrirEliminarPremat(id){
+  const p = window.prematCache?.get(id);
+  if(!p){ alert("No se pudo cargar la prematrícula."); return; }
+  document.getElementById("del-premat-id").value = id;
+  document.getElementById("del-premat-nombre").textContent =
+    `${p.primer_apellido||''} ${p.segundo_apellido||''}, ${p.nombre||''} · Cédula ${p.cedula||''}`;
+  const consec = p.consecutivo_prematricula
+    ? `Consecutivo asignado: N°${String(p.consecutivo_prematricula).padStart(3,'0')} (quedará libre)`
+    : 'Esta prematrícula no tiene consecutivo asignado.';
+  document.getElementById("del-premat-consec").textContent = consec;
+  document.getElementById("del-premat-justificacion").value = "";
+  document.getElementById("alert-del-premat").className = "alert";
+  document.getElementById("modal-eliminar-premat").classList.add("show");
+}
+
+async function confirmarEliminarPremat(){
+  const id = document.getElementById("del-premat-id").value;
+  const just = document.getElementById("del-premat-justificacion").value.trim();
+  if(!just){ sa("alert-del-premat","La justificación es obligatoria.","danger"); return; }
   try{
-    const r=await api(`/api/prematricula/${id}`,"DELETE",{justificacion:just});
-    const consec=r.consecutivo_liberado?` Consecutivo N°${String(r.consecutivo_liberado).padStart(3,'0')} liberado.`:"";
+    const r = await api(`/api/prematricula/${id}`,"DELETE",{justificacion:just});
+    const consec = r.consecutivo_liberado
+      ? ` Consecutivo N°${String(r.consecutivo_liberado).padStart(3,'0')} liberado.`
+      : "";
+    cerrarModal("modal-eliminar-premat");
     sa("alert-premat",`✅ Prematrícula eliminada.${consec}`,"success");
     iniciarPrematricula();
-  }catch(e){ sa("alert-premat",e.message,"danger"); }
+  }catch(e){
+    sa("alert-del-premat", e.message, "danger");
+  }
 }
 
 async function continuarMatricula(id,cedula){
