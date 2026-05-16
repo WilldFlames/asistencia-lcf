@@ -3,19 +3,29 @@ const { pool } = require("../db");
 const { requireDocente } = require("../middleware/auth");
 
 // ── MIS ASIGNACIONES ──────────────────────────────────────────────────────────
+// Detecta el período lectivo actual según la fecha del servidor.
+// Antes del 4-jul-2026 = I Período. Después = II Período.
+function periodoActualNombre() {
+  const hoy = new Date();
+  return (hoy < new Date('2026-07-04T00:00:00')) ? 'I Período' : 'II Período';
+}
+
 router.get("/mis-asignaciones", requireDocente, async (req, res) => {
   const uid = req.session.usuario.id;
+  // Solo mostrar asignaciones del PERÍODO ACTUAL para que el profe no se confunda
+  // tomando asistencia en una asignación vieja. Las históricas existen en BD para reportes.
+  const periodo = periodoActualNombre();
   const r = await pool.query(`
-    SELECT a.id, a.lecciones_semana, a.subgrupo,
+    SELECT a.id, a.lecciones_semana, a.subgrupo, a.periodo,
       s.nombre AS seccion_nombre, s.nivel,
       m.nombre AS materia_nombre,
       (SELECT COUNT(*) FROM sesiones_asistencia sa WHERE sa.asignacion_id=a.id) AS sesiones_total
     FROM asignaciones a
     JOIN secciones s ON s.id=a.seccion_id
     JOIN materias m ON m.id=a.materia_id
-    WHERE a.profesor_id=$1
+    WHERE a.profesor_id=$1 AND COALESCE(a.periodo,'I Período')=$2
     ORDER BY s.nombre, m.nombre
-  `, [uid]);
+  `, [uid, periodo]);
   res.json(r.rows);
 });
 

@@ -430,11 +430,21 @@ tr:hover td{background:#f8fafc;}
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Comité Comedor</button>
           <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Comité Matrícula</button>
+          <button class="btn btn-orange btn-sm" onclick="abrirIntercambioPeriodo()">🔄 Intercambio Hogar↔Industriales (II Período)</button>
         </div>
       </div>
       <button class="btn btn-primary" onclick="abrirModalAsignacion()">+ Nueva</button>
     </div>
     <div id="alert-asig" class="alert"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="fg" style="min-width:240px;">
+        <label>Filtrar por profesor</label>
+        <select id="filtro-prof-asig" onchange="filtrarAsignacionesPorProfesor()">
+          <option value="">— Todos —</option>
+        </select>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('filtro-prof-asig').value='';filtrarAsignacionesPorProfesor()">Limpiar filtro</button>
+    </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Profesor</th><th>Rol</th><th>Sección</th><th>Materia</th><th>Lecc/sem</th><th></th></tr></thead>
       <tbody id="asig-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
@@ -490,6 +500,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-success" onclick="guardarAsistencia()">💾 Guardar</button>
         <button class="btn btn-outline btn-sm" onclick="marcarTodos('P')">✅ Todos P</button>
         <button class="btn btn-outline btn-sm" onclick="marcarTodos('A')">❌ Todos A</button>
+        <button class="btn btn-outline btn-sm" onclick="imprimirAsistenciaActual()">🖨️ Imprimir / PDF</button>
       </div>
       <div id="asis-sesion-info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:13px;"></div>
       <div class="table-wrap"><table>
@@ -500,7 +511,7 @@ tr:hover td{background:#f8fafc;}
     <div class="card no-print">
       <h2>📅 Historial de Sesiones</h2>
       <div class="table-wrap"><table>
-        <thead><tr><th>Fecha</th><th>Lecc.</th><th>P</th><th>A</th><th>T</th><th>Ver</th><th>Elim.</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Lecc.</th><th>P</th><th>A</th><th>T</th><th>Ver</th><th>PDF</th><th>Elim.</th></tr></thead>
         <tbody id="hist-sesiones-body"></tbody>
       </table></div>
     </div>
@@ -696,11 +707,10 @@ tr:hover td{background:#f8fafc;}
       </div>
 
       <!-- Stats -->
-      <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-top:8px;">
+      <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-top:8px;">
         <div class="stat"><div class="num green" id="cd-hoy">0</div><div class="lbl">Comieron hoy</div></div>
         <div class="stat"><div class="num orange" id="cd-becados">0</div><div class="lbl">Becados</div></div>
         <div class="stat"><div class="num" id="cd-regulares">0</div><div class="lbl">No Becados</div></div>
-        <div class="stat"><div class="num" id="cd-total-reg">—</div><div class="lbl">Total registrados</div></div>
       </div>
     </div>
   </div>
@@ -2151,8 +2161,21 @@ const fmtF=d=>{
 // para asignar a inputs type="date". Devuelve "" si no se puede parsear.
 function toDateInput(v){
   if(!v) return "";
-  if(typeof v === "string") return v.slice(0,10);
-  try { return new Date(v).toISOString().slice(0,10); } catch(_) { return ""; }
+  if(typeof v === "string"){
+    // Si viene "2010-05-15" o "2010-05-15T00:00:00.000Z", quedarse con los primeros 10
+    const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+    if(m) return m[1];
+    return "";
+  }
+  try {
+    const d = new Date(v);
+    if(isNaN(d.getTime())) return "";
+    // Usar UTC para evitar que el offset zona horaria empuje al día anterior
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth()+1).padStart(2,"0");
+    const dd = String(d.getUTCDate()).padStart(2,"0");
+    return `${yyyy}-${mm}-${dd}`;
+  } catch(_) { return ""; }
 }
 
 // Detectar período según fecha
@@ -3110,8 +3133,29 @@ async function cargarAsignaciones(){
   const rows=await api("/api/admin/asignaciones");
   if(!rows)return;
   asigData = rows;
+  // Llenar dropdown de profesores únicos (preservar la selección actual)
+  const selProf = document.getElementById("filtro-prof-asig");
+  if(selProf){
+    const prev = selProf.value;
+    const profsMap = new Map();
+    rows.forEach(a=>{
+      if(!profsMap.has(a.profesor_id)){
+        profsMap.set(a.profesor_id, `${a.prof_ap1||""} ${a.prof_nombre||""}`.trim());
+      }
+    });
+    const profsArr = [...profsMap.entries()].sort((a,b)=>a[1].localeCompare(b[1],"es"));
+    selProf.innerHTML = '<option value="">— Todos —</option>' +
+      profsArr.map(([id,nom])=>`<option value="${id}">${nom}</option>`).join("");
+    selProf.value = prev; // mantener selección si todavía existe
+  }
+  renderAsignaciones();
+}
+function renderAsignaciones(){
   const tbody=document.getElementById("asig-body");
-  if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin asignaciones</td></tr>`;return;}
+  const filtroProf = document.getElementById("filtro-prof-asig")?.value || "";
+  let rows = asigData || [];
+  if(filtroProf) rows = rows.filter(a => String(a.profesor_id) === String(filtroProf));
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">${filtroProf?"Este profesor no tiene asignaciones":"Sin asignaciones"}</td></tr>`;return;}
   tbody.innerHTML=rows.map(a=>`<tr>
     <td>${a.prof_ap1} ${a.prof_nombre}</td>
     <td><span class="badge ${RBDG[a.prof_rol]}">${RLBL[a.prof_rol]}</span></td>
@@ -3124,6 +3168,7 @@ async function cargarAsignaciones(){
     </td>
   </tr>`).join("");
 }
+function filtrarAsignacionesPorProfesor(){ renderAsignaciones(); }
 function abrirModalAsignacion(){document.getElementById("modal-asignacion").classList.add("show");}
 async function guardarAsignacion(){
   const pid=document.getElementById("ma-profesor").value;
@@ -3198,6 +3243,9 @@ async function cargarEstudiantes(){
   if(sid) url+=`seccion_id=${sid}&`;
   if(q) url+=`q=${encodeURIComponent(q)}`;
   const rows=await api(url);if(!rows)return;
+  // Cachear filas por id para que los botones solo necesiten pasar id
+  // (evita romper HTML cuando nombres tienen apóstrofes, comillas o tildes raras)
+  window.estCache = new Map(rows.map(e=>[e.id,e]));
   const tbody=document.getElementById("est-body");
   if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin estudiantes</td></tr>`;return;}
   const isAux=tieneAlgunRol("admin","auxiliar"); // Solo admin/auxiliar pueden editar estudiantes
@@ -3210,10 +3258,10 @@ async function cargarEstudiantes(){
     <td>${fmtF(e.fecha_nacimiento)}</td>
     <td style="white-space:nowrap;">
       ${isAux?`<button class="btn btn-outline btn-xs" onclick="editarEstudiante(${e.id})">✏️</button>
-               <button class="btn btn-purple btn-xs" onclick="abrirEncargados(${e.id},'${e.nombre} ${e.primer_apellido}')">👨‍👩‍👧</button>
-               <button class="btn btn-orange btn-xs" onclick="abrirCambioSec(${e.id},'${e.nombre} ${e.primer_apellido}','${e.seccion_nombre||"Sin sección"}')">🔄</button>
-               <button class="btn btn-outline btn-xs" style="color:var(--naranja);border-color:var(--naranja);" onclick="abrirArchivarEst(${e.id},'${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}')">📁</button>
-               <button class="btn btn-danger btn-xs" onclick="eliminarEst(${e.id},'${e.nombre}')">🗑️</button>`:""}
+               <button class="btn btn-purple btn-xs" onclick="abrirEncargados(${e.id})">👨‍👩‍👧</button>
+               <button class="btn btn-orange btn-xs" onclick="abrirCambioSec(${e.id})">🔄</button>
+               <button class="btn btn-outline btn-xs" style="color:var(--naranja);border-color:var(--naranja);" onclick="abrirArchivarEst(${e.id})">📁</button>
+               <button class="btn btn-danger btn-xs" onclick="eliminarEst(${e.id})">🗑️</button>`:""}
     </td>
   </tr>`).join("");
 }
@@ -3251,20 +3299,40 @@ function abrirModalEstudiante(){
 }
 
 async function editarEstudiante(id){
-  const all=await api("/api/estudiantes");
-  const e=all?.find(r=>r.id===id);if(!e)return;
+  let e = window.estCache?.get(id);
+  // Si no está en caché (poco probable), buscarlo del backend
+  if(!e){
+    const all=await api("/api/estudiantes");
+    e = all?.find(r=>r.id===id);
+  }
+  if(!e){ alert("No se pudo cargar el estudiante."); return; }
   editIdE=id;
   document.getElementById("me-titulo").textContent="Editar Estudiante";
   document.getElementById("me-cedula").value=e.cedula;
   document.getElementById("me-cedula").disabled=true;
-  document.getElementById("me-nombre").value=e.nombre;
-  document.getElementById("me-ap1").value=e.primer_apellido;
-  document.getElementById("me-ap2").value=e.segundo_apellido;
-  document.getElementById("me-nac").value=toDateInput(e.fecha_nacimiento);
-  document.getElementById("me-seccion").value=e.seccion_id||"";
-  document.getElementById("me-subgrupo").value=e.subgrupo||"";
-  if(document.getElementById("me-becado")) document.getElementById("me-becado").value=String(!!e.becado);
-  document.getElementById("me-subgrupo-wrap").style.display=e.seccion_id?"":"none";
+  document.getElementById("me-nombre").value=e.nombre||"";
+  document.getElementById("me-ap1").value=e.primer_apellido||"";
+  document.getElementById("me-ap2").value=e.segundo_apellido||"";
+  // Fecha de nacimiento: forzar formato YYYY-MM-DD que <input type=date> exige.
+  // toDateInput maneja strings ISO, Date y null.
+  const fnac = toDateInput(e.fecha_nacimiento);
+  document.getElementById("me-nac").value = fnac;
+  // Si el select de secciones todavía no fue poblado o no tiene la opción
+  // del estudiante, agregarla al vuelo para que el value se aplique.
+  const selSec = document.getElementById("me-seccion");
+  if(selSec && e.seccion_id){
+    const tieneOpt = Array.from(selSec.options).some(o=>String(o.value)===String(e.seccion_id));
+    if(!tieneOpt){
+      const opt = document.createElement("option");
+      opt.value = e.seccion_id;
+      opt.textContent = e.seccion_nombre || `Sección ${e.seccion_id}`;
+      selSec.appendChild(opt);
+    }
+  }
+  selSec.value = e.seccion_id || "";
+  document.getElementById("me-subgrupo").value = e.subgrupo || "";
+  if(document.getElementById("me-becado")) document.getElementById("me-becado").value = String(!!e.becado);
+  document.getElementById("me-subgrupo-wrap").style.display = e.seccion_id ? "" : "none";
   // Limpiar foto anterior y mostrar la del estudiante si tiene
   limpiarFotoInput();
   const fotoPrev = document.getElementById("me-foto-preview");
@@ -3341,9 +3409,14 @@ function previsualizarFoto(){
 }
 
 function eliminarEst(id,n){
+  // Backward-compat: si no se pasa el nombre, sacarlo de la caché
+  if(!n && window.estCache){
+    const e = window.estCache.get(id);
+    if(e) n = `${e.nombre} ${e.primer_apellido}`;
+  }
   // Abrir modal con justificación obligatoria
   document.getElementById("del-est-id").value=id;
-  document.getElementById("del-est-nombre").textContent=`Dar de baja: ${n}`;
+  document.getElementById("del-est-nombre").textContent=`Dar de baja: ${n||""}`;
   document.getElementById("del-est-justificacion").value="";
   document.getElementById("alert-del-est").className="alert";
   document.getElementById("modal-eliminar-est").classList.add("show");
@@ -3363,8 +3436,16 @@ async function confirmarEliminarEst(){
 
 // ── CAMBIAR SECCIÓN ──────────────────
 function abrirCambioSec(id,nombre,secActual){
+  // Backward-compat: sacar de caché si no se pasan
+  if((!nombre||!secActual) && window.estCache){
+    const e = window.estCache.get(id);
+    if(e){
+      if(!nombre) nombre = `${e.nombre} ${e.primer_apellido}`;
+      if(!secActual) secActual = e.seccion_nombre || "Sin sección";
+    }
+  }
   cambSecEstId=id;
-  document.getElementById("mcs-est").textContent=`Estudiante: ${nombre} | Sección actual: ${secActual}`;
+  document.getElementById("mcs-est").textContent=`Estudiante: ${nombre||""} | Sección actual: ${secActual||"Sin sección"}`;
   poblarSel("mcs-seccion",false,"Sin sección");
   document.getElementById("modal-cambiar-seccion").classList.add("show");
 }
@@ -3384,8 +3465,13 @@ async function confirmarCambioSeccion(){
 
 // ── ENCARGADOS ────────────────────────
 function abrirEncargados(estId,nombre){
+  // Backward-compat: sacar de caché
+  if(!nombre && window.estCache){
+    const e = window.estCache.get(estId);
+    if(e) nombre = `${e.nombre} ${e.primer_apellido}`;
+  }
   encEstId=estId;
-  document.getElementById("menc-titulo").textContent=`Encargados — ${nombre}`;
+  document.getElementById("menc-titulo").textContent=`Encargados — ${nombre||""}`;
   limpiarFormEnc();
   cargarEncargadosLista();
   document.getElementById("modal-encargados").classList.add("show");
@@ -3763,6 +3849,155 @@ function verMedida(id, tipo){
 
 
 
+// ────────────────────────────────────
+// Imprimir asistencia (día actual o sesión histórica) — formato oficial MEP
+// ────────────────────────────────────
+async function imprimirAsistenciaActual(){
+  const fecha = document.getElementById("asis-fecha").value;
+  const lecc = parseInt(document.getElementById("asis-lecciones").value)||4;
+  if(!fecha){ sa("alert-asis","Seleccioná una fecha primero.","danger"); return; }
+  if(!registrosAsist || !registrosAsist.length){
+    sa("alert-asis","No hay estudiantes cargados. Hacé clic en 'Cargar' primero.","danger");
+    return;
+  }
+  await prepararEImprimirAsistencia(fecha, lecc, registrosAsist);
+}
+
+async function imprimirAsistenciaPorFecha(fecha, lecc){
+  // Para sesiones del histórico — pide los datos al backend y luego imprime
+  if(!asigActiva) return;
+  try {
+    const d = await api(`/api/asistencia/${asigActiva}/${fecha}?_=${Date.now()}`);
+    if(!d || !d.estudiantes){ alert("No se pudo cargar la sesión."); return; }
+    await prepararEImprimirAsistencia(fecha, lecc, d.estudiantes);
+  } catch(e){ alert("Error: "+e.message); }
+}
+
+async function prepararEImprimirAsistencia(fecha, lecc, registros){
+  // Reunir info de la asignación (profesor, materia, sección)
+  let asigInfo = {};
+  try {
+    const misAsigs = await api("/api/asistencia/mis-asignaciones") || [];
+    asigInfo = misAsigs.find(a => a.id === asigActiva) || {};
+  } catch(_){}
+  const profNombre = ME ? `${ME.primer_apellido} ${ME.segundo_apellido||''}, ${ME.nombre}`.trim() : '—';
+  const seccionLbl = (asigInfo.seccion_nombre || '—') + (asigInfo.subgrupo?` · subgrupo ${asigInfo.subgrupo}`:'');
+  const materia = asigInfo.materia_nombre || '—';
+
+  // Conteos
+  let P=0, A=0, T=0;
+  registros.forEach(e => {
+    if(e.estado==='A') A++;
+    else if(e.estado==='T') T++;
+    else P++;
+  });
+
+  // Render del contenedor de impresión
+  const mount = document.getElementById("asis-print-mount") || (() => {
+    const div = document.createElement('div');
+    div.id = "asis-print-mount";
+    document.body.appendChild(div);
+    return div;
+  })();
+
+  mount.innerHTML = `
+    <style id="asis-print-style">
+      @media print {
+        body > *:not(#asis-print-mount) { display: none !important; }
+        #asis-print-mount { display: block !important; }
+        @page { size: A4 portrait; margin: 12mm; }
+      }
+      #asis-print-mount { display: none; }
+    </style>
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;color:#222;font-size:11.5px;line-height:1.4;">
+      ${encabezadoMEP("REGISTRO DE ASISTENCIA")}
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;font-size:11px;">
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#f8fafc;width:25%;"><strong>Profesor(a):</strong></td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${profNombre}</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#f8fafc;width:18%;"><strong>Fecha:</strong></td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${fmtF(fecha)}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#f8fafc;"><strong>Asignatura:</strong></td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${materia}</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#f8fafc;"><strong>Sección:</strong></td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${seccionLbl}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#f8fafc;"><strong>Lecciones:</strong></td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${lecc}</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#f8fafc;"><strong>Total est.:</strong></td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${registros.length}</td>
+        </tr>
+      </table>
+
+      <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;">
+        <div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:5px 8px;text-align:center;">
+          <strong style="color:#16a34a;">${P}</strong> Presentes
+        </div>
+        <div style="flex:1;background:#fee2e2;border:1px solid #fecaca;border-radius:4px;padding:5px 8px;text-align:center;">
+          <strong style="color:#dc2626;">${A}</strong> Ausentes
+        </div>
+        <div style="flex:1;background:#fef9c3;border:1px solid #fde68a;border-radius:4px;padding:5px 8px;text-align:center;">
+          <strong style="color:#d97706;">${T}</strong> Tardías
+        </div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:10.5px;">
+        <thead><tr style="background:#1F3864;color:#fff;">
+          <th style="padding:5px;border:1px solid #1F3864;width:30px;">#</th>
+          <th style="padding:5px;border:1px solid #1F3864;text-align:left;">Apellidos, Nombre</th>
+          <th style="padding:5px;border:1px solid #1F3864;width:48px;">Estado</th>
+          <th style="padding:5px;border:1px solid #1F3864;width:90px;">Lecc. aus. / tarde</th>
+          <th style="padding:5px;border:1px solid #1F3864;width:62px;">Justif.</th>
+        </tr></thead>
+        <tbody>
+          ${registros.map((e,i) => {
+            const apellidos = `${e.primer_apellido||''} ${e.segundo_apellido||''}`.trim();
+            const nom = `${apellidos}, ${e.nombre||''}`;
+            const estado = e.estado || 'P';
+            let detalle = '—';
+            if(estado === 'A' && e.lecciones_ausentes) detalle = `${e.lecciones_ausentes} ausente${e.lecciones_ausentes>1?'s':''}`;
+            else if(estado === 'T' && e.lecciones_tardias) detalle = `${e.lecciones_tardias} tarde`;
+            const just = e.justificada ? '✓' : '';
+            const colorFondo = estado==='A' ? '#fee2e2' : estado==='T' ? '#fef9c3' : '#fff';
+            return `<tr>
+              <td style="padding:3px 5px;border:1px solid #ccc;text-align:center;color:#666;">${i+1}</td>
+              <td style="padding:3px 6px;border:1px solid #ccc;">${nom}</td>
+              <td style="padding:3px 5px;border:1px solid #ccc;text-align:center;font-weight:bold;background:${colorFondo};">${estado}</td>
+              <td style="padding:3px 5px;border:1px solid #ccc;text-align:center;">${detalle}</td>
+              <td style="padding:3px 5px;border:1px solid #ccc;text-align:center;color:var(--verde);font-weight:bold;">${just}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+
+      <div style="margin-top:30px;padding-top:6px;border-top:1px solid #333;width:280px;font-size:11px;">
+        Firma del docente: ${profNombre}
+      </div>
+
+      ${piePaginaMEP()}
+    </div>`;
+
+  // Esperar a que carguen las imágenes del encabezado antes de imprimir
+  const imgs = mount.querySelectorAll("img");
+  await Promise.all(Array.from(imgs).map(img =>
+    img.complete && img.naturalWidth > 0
+      ? Promise.resolve()
+      : new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 2000); })
+  ));
+  // Mostrar para imprimir
+  mount.style.cssText = "";
+  window.print();
+  // Limpiar después
+  setTimeout(() => {
+    mount.innerHTML = '';
+    mount.style.display = 'none';
+  }, 500);
+}
+
 async function cargarHistSesiones(){
   if(!asigActiva) return;
   try{
@@ -3770,7 +4005,7 @@ async function cargarHistSesiones(){
     const tbody = document.getElementById("hist-sesiones-body");
     if(!tbody) return;
     if(!rows.length){
-      tbody.innerHTML='<tr><td colspan="7" class="empty">Sin sesiones registradas.</td></tr>';
+      tbody.innerHTML='<tr><td colspan="8" class="empty">Sin sesiones registradas.</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map(r=>{
@@ -3782,6 +4017,7 @@ async function cargarHistSesiones(){
         <td style="text-align:center;color:var(--rojo);font-weight:bold;">${r.total_ausentes||0}</td>
         <td style="text-align:center;color:var(--naranja);font-weight:bold;">${r.total_tardias||0}</td>
         <td><button onclick="verSesion('${fecha}',${r.lecciones})" class="btn btn-primary btn-xs">👁️ Ver</button></td>
+        <td><button onclick="imprimirAsistenciaPorFecha('${fecha}',${r.lecciones})" class="btn btn-outline btn-xs" title="Imprimir / Guardar como PDF">🖨️</button></td>
         <td><button onclick="elimSesion(${r.id})" class="btn btn-danger btn-xs">🗑️</button></td>
       </tr>`;
     }).join('');
@@ -5152,12 +5388,24 @@ async function iniciarComedor(){
 
   document.getElementById('comedor-vista-escaneo').style.display = (esCocinera||esComite) ? '' : 'none';
   document.getElementById('comedor-vista-lista').style.display   = esOrientador ? '' : 'none';
-  document.getElementById('comedor-vista-reporte').style.display = esComite ? '' : 'none';
+  // FIX: La cocinera también necesita ver/imprimir el Reporte Diario
+  // (es ella quien al final del día escribe el menú e imprime la boleta).
+  document.getElementById('comedor-vista-reporte').style.display = (esCocinera||esComite) ? '' : 'none';
 
   if(esCocinera||esComite){
-    // Fecha por defecto hoy
+    // Fecha por defecto hoy en ambos selectores (escaneo y reporte)
     const fd = document.getElementById('comedor-fecha-scan');
-    if(fd && !fd.value) fd.value = fechaHoyCR();
+    const fr = document.getElementById('comedor-fecha-rep');
+    const hoy = fechaHoyCR();
+    if(fd && !fd.value) fd.value = hoy;
+    if(fr && !fr.value) fr.value = fd?.value || hoy;
+    // Sincronizar: cuando cambia la fecha de escaneo, también la de reporte
+    if(fd && !fd.dataset.syncBound){
+      fd.dataset.syncBound = '1';
+      fd.addEventListener('change', ()=>{
+        if(fr){ fr.value = fd.value; cargarResumenComedor(); }
+      });
+    }
     await cargarStatsComedor();
   }
   if(esOrientador){
@@ -5479,11 +5727,9 @@ async function cargarStatsComedor(){
     const hoy=document.getElementById('cd-hoy');
     const b=document.getElementById('cd-becados');
     const reg=document.getElementById('cd-regulares');
-    const tot=document.getElementById('cd-total-reg');
     if(hoy) hoy.textContent=stats.total||0;
     if(b) b.textContent=stats.becados||0;
     if(reg) reg.textContent=stats.regulares||0;
-    if(tot) tot.textContent=stats.total_registrados||'—';
   }catch{}
 }
 
@@ -5493,16 +5739,23 @@ async function escanearComedor(){
   if(!cedula) return;
   const result = document.getElementById('comedor-scan-result');
   try{
-    const r = await api('/api/comedor/registrar','POST',{cedula});
+    // FIX 404: el endpoint backend se llama /escaneo, no /registrar.
+    // El response es { ok, nuevo, hora, estudiante: { ..., becado, ... } }
+    const r = await api('/api/comedor/escaneo','POST',{cedula});
+    const est = r?.estudiante || {};
+    const tipo = est.becado ? 'becado' : 'regular';
+    const mensaje = r?.nuevo
+      ? `✅ Registrado a las ${r.hora || '—'}`
+      : `⚠️ Ya había sido registrado hoy`;
     if(result){
       result.style.display='';
-      result.style.background = r.tipo==='becado'?'#dcfce7':r.tipo==='regular'?'#e0f2fe':'#fef9c3';
-      document.getElementById('csr-nombre').textContent = `${r.primer_apellido} ${r.nombre}`;
-      document.getElementById('csr-cedula').textContent = r.cedula;
-      document.getElementById('csr-tipo').innerHTML = r.tipo==='becado'
+      result.style.background = tipo==='becado' ? '#dcfce7' : '#e0f2fe';
+      document.getElementById('csr-nombre').textContent = `${est.primer_apellido||''} ${est.nombre||''}`.trim();
+      document.getElementById('csr-cedula').textContent = est.cedula || cedula;
+      document.getElementById('csr-tipo').innerHTML = tipo==='becado'
         ?'<span style="color:#166534;font-weight:bold;">🎓 BECADO</span>'
         :'<span style="color:#0369a1;font-weight:bold;">💳 REGULAR</span>';
-      document.getElementById('csr-msg').textContent = r.mensaje||'';
+      document.getElementById('csr-msg').textContent = mensaje;
     }
     if(input) input.value='';
     await cargarStatsComedor();
@@ -5572,15 +5825,17 @@ async function buscarExpediente(){
   const cedula=document.getElementById("exp-cedula")?.value?.trim();
   if(!cedula){sa("alert-exp","Ingresá una cédula.","danger");return;}
   try{
-    const r=await api(`/api/expediente/${cedula}`);
-    if(!r){sa("alert-exp","No se encontró ningún estudiante.","warning");return;}
+    // FIX: el endpoint correcto es /buscar/:cedula y devuelve { estudiante, encargados, historial, matriculas }
+    const r=await api(`/api/expediente/buscar/${encodeURIComponent(cedula)}`);
+    if(!r||!r.estudiante){sa("alert-exp","No se encontró ningún estudiante.","warning");return;}
+    const est = r.estudiante;
     const tbody=document.getElementById("exp-tbody");
     if(tbody){
       tbody.innerHTML=`<tr>
-        <td><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong></td>
-        <td>${r.cedula}</td>
-        <td>${r.seccion_nombre||'—'}</td>
-        <td><button class="btn btn-outline btn-xs" onclick="verExpedienteCompleto('${r.cedula}')">👁️ Ver</button></td>
+        <td><strong>${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}</strong></td>
+        <td>${est.cedula}</td>
+        <td>${est.seccion_nombre||'—'}</td>
+        <td><button class="btn btn-outline btn-xs" onclick="verExpedienteCompleto('${est.cedula}')">👁️ Ver</button></td>
       </tr>`;
     }
   }catch(e){sa("alert-exp",e.message,"danger");}
@@ -5588,8 +5843,32 @@ async function buscarExpediente(){
 
 async function verExpedienteCompleto(cedula){
   try{
-    const r=await api(`/api/expediente/${cedula}/completo`)||await api(`/api/expediente/${cedula}`);
-    alert(`Expediente: ${JSON.stringify(r, null, 2).slice(0,500)}`);
+    const r=await api(`/api/expediente/buscar/${encodeURIComponent(cedula)}`);
+    if(!r||!r.estudiante){ alert("No se encontró el expediente."); return; }
+    const e=r.estudiante;
+    const encs=r.encargados||[];
+    const hist=r.historial||[];
+    const mats=r.matriculas||[];
+    const partes=[];
+    partes.push(`📋 EXPEDIENTE`);
+    partes.push(`Estudiante: ${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`);
+    partes.push(`Cédula: ${e.cedula}`);
+    partes.push(`Sección actual: ${e.seccion_nombre||'—'}`);
+    if(e.fecha_nacimiento) partes.push(`Nacimiento: ${String(e.fecha_nacimiento).slice(0,10)}`);
+    partes.push(`Estado: ${e.activo?'Activo':'Inactivo'}${e.archivado?' (Archivado)':''}`);
+    if(encs.length){
+      partes.push(`\n👨‍👩‍👧 ENCARGADOS (${encs.length}):`);
+      encs.forEach(en=>partes.push(`  • ${en.primer_apellido||''} ${en.nombre||''} (${en.parentesco||'—'}) - Tel: ${en.telefono||'—'}`));
+    }
+    if(mats.length){
+      partes.push(`\n📚 MATRÍCULAS (${mats.length}):`);
+      mats.forEach(m=>partes.push(`  • ${m.anio}: ${m.sec_nombre||'—'} [${m.estado||'—'}]`));
+    }
+    if(hist.length){
+      partes.push(`\n📜 HISTORIAL (${hist.length}):`);
+      hist.forEach(h=>partes.push(`  • ${h.anio}: ${h.seccion_nombre||'—'}`));
+    }
+    alert(partes.join('\n'));
   }catch(e){alert(e.message);}
 }
 
@@ -5779,8 +6058,13 @@ async function verDetalleArchivado(id){
 }
 
 function abrirArchivarEst(id,nombre){
+  // Backward-compat: sacar de caché
+  if(!nombre && window.estCache){
+    const e = window.estCache.get(id);
+    if(e) nombre = `${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}`;
+  }
   document.getElementById("archivar-est-id").value=id;
-  document.getElementById("archivar-est-nombre").textContent=nombre;
+  document.getElementById("archivar-est-nombre").textContent=nombre||"";
   document.getElementById("archivar-justificacion").value="";
   document.getElementById("archivar-motivo").value="";
   document.getElementById("alert-archivar").className="alert";
@@ -6482,44 +6766,62 @@ async function imprimirInformeSeccionConducta(){
     datos.push({ ...e, nota: d?.notaConducta ?? 100, boletas: d?.boletas?.length ?? 0 });
   }
 
-  const secs = await api("/api/admin/secciones");
-  const sec = secs?.find(s=>s.id==secId);
+  // FIX orientadores: usar /api/reportes/mis-secciones que sí soporta orientadores
+  // (antes usaba /api/admin/secciones que requiere admin → 401 para orientadores)
+  let sec = null;
+  try {
+    const secs = await api("/api/reportes/mis-secciones");
+    sec = secs?.find(s=>s.id==secId);
+  } catch(_){}
+  // Si no tiene info del guía (porque mis-secciones no la devuelve), intentar admin
+  // (cuando el usuario es admin/auxiliar este endpoint sí funciona)
+  if(sec && !sec.guia_ap1){
+    try {
+      const adminSecs = await api("/api/admin/secciones");
+      const adminSec = adminSecs?.find(s=>s.id==secId);
+      if(adminSec){ sec = { ...sec, ...adminSec }; }
+    } catch(_){}  // si falla (es orientador), seguir sin info del guía
+  }
+  const nombreSec = sec?.nombre || "";
   const guia = sec ? `${sec.guia_ap1||""} ${sec.guia_nombre||""}`.trim() : "";
   const periodo = detectarPeriodo(null);
+  const fechaGen = new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"});
 
   let printArea = document.getElementById("print-boleta-area");
   if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
+  // FIX 1 hoja: reducir tamaños, padding y márgenes. Tabla más compacta.
+  // FIX período: agregar período en el header.
   printArea.innerHTML = `
-    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
-${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+( sec?.nombre||""))}
-      <div style="font-size:13px;margin-bottom:14px;">
-        <strong>Profesor Guía:</strong> ${guia} &nbsp;&nbsp;
-        <strong>Generado:</strong> ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:8px 14px;">
+${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+nombreSec)}
+      <div style="font-size:11px;margin:6px 0 8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+        <div><strong>Profesor Guía:</strong> ${guia||'—'}</div>
+        <div><strong>Período:</strong> ${periodo}</div>
+        <div><strong>Generado:</strong> ${fechaGen}</div>
       </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <table style="width:100%;border-collapse:collapse;font-size:10.5px;page-break-inside:avoid;">
         <thead>
           <tr style="background:#1a3a5c;color:#fff;">
-            <th style="padding:7px 10px;text-align:left;">#</th>
-            <th style="padding:7px 10px;text-align:left;">Apellidos, Nombre</th>
-            <th style="padding:7px 10px;text-align:center;">Boletas</th>
-            <th style="padding:7px 10px;text-align:center;">Nota de Conducta</th>
+            <th style="padding:4px 6px;text-align:left;width:26px;">#</th>
+            <th style="padding:4px 6px;text-align:left;">Apellidos, Nombre</th>
+            <th style="padding:4px 6px;text-align:center;width:60px;">Boletas</th>
+            <th style="padding:4px 6px;text-align:center;width:90px;">Nota de Conducta</th>
           </tr>
         </thead>
         <tbody>
-          ${datos.map((e,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'};">
-            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${i+1}</td>
-            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
-            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${e.boletas}</td>
-            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${e.nota>=80?'#166534':e.nota>=60?'#92400e':'#991b1b'};">${e.nota}</td>
+          ${datos.map((e,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'};page-break-inside:avoid;">
+            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${i+1}</td>
+            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;">${e.boletas}</td>
+            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${e.nota>=80?'#166534':e.nota>=60?'#92400e':'#991b1b'};">${e.nota}</td>
           </tr>`).join("")}
         </tbody>
-
       </table>
-      <div style="margin-top:40px;max-width:300px;margin-left:auto;margin-right:auto;">
-        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
-          Firma del Profesor Guía<br/><strong>${guia}</strong>${sec&&sec.guia_cedula?`<br/>Cédula: ${sec.guia_cedula}`:""}
+      <div style="margin-top:18px;max-width:280px;margin-left:auto;margin-right:auto;page-break-inside:avoid;">
+        <div style="border-top:1px solid #94a3b8;padding-top:4px;text-align:center;font-size:10.5px;color:#555;">
+          Firma del Profesor Guía<br/><strong>${guia||'—'}</strong>${sec&&sec.guia_cedula?`<br/>Cédula: ${sec.guia_cedula}`:""}
         </div>
       </div>
       ${piePaginaMEP()}
@@ -6527,7 +6829,14 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+( sec?.nombre||""))}
 
   const style = document.createElement("style");
   style.id="print-style-seccion";
-  style.innerHTML=`@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
+  // FIX 1 hoja: forzar A4 portrait con márgenes mínimos y prevenir saltos
+  style.innerHTML=`@media print {
+    @page { size: A4 portrait; margin: 10mm; }
+    body > *:not(#print-boleta-area) { display:none!important; }
+    #print-boleta-area { display:block!important; }
+    #print-boleta-area table { page-break-inside: avoid; }
+    #print-boleta-area tr { page-break-inside: avoid; }
+  }`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea, document.getElementById("print-style-seccion"));
 }
@@ -6874,6 +7183,173 @@ async function verHistorialCartas(){
 }
 
 // ════════════════════════════════════
+//  INTERCAMBIO HOGAR ↔ INDUSTRIALES (II PERÍODO)
+// ════════════════════════════════════
+async function abrirIntercambioPeriodo(){
+  document.getElementById("modal-intercambio").classList.add("show");
+  document.getElementById("alert-intercambio").className = "alert";
+  document.getElementById("btn-ejecutar-intercambio").style.display = "none";
+  document.getElementById("btn-revertir-intercambio").style.display = "none";
+  await cargarVistaIntercambio();
+}
+
+async function cargarVistaIntercambio(){
+  const cont = document.getElementById("intercambio-vista");
+  cont.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">⏳ Cargando...</div>';
+  try {
+    const d = await api("/api/periodos/preview");
+    if(!d || !d.grupos){ cont.innerHTML='<div style="color:var(--rojo)">No se pudieron cargar los datos.</div>'; return; }
+    if(!d.grupos.length){
+      cont.innerHTML = `<div style="text-align:center;color:var(--muted);padding:20px;">
+        No hay asignaciones de Hogar / Industriales en 7°-9° del I Período en este momento.
+      </div>`;
+      return;
+    }
+
+    // Separar pares válidos (con ambas materias) de los incompletos
+    const completos = d.grupos.filter(g => g.hogar && g.industriales);
+    const incompletos = d.grupos.filter(g => !g.hogar || !g.industriales);
+    const yaHechos = d.grupos.filter(g => g.ya_intercambiado).length;
+    const pendientes = completos.filter(g => !g.ya_intercambiado);
+
+    cont.innerHTML = `
+      <div style="background:#eff6ff;border-left:3px solid var(--azul);padding:9px 12px;border-radius:5px;font-size:12px;margin-bottom:12px;">
+        <strong>Período actual:</strong> ${d.periodo_actual} ·
+        <strong>${pendientes.length}</strong> pares pendientes ·
+        <strong>${yaHechos}</strong> ya intercambiados ·
+        <strong>${incompletos.length}</strong> incompletos
+      </div>
+      <div class="table-wrap" style="max-height:380px;overflow-y:auto;">
+        <table style="width:100%;font-size:12.5px;">
+          <thead><tr style="position:sticky;top:0;background:var(--bg);">
+            <th>Sección</th><th>Subgrupo</th>
+            <th>🏠 Hogar (I)</th><th>🔧 Industriales (I)</th>
+            <th style="text-align:center;">Después →</th>
+          </tr></thead>
+          <tbody>
+            ${d.grupos.map(g => {
+              const subLbl = g.subgrupo ? g.subgrupo : '<em style="color:var(--muted)">grupo completo</em>';
+              if(!g.hogar || !g.industriales){
+                return `<tr style="background:#fef9c3;">
+                  <td><strong>${g.seccion_nombre}</strong></td>
+                  <td>${subLbl}</td>
+                  <td colspan="3" style="color:var(--naranja);font-size:11px;">
+                    ⚠️ Falta ${!g.hogar?'Hogar':'Industriales'}. No se puede intercambiar este grupo.
+                  </td>
+                </tr>`;
+              }
+              if(g.ya_intercambiado){
+                return `<tr style="background:#f0fdf4;opacity:.7;">
+                  <td><strong>${g.seccion_nombre}</strong></td>
+                  <td>${subLbl}</td>
+                  <td>${g.hogar.prof_nombre}</td>
+                  <td>${g.industriales.prof_nombre}</td>
+                  <td style="text-align:center;color:var(--verde);font-size:11px;">✅ Ya intercambiado</td>
+                </tr>`;
+              }
+              return `<tr>
+                <td><strong>${g.seccion_nombre}</strong></td>
+                <td>${subLbl}</td>
+                <td>${g.hogar.prof_nombre}</td>
+                <td>${g.industriales.prof_nombre}</td>
+                <td style="text-align:center;font-size:11px;color:var(--azul2);">
+                  ${g.industriales.prof_nombre.split(',')[0]} → Hogar<br/>
+                  ${g.hogar.prof_nombre.split(',')[0]} → Industriales
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById("btn-ejecutar-intercambio").style.display = pendientes.length > 0 ? "" : "none";
+    document.getElementById("btn-revertir-intercambio").style.display = yaHechos > 0 ? "" : "none";
+  } catch(e){
+    cont.innerHTML = `<div style="color:var(--rojo)">❌ Error: ${e.message}</div>`;
+  }
+}
+
+async function confirmarIntercambio(){
+  if(!confirm("⚠️ Esto creará las asignaciones del II Período intercambiando los profesores de Hogar e Industriales. ¿Continuar?")) return;
+  const btn = document.getElementById("btn-ejecutar-intercambio");
+  if(btn.disabled) return;
+  btn.disabled = true;
+  const txt = btn.innerHTML;
+  btn.innerHTML = "⏳ Ejecutando...";
+  try {
+    const r = await api("/api/periodos/intercambiar", "POST", {});
+    if(r && r.ok){
+      sa("alert-intercambio",
+        `✅ ${r.intercambiados} pares intercambiados${r.saltados>0?`, ${r.saltados} omitidos`:''}.`, "success");
+      await cargarVistaIntercambio();
+    } else {
+      sa("alert-intercambio", "Error en la respuesta del servidor.", "danger");
+    }
+  } catch(e){
+    sa("alert-intercambio", "❌ "+e.message, "danger");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = txt;
+  }
+}
+
+async function confirmarRevertir(){
+  if(!confirm("⚠️ Esto eliminará las asignaciones del II Período creadas por el último intercambio.\n\nNO se puede revertir si ya se tomó asistencia en esas asignaciones. ¿Continuar?")) return;
+  const btn = document.getElementById("btn-revertir-intercambio");
+  if(btn.disabled) return;
+  btn.disabled = true;
+  const txt = btn.innerHTML;
+  btn.innerHTML = "⏳ Revirtiendo...";
+  try {
+    const r = await api("/api/periodos/revertir", "POST", {});
+    if(r && r.ok){
+      sa("alert-intercambio", `✅ Intercambio revertido (${r.revertidos} registros).`, "success");
+      await cargarVistaIntercambio();
+    }
+  } catch(e){
+    sa("alert-intercambio", "❌ "+e.message, "danger");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = txt;
+  }
+}
+
+async function cargarHistorialIntercambios(){
+  const cont = document.getElementById("intercambio-vista");
+  cont.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">⏳ Cargando histórico...</div>';
+  try {
+    const r = await api("/api/periodos/historial") || [];
+    if(!r.length){
+      cont.innerHTML = `<div style="text-align:center;color:var(--muted);padding:20px;">Sin intercambios registrados.</div>
+        <div style="text-align:center;margin-top:10px;"><button class="btn btn-outline btn-sm" onclick="cargarVistaIntercambio()">← Volver a la vista</button></div>`;
+      return;
+    }
+    cont.innerHTML = `
+      <div style="margin-bottom:10px;"><button class="btn btn-outline btn-sm" onclick="cargarVistaIntercambio()">← Volver a la vista</button></div>
+      <div class="table-wrap" style="max-height:380px;overflow-y:auto;">
+        <table style="width:100%;font-size:12.5px;">
+          <thead><tr style="position:sticky;top:0;background:var(--bg);">
+            <th>Fecha</th><th>Nivel</th><th>Sección</th><th>Ejecutado por</th><th>Estado</th>
+          </tr></thead>
+          <tbody>
+            ${r.map(x=>`<tr>
+              <td>${fmtF(x.created_at)}</td>
+              <td>${x.nivel}°</td>
+              <td>${x.seccion_nombre}</td>
+              <td>${x.exec_ap1||''} ${x.exec_nombre||''}</td>
+              <td>${x.revertido?'<span style="color:var(--muted)">↩️ Revertido</span>':'<span style="color:var(--verde)">✅ Vigente</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch(e){
+    cont.innerHTML = `<div style="color:var(--rojo)">❌ ${e.message}</div>`;
+  }
+}
+
+// ════════════════════════════════════
 //  INIT
 // ════════════════════════════════════
 (async()=>{
@@ -7211,6 +7687,26 @@ async function pdfZoom(delta){
 })();
 
 </script>
+<!-- MODAL INTERCAMBIO HOGAR↔INDUSTRIALES -->
+<div class="modal-overlay" id="modal-intercambio">
+  <div class="modal" style="max-width:780px;">
+    <h3>🔄 Intercambio Hogar ↔ Industriales — II Período</h3>
+    <div id="alert-intercambio" class="alert"></div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
+      Esta operación crea <strong>nuevas asignaciones</strong> para el II Período donde los profesores se intercambian:
+      el que dictaba <strong>Educación para el Hogar</strong> pasa a dictar <strong>Artes Industriales</strong> y viceversa, en la misma sección y subgrupo.
+      Las asignaciones del I Período <strong>no se borran</strong>, solo dejan de mostrarse en la pantalla operativa cuando cambie la fecha al 20 de julio.
+    </div>
+    <div id="intercambio-vista" style="margin:14px 0;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-intercambio')">Cerrar</button>
+      <button class="btn btn-outline" onclick="cargarHistorialIntercambios()" style="margin-left:auto;">📜 Historial</button>
+      <button class="btn btn-danger" id="btn-revertir-intercambio" onclick="confirmarRevertir()" style="display:none;">↩️ Revertir último</button>
+      <button class="btn btn-success" id="btn-ejecutar-intercambio" onclick="confirmarIntercambio()" style="display:none;">✅ Ejecutar intercambio</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL JUSTIFICAR -->
 <div class="modal-overlay" id="modal-justificar">
   <div class="modal" style="max-width:420px;">

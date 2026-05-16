@@ -488,6 +488,44 @@ async function initDB() {
         END IF;
       END $$;
     `);
+
+    // ── PERÍODO LECTIVO en asignaciones ─────────────────────────────────────
+    // Permite tener dos asignaciones distintas para el mismo profesor/sección/materia,
+    // una por cada período. Las asistencias e historial del I Período quedan
+    // preservadas en su asignación original.
+    // Default 'I Período' para todas las existentes (que se crearon antes de esta migración).
+    await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS periodo TEXT DEFAULT 'I Período'`);
+    await client.query(`UPDATE asignaciones SET periodo='I Período' WHERE periodo IS NULL`);
+    // Reemplazar el unique anterior para incluir período en la clave
+    await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_unique_subgrupo`);
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'asignaciones_unique_periodo'
+        ) THEN
+          ALTER TABLE asignaciones ADD CONSTRAINT asignaciones_unique_periodo
+          UNIQUE(profesor_id, seccion_id, materia_id, subgrupo, periodo);
+        END IF;
+      END $$;
+    `);
+
+    // ── REGISTRO DE INTERCAMBIOS Hogar↔Industriales ─────────────────────────
+    // Audita cada vez que se ejecuta el intercambio en II Período, para poder
+    // revertir o consultar después.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS intercambios_periodo (
+        id            SERIAL PRIMARY KEY,
+        nivel         INTEGER NOT NULL,
+        seccion_id    INTEGER NOT NULL REFERENCES secciones(id),
+        asig_hogar_i  INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        asig_indus_i  INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        asig_hogar_ii INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        asig_indus_ii INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        ejecutado_por INTEGER REFERENCES usuarios(id),
+        revertido     BOOLEAN DEFAULT false,
+        created_at    TIMESTAMP DEFAULT NOW()
+      )
+    `);
     // Actualizar CHECK de infracciones
     await client.query(`ALTER TABLE infracciones DROP CONSTRAINT IF EXISTS infracciones_tipo_check`);
     await client.query(`ALTER TABLE infracciones ADD CONSTRAINT infracciones_tipo_check CHECK(tipo IN ('muy_leve','leve','grave','muy_grave','gravisima'))`);

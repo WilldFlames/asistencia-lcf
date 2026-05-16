@@ -129,25 +129,36 @@ router.delete("/secciones/:seccion_id/orientador/:orientador_id", onlyAdmin, asy
 });
 
 // ── ASIGNACIONES ──────────────────────────────────────────────
+// Por defecto muestra solo las del período actual; con ?todas=1 devuelve historial completo.
+function periodoActualAdmin() {
+  const hoy = new Date();
+  return (hoy < new Date('2026-07-04T00:00:00')) ? 'I Período' : 'II Período';
+}
+
 router.get("/asignaciones", onlyAdmin, async (req, res) => {
-  const r = await pool.query(`
-    SELECT a.*, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol AS prof_rol,
+  const todas = req.query.todas === '1';
+  const periodo = periodoActualAdmin();
+  const sql = `
+    SELECT a.*, COALESCE(a.periodo,'I Período') AS periodo,
+      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol AS prof_rol,
       s.nombre AS seccion_nombre, m.nombre AS materia_nombre
     FROM asignaciones a
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id
     JOIN materias m ON m.id=a.materia_id
+    ${todas ? '' : "WHERE COALESCE(a.periodo,'I Período')=$1"}
     ORDER BY u.primer_apellido, s.nombre, m.nombre
-  `);
+  `;
+  const r = await pool.query(sql, todas ? [] : [periodo]);
   res.json(r.rows);
 });
 
 router.post("/asignaciones", onlyAdmin, async (req, res) => {
-  const { profesor_id, seccion_id, materia_id, lecciones_semana, subgrupo } = req.body;
+  const { profesor_id, seccion_id, materia_id, lecciones_semana, subgrupo, periodo } = req.body;
   if (!profesor_id||!seccion_id||!materia_id) return res.status(400).json({ error: "Datos incompletos" });
   try {
-    const r = await pool.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-      [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupo||null]);
+    const r = await pool.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo,periodo) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+      [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupo||null,periodo||periodoActualAdmin()]);
     res.json({ ok:true, id:r.rows[0].id });
   } catch(e) {
     if (e.message.includes("unique")) return res.status(409).json({ error: "Asignación ya existe" });
@@ -164,6 +175,7 @@ router.put("/asignaciones/:id", onlyAdmin, async (req, res) => {
   const { profesor_id, seccion_id, materia_id, lecciones_semana, subgrupo } = req.body;
   if(!profesor_id || !seccion_id || !materia_id)
     return res.status(400).json({ error: "Faltan campos requeridos." });
+  // Nota: NO se permite cambiar 'periodo' desde el editor manual (eso solo lo hace el módulo de intercambio)
   const r = await pool.query(
     `UPDATE asignaciones SET profesor_id=$1, seccion_id=$2, materia_id=$3,
      lecciones_semana=$4, subgrupo=$5 WHERE id=$6 RETURNING id`,

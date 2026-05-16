@@ -9,7 +9,7 @@ async function canAccess(req, res, next) {
   try {
     const r = await pool.query("SELECT 1 FROM matricula_comite WHERE usuario_id=$1", [u.id]);
     if(r.rows.length) return next();
-  } catch(e) {}
+  } catch(e) { console.error("canAccess matricula:", e.message); }
   return res.status(403).json({ error:"Sin permisos" });
 }
 
@@ -59,7 +59,7 @@ router.get("/cedula/:cedula", canAccess, async (req, res) => {
       WHERE pm.cedula=$1
     `, [cedula]);
     if(p.rows.length) return res.json({ fuente:"prematricula", ...p.rows[0] });
-  } catch(e) {}
+  } catch(e) { console.error("matricula GET /cedula prematricula:", e.message); }
 
   return res.json(null);
 });
@@ -150,7 +150,7 @@ router.post("/guardar", canAccess, async (req, res) => {
       "UPDATE prematricula SET estado='matriculado' WHERE cedula=$1",
       [cedula]
     );
-  } catch(e) {}
+  } catch(e) { console.error("matricula UPDATE prematricula matriculado:", e.message); }
 
   res.json({ ok:true, estudiante_id: estId });
   } catch(err) {
@@ -249,7 +249,7 @@ router.delete("/:id", canAccess, async (req, res) => {
         "UPDATE prematricula SET estado='pendiente' WHERE cedula=$1 AND estado='matriculado'",
         [est.rows[0].cedula]
       );
-    } catch(e) {}
+    } catch(e) { console.error("matricula UPDATE prematricula pendiente:", e.message); }
   }
   res.json({ ok:true });
 });

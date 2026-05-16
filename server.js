@@ -46,6 +46,7 @@ app.use("/api/medidas",        requireAuth, require("./routes/medidas"));
 app.use("/api/prematricula",   requireAuth, require("./routes/prematricula"));
 app.use("/api/matricula",      requireAuth, require("./routes/matricula"));
 app.use("/api/cartas",         requireAuth, require("./routes/cartas"));
+app.use("/api/periodos",       requireAuth, require("./routes/periodos"));
 
 // Force no-cache for HTML to ensure users always get latest version
 // Versión actual del sistema — se calcula al arrancar el proceso.
@@ -67,6 +68,16 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+
+// ── HANDLER GLOBAL DE ERRORES (red de seguridad) ─────────────────────────────
+// Si algún route async lanza un error no atrapado, este handler lo captura,
+// lo loguea con contexto y responde 500 limpio en vez de dejar la request colgada.
+app.use((err, req, res, next) => {
+  console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
+  if (process.env.NODE_ENV !== 'production') console.error(err.stack);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Error interno del servidor. Si persiste, contactá al administrador.' });
+});
 
 initDB().then(() => {
   app.listen(PORT, () => {
