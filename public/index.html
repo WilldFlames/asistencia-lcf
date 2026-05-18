@@ -8013,19 +8013,15 @@ async function descargarCarnetsPDF(){
 
   try{
     const { jsPDF } = window.jspdf;
-    // PDF tamaño carta (Letter) en mm: 215.9 x 279.4
-    // Tarjetas tipo carnet escolar: ~85x130 mm es buen tamaño (similar a credencial)
-    // Caben 4 por hoja en grilla 2x2 con margen
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-    const pageW = 215.9, pageH = 279.4;
-    const cardW = 85, cardH = 130;
-    const cols = 2, rows = 2;
-    const gapX = 6, gapY = 6;
-    const totalW = cols*cardW + (cols-1)*gapX;
-    const totalH = rows*cardH + (rows-1)*gapY;
-    const marginX = (pageW - totalW)/2;
-    const marginY = (pageH - totalH)/2;
-    const perPage = cols*rows;
+    // Tamaño del papel donde se imprime: 5.42 cm × 8.5 cm (54.2 mm × 85 mm)
+    // Un carnet por página, sin márgenes (el carnet ocupa la hoja completa).
+    const cardW = 54.2;  // ancho de la hoja física en mm
+    const cardH = 85;    // alto de la hoja física en mm
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [cardW, cardH]  // formato personalizado
+    });
 
     const area = document.getElementById("carnet-pdf-area");
     area.innerHTML = "";
@@ -8056,14 +8052,10 @@ async function descargarCarnetsPDF(){
       });
       const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
-      // Posición en la página
-      const idxEnPag = i % perPage;
-      if(i>0 && idxEnPag===0) pdf.addPage();
-      const col = idxEnPag % cols;
-      const row = Math.floor(idxEnPag / cols);
-      const x = marginX + col*(cardW + gapX);
-      const y = marginY + row*(cardH + gapY);
-      pdf.addImage(dataUrl, 'JPEG', x, y, cardW, cardH);
+      // Una página por carnet: agregar página nueva a partir del segundo carnet
+      if(i > 0) pdf.addPage([cardW, cardH], 'portrait');
+      // El carnet ocupa toda la hoja (sin márgenes)
+      pdf.addImage(dataUrl, 'JPEG', 0, 0, cardW, cardH);
 
       // Limpiar el carnet usado para liberar memoria
       area.removeChild(card);
