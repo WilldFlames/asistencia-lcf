@@ -9,6 +9,9 @@
 <title>Asistencia – Liceo de Calle Fallas</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{--azul:#1a3a5c;--azul2:#2563a8;--verde:#16a34a;--rojo:#dc2626;--naranja:#d97706;--morado:#7c3aed;--bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--r:10px;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -361,6 +364,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
   <button class="nav-btn" data-page="comedor" id="nav-comedor" onclick="goTo('comedor')" style="display:none"><span class="icon">🍽️</span><span>Comedor</span></button>
+  <button class="nav-btn" data-page="carnet" id="nav-carnet" onclick="goTo('carnet')" style="display:none"><span class="icon">🪪</span><span>Carnet</span></button>
   <button class="nav-btn" data-page="consecutivos" id="nav-consecutivos" onclick="goTo('consecutivos')" style="display:none"><span class="icon">🔢</span><span>Consecutivos</span></button>
   <button class="nav-btn" data-page="constancia" id="nav-constancia" onclick="goTo('constancia')" style="display:none"><span class="icon">📄</span><span>Constancia</span></button>
   <button class="nav-btn" data-page="archivo" id="nav-archivo" onclick="goTo('archivo')" style="display:none"><span class="icon">🗄️</span><span>Archivo</span></button>
@@ -819,6 +823,74 @@ tr:hover td{background:#f8fafc;}
 
 </div>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- CARNET ESTUDIANTIL -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-carnet">
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <h2 style="margin:0">🪪 Carnet Estudiantil</h2>
+      <div style="font-size:12.5px;color:var(--muted);">Solo accesible para el administrador y el comité del comedor.</div>
+    </div>
+    <div id="alert-carnet" class="alert" style="margin-top:10px;"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;">
+      <div class="fg" style="min-width:240px;">
+        <label>Sección</label>
+        <select id="carnet-seccion" onchange="cargarEstCarnet()">
+          <option value="">— Seleccionar sección —</option>
+        </select>
+      </div>
+      <div class="fg" style="flex:1;min-width:240px;">
+        <label>Buscar por nombre o cédula</label>
+        <input type="text" id="carnet-buscar" placeholder="Filtrar estudiantes..." oninput="filtrarEstCarnet()"/>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="carnetSelTodos()" id="btn-carnet-sel-todos">☑️ Seleccionar todos</button>
+      <button class="btn btn-outline btn-sm" onclick="carnetSelNinguno()">▢ Quitar selección</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <strong id="carnet-titulo-sec" style="font-size:15px;">Estudiantes</strong>
+        <span id="carnet-conteo" style="color:var(--muted);font-size:13px;margin-left:6px;"></span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="previsualizarCarnets()" id="btn-carnet-preview" disabled>👁️ Previsualizar carnets</button>
+        <button class="btn btn-success" onclick="descargarCarnetsPDF()" id="btn-carnet-pdf" disabled>📥 Descargar PDF</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px;"><input type="checkbox" id="carnet-check-all" onchange="carnetToggleAll(this)"/></th>
+            <th style="width:50px;">Foto</th>
+            <th>Apellidos, Nombre</th>
+            <th>Cédula</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="carnet-tbody">
+          <tr><td colspan="5" class="empty">Seleccioná una sección.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Área de previsualización (oculta hasta que se genere) -->
+  <div class="card" id="carnet-preview-wrap" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <strong style="font-size:15px;">👁️ Previsualización</strong>
+      <button class="btn btn-outline btn-sm" onclick="cerrarPreview()">✕ Cerrar previsualización</button>
+    </div>
+    <div id="carnet-preview" style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;background:#f8fafc;padding:14px;border-radius:8px;"></div>
+  </div>
+
+  <!-- Área oculta donde se construyen los carnets para PDF -->
+  <div id="carnet-pdf-area" style="position:fixed;left:-99999px;top:-99999px;width:auto;"></div>
+</div>
+
 <!-- ARCHIVO -->
 <div class="page" id="page-archivo">
   <div class="card">
@@ -1020,6 +1092,30 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline" onclick="cerrarModal('modal-prematricula')">Cerrar</button>
         <button class="btn btn-success" onclick="imprimirConstanciaPremat()">🖨️ Imprimir Constancia</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL: ELIMINAR PREMATRÍCULA -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-eliminar-premat">
+  <div class="modal" style="max-width:500px;">
+    <h3 style="color:var(--rojo);">🗑️ Eliminar Prematrícula</h3>
+    <p id="del-premat-nombre" style="font-weight:bold;margin:8px 0 6px;font-size:14px;"></p>
+    <p id="del-premat-consec" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></p>
+    <input type="hidden" id="del-premat-id"/>
+    <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:10px 12px;border-radius:6px;margin-bottom:12px;font-size:12.5px;color:#78350f;">
+      <strong>⚠️ Atención:</strong> Al eliminar esta prematrícula, el consecutivo asignado quedará <strong>libre</strong> y podrá ser reutilizado por la próxima prematrícula registrada. Esta acción no se puede deshacer.
+    </div>
+    <div class="fg">
+      <label>Justificación <span style="color:var(--rojo)">*</span></label>
+      <textarea id="del-premat-justificacion" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;" placeholder="Indique el motivo de la eliminación (ej: duplicado, datos incorrectos, estudiante no asistió...)"></textarea>
+    </div>
+    <div id="alert-del-premat" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-eliminar-premat')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarEliminarPremat()">🗑️ Eliminar y Liberar Consecutivo</button>
     </div>
   </div>
 </div>
@@ -2308,6 +2404,7 @@ function goTo(page){
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
   if(page==="expediente")  document.getElementById("exp-cedula").focus();
   if(page==="comedor")     iniciarComedor();
+  if(page==="carnet")      iniciarCarnet();
   if(page==="precautoria") iniciarMedidas('precautoria');
   if(page==="suspension")  iniciarMedidas('suspension');
   if(page==="hibrida")     iniciarMedidas('educacion_hibrida');
@@ -2419,6 +2516,8 @@ async function iniciarApp(){
     document.getElementById("nav-usuarios").style.display="";
     document.getElementById("nav-asignaciones").style.display="";
     document.getElementById("nav-cumplimiento").style.display="";
+    // Carnet: admin siempre tiene acceso (los del comité de comedor se añaden abajo en el check async)
+    document.getElementById("nav-carnet").style.display="";
   }
 
   // ── BOTÓN NUEVO INFORME ──────────────────────────────────────
@@ -2427,10 +2526,11 @@ async function iniciarApp(){
 
   // ── VERIFICACIONES ASYNC (comités) ───────────────────────────
   try{
-    // Comité comedor → puede ver Comedor
+    // Comité comedor → puede ver Comedor + Carnet
     const comiteC = await api("/api/comedor/comite");
     if(comiteC && comiteC.some(c=>c.usuario_id===ME.id)){
       document.getElementById("nav-comedor").style.display="";
+      document.getElementById("nav-carnet").style.display="";
     }
   }catch{}
   try{
@@ -7383,6 +7483,8 @@ function renderPremat(){
   const lista = q ? prematData.filter(p=>
     `${p.primer_apellido} ${p.nombre} ${p.cedula}`.toLowerCase().includes(q)
   ) : prematData;
+  // Cachear por id para que los botones no necesiten pasar nombres (evita bug apóstrofe).
+  window.prematCache = new Map(prematData.map(p=>[p.id,p]));
   const estados = {pendiente:"⏳ Pendiente",prematriculado:"✅ Listo para matrícula",matriculado:"🎓 Matriculado",retirado:"❌ Retirado"};
   document.getElementById("premat-tbody").innerHTML = lista.length ? lista.map((p,i)=>`<tr>
     <td style="color:var(--muted)">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
@@ -7392,9 +7494,9 @@ function renderPremat(){
     <td style="font-weight:bold;color:var(--azul);">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
     <td><span class="badge" style="background:${p.estado==='matriculado'?'#dcfce7':p.estado==='prematriculado'?'#d1fae5':p.estado==='retirado'?'#fee2e2':'#fef9c3'};color:#374151;">${estados[p.estado]||p.estado}</span></td>
     <td style="display:flex;gap:4px;">
-      <button class="btn btn-outline btn-xs" onclick="verPremat(${p.id})">👁️</button>
-      <button class="btn btn-outline btn-xs" onclick="reimprimir(${p.id})">🖨️</button>
-      ${p.estado!=='matriculado'?`<button class="btn btn-danger btn-xs" onclick="eliminarPremat(${p.id},'${(p.primer_apellido+' '+p.nombre).replace(/'/g,"\'")}')">🗑️</button>`:''}
+      <button class="btn btn-outline btn-xs" onclick="verPremat(${p.id})" title="Ver detalles">👁️</button>
+      <button class="btn btn-outline btn-xs" onclick="reimprimir(${p.id})" title="Reimprimir constancia">🖨️</button>
+      ${p.estado!=='matriculado'?`<button class="btn btn-danger btn-xs" onclick="abrirEliminarPremat(${p.id})" title="Eliminar (libera consecutivo)">🗑️</button>`:''}
     </td>
   </tr>`).join("") : `<tr><td colspan="7" class="empty">No hay prematrículas.</td></tr>`;
 }
@@ -7569,22 +7671,422 @@ async function imprimirConstanciaPremat(){
   await imprimirConEncabezado(printArea,style);
 }
 
-async function eliminarPremat(id,nombre){
-  const just=prompt(`Eliminar prematrícula de ${nombre}.\n\nJustificación obligatoria (el consecutivo quedará libre):`);
-  if(just===null) return;
-  if(!just.trim()){ alert("La justificación es obligatoria."); return; }
+function abrirEliminarPremat(id){
+  const p = window.prematCache?.get(id);
+  if(!p){ alert("No se pudo cargar la prematrícula."); return; }
+  document.getElementById("del-premat-id").value = id;
+  document.getElementById("del-premat-nombre").textContent =
+    `${p.primer_apellido||''} ${p.segundo_apellido||''}, ${p.nombre||''} · Cédula ${p.cedula||''}`;
+  const consec = p.consecutivo_prematricula
+    ? `Consecutivo asignado: N°${String(p.consecutivo_prematricula).padStart(3,'0')} (quedará libre)`
+    : 'Esta prematrícula no tiene consecutivo asignado.';
+  document.getElementById("del-premat-consec").textContent = consec;
+  document.getElementById("del-premat-justificacion").value = "";
+  document.getElementById("alert-del-premat").className = "alert";
+  document.getElementById("modal-eliminar-premat").classList.add("show");
+}
+
+async function confirmarEliminarPremat(){
+  const id = document.getElementById("del-premat-id").value;
+  const just = document.getElementById("del-premat-justificacion").value.trim();
+  if(!just){ sa("alert-del-premat","La justificación es obligatoria.","danger"); return; }
   try{
-    const r=await api(`/api/prematricula/${id}`,"DELETE",{justificacion:just});
-    const consec=r.consecutivo_liberado?` Consecutivo N°${String(r.consecutivo_liberado).padStart(3,'0')} liberado.`:"";
+    const r = await api(`/api/prematricula/${id}`,"DELETE",{justificacion:just});
+    const consec = r.consecutivo_liberado
+      ? ` Consecutivo N°${String(r.consecutivo_liberado).padStart(3,'0')} liberado.`
+      : "";
+    cerrarModal("modal-eliminar-premat");
     sa("alert-premat",`✅ Prematrícula eliminada.${consec}`,"success");
     iniciarPrematricula();
-  }catch(e){ sa("alert-premat",e.message,"danger"); }
+  }catch(e){
+    sa("alert-del-premat", e.message, "danger");
+  }
 }
 
 async function continuarMatricula(id,cedula){
   abrirNuevaMatricula();
   document.getElementById("mat-buscar-cedula").value=cedula;
   await cargarDatosMatricula();
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  CARNET ESTUDIANTIL
+// ════════════════════════════════════════════════════════════
+let carnetEstData = [];          // estudiantes actualmente listados
+let carnetSeleccionados = new Set(); // ids seleccionados (persiste entre filtros)
+
+async function iniciarCarnet(){
+  // Resetear estado
+  carnetEstData = [];
+  carnetSeleccionados.clear();
+  document.getElementById("carnet-tbody").innerHTML =
+    `<tr><td colspan="5" class="empty">Seleccioná una sección.</td></tr>`;
+  document.getElementById("carnet-buscar").value = "";
+  document.getElementById("carnet-conteo").textContent = "";
+  document.getElementById("carnet-preview-wrap").style.display = "none";
+  document.getElementById("btn-carnet-preview").disabled = true;
+  document.getElementById("btn-carnet-pdf").disabled = true;
+  document.getElementById("carnet-check-all").checked = false;
+
+  // Poblar secciones (igual que en otras pantallas)
+  try{
+    const secs = await api("/api/admin/secciones")||[];
+    const sel = document.getElementById("carnet-seccion");
+    sel.innerHTML = '<option value="">— Seleccionar sección —</option>' +
+      secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+  }catch(e){
+    sa("alert-carnet","No se pudieron cargar las secciones: "+e.message,"danger");
+  }
+}
+
+async function cargarEstCarnet(){
+  const secId = document.getElementById("carnet-seccion").value;
+  carnetSeleccionados.clear();
+  document.getElementById("carnet-check-all").checked = false;
+  document.getElementById("carnet-preview-wrap").style.display = "none";
+  if(!secId){
+    carnetEstData = [];
+    document.getElementById("carnet-tbody").innerHTML =
+      `<tr><td colspan="5" class="empty">Seleccioná una sección.</td></tr>`;
+    document.getElementById("carnet-conteo").textContent = "";
+    actualizarBotonesCarnet();
+    return;
+  }
+  try{
+    const rows = await api(`/api/estudiantes?seccion_id=${encodeURIComponent(secId)}`)||[];
+    carnetEstData = rows;
+    document.getElementById("carnet-titulo-sec").textContent =
+      `Estudiantes de la sección`;
+    renderEstCarnet();
+  }catch(e){
+    sa("alert-carnet","Error cargando estudiantes: "+e.message,"danger");
+  }
+}
+
+function filtrarEstCarnet(){ renderEstCarnet(); }
+
+function renderEstCarnet(){
+  const q = (document.getElementById("carnet-buscar").value||"").toLowerCase().trim();
+  const lista = q
+    ? carnetEstData.filter(e =>
+        `${e.primer_apellido} ${e.segundo_apellido} ${e.nombre} ${e.cedula}`.toLowerCase().includes(q))
+    : carnetEstData;
+  const tbody = document.getElementById("carnet-tbody");
+  if(!lista.length){
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">${q?"Sin coincidencias.":"Sección sin estudiantes."}</td></tr>`;
+  } else {
+    tbody.innerHTML = lista.map(e=>{
+      const checked = carnetSeleccionados.has(e.id) ? "checked" : "";
+      const fotoHtml = e.foto_url
+        ? `<img src="${e.foto_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border);" alt=""/>`
+        : `<div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;">👤</div>`;
+      const warnFoto = e.foto_url ? "" :
+        `<span style="color:var(--naranja);font-size:11px;margin-left:6px;" title="Sin foto: el carnet saldrá con un avatar genérico">⚠️ sin foto</span>`;
+      return `<tr>
+        <td><input type="checkbox" onchange="carnetToggle(${e.id}, this.checked)" ${checked}/></td>
+        <td>${fotoHtml}</td>
+        <td><strong>${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}</strong>${warnFoto}</td>
+        <td><code>${e.cedula||''}</code></td>
+        <td><button class="btn btn-outline btn-xs" onclick="previewCarnetUno(${e.id})">👁️ Ver carnet</button></td>
+      </tr>`;
+    }).join("");
+  }
+  // Conteo
+  const total = carnetEstData.length;
+  const sel = carnetSeleccionados.size;
+  document.getElementById("carnet-conteo").textContent =
+    total ? `(${sel} seleccionados de ${total})` : "";
+  actualizarBotonesCarnet();
+}
+
+function carnetToggle(id, val){
+  if(val) carnetSeleccionados.add(id);
+  else carnetSeleccionados.delete(id);
+  // Actualizar el conteo en vivo sin re-renderizar la tabla (mejor UX)
+  document.getElementById("carnet-conteo").textContent =
+    `(${carnetSeleccionados.size} seleccionados de ${carnetEstData.length})`;
+  actualizarBotonesCarnet();
+}
+
+function carnetToggleAll(checkbox){
+  // Solo afecta a los que se ven actualmente (respeta el filtro de búsqueda)
+  const q = (document.getElementById("carnet-buscar").value||"").toLowerCase().trim();
+  const visibles = q
+    ? carnetEstData.filter(e =>
+        `${e.primer_apellido} ${e.segundo_apellido} ${e.nombre} ${e.cedula}`.toLowerCase().includes(q))
+    : carnetEstData;
+  visibles.forEach(e=>{
+    if(checkbox.checked) carnetSeleccionados.add(e.id);
+    else carnetSeleccionados.delete(e.id);
+  });
+  renderEstCarnet();
+}
+
+function carnetSelTodos(){
+  carnetEstData.forEach(e=>carnetSeleccionados.add(e.id));
+  document.getElementById("carnet-check-all").checked = true;
+  renderEstCarnet();
+}
+
+function carnetSelNinguno(){
+  carnetSeleccionados.clear();
+  document.getElementById("carnet-check-all").checked = false;
+  renderEstCarnet();
+}
+
+function actualizarBotonesCarnet(){
+  const hay = carnetSeleccionados.size > 0;
+  document.getElementById("btn-carnet-preview").disabled = !hay;
+  document.getElementById("btn-carnet-pdf").disabled = !hay;
+}
+
+// ── Plantilla del carnet (HTML) ───────────────────────────────
+// Devuelve un nodo DIV con el carnet renderizado.
+// El diseño replica la imagen entregada por el cliente:
+// logo MEP arriba, título "Liceo de Calle Fallas", foto del estudiante,
+// nombre completo, código de barras con la cédula.
+function construirCarnetHTML(est){
+  const nombre = `${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}`.trim();
+  const cedula = String(est.cedula||'').replace(/\s+/g,'');
+  // Tamaño tarjeta tipo "carnet vertical": 640x1000 px renderizado, luego escalado para PDF/preview
+  const wrap = document.createElement('div');
+  wrap.className = 'carnet-card';
+  wrap.style.cssText = `
+    width:640px;height:1000px;background:#fff;position:relative;
+    border:1px solid #94a3b8;overflow:hidden;font-family:Arial,sans-serif;
+    box-shadow:0 4px 14px rgba(15,23,42,0.10);
+    page-break-inside:avoid;break-inside:avoid;
+  `;
+  // Decoración curva superior derecha (azul)
+  const decoTop = document.createElement('div');
+  decoTop.style.cssText = `
+    position:absolute;top:-60px;right:-90px;width:280px;height:280px;
+    background:linear-gradient(135deg,#1F3864 0%,#3b82f6 100%);
+    border-radius:50%;opacity:0.85;
+  `;
+  // Decoración curva inferior izquierda
+  const decoBot = document.createElement('div');
+  decoBot.style.cssText = `
+    position:absolute;bottom:-90px;left:-100px;width:300px;height:300px;
+    background:linear-gradient(45deg,#1F3864 0%,#3b82f6 100%);
+    border-radius:50%;opacity:0.85;
+  `;
+  wrap.appendChild(decoTop);
+  wrap.appendChild(decoBot);
+
+  // Header: logo MEP + título
+  const header = document.createElement('div');
+  header.style.cssText = `
+    position:relative;z-index:2;padding:30px 40px 0 40px;
+  `;
+  // Logo MEP (ya está embebido en index.html como data URI)
+  const logo = document.createElement('img');
+  logo.src = (typeof MEP_LOGO !== 'undefined') ? MEP_LOGO : '';
+  logo.style.cssText = `width:300px;max-width:60%;display:block;`;
+  header.appendChild(logo);
+
+  // Título
+  const titulo = document.createElement('h1');
+  titulo.textContent = 'Liceo de Calle Fallas';
+  titulo.style.cssText = `
+    margin:14px 0 0 0;font-family:Georgia,'Times New Roman',serif;
+    font-size:42px;color:#0f172a;font-weight:bold;text-align:center;
+    line-height:1.1;
+  `;
+  header.appendChild(titulo);
+  wrap.appendChild(header);
+
+  // Foto del estudiante (espacio cuadrado)
+  const fotoWrap = document.createElement('div');
+  fotoWrap.style.cssText = `
+    position:relative;z-index:2;margin:24px auto 0 auto;
+    width:380px;height:420px;background:#e2e8f0;
+    border:2px solid #cbd5e1;border-radius:8px;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+  `;
+  if(est.foto_url){
+    const img = document.createElement('img');
+    img.src = est.foto_url;
+    img.crossOrigin = "anonymous"; // por si el origen lo permite
+    img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;`;
+    fotoWrap.appendChild(img);
+  } else {
+    // Avatar genérico cuando no hay foto
+    const ph = document.createElement('div');
+    ph.textContent = '👤';
+    ph.style.cssText = `font-size:140px;color:#94a3b8;`;
+    fotoWrap.appendChild(ph);
+  }
+  wrap.appendChild(fotoWrap);
+
+  // Nombre completo
+  const nombreEl = document.createElement('div');
+  nombreEl.textContent = nombre;
+  nombreEl.style.cssText = `
+    position:relative;z-index:2;margin:24px 40px 0 40px;
+    font-size:28px;color:#0f172a;text-align:center;font-weight:500;
+    line-height:1.2;word-wrap:break-word;
+  `;
+  wrap.appendChild(nombreEl);
+
+  // Código de barras
+  const barWrap = document.createElement('div');
+  barWrap.style.cssText = `
+    position:relative;z-index:2;margin:30px auto 0 auto;
+    width:500px;background:#fff;padding:14px 10px;
+    border-radius:6px;text-align:center;
+    box-shadow:0 2px 6px rgba(0,0,0,0.06);
+  `;
+  const svgBar = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  barWrap.appendChild(svgBar);
+  wrap.appendChild(barWrap);
+  // Generar el código de barras (Code128 acepta dígitos y letras; usamos cédula completa)
+  try{
+    JsBarcode(svgBar, cedula||'0', {
+      format: "CODE128",
+      width: 3,
+      height: 90,
+      displayValue: true,
+      fontSize: 22,
+      margin: 4,
+      background: "#ffffff",
+      lineColor: "#000000"
+    });
+  }catch(err){
+    // Fallback si la cédula tiene caracteres raros
+    barWrap.innerHTML = `<div style="color:var(--rojo);font-size:14px;">No se pudo generar el código (${cedula||'sin cédula'})</div>`;
+  }
+
+  return wrap;
+}
+
+function previewCarnetUno(id){
+  // Forzar selección de uno solo para previsualización rápida
+  const est = carnetEstData.find(e=>e.id===id);
+  if(!est) return;
+  renderPreview([est]);
+}
+
+function previsualizarCarnets(){
+  if(!carnetSeleccionados.size){ sa("alert-carnet","Seleccioná al menos un estudiante.","warning"); return; }
+  const ests = carnetEstData.filter(e=>carnetSeleccionados.has(e.id));
+  renderPreview(ests);
+}
+
+function renderPreview(ests){
+  const wrap = document.getElementById("carnet-preview");
+  wrap.innerHTML = "";
+  ests.forEach(e=>{
+    const card = construirCarnetHTML(e);
+    // Reducir tamaño para preview (los carnets son 640x1000, los mostramos a ~280px de ancho)
+    const scaled = document.createElement('div');
+    scaled.style.cssText = `transform:scale(0.32);transform-origin:top left;width:640px;height:1000px;`;
+    scaled.appendChild(card);
+    const outer = document.createElement('div');
+    outer.style.cssText = `width:${640*0.32}px;height:${1000*0.32}px;overflow:hidden;border:1px solid var(--border);border-radius:6px;background:#fff;`;
+    outer.appendChild(scaled);
+    wrap.appendChild(outer);
+  });
+  document.getElementById("carnet-preview-wrap").style.display = "";
+  document.getElementById("carnet-preview-wrap").scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+
+function cerrarPreview(){
+  document.getElementById("carnet-preview-wrap").style.display = "none";
+  document.getElementById("carnet-preview").innerHTML = "";
+}
+
+// ── Generar y descargar PDF ───────────────────────────────────
+async function descargarCarnetsPDF(){
+  if(!carnetSeleccionados.size){ sa("alert-carnet","Seleccioná al menos un estudiante.","warning"); return; }
+  if(typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined' || typeof JsBarcode === 'undefined'){
+    sa("alert-carnet","Las librerías de PDF no se han cargado. Recargá la página.","danger");
+    return;
+  }
+
+  const ests = carnetEstData.filter(e=>carnetSeleccionados.has(e.id));
+  const btn = document.getElementById("btn-carnet-pdf");
+  btn.disabled = true;
+  const textOrig = btn.innerHTML;
+  btn.innerHTML = "⏳ Generando...";
+
+  try{
+    const { jsPDF } = window.jspdf;
+    // PDF tamaño carta (Letter) en mm: 215.9 x 279.4
+    // Tarjetas tipo carnet escolar: ~85x130 mm es buen tamaño (similar a credencial)
+    // Caben 4 por hoja en grilla 2x2 con margen
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+    const pageW = 215.9, pageH = 279.4;
+    const cardW = 85, cardH = 130;
+    const cols = 2, rows = 2;
+    const gapX = 6, gapY = 6;
+    const totalW = cols*cardW + (cols-1)*gapX;
+    const totalH = rows*cardH + (rows-1)*gapY;
+    const marginX = (pageW - totalW)/2;
+    const marginY = (pageH - totalH)/2;
+    const perPage = cols*rows;
+
+    const area = document.getElementById("carnet-pdf-area");
+    area.innerHTML = "";
+
+    for(let i=0; i<ests.length; i++){
+      const e = ests[i];
+      const card = construirCarnetHTML(e);
+      area.appendChild(card);
+
+      // Esperar carga de imágenes (foto + logo) — máx 3s por carnet
+      const imgs = card.querySelectorAll('img');
+      await Promise.all(Array.from(imgs).map(img=>{
+        if(img.complete && img.naturalWidth>0) return Promise.resolve();
+        return new Promise(resolve=>{
+          img.onload = resolve;
+          img.onerror = resolve;
+          setTimeout(resolve, 3000);
+        });
+      }));
+
+      // Convertir a imagen
+      const canvas = await html2canvas(card, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: "#ffffff",
+        logging: false
+      });
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+      // Posición en la página
+      const idxEnPag = i % perPage;
+      if(i>0 && idxEnPag===0) pdf.addPage();
+      const col = idxEnPag % cols;
+      const row = Math.floor(idxEnPag / cols);
+      const x = marginX + col*(cardW + gapX);
+      const y = marginY + row*(cardH + gapY);
+      pdf.addImage(dataUrl, 'JPEG', x, y, cardW, cardH);
+
+      // Limpiar el carnet usado para liberar memoria
+      area.removeChild(card);
+
+      // Pequeña pausa entre carnets para no bloquear UI
+      if(i % 4 === 3) await new Promise(r=>setTimeout(r, 50));
+    }
+
+    // Nombre del archivo
+    const secNombre = document.getElementById("carnet-seccion")
+      ?.selectedOptions[0]?.textContent?.trim()||"carnets";
+    const fecha = fechaHoyCR();
+    const fileName = `carnets_${secNombre.replace(/[^\w\-]+/g,'_')}_${fecha}.pdf`;
+    pdf.save(fileName);
+
+    sa("alert-carnet",`✅ Se generaron ${ests.length} carnet(s) en el PDF.`,"success");
+  }catch(e){
+    sa("alert-carnet","Error generando PDF: "+e.message,"danger");
+    console.error(e);
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = textOrig;
+  }
 }
 
 
