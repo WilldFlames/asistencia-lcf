@@ -1983,16 +1983,18 @@ tr:hover td{background:#f8fafc;}
 <div class="modal-overlay" id="modal-comite-comedor">
   <div class="modal" style="max-width:480px;">
     <h3>🍽️ Comité de Comedor</h3>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">La persona asignada podrá imprimir los reportes de asistencia al comedor.</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Las personas asignadas podrán acceder al módulo de Comedor y al módulo de Carnet para registrar asistencia, imprimir reportes y generar carnets.</p>
+    <div id="comite-comedor-lista" style="margin-bottom:14px;min-height:40px;"></div>
     <div class="fg">
-      <label>Asignar al usuario</label>
-      <select id="comite-usuario"><option value="">— Seleccionar —</option></select>
+      <label>Agregar miembro</label>
+      <div style="display:flex;gap:6px;">
+        <select id="comite-usuario" style="flex:1;"><option value="">— Seleccionar usuario —</option></select>
+        <button class="btn btn-success btn-sm" onclick="agregarComiteComedor()">+ Agregar</button>
+      </div>
     </div>
-    <div id="comite-actual" style="margin-top:10px;font-size:13px;"></div>
     <div id="alert-comite" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-comite-comedor')">Cerrar</button>
-      <button class="btn btn-primary" onclick="guardarComite()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -5033,36 +5035,48 @@ async function abrirGestionComite(){
   // Cargar todos los usuarios activos (no solo profesores)
   const todos = await api("/api/admin/usuarios") || allProfesores || [];
   const sel = document.getElementById("comite-usuario");
-  sel.innerHTML='<option value="">— Seleccionar —</option>'+
+  if(sel) sel.innerHTML='<option value="">— Seleccionar usuario —</option>'+
     todos.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]||p.rol})</option>`).join("");
-  // Mostrar actual
-  const comite = await api("/api/comedor/comite");
-  const div = document.getElementById("comite-actual");
-  if(comite&&comite.length){
-    div.innerHTML=`<div style="background:#f0fdf4;border-radius:7px;padding:8px 12px;font-size:13px;">Actual: <strong>${comite[0].primer_apellido} ${comite[0].nombre}</strong> <button class="btn btn-danger btn-xs" onclick="eliminarComite(${comite[0].id})">Quitar</button></div>`;
-    sel.value = comite[0].usuario_id;
-  } else {
-    div.innerHTML='<div style="color:var(--muted);font-size:13px;">Sin comité asignado.</div>';
-  }
   document.getElementById("alert-comite").className="alert";
+  await cargarComiteComedor();
   document.getElementById("modal-comite-comedor").classList.add("show");
 }
 
-async function guardarComite(){
-  const uid = document.getElementById("comite-usuario").value;
-  if(!uid){sa("alert-comite","Seleccioná un usuario.","danger");return;}
-  try{
-    await api("/api/comedor/comite","POST",{usuario_id:+uid});
-    cerrarModal("modal-comite-comedor");
-    sa("alert-cumplimiento","✅ Comité de comedor asignado.","success");
-    // Update nav if current user is now comite
-    if(+uid===ME.id) document.getElementById("nav-comedor").style.display="";
-  }catch(e){sa("alert-comite",e.message,"danger");}
+async function cargarComiteComedor(){
+  const rows = await api("/api/comedor/comite") || [];
+  const div = document.getElementById("comite-comedor-lista");
+  if(!div) return;
+  div.innerHTML = rows.length
+    ? rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+        <span>${r.primer_apellido} ${r.nombre} <span style="font-size:11px;color:var(--muted);">(${RLBL[r.rol]||r.rol})</span></span>
+        <button class="btn btn-danger btn-xs" onclick="quitarComiteComedor(${r.id})">✕ Quitar</button>
+      </div>`).join("")
+    : '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Sin miembros asignados.</div>';
 }
 
-async function eliminarComite(id){
-  await api(`/api/comedor/comite/${id}`,"DELETE");
-  abrirGestionComite();
+async function agregarComiteComedor(){
+  const sel = document.getElementById("comite-usuario");
+  if(!sel || !sel.value){ sa("alert-comite","Seleccioná un usuario.","danger"); return; }
+  const uid = +sel.value;
+  try{
+    await api("/api/comedor/comite","POST",{usuario_id:uid});
+    sel.value = "";
+    sa("alert-comite","✅ Miembro agregado al comité.","success");
+    await cargarComiteComedor();
+    // Si el usuario actual se acaba de agregar, mostrarle los módulos
+    if(uid === ME.id){
+      document.getElementById("nav-comedor").style.display = "";
+      const navCarnet = document.getElementById("nav-carnet");
+      if(navCarnet) navCarnet.style.display = "";
+    }
+  }catch(e){ sa("alert-comite", e.message, "danger"); }
+}
+
+async function quitarComiteComedor(id){
+  try{
+    await api(`/api/comedor/comite/${id}`,"DELETE");
+    await cargarComiteComedor();
+  }catch(e){ sa("alert-comite", e.message, "danger"); }
 }
 
 // ════════════════════════════════════
