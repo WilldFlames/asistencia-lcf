@@ -7843,120 +7843,199 @@ function actualizarBotonesCarnet(){
 
 // ── Plantilla del carnet (HTML) ───────────────────────────────
 // Devuelve un nodo DIV con el carnet renderizado.
-// El diseño replica la imagen entregada por el cliente:
-// logo MEP arriba, título "Liceo de Calle Fallas", foto del estudiante,
-// nombre completo, código de barras con la cédula.
+// El diseño es estilo credencial profesional:
+// - Banda azul superior con logo MEP y título "Liceo de Calle Fallas"
+// - Pestaña "CARNET ESTUDIANTIL" como acento
+// - Foto del estudiante grande con marco
+// - Nombre destacado + cédula
+// - Código de barras grande al final
 function construirCarnetHTML(est){
-  const nombre = `${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}`.trim();
+  const nombre = `${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}`
+    .replace(/\s+/g,' ').trim().replace(/^,\s*/,'').replace(/\s*,\s*$/,'');
   const cedula = String(est.cedula||'').replace(/\s+/g,'');
-  // Tamaño tarjeta tipo "carnet vertical": 640x1000 px renderizado, luego escalado para PDF/preview
+  const anio = new Date().getFullYear();
+
+  // Tamaño tarjeta vertical 640x1000 px (proporción ~1:1.5625, igual al papel 54.2×85 mm)
   const wrap = document.createElement('div');
   wrap.className = 'carnet-card';
   wrap.style.cssText = `
     width:640px;height:1000px;background:#fff;position:relative;
-    border:1px solid #94a3b8;overflow:hidden;font-family:Arial,sans-serif;
-    box-shadow:0 4px 14px rgba(15,23,42,0.10);
+    overflow:hidden;font-family:Arial,Helvetica,sans-serif;
     page-break-inside:avoid;break-inside:avoid;
   `;
-  // Decoración curva superior derecha (azul)
-  const decoTop = document.createElement('div');
-  decoTop.style.cssText = `
-    position:absolute;top:-60px;right:-90px;width:280px;height:280px;
-    background:linear-gradient(135deg,#1F3864 0%,#3b82f6 100%);
-    border-radius:50%;opacity:0.85;
-  `;
-  // Decoración curva inferior izquierda
-  const decoBot = document.createElement('div');
-  decoBot.style.cssText = `
-    position:absolute;bottom:-90px;left:-100px;width:300px;height:300px;
-    background:linear-gradient(45deg,#1F3864 0%,#3b82f6 100%);
-    border-radius:50%;opacity:0.85;
-  `;
-  wrap.appendChild(decoTop);
-  wrap.appendChild(decoBot);
 
-  // Header: logo MEP + título
+  // ───── BANDA SUPERIOR (cabecera azul con degradado) ─────
   const header = document.createElement('div');
   header.style.cssText = `
-    position:relative;z-index:2;padding:30px 40px 0 40px;
+    position:absolute;top:0;left:0;right:0;height:230px;
+    background:linear-gradient(135deg,#0c2d52 0%,#1e4d8c 50%,#2563a8 100%);
+    overflow:hidden;
   `;
-  // Logo MEP (ya está embebido en index.html como data URI)
+  // Patrón decorativo de círculos sutiles
+  const deco1 = document.createElement('div');
+  deco1.style.cssText = `
+    position:absolute;top:-80px;right:-60px;width:240px;height:240px;
+    background:rgba(255,255,255,0.08);border-radius:50%;
+  `;
+  const deco2 = document.createElement('div');
+  deco2.style.cssText = `
+    position:absolute;top:60px;right:30px;width:120px;height:120px;
+    background:rgba(255,255,255,0.06);border-radius:50%;
+  `;
+  const deco3 = document.createElement('div');
+  deco3.style.cssText = `
+    position:absolute;bottom:-50px;left:-40px;width:160px;height:160px;
+    background:rgba(255,255,255,0.05);border-radius:50%;
+  `;
+  header.appendChild(deco1);
+  header.appendChild(deco2);
+  header.appendChild(deco3);
+
+  // Caja blanca para el logo MEP (queda bien sobre el azul)
+  const logoBox = document.createElement('div');
+  logoBox.style.cssText = `
+    position:absolute;top:20px;left:24px;
+    background:#fff;border-radius:8px;padding:8px 12px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.15);
+  `;
   const logo = document.createElement('img');
   logo.src = (typeof MEP_LOGO !== 'undefined') ? MEP_LOGO : '';
-  logo.style.cssText = `width:300px;max-width:60%;display:block;`;
-  header.appendChild(logo);
+  logo.style.cssText = `width:220px;display:block;`;
+  logoBox.appendChild(logo);
+  header.appendChild(logoBox);
 
-  // Título
-  const titulo = document.createElement('h1');
-  titulo.textContent = 'Liceo de Calle Fallas';
+  // Título "Liceo de Calle Fallas" en blanco
+  const titulo = document.createElement('div');
   titulo.style.cssText = `
-    margin:14px 0 0 0;font-family:Georgia,'Times New Roman',serif;
-    font-size:42px;color:#0f172a;font-weight:bold;text-align:center;
-    line-height:1.1;
+    position:absolute;left:0;right:0;bottom:32px;
+    text-align:center;color:#fff;
+    font-family:Georgia,'Times New Roman',serif;
+    font-weight:bold;font-size:38px;
+    line-height:1.1;letter-spacing:0.5px;
+    text-shadow:0 2px 6px rgba(0,0,0,0.25);
+    padding:0 20px;
   `;
+  titulo.textContent = 'Liceo de Calle Fallas';
   header.appendChild(titulo);
   wrap.appendChild(header);
 
-  // Foto del estudiante (espacio cuadrado)
+  // ───── PESTAÑA "CARNET ESTUDIANTIL" ─────
+  const tab = document.createElement('div');
+  tab.style.cssText = `
+    position:absolute;top:215px;left:50%;transform:translateX(-50%);
+    background:#facc15;color:#422006;
+    font-weight:bold;font-size:14px;letter-spacing:3px;
+    padding:6px 28px;border-radius:18px;
+    box-shadow:0 3px 10px rgba(202,138,4,0.4);
+    z-index:3;
+  `;
+  tab.textContent = 'CARNET ESTUDIANTIL';
+  wrap.appendChild(tab);
+
+  // ───── FOTO DEL ESTUDIANTE ─────
   const fotoWrap = document.createElement('div');
   fotoWrap.style.cssText = `
-    position:relative;z-index:2;margin:24px auto 0 auto;
+    position:absolute;top:265px;left:50%;transform:translateX(-50%);
     width:380px;height:420px;background:#e2e8f0;
-    border:2px solid #cbd5e1;border-radius:8px;overflow:hidden;
+    border:5px solid #fff;border-radius:12px;overflow:hidden;
     display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 20px rgba(15,23,42,0.18);
+    z-index:2;
   `;
   if(est.foto_url){
     const img = document.createElement('img');
     img.src = est.foto_url;
-    img.crossOrigin = "anonymous"; // por si el origen lo permite
+    img.crossOrigin = "anonymous";
     img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;`;
     fotoWrap.appendChild(img);
   } else {
-    // Avatar genérico cuando no hay foto
+    // Avatar placeholder
     const ph = document.createElement('div');
+    ph.style.cssText = `
+      width:100%;height:100%;
+      background:linear-gradient(135deg,#cbd5e1 0%,#94a3b8 100%);
+      display:flex;align-items:center;justify-content:center;
+      font-size:160px;color:#fff;
+    `;
     ph.textContent = '👤';
-    ph.style.cssText = `font-size:140px;color:#94a3b8;`;
     fotoWrap.appendChild(ph);
   }
   wrap.appendChild(fotoWrap);
 
-  // Nombre completo
-  const nombreEl = document.createElement('div');
-  nombreEl.textContent = nombre;
-  nombreEl.style.cssText = `
-    position:relative;z-index:2;margin:24px 40px 0 40px;
-    font-size:28px;color:#0f172a;text-align:center;font-weight:500;
-    line-height:1.2;word-wrap:break-word;
+  // ───── BLOQUE DE NOMBRE Y CÉDULA ─────
+  const datos = document.createElement('div');
+  datos.style.cssText = `
+    position:absolute;top:710px;left:30px;right:30px;
+    text-align:center;
   `;
-  wrap.appendChild(nombreEl);
 
-  // Código de barras
+  const nombreEl = document.createElement('div');
+  nombreEl.style.cssText = `
+    font-size:24px;font-weight:bold;color:#0c2d52;
+    line-height:1.2;word-wrap:break-word;
+    padding:0 10px;
+    letter-spacing:0.3px;
+  `;
+  nombreEl.textContent = nombre;
+  datos.appendChild(nombreEl);
+
+  // Línea separadora corta debajo del nombre
+  const sep = document.createElement('div');
+  sep.style.cssText = `
+    width:80px;height:3px;background:#1e4d8c;
+    margin:10px auto 8px auto;border-radius:2px;
+  `;
+  datos.appendChild(sep);
+
+  // Cédula con etiqueta
+  const cedulaEl = document.createElement('div');
+  cedulaEl.style.cssText = `
+    font-size:14px;color:#64748b;letter-spacing:1.5px;
+    text-transform:uppercase;font-weight:600;
+  `;
+  cedulaEl.innerHTML = `Cédula: <span style="color:#0c2d52;font-weight:bold;letter-spacing:1px;">${cedula||'—'}</span>`;
+  datos.appendChild(cedulaEl);
+  wrap.appendChild(datos);
+
+  // ───── CÓDIGO DE BARRAS (GRANDE) ─────
   const barWrap = document.createElement('div');
   barWrap.style.cssText = `
-    position:relative;z-index:2;margin:30px auto 0 auto;
-    width:500px;background:#fff;padding:14px 10px;
-    border-radius:6px;text-align:center;
-    box-shadow:0 2px 6px rgba(0,0,0,0.06);
+    position:absolute;bottom:50px;left:20px;right:20px;
+    background:#fff;border:1px solid #e2e8f0;
+    border-radius:8px;padding:12px 14px;text-align:center;
   `;
   const svgBar = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svgBar.style.cssText = `width:100%;height:auto;display:block;`;
   barWrap.appendChild(svgBar);
   wrap.appendChild(barWrap);
-  // Generar el código de barras (Code128 acepta dígitos y letras; usamos cédula completa)
+
   try{
     JsBarcode(svgBar, cedula||'0', {
       format: "CODE128",
-      width: 3,
-      height: 90,
+      width: 4,           // antes: 3 — barras más anchas
+      height: 160,        // antes: 90 — código casi el doble de alto
       displayValue: true,
-      fontSize: 22,
-      margin: 4,
+      fontSize: 28,       // antes: 22 — texto más legible
+      textMargin: 6,
+      margin: 2,
       background: "#ffffff",
-      lineColor: "#000000"
+      lineColor: "#000000",
+      font: "Arial",
+      fontOptions: "bold"
     });
   }catch(err){
-    // Fallback si la cédula tiene caracteres raros
-    barWrap.innerHTML = `<div style="color:var(--rojo);font-size:14px;">No se pudo generar el código (${cedula||'sin cédula'})</div>`;
+    barWrap.innerHTML = `<div style="color:#dc2626;font-size:14px;padding:30px 10px;">No se pudo generar el código (${cedula||'sin cédula'})</div>`;
   }
+
+  // ───── PIE: AÑO ACADÉMICO ─────
+  const pie = document.createElement('div');
+  pie.style.cssText = `
+    position:absolute;bottom:14px;left:0;right:0;
+    text-align:center;font-size:13px;color:#64748b;
+    font-weight:600;letter-spacing:2px;
+  `;
+  pie.textContent = `AÑO LECTIVO ${anio}`;
+  wrap.appendChild(pie);
 
   return wrap;
 }
