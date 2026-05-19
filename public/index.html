@@ -697,42 +697,47 @@ tr:hover td{background:#f8fafc;}
 <!-- MODAL: Crear / editar evaluación -->
 <div class="modal-overlay" id="modal-evaluacion">
   <div class="modal" style="max-width:640px;">
-    <h3 id="me-titulo-mod">Nueva evaluación</h3>
-    <input type="hidden" id="me-id"/>
-    <input type="hidden" id="me-tipo"/>
+    <h3 id="ev-titulo-mod">Nueva evaluación</h3>
+    <input type="hidden" id="ev-id"/>
+    <input type="hidden" id="ev-tipo"/>
     <div class="fg">
       <label>Nombre</label>
-      <input type="text" id="me-nombre" placeholder="Ej: Primera prueba parcial" maxlength="120"/>
+      <input type="text" id="ev-nombre" placeholder="Ej: Primera prueba parcial" maxlength="120"/>
+    </div>
+    <!-- Fecha de asignación: solo visible para tarea y proyecto -->
+    <div class="fg" id="ev-fecha-asig-wrap" style="display:none;">
+      <label>Fecha de asignación</label>
+      <input type="date" id="ev-fecha-asig"/>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="fg">
-        <label>Fecha</label>
-        <input type="date" id="me-fecha"/>
+        <label id="ev-fecha-label">Fecha</label>
+        <input type="date" id="ev-fecha"/>
       </div>
-      <div class="fg" id="me-puntaje-wrap">
+      <div class="fg" id="ev-puntaje-wrap">
         <label>Puntaje total (puntos del examen)</label>
-        <input type="number" id="me-puntaje" min="1" step="0.5" placeholder="Ej: 100"/>
+        <input type="number" id="ev-puntaje" min="1" step="0.5" placeholder="Ej: 100"/>
       </div>
     </div>
     <div class="fg">
       <label>Descripción (opcional)</label>
-      <textarea id="me-descripcion" rows="2" placeholder="Notas adicionales sobre esta evaluación..."></textarea>
+      <textarea id="ev-descripcion" rows="2" placeholder="Notas adicionales sobre esta evaluación..."></textarea>
     </div>
 
     <!-- Indicadores: solo para tarea/cotidiano/proyecto -->
-    <div id="me-indicadores-wrap" style="display:none;">
+    <div id="ev-indicadores-wrap" style="display:none;">
       <hr style="margin:14px 0;border:none;border-top:1px solid var(--border);"/>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <strong id="me-ind-titulo" style="font-size:14px;">Indicadores</strong>
+        <strong id="ev-ind-titulo" style="font-size:14px;">Indicadores</strong>
         <button class="btn btn-outline btn-xs" onclick="agregarIndicador()">+ Agregar indicador</button>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
         Cada indicador se califica de 0 a su puntaje máximo (default: 3).
       </div>
-      <div id="me-indicadores-list"></div>
+      <div id="ev-indicadores-list"></div>
     </div>
 
-    <div id="alert-me" class="alert"></div>
+    <div id="alert-ev" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-evaluacion')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarEvaluacion()">💾 Guardar</button>
@@ -8529,10 +8534,17 @@ function renderEvaluaciones(){
   tbody.innerHTML = evalData.map(e=>{
     const calif = `${e.cant_calificados||0} / ${e.cant_estudiantes||0}`;
     const pendiente = Number(e.cant_calificados) < Number(e.cant_estudiantes);
+    // Para tareas y proyectos, mostrar fecha de asignación encima de la fecha de entrega
+    let celdaFecha;
+    if((e.tipo === 'tarea' || e.tipo === 'proyecto') && e.fecha_asignacion){
+      celdaFecha = `<span style="font-size:11px;color:var(--muted);">Asignada: ${fmtF(e.fecha_asignacion)}</span><br/><strong>Entrega: ${fmtF(e.fecha)}</strong>`;
+    } else {
+      celdaFecha = fmtF(e.fecha);
+    }
     return `<tr>
       <td><strong>${tipoIcon[e.tipo]||''}</strong> ${tipoLbl[e.tipo]||e.tipo}</td>
       <td><strong>${e.nombre}</strong>${e.descripcion?`<br/><span style="font-size:11px;color:var(--muted);">${e.descripcion}</span>`:''}</td>
-      <td>${fmtF(e.fecha)}</td>
+      <td>${celdaFecha}</td>
       <td style="text-align:center;">${e.puntaje_total ? Number(e.puntaje_total).toFixed(0)+' pts' : '—'}${e.cant_indicadores>0?`<br/><span style="font-size:11px;color:var(--muted);">${e.cant_indicadores} ind.</span>`:''}</td>
       <td style="text-align:center;${pendiente?'color:var(--naranja);':'color:var(--verde);'}font-weight:bold;">${calif}</td>
       <td style="white-space:nowrap;">
@@ -8545,37 +8557,47 @@ function renderEvaluaciones(){
 }
 
 function nuevaEvaluacion(tipo){
-  document.getElementById("me-id").value = "";
-  document.getElementById("me-tipo").value = tipo;
+  document.getElementById("ev-id").value = "";
+  document.getElementById("ev-tipo").value = tipo;
   const tipoLbl = {examen:'examen',tarea:'tarea',cotidiano:'cotidiano',proyecto:'proyecto'}[tipo];
-  document.getElementById("me-titulo-mod").textContent = `Nuevo ${tipoLbl}`;
-  document.getElementById("me-nombre").value = "";
-  document.getElementById("me-fecha").value = fechaHoyCR();
-  document.getElementById("me-puntaje").value = "";
-  document.getElementById("me-descripcion").value = "";
+  document.getElementById("ev-titulo-mod").textContent = `Nuevo ${tipoLbl}`;
+  document.getElementById("ev-nombre").value = "";
+  document.getElementById("ev-fecha").value = fechaHoyCR();
+  document.getElementById("ev-fecha-asig").value = "";
+  document.getElementById("ev-puntaje").value = "";
+  document.getElementById("ev-descripcion").value = "";
+
+  // Mostrar fecha de asignación solo en tarea y proyecto
+  const hayFAsig = (tipo === 'tarea' || tipo === 'proyecto');
+  document.getElementById("ev-fecha-asig-wrap").style.display = hayFAsig ? "" : "none";
+  document.getElementById("ev-fecha-label").textContent = hayFAsig ? "Fecha de entrega" : "Fecha";
+  if(hayFAsig){
+    // Por defecto, fecha de asignación = hoy
+    document.getElementById("ev-fecha-asig").value = fechaHoyCR();
+  }
 
   // IMPORTANTE: limpiar cualquier "modo edición" anterior. Si en la sesión
   // previa se editó una evaluación, se ocultó el botón "+ Agregar indicador"
   // y se insertó un aviso amarillo. Hay que restaurar el estado original.
-  const wrap = document.getElementById("me-indicadores-wrap");
+  const wrap = document.getElementById("ev-indicadores-wrap");
   const avisoViejo = wrap.querySelector(".aviso-no-edit-ind");
   if(avisoViejo) avisoViejo.remove();
   const btnAdd = wrap.querySelector("button.btn-outline.btn-xs");
   if(btnAdd) btnAdd.style.display = "";
 
   if(tipo === 'examen'){
-    document.getElementById("me-puntaje-wrap").style.display = "";
-    document.getElementById("me-indicadores-wrap").style.display = "none";
-    document.getElementById("me-indicadores-list").innerHTML = "";
+    document.getElementById("ev-puntaje-wrap").style.display = "";
+    document.getElementById("ev-indicadores-wrap").style.display = "none";
+    document.getElementById("ev-indicadores-list").innerHTML = "";
   } else {
-    document.getElementById("me-puntaje-wrap").style.display = "none";
-    document.getElementById("me-indicadores-wrap").style.display = "";
-    document.getElementById("me-ind-titulo").textContent = tipo==='proyecto' ? "Etapas del proyecto" : "Indicadores";
-    document.getElementById("me-indicadores-list").innerHTML = "";
+    document.getElementById("ev-puntaje-wrap").style.display = "none";
+    document.getElementById("ev-indicadores-wrap").style.display = "";
+    document.getElementById("ev-ind-titulo").textContent = tipo==='proyecto' ? "Etapas del proyecto" : "Indicadores";
+    document.getElementById("ev-indicadores-list").innerHTML = "";
     // Empezar con 1 indicador por defecto
     agregarIndicador();
   }
-  document.getElementById("alert-me").className = "alert";
+  document.getElementById("alert-ev").className = "alert";
   document.getElementById("modal-evaluacion").classList.add("show");
 }
 
@@ -8586,32 +8608,42 @@ async function editarEvaluacion(evalId){
     const ev = r.evaluacion;
     const inds = r.indicadores || [];
 
-    document.getElementById("me-id").value = ev.id;
-    document.getElementById("me-tipo").value = ev.tipo;
+    document.getElementById("ev-id").value = ev.id;
+    document.getElementById("ev-tipo").value = ev.tipo;
     const tipoLbl = {examen:'examen',tarea:'tarea',cotidiano:'cotidiano',proyecto:'proyecto'}[ev.tipo];
-    document.getElementById("me-titulo-mod").textContent = `Editar ${tipoLbl}`;
-    document.getElementById("me-nombre").value = ev.nombre || "";
-    document.getElementById("me-fecha").value = (ev.fecha||"").slice(0,10);
-    document.getElementById("me-descripcion").value = ev.descripcion || "";
+    document.getElementById("ev-titulo-mod").textContent = `Editar ${tipoLbl}`;
+    document.getElementById("ev-nombre").value = ev.nombre || "";
+    document.getElementById("ev-fecha").value = (ev.fecha||"").slice(0,10);
+    document.getElementById("ev-descripcion").value = ev.descripcion || "";
+
+    // Fecha de asignación: solo tarea y proyecto
+    const hayFAsig = (ev.tipo === 'tarea' || ev.tipo === 'proyecto');
+    document.getElementById("ev-fecha-asig-wrap").style.display = hayFAsig ? "" : "none";
+    document.getElementById("ev-fecha-label").textContent = hayFAsig ? "Fecha de entrega" : "Fecha";
+    if(hayFAsig){
+      document.getElementById("ev-fecha-asig").value = (ev.fecha_asignacion||"").slice(0,10);
+    } else {
+      document.getElementById("ev-fecha-asig").value = "";
+    }
 
     if(ev.tipo === 'examen'){
-      document.getElementById("me-puntaje").value = ev.puntaje_total || "";
-      document.getElementById("me-puntaje-wrap").style.display = "";
-      document.getElementById("me-indicadores-wrap").style.display = "none";
+      document.getElementById("ev-puntaje").value = ev.puntaje_total || "";
+      document.getElementById("ev-puntaje-wrap").style.display = "";
+      document.getElementById("ev-indicadores-wrap").style.display = "none";
     } else {
-      document.getElementById("me-puntaje-wrap").style.display = "none";
-      document.getElementById("me-indicadores-wrap").style.display = "";
-      document.getElementById("me-ind-titulo").textContent = ev.tipo==='proyecto' ? "Etapas del proyecto" : "Indicadores";
-      document.getElementById("me-indicadores-list").innerHTML = "";
+      document.getElementById("ev-puntaje-wrap").style.display = "none";
+      document.getElementById("ev-indicadores-wrap").style.display = "";
+      document.getElementById("ev-ind-titulo").textContent = ev.tipo==='proyecto' ? "Etapas del proyecto" : "Indicadores";
+      document.getElementById("ev-indicadores-list").innerHTML = "";
       // Indicadores deshabilitados al editar (no se pueden modificar para no romper notas)
-      const wrap = document.getElementById("me-indicadores-wrap");
+      const wrap = document.getElementById("ev-indicadores-wrap");
       let aviso = wrap.querySelector(".aviso-no-edit-ind");
       if(!aviso){
         aviso = document.createElement("div");
         aviso.className = "aviso-no-edit-ind";
         aviso.style.cssText = "background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;font-size:12.5px;color:#78350f;margin-bottom:10px;";
         aviso.textContent = "ℹ️ Los indicadores no se pueden modificar después de creados (para no romper notas ya registradas). Si necesitás cambiarlos, eliminá esta evaluación y creá una nueva.";
-        wrap.insertBefore(aviso, document.getElementById("me-indicadores-list"));
+        wrap.insertBefore(aviso, document.getElementById("ev-indicadores-list"));
       }
       // Mostrarlos en modo lectura
       inds.forEach((ind, idx)=>{
@@ -8621,13 +8653,13 @@ async function editarEvaluacion(evalId){
           <span style="font-weight:bold;font-size:12px;color:var(--muted);min-width:24px;">${idx+1}.</span>
           <span style="flex:1;font-size:13px;">${ind.descripcion}</span>
           <span style="font-size:12px;color:var(--muted);">máx ${ind.puntaje_maximo} pts</span>`;
-        document.getElementById("me-indicadores-list").appendChild(div);
+        document.getElementById("ev-indicadores-list").appendChild(div);
       });
       // Ocultar botón de agregar al editar
       const btnAdd = wrap.querySelector("button.btn-outline.btn-xs");
       if(btnAdd) btnAdd.style.display = "none";
     }
-    document.getElementById("alert-me").className = "alert";
+    document.getElementById("alert-ev").className = "alert";
     document.getElementById("modal-evaluacion").classList.add("show");
   }catch(e){
     sa("alert-eval", e.message, "danger");
@@ -8635,54 +8667,61 @@ async function editarEvaluacion(evalId){
 }
 
 function agregarIndicador(descripcion="", maxPuntaje=3){
-  const list = document.getElementById("me-indicadores-list");
+  const list = document.getElementById("ev-indicadores-list");
   const idx = list.children.length + 1;
   const row = document.createElement("div");
-  row.className = "me-ind-row";
+  row.className = "ev-ind-row";
   row.style.cssText = "display:flex;gap:6px;margin-bottom:6px;align-items:center;";
   row.innerHTML = `
     <span style="font-weight:bold;font-size:12px;color:var(--muted);min-width:24px;">${idx}.</span>
-    <input type="text" class="me-ind-desc" value="${descripcion.replace(/"/g,'&quot;')}" placeholder="Descripción del indicador" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;"/>
-    <input type="number" class="me-ind-max" value="${maxPuntaje}" min="1" step="1" style="width:70px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;" title="Puntaje máximo"/>
+    <input type="text" class="ev-ind-desc" value="${descripcion.replace(/"/g,'&quot;')}" placeholder="Descripción del indicador" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;"/>
+    <input type="number" class="ev-ind-max" value="${maxPuntaje}" min="1" step="1" style="width:70px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;" title="Puntaje máximo"/>
     <button class="btn btn-danger btn-xs" onclick="this.parentElement.remove();renumerarIndicadores()">✕</button>
   `;
   list.appendChild(row);
 }
 
 function renumerarIndicadores(){
-  const list = document.getElementById("me-indicadores-list");
+  const list = document.getElementById("ev-indicadores-list");
   Array.from(list.children).forEach((row,i)=>{
     row.firstElementChild.textContent = `${i+1}.`;
   });
 }
 
 async function guardarEvaluacion(){
-  const id = document.getElementById("me-id").value;
-  const tipo = document.getElementById("me-tipo").value;
-  const nombre = document.getElementById("me-nombre").value.trim();
-  const fecha = document.getElementById("me-fecha").value;
-  const descripcion = document.getElementById("me-descripcion").value.trim();
-  if(!nombre){ sa("alert-me","El nombre es obligatorio.","danger"); return; }
-  if(!fecha){ sa("alert-me","La fecha es obligatoria.","danger"); return; }
+  const id = document.getElementById("ev-id").value;
+  const tipo = document.getElementById("ev-tipo").value;
+  const nombre = document.getElementById("ev-nombre").value.trim();
+  const fecha = document.getElementById("ev-fecha").value;
+  const descripcion = document.getElementById("ev-descripcion").value.trim();
+  if(!nombre){ sa("alert-ev","El nombre es obligatorio.","danger"); return; }
+  if(!fecha){ sa("alert-ev","La fecha es obligatoria.","danger"); return; }
 
   const body = { tipo, nombre, descripcion, fecha };
 
+  // Fecha de asignación: obligatoria en tarea y proyecto
+  if(tipo === 'tarea' || tipo === 'proyecto'){
+    const fa = document.getElementById("ev-fecha-asig").value;
+    if(!fa){ sa("alert-ev","La fecha de asignación es obligatoria.","danger"); return; }
+    body.fecha_asignacion = fa;
+  }
+
   if(tipo === 'examen'){
-    const pt = Number(document.getElementById("me-puntaje").value);
-    if(!pt || pt <= 0){ sa("alert-me","Indicá el puntaje total del examen.","danger"); return; }
+    const pt = Number(document.getElementById("ev-puntaje").value);
+    if(!pt || pt <= 0){ sa("alert-ev","Indicá el puntaje total del examen.","danger"); return; }
     body.puntaje_total = pt;
   } else {
     // Leer indicadores
-    const rows = document.querySelectorAll("#me-indicadores-list .me-ind-row");
+    const rows = document.querySelectorAll("#ev-indicadores-list .ev-ind-row");
     const inds = [];
     for(const row of rows){
-      const desc = row.querySelector(".me-ind-desc").value.trim();
-      const max = Number(row.querySelector(".me-ind-max").value);
-      if(!desc){ sa("alert-me","Todos los indicadores deben tener descripción.","danger"); return; }
-      if(!Number.isInteger(max) || max <= 0){ sa("alert-me","El puntaje máximo de cada indicador debe ser entero positivo.","danger"); return; }
+      const desc = row.querySelector(".ev-ind-desc").value.trim();
+      const max = Number(row.querySelector(".ev-ind-max").value);
+      if(!desc){ sa("alert-ev","Todos los indicadores deben tener descripción.","danger"); return; }
+      if(!Number.isInteger(max) || max <= 0){ sa("alert-ev","El puntaje máximo de cada indicador debe ser entero positivo.","danger"); return; }
       inds.push({descripcion:desc, puntaje_maximo:max});
     }
-    if(!inds.length){ sa("alert-me","Agregá al menos un indicador.","danger"); return; }
+    if(!inds.length){ sa("alert-ev","Agregá al menos un indicador.","danger"); return; }
     body.indicadores = inds;
   }
 
@@ -8705,7 +8744,7 @@ async function guardarEvaluacion(){
     cerrarModal("modal-evaluacion");
     await cargarEvaluaciones();
   }catch(e){
-    sa("alert-me", e.message, "danger");
+    sa("alert-ev", e.message, "danger");
   }
 }
 
@@ -8810,15 +8849,15 @@ function renderGrillaNotas(notasArr){
         const v = notasEst.has(ind.id) ? notasEst.get(ind.id) : null;
         if(v == null) todasLlenas = false;
         else suma += Number(v);
-        // Generar select 0..max
-        let opts = '<option value="">—</option>';
-        for(let i=0; i<=ind.puntaje_maximo; i++){
-          opts += `<option value="${i}" ${v==i?'selected':''}>${i}</option>`;
-        }
+        // Input numérico directo: el profesor escribe el número
         return `<td style="text-align:center;">
-          <select class="calif-input-ind" data-estudiante="${e.id}" data-indicador="${ind.id}" data-max="${ind.puntaje_maximo}"
-                  onchange="actualizarNotaIndicador(this)"
-                  style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;">${opts}</select>
+          <input type="number" class="calif-input-ind"
+                 data-estudiante="${e.id}" data-indicador="${ind.id}" data-max="${ind.puntaje_maximo}"
+                 min="0" max="${ind.puntaje_maximo}" step="1"
+                 value="${v!=null?v:''}"
+                 oninput="actualizarNotaIndicador(this)"
+                 onfocus="this.select()"
+                 style="width:56px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;"/>
         </td>`;
       }).join("");
       const notaCalc = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
@@ -8851,16 +8890,41 @@ function actualizarNotaExamen(input){
   }
 }
 
-function actualizarNotaIndicador(select){
-  const eid = Number(select.dataset.estudiante);
-  // Recolectar todos los valores del estudiante
+function actualizarNotaIndicador(input){
+  const eid = Number(input.dataset.estudiante);
+  const max = Number(input.dataset.max);
+  const v = input.value;
+
+  // Validación visual en el propio input
+  if(v !== "" && v != null){
+    const num = Number(v);
+    if(isNaN(num) || num < 0 || num > max || !Number.isInteger(num)){
+      input.style.borderColor = "var(--rojo)";
+      input.style.background = "#fee2e2";
+      input.title = `Valor inválido. Debe ser entero entre 0 y ${max}.`;
+    } else {
+      input.style.borderColor = "var(--border)";
+      input.style.background = "";
+      input.title = "";
+    }
+  } else {
+    input.style.borderColor = "var(--border)";
+    input.style.background = "";
+    input.title = "";
+  }
+
+  // Recolectar todos los valores del estudiante para calcular total y nota
   let suma = 0, todasLlenas = true;
   let sumaMax = 0;
   evalIndicadores.forEach(ind=>{
     sumaMax += ind.puntaje_maximo;
-    const s = document.querySelector(`select.calif-input-ind[data-estudiante="${eid}"][data-indicador="${ind.id}"]`);
-    if(!s || s.value === ""){ todasLlenas = false; }
-    else suma += Number(s.value);
+    const inp = document.querySelector(`input.calif-input-ind[data-estudiante="${eid}"][data-indicador="${ind.id}"]`);
+    if(!inp || inp.value === ""){ todasLlenas = false; }
+    else {
+      const n = Number(inp.value);
+      if(isNaN(n)) todasLlenas = false;
+      else suma += n;
+    }
   });
   document.getElementById(`suma-${eid}`).textContent = todasLlenas ? suma : '—';
   const cell = document.getElementById(`nota-${eid}`);
@@ -8885,12 +8949,12 @@ async function guardarNotas(){
         });
       });
     } else {
-      const selects = document.querySelectorAll("select.calif-input-ind");
-      selects.forEach(sel=>{
+      const inputs = document.querySelectorAll("input.calif-input-ind");
+      inputs.forEach(inp=>{
         notas.push({
-          estudiante_id: Number(sel.dataset.estudiante),
-          indicador_id:  Number(sel.dataset.indicador),
-          puntaje:       sel.value === "" ? null : Number(sel.value)
+          estudiante_id: Number(inp.dataset.estudiante),
+          indicador_id:  Number(inp.dataset.indicador),
+          puntaje:       inp.value === "" ? null : Number(inp.value)
         });
       });
     }

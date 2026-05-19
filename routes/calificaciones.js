@@ -159,17 +159,27 @@ router.get("/evaluaciones", requireAuth, async (req, res) => {
 
 // ── CREAR evaluación ────────────────────────────────────────────────────
 // Body para examen:        { tipo:'examen', nombre, descripcion?, fecha, puntaje_total, seccion_id, materia_id, subgrupo?, periodo }
-// Body para los demás:     { tipo:'tarea'|'cotidiano'|'proyecto', nombre, descripcion?, fecha, seccion_id, materia_id, subgrupo?, periodo,
-//                            indicadores: [{descripcion, puntaje_maximo}, ...] }
+// Body para tarea:         { tipo:'tarea', nombre, descripcion?, fecha_asignacion, fecha (entrega), seccion_id, materia_id, subgrupo?, periodo, indicadores: [...] }
+// Body para cotid/proy:    { tipo:'cotidiano'|'proyecto', nombre, descripcion?, fecha, seccion_id, materia_id, subgrupo?, periodo, indicadores: [...] }
 router.post("/evaluaciones", requireAuth, async (req, res) => {
   const u = req.session.usuario;
-  const { tipo, nombre, descripcion, fecha, puntaje_total, indicadores,
+  const { tipo, nombre, descripcion, fecha, fecha_asignacion, puntaje_total, indicadores,
           seccion_id, materia_id, subgrupo, periodo } = req.body;
 
   // Validaciones de campos básicos
   if (!tipo || !nombre || !fecha) return res.status(400).json({ error: "Faltan campos obligatorios." });
   if (!['examen','tarea','cotidiano','proyecto'].includes(tipo)) return res.status(400).json({ error: "Tipo inválido." });
   if (!seccion_id || !materia_id || !periodo) return res.status(400).json({ error: "Faltan datos de asignación." });
+
+  // Tareas y proyectos llevan fecha de asignación (el profe los entrega con
+  // anticipación). Cotidianos y exámenes no — son del día.
+  // La fecha de entrega puede ser anterior a la de asignación si así lo decide
+  // el profesor (no validamos el orden).
+  if (tipo === 'tarea' || tipo === 'proyecto') {
+    if (!fecha_asignacion) {
+      return res.status(400).json({ error: `Para ${tipo === 'tarea' ? 'una tarea' : 'un proyecto'} hay que indicar la fecha de asignación.` });
+    }
+  }
 
   // Verificar asignación
   const asig = await verificarAsignacion(u.id, seccion_id, materia_id, subgrupo, periodo);
@@ -227,10 +237,10 @@ router.post("/evaluaciones", requireAuth, async (req, res) => {
       ? Number(puntaje_total)
       : indicadores.reduce((s, i) => s + Number(i.puntaje_maximo), 0);
     const ev = await client.query(`
-      INSERT INTO evaluaciones (profesor_id, seccion_id, materia_id, subgrupo, periodo, tipo, nombre, descripcion, fecha, puntaje_total)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      INSERT INTO evaluaciones (profesor_id, seccion_id, materia_id, subgrupo, periodo, tipo, nombre, descripcion, fecha, fecha_asignacion, puntaje_total)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       RETURNING *
-    `, [u.id, seccion_id, materia_id, subgrupo || null, periodo, tipo, nombre.trim(), descripcion || null, fecha, pt]);
+    `, [u.id, seccion_id, materia_id, subgrupo || null, periodo, tipo, nombre.trim(), descripcion || null, fecha, ((tipo === 'tarea' || tipo === 'proyecto') ? fecha_asignacion : null), pt]);
     const evaluacion = ev.rows[0];
 
     if (tipo !== 'examen') {
@@ -269,18 +279,22 @@ router.put("/evaluaciones/:id", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   const { row, err, msg } = await getEvaluacionMia(u, req.params.id);
   if (err) return res.status(err).json({ error: msg });
-  const { nombre, descripcion, fecha, puntaje_total } = req.body;
+  const { nombre, descripcion, fecha, fecha_asignacion, puntaje_total } = req.body;
   if (!nombre || !fecha) return res.status(400).json({ error: "Faltan campos." });
   if (row.tipo === 'examen' && (!puntaje_total || Number(puntaje_total) <= 0)) {
     return res.status(400).json({ error: "El puntaje total debe ser mayor a 0." });
   }
+  if (row.tipo === 'tarea' || row.tipo === 'proyecto') {
+    if (!fecha_asignacion) return res.status(400).json({ error: "Falta la fecha de asignación." });
+  }
   // Si cambia el puntaje del examen, las notas siguen siendo válidas
   // (puntos_obtenidos no cambia, solo se reinterpreta la proporción).
   const newPt = row.tipo === 'examen' ? Number(puntaje_total) : row.puntaje_total;
+  const newFAsig = (row.tipo === 'tarea' || row.tipo === 'proyecto') ? fecha_asignacion : null;
   await pool.query(`
-    UPDATE evaluaciones SET nombre=$1, descripcion=$2, fecha=$3, puntaje_total=$4, updated_at=NOW()
-    WHERE id=$5
-  `, [nombre.trim(), descripcion || null, fecha, newPt, row.id]);
+    UPDATE evaluaciones SET nombre=$1, descripcion=$2, fecha=$3, fecha_asignacion=$4, puntaje_total=$5, updated_at=NOW()
+    WHERE id=$6
+  `, [nombre.trim(), descripcion || null, fecha, newFAsig, newPt, row.id]);
   res.json({ ok: true });
 });
 

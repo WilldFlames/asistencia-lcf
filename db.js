@@ -579,12 +579,14 @@ async function initDB() {
         nota:'2 pruebas obligatorias (20% c/u)' },
       { cod:'religiosa_7_9',desc:'Ética y Valores (7°-9°)',          lvl:[7,9],   pc:70, pt:25, pp:0,  ppr:0,  pa:5, np:0, npr:0, op:false,
         nota:'Sin pruebas ni proyectos' },
-      { cod:'practica_7_9', desc:'Práctica (7°-9°)',                  lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:0, op:true,
-        nota:'Proyecto o Prueba (1 evaluación de 25%)' },
-      { cod:'civica_7_9',   desc:'Educación Cívica (7°-9°)',          lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:0, op:true,
-        nota:'Proyecto o Prueba (1 evaluación de 25%)' },
+      { cod:'practica_7_9', desc:'Práctica (7°-9°)',                  lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:1, op:false,
+        nota:'1 proyecto (25%)' },
+      { cod:'civica_7_9',   desc:'Educación Cívica (7°-9°)',          lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:1, op:false,
+        nota:'1 proyecto (25%)' },
       { cod:'tecno_7_9',    desc:'Formación Tecnológica (7°-9°)',     lvl:[7,9],   pc:65, pt:10, pp:20, ppr:0,  pa:5, np:1, npr:0, op:false,
         nota:'1 prueba (20%)' },
+      { cod:'idioma_7_9',   desc:'Inglés/Francés (7°-9°)',           lvl:[7,9],   pc:35, pt:10, pp:50, ppr:0,  pa:5, np:2, npr:0, op:false,
+        nota:'2 pruebas obligatorias (25% c/u)' },
       // 10°-11°
       { cod:'acad_10_11',   desc:'Académica (10°-11°)',               lvl:[10,11], pc:35, pt:10, pp:50, ppr:0,  pa:5, np:2, npr:0, op:false,
         nota:'2 pruebas obligatorias (25% c/u)' },
@@ -628,8 +630,8 @@ async function initDB() {
       { materia:'Español',             regla:'acad_7_9',     lvl:[7,9] },
       { materia:'Estudios Sociales',   regla:'acad_7_9',     lvl:[7,9] },
       { materia:'Ciencias',            regla:'acad_7_9',     lvl:[7,9] },
-      { materia:'Inglés',              regla:'acad_7_9',     lvl:[7,9] },
-      { materia:'Francés',             regla:'acad_7_9',     lvl:[7,9] },
+      { materia:'Inglés',              regla:'idioma_7_9',   lvl:[7,9] },
+      { materia:'Francés',             regla:'idioma_7_9',   lvl:[7,9] },
       // 7°-9° religiosa
       { materia:'Ética y Valores',     regla:'religiosa_7_9',lvl:[7,9] },
       // 7°-9° práctica
@@ -704,6 +706,10 @@ async function initDB() {
         updated_at    TIMESTAMP DEFAULT NOW()
       )
     `);
+    // Para tareas: fecha cuando el profe asignó la tarea. La columna `fecha`
+    // se interpreta como fecha de entrega. Para los demás tipos, fecha_asignacion
+    // queda en NULL.
+    await client.query(`ALTER TABLE evaluaciones ADD COLUMN IF NOT EXISTS fecha_asignacion DATE DEFAULT NULL`);
     // Índice para listar rápido por asignación
     await client.query(`CREATE INDEX IF NOT EXISTS idx_eval_asig ON evaluaciones(profesor_id, seccion_id, materia_id, periodo)`);
 
