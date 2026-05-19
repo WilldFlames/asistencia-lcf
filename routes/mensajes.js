@@ -37,9 +37,31 @@ router.get("/todos", requireRol("admin"), async (req, res) => {
 });
 
 // ── INFORME COMPLETO DE UNA SECCIÓN ──────────────────────────────────────────
-// Obtener todos los informes respondidos de un estudiante para compilar
+// Obtener todos los informes respondidos de un estudiante para compilar.
+// Incluye también las materias que el profesor enseña en la sección del estudiante,
+// para que el informe compilado muestre "Prof. X — Materia Y".
 router.get("/compilado/:estudiante_id", requireAuth, async (req, res) => {
-  const r = await pool.query(informeSelect("WHERE i.estudiante_id=$1 AND i.respondido=true"), [req.params.estudiante_id]);
+  const r = await pool.query(`
+    SELECT i.*,
+      ur.nombre AS remit_nombre, ur.primer_apellido AS remit_ap1, ur.segundo_apellido AS remit_ap2, ur.rol AS remit_rol,
+      ud.nombre AS dest_nombre, ud.primer_apellido AS dest_ap1, ud.segundo_apellido AS dest_ap2,
+      e.nombre AS est_nombre, e.primer_apellido AS est_ap1, e.segundo_apellido AS est_ap2,
+      e.cedula AS est_cedula,
+      s.nombre AS seccion_nombre,
+      (
+        SELECT STRING_AGG(DISTINCT m.nombre, ', ' ORDER BY m.nombre)
+        FROM asignaciones a
+        JOIN materias m ON m.id = a.materia_id
+        WHERE a.profesor_id = i.destinatario_id AND a.seccion_id = e.seccion_id
+      ) AS materias_profesor
+    FROM informes i
+    JOIN usuarios ur ON ur.id=i.remitente_id
+    JOIN usuarios ud ON ud.id=i.destinatario_id
+    JOIN estudiantes e ON e.id=i.estudiante_id
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE i.estudiante_id=$1 AND i.respondido=true
+    ORDER BY ud.primer_apellido, ud.nombre, i.fecha_respuesta DESC
+  `, [req.params.estudiante_id]);
   res.json(r.rows);
 });
 

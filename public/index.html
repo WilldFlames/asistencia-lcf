@@ -2527,10 +2527,13 @@ async function iniciarApp(){
   if(esAdmin) document.getElementById("tab-todos").style.display="";
 
   // ── VERIFICACIONES ASYNC (comités) ───────────────────────────
+  window.esComiteComedor = false;
+  window.esComiteMatricula = false;
   try{
     // Comité comedor → puede ver Comedor + Carnet
     const comiteC = await api("/api/comedor/comite");
     if(comiteC && comiteC.some(c=>c.usuario_id===ME.id)){
+      window.esComiteComedor = true;
       document.getElementById("nav-comedor").style.display="";
       document.getElementById("nav-carnet").style.display="";
     }
@@ -2539,6 +2542,7 @@ async function iniciarApp(){
     // Comité matrícula → puede ver Prematrícula y Matrícula
     const comiteM = await api("/api/prematricula/comite/lista");
     if(comiteM && comiteM.some(c=>c.usuario_id===ME.id)){
+      window.esComiteMatricula = true;
       document.getElementById("nav-prematricula").style.display="";
       document.getElementById("nav-matricula").style.display="";
       document.getElementById("sec-gestion").style.display="";
@@ -4509,7 +4513,7 @@ async function cargarMensajes(tipo){
         ${tipo==="inbox"&&!inf.respondido?`<button class="btn btn-success btn-sm" onclick="abrirResponderById(${inf.id},false)">✉️ Responder</button>`:""}
         ${tipo==="inbox"&&inf.respondido?`<button class="btn btn-outline btn-sm" onclick="abrirResponderById(${inf.id},true)">👁️ Ver</button>`:""}
         ${!inf.leido&&tipo==="inbox"?`<button class="btn btn-outline btn-sm" onclick="marcarLeido(${inf.id})">✔ Leído</button>`:""}
-        ${(tipo==="enviados"||tipo==="todos")&&inf.respondido?`<button class="btn btn-success btn-sm" onclick="imprimirInformeCompilado(${inf.id})">🖨️ Imprimir</button>`:""}
+        ${(tipo==="enviados"||tipo==="todos")&&inf.respondido?`<button class="btn btn-success btn-sm" onclick="imprimirInformesEstudiante(${inf.estudiante_id})">🖨️ Imprimir todos los informes del estudiante</button>`:""}
         ${(tipo==="enviados"||ME.rol==="admin"||ME.rol==="auxiliar")?`<button class="btn btn-danger btn-sm" onclick="eliminarInforme(${inf.id})">🗑️ Eliminar</button>`:""}
       </div>
     </div>`;
@@ -4875,84 +4879,97 @@ ${encabezadoMEP("INFORME DE CONDUCTA")}
   await imprimirConEncabezado(printArea, style);
 }
 
-async function imprimirInformeCompilado(informeId){
-  // Obtener el informe específico
-  const inf = window._informesData?.[informeId];
-  if(!inf){ alert("Datos del informe no disponibles. Recargá la página."); return; }
+async function imprimirInformesEstudiante(estudianteId){
+  // Pedir al backend TODAS las respuestas (de todos los profesores) para este estudiante
+  let informes;
+  try{
+    informes = await api(`/api/mensajes/compilado/${estudianteId}`);
+  }catch(e){
+    alert("Error al cargar informes: " + e.message);
+    return;
+  }
+  if(!informes || !informes.length){
+    alert("Este estudiante todavía no tiene informes respondidos.");
+    return;
+  }
+
+  // Todos los informes son del mismo estudiante; usamos el primero para los datos generales
+  const primero = informes[0];
+  const periodo = detectarPeriodo(null);
+  const nombreEst = `${primero.est_ap1||''} ${primero.est_ap2||''}, ${primero.est_nombre||''}`.trim();
+  const seccion = primero.seccion_nombre || '—';
+  const cedula = primero.est_cedula || '—';
+  const guia = `${primero.remit_ap1||''} ${primero.remit_nombre||''}`.trim();
+
+  // Construir una sección por cada respuesta de profesor
+  const secciones = informes.map(inf => {
+    const profNombre = `${inf.dest_ap1||''} ${inf.dest_ap2||''}, ${inf.dest_nombre||''}`.trim();
+    const materia = inf.materias_profesor ? ` — ${inf.materias_profesor}` : '';
+    return `
+      <div style="margin-bottom:16px;page-break-inside:avoid;break-inside:avoid;">
+        <div style="background:#1a3a5c;color:#fff;padding:6px 12px;font-size:13px;font-weight:bold;border-radius:4px 4px 0 0;">
+          ${profNombre}${materia}
+          <span style="float:right;font-weight:normal;font-size:11px;opacity:0.85;">Respondido: ${fmtTS(inf.fecha_respuesta)}</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #e5e7eb;border-top:none;">
+          <tbody>
+            <tr style="background:#f9fafb;"><td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;font-weight:bold;width:28%;">Asistencia</td><td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;">${inf.resp_asistencia||'—'}</td></tr>
+            <tr><td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Trabajo Cotidiano</td><td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;">${inf.resp_trabajo_cotidiano||'—'}</td></tr>
+            <tr style="background:#f9fafb;"><td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Tareas</td><td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;">${inf.resp_tareas||'—'}</td></tr>
+            <tr><td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Exámenes / Proyectos</td><td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;">${inf.resp_examenes||'—'}</td></tr>
+            <tr style="background:#f9fafb;"><td style="padding:5px 10px;${inf.resp_observaciones?'border-bottom:1px solid #e5e7eb;':''}font-weight:bold;">Comportamiento</td><td style="padding:5px 10px;${inf.resp_observaciones?'border-bottom:1px solid #e5e7eb;':''}">${inf.resp_comportamiento||'—'}</td></tr>
+            ${inf.resp_observaciones?`<tr><td style="padding:5px 10px;font-weight:bold;">Observaciones</td><td style="padding:5px 10px;">${inf.resp_observaciones}</td></tr>`:''}
+          </tbody>
+        </table>
+      </div>`;
+  }).join('');
 
   let printArea = document.getElementById("print-boleta-area");
   if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
 
-  const periodo = detectarPeriodo(null);
-
   printArea.innerHTML = `
-    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:14px 20px;">
 ${encabezadoMEP("INFORME DE RENDIMIENTO ACADÉMICO — "+periodo)}
 
-      <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px;font-size:13px;flex-wrap:wrap;gap:8px;border-top:2px solid #1a3a5c;border-bottom:2px solid #1a3a5c;padding:8px 0;">
         <div>
-          <div><strong>Estudiante:</strong> ${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}</div>
-          <div><strong>Sección:</strong> ${inf.seccion_nombre||"—"}</div>
-          <div><strong>Profesor:</strong> ${inf.dest_ap1} ${inf.dest_nombre}</div>
+          <div><strong>Estudiante:</strong> ${nombreEst}</div>
+          <div><strong>Cédula:</strong> ${cedula}</div>
+          <div><strong>Sección:</strong> ${seccion}</div>
         </div>
-        <div style="font-size:12px;color:#555;">
-          <div><strong>Solicitado por:</strong> ${inf.remit_ap1} ${inf.remit_nombre}</div>
-          <div><strong>Respondido:</strong> ${fmtTS(inf.fecha_respuesta)}</div>
+        <div style="font-size:12px;color:#333;text-align:right;">
+          <div><strong>Profesor Guía:</strong> ${guia}</div>
+          <div><strong>Informes recibidos:</strong> ${informes.length}</div>
+          <div><strong>Generado:</strong> ${fmtTS(new Date().toISOString())}</div>
         </div>
       </div>
 
-      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
-        <thead>
-          <tr style="background:#1a3a5c;color:#fff;">
-            <th style="padding:8px 12px;text-align:left;width:30%;">Aspecto</th>
-            <th style="padding:8px 12px;text-align:left;">Valoración del Profesor</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="background:#f9fafb;">
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Asistencia</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_asistencia||"—"}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Trabajo Cotidiano</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_trabajo_cotidiano||"—"}</td>
-          </tr>
-          <tr style="background:#f9fafb;">
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Tareas</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_tareas||"—"}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Exámenes / Proyectos</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_examenes||"—"}</td>
-          </tr>
-          <tr style="background:#f9fafb;">
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:bold;">Comportamiento</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${inf.resp_comportamiento||"—"}</td>
-          </tr>
-          ${inf.resp_observaciones?`<tr>
-            <td style="padding:8px 12px;font-weight:bold;">Observaciones</td>
-            <td style="padding:8px 12px;">${inf.resp_observaciones}</td>
-          </tr>`:""}
-        </tbody>
-      </table>
+      ${secciones}
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
-        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
-          Firma del Profesor<br/><strong>${inf.dest_ap1} ${inf.dest_ap2||""}, ${inf.dest_nombre}</strong>
-        </div>
-        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
+      <div style="margin-top:30px;text-align:center;page-break-inside:avoid;">
+        <div style="display:inline-block;min-width:280px;border-top:1px solid #94a3b8;padding-top:6px;font-size:12px;color:#555;">
           Firma del Encargado Legal
         </div>
       </div>
       ${piePaginaMEP()}
     </div>`;
 
-  const style = document.createElement("style");
+  // Estilo @page para mejor uso del espacio
+  let style = document.getElementById("print-style-informe");
+  if(style) style.remove();
+  style = document.createElement("style");
   style.id = "print-style-informe";
-  style.innerHTML = `@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
+  style.innerHTML = `
+    @page { size: A4 portrait; margin: 12mm; }
+    @media print {
+      body > *:not(#print-boleta-area) { display:none!important; }
+      #print-boleta-area { display:block!important; }
+      table, tr, div { page-break-inside: avoid; break-inside: avoid; }
+    }
+  `;
   document.head.appendChild(style);
-  await imprimirConEncabezado(printArea, document.getElementById("print-style-informe"));
+  await imprimirConEncabezado(printArea, style);
 }
 
 // ════════════════════════════════════
@@ -5065,6 +5082,7 @@ async function agregarComiteComedor(){
     await cargarComiteComedor();
     // Si el usuario actual se acaba de agregar, mostrarle los módulos
     if(uid === ME.id){
+      window.esComiteComedor = true;  // marcar el flag global
       document.getElementById("nav-comedor").style.display = "";
       const navCarnet = document.getElementById("nav-carnet");
       if(navCarnet) navCarnet.style.display = "";
@@ -5074,7 +5092,17 @@ async function agregarComiteComedor(){
 
 async function quitarComiteComedor(id){
   try{
+    // Si el quitado soy yo, actualizar el flag global ANTES de la llamada
+    const rows = await api("/api/comedor/comite") || [];
+    const mio = rows.find(r=>r.id===id);
+    const esYo = mio && mio.usuario_id === ME.id;
     await api(`/api/comedor/comite/${id}`,"DELETE");
+    if(esYo && ME.rol!=='admin'){
+      window.esComiteComedor = false;
+      // No ocultamos los nav buttons en caliente para no romper la UI actual;
+      // se reflejan en el próximo login. Pero sí actualizamos el flag para que
+      // iniciarComedor refleje el cambio.
+    }
     await cargarComiteComedor();
   }catch(e){ sa("alert-comite", e.message, "danger"); }
 }
@@ -5496,17 +5524,40 @@ let comedorData = [];
 
 async function iniciarComedor(){
   // Determinar rol y mostrar vista correcta
-  const esCocinera  = ME.rol==='cocinera';
-  const esOrientador= ME.rol==='orientador' || ME.rol==='profesor_guia';
-  const esComite    = ME.rol==='admin';
+  const esCocinera   = ME.rol==='cocinera';
+  const esOrientador = ME.rol==='orientador' || ME.rol==='profesor_guia';
+  const esAdmin      = ME.rol==='admin';
+  // Usar el flag global ya verificado en iniciarApp (evita llamada async redundante
+  // que podía fallar silenciosamente y dejar la página en blanco).
+  const esComite = esAdmin || !!window.esComiteComedor;
 
-  document.getElementById('comedor-vista-escaneo').style.display = (esCocinera||esComite) ? '' : 'none';
+  const puedeEscanear = esCocinera || esComite;
+
+  document.getElementById('comedor-vista-escaneo').style.display = puedeEscanear ? '' : 'none';
   document.getElementById('comedor-vista-lista').style.display   = esOrientador ? '' : 'none';
-  // FIX: La cocinera también necesita ver/imprimir el Reporte Diario
-  // (es ella quien al final del día escribe el menú e imprime la boleta).
-  document.getElementById('comedor-vista-reporte').style.display = (esCocinera||esComite) ? '' : 'none';
+  document.getElementById('comedor-vista-reporte').style.display = puedeEscanear ? '' : 'none';
 
-  if(esCocinera||esComite){
+  // Si no tiene ningún acceso, mostrar un mensaje visible (no dentro de vistas ocultas)
+  if(!puedeEscanear && !esOrientador){
+    let avisoEl = document.getElementById('comedor-sin-acceso');
+    if(!avisoEl){
+      avisoEl = document.createElement('div');
+      avisoEl.id = 'comedor-sin-acceso';
+      avisoEl.className = 'card';
+      avisoEl.style.cssText = 'text-align:center;padding:40px 20px;';
+      avisoEl.innerHTML = `<div style="font-size:48px;margin-bottom:12px;">🔒</div>
+        <h2 style="color:var(--muted);margin-bottom:8px;">Sin acceso al módulo</h2>
+        <p style="color:var(--muted);max-width:480px;margin:0 auto;font-size:14px;">No tenés permiso para usar el módulo de Comedor. Si pensás que es un error, pedile al administrador que te agregue al Comité de Comedor.</p>`;
+      document.getElementById('page-comedor').appendChild(avisoEl);
+    }
+    avisoEl.style.display = '';
+    return;
+  } else {
+    const avisoEl = document.getElementById('comedor-sin-acceso');
+    if(avisoEl) avisoEl.style.display = 'none';
+  }
+
+  if(puedeEscanear){
     // Fecha por defecto hoy en ambos selectores (escaneo y reporte)
     const fd = document.getElementById('comedor-fecha-scan');
     const fr = document.getElementById('comedor-fecha-rep');

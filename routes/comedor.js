@@ -20,8 +20,15 @@ function horaCR(){
   return `${h}:${m}`;
 }
 
-// Quién puede registrar escaneo: cocinera, admin
-const canRegistrar = requireRol("admin","cocinera");
+// Quién puede registrar escaneo: cocinera, admin, miembros del comité comedor
+function canRegistrar(req, res, next){
+  const u = req.session.usuario;
+  if(!u) return res.status(401).json({ error:"No autorizado" });
+  if(u.rol==="admin" || u.rol==="cocinera") return next();
+  pool.query("SELECT 1 FROM comedor_comite WHERE usuario_id=$1", [u.id])
+    .then(r => r.rows.length ? next() : res.status(403).json({ error:"Sin permisos para escanear" }))
+    .catch(() => res.status(403).json({ error:"Sin permisos para escanear" }));
+}
 
 // Quién puede ver reportes: admin, comité comedor, auxiliar
 function requireComedor(req, res, next){
