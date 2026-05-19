@@ -47,6 +47,7 @@ app.use("/api/prematricula",   requireAuth, require("./routes/prematricula"));
 app.use("/api/matricula",      requireAuth, require("./routes/matricula"));
 app.use("/api/cartas",         requireAuth, require("./routes/cartas"));
 app.use("/api/periodos",       requireAuth, require("./routes/periodos"));
+app.use("/api/calificaciones", requireAuth, require("./routes/calificaciones"));
 
 // Force no-cache for HTML to ensure users always get latest version
 // Versión actual del sistema — se calcula al arrancar el proceso.

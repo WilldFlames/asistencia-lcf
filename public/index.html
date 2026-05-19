@@ -351,6 +351,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" id="nav-mensajes" data-page="mensajes" onclick="goTo('mensajes')" style="display:none"><span class="icon">📨</span><span>Mensajes</span></button>
   <div class="sidebar-section" id="sec-docente" style="display:none">Docente</div>
   <button class="nav-btn" data-page="asistencia" id="nav-asistencia" onclick="goTo('asistencia')" style="display:none"><span class="icon">✅</span><span>Asistencia</span></button>
+  <button class="nav-btn" data-page="calificaciones" id="nav-calificaciones" onclick="goTo('calificaciones')" style="display:none"><span class="icon">📊</span><span>Calificaciones</span></button>
   <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
@@ -575,6 +576,171 @@ tr:hover td{background:#f8fafc;}
 </div>
 <!-- /CARTAS DE AUSENTISMO -->
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- CALIFICACIONES — Fase 1: Configuración de % por materia    -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-calificaciones">
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <h2 style="margin:0">📊 Calificaciones</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:13px;color:var(--muted);">Período:</label>
+        <select id="calif-periodo" onchange="cargarCalificacionesAsignaciones()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;">
+          <option value="I Período">I Período</option>
+          <option value="II Período">II Período</option>
+        </select>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-top:10px;">
+      Acá ves cómo se evalúa cada una de tus asignaciones según el <strong>REAC 2026</strong>.
+      Los porcentajes son oficiales del MEP y no se pueden modificar.
+      En la próxima fase vas a poder registrar exámenes, tareas, cotidianos y proyectos para tus estudiantes.
+      Las materias Guía y Orientación no llevan nota.
+    </p>
+    <div id="alert-calif" class="alert"></div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sección</th>
+            <th>Materia</th>
+            <th>Subgrupo</th>
+            <th style="text-align:center;">Cotid.</th>
+            <th style="text-align:center;">Tareas</th>
+            <th style="text-align:center;">Pruebas</th>
+            <th style="text-align:center;">Proyecto</th>
+            <th style="text-align:center;">Asist.</th>
+            <th>Reglas</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="calif-asig-tbody">
+          <tr><td colspan="10" class="empty">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<!-- /CALIFICACIONES -->
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- EVALUACIONES (Fase 2) — dentro del módulo Calificaciones    -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-evaluaciones">
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div>
+        <button class="btn btn-outline btn-sm" onclick="goTo('calificaciones')">← Volver</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-success btn-sm" id="btn-nuevo-examen" onclick="nuevaEvaluacion('examen')">📝 Nuevo examen</button>
+        <button class="btn btn-primary btn-sm" id="btn-nueva-tarea" onclick="nuevaEvaluacion('tarea')">📄 Nueva tarea</button>
+        <button class="btn btn-orange btn-sm" id="btn-nuevo-cotid" onclick="nuevaEvaluacion('cotidiano')">📋 Nuevo cotidiano</button>
+        <button class="btn btn-purple btn-sm" id="btn-nuevo-proy" onclick="nuevaEvaluacion('proyecto')">📦 Nuevo proyecto</button>
+      </div>
+    </div>
+    <h2 id="eval-titulo" style="margin:14px 0 4px;">Evaluaciones</h2>
+    <div id="eval-subtitulo" style="font-size:13px;color:var(--muted);"></div>
+    <div id="alert-eval" class="alert"></div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th style="text-align:center;">Puntaje</th>
+            <th style="text-align:center;">Calificados</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="eval-tbody">
+          <tr><td colspan="6" class="empty">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- CALIFICAR — grilla de notas para una evaluación específica  -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-calificar">
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div>
+        <button class="btn btn-outline btn-sm" onclick="volverAEvaluaciones()">← Volver a evaluaciones</button>
+      </div>
+      <button class="btn btn-success" onclick="guardarNotas()" id="btn-guardar-notas">💾 Guardar notas</button>
+    </div>
+    <h2 id="calif-titulo" style="margin:14px 0 4px;">Calificar</h2>
+    <div id="calif-subtitulo" style="font-size:13px;color:var(--muted);"></div>
+    <div id="alert-calif-notas" class="alert"></div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap" style="max-height:65vh;overflow:auto;">
+      <table id="calif-tabla-notas">
+        <thead id="calif-thead"><tr><th>Cargando...</th></tr></thead>
+        <tbody id="calif-tbody-notas"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Crear / editar evaluación -->
+<div class="modal-overlay" id="modal-evaluacion">
+  <div class="modal" style="max-width:640px;">
+    <h3 id="me-titulo-mod">Nueva evaluación</h3>
+    <input type="hidden" id="me-id"/>
+    <input type="hidden" id="me-tipo"/>
+    <div class="fg">
+      <label>Nombre</label>
+      <input type="text" id="me-nombre" placeholder="Ej: Primera prueba parcial" maxlength="120"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="fg">
+        <label>Fecha</label>
+        <input type="date" id="me-fecha"/>
+      </div>
+      <div class="fg" id="me-puntaje-wrap">
+        <label>Puntaje total (puntos del examen)</label>
+        <input type="number" id="me-puntaje" min="1" step="0.5" placeholder="Ej: 100"/>
+      </div>
+    </div>
+    <div class="fg">
+      <label>Descripción (opcional)</label>
+      <textarea id="me-descripcion" rows="2" placeholder="Notas adicionales sobre esta evaluación..."></textarea>
+    </div>
+
+    <!-- Indicadores: solo para tarea/cotidiano/proyecto -->
+    <div id="me-indicadores-wrap" style="display:none;">
+      <hr style="margin:14px 0;border:none;border-top:1px solid var(--border);"/>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong id="me-ind-titulo" style="font-size:14px;">Indicadores</strong>
+        <button class="btn btn-outline btn-xs" onclick="agregarIndicador()">+ Agregar indicador</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+        Cada indicador se califica de 0 a su puntaje máximo (default: 3).
+      </div>
+      <div id="me-indicadores-list"></div>
+    </div>
+
+    <div id="alert-me" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-evaluacion')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEvaluacion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Configurar porcentajes de una asignación -->
 <!-- CONDUCTA -->
 <div class="page" id="page-conducta">
   <div id="conducta-view-lista">
@@ -2395,6 +2561,9 @@ function goTo(page){
     if(btnImprimir) btnImprimir.style.display="";
   }
   if(page==="asistencia")  cargarMisAsig();
+  if(page==="calificaciones") iniciarCalificaciones();
+  if(page==="evaluaciones") iniciarEvaluaciones();
+  if(page==="calificar")    iniciarCalificar();
   if(page==="cumplimiento") {
     const hoy=fechaHoyCR();
     const primero=hoy.slice(0,8)+"01";
@@ -2445,6 +2614,15 @@ async function iniciarApp(){
   if(esAdmin||esProfesor||esGuia||esOrientador){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-asistencia").style.display="";
+  }
+  // Calificaciones: SOLO el profesor que enseña puede ver sus notas.
+  // Ni admin, ni auxiliar, ni guía, ni orientador tienen acceso (decisión de
+  // la dirección del centro: confidencialidad académica).
+  // Como en este sistema los roles "profesor_guia" y "orientador" también
+  // dan clases, ellos sí lo ven — pero solo por SUS asignaciones, no las de otros.
+  if(esProfesor||esGuia||esOrientador){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-calificaciones").style.display="";
   }
   // Conducta: admin, guía, orientador, auxiliar
   if(esAdmin||esGuia||esOrientador||esAuxiliar){
@@ -8200,6 +8378,520 @@ async function descargarCarnetsPDF(){
   }finally{
     btn.disabled = false;
     btn.innerHTML = textOrig;
+  }
+}
+
+
+// ════════════════════════════════════════════════════════════
+//  CALIFICACIONES — Fase 1: Vista informativa REAC
+// ════════════════════════════════════════════════════════════
+// Los porcentajes son OFICIALES del REAC 2026 y no se editan.
+// Solo el profesor que enseña ve sus asignaciones (ni admin, ni guía,
+// ni orientador tienen acceso).
+let califAsigData = [];
+
+async function iniciarCalificaciones(){
+  // Período por defecto según fecha actual
+  const sel = document.getElementById("calif-periodo");
+  if(sel && !sel.dataset.init){
+    sel.value = detectarPeriodo(null) || "I Período";
+    sel.dataset.init = "1";
+  }
+  await cargarCalificacionesAsignaciones();
+}
+
+async function cargarCalificacionesAsignaciones(){
+  const periodo = document.getElementById("calif-periodo").value || "I Período";
+  try{
+    const rows = await api(`/api/calificaciones/mis-asignaciones?periodo=${encodeURIComponent(periodo)}`) || [];
+    califAsigData = rows;
+    renderCalifAsig();
+  }catch(e){
+    sa("alert-calif","Error al cargar asignaciones: "+e.message,"danger");
+  }
+}
+
+function renderCalifAsig(){
+  const tbody = document.getElementById("calif-asig-tbody");
+  if(!califAsigData.length){
+    tbody.innerHTML = `<tr><td colspan="10" class="empty">No tenés asignaciones que evaluar en este período.</td></tr>`;
+    return;
+  }
+  // Helper para formatear porcentaje
+  const fmt = (v)=> (v==null || Number(v)===0) ? '<span style="color:var(--muted);">—</span>' : `<strong>${Number(v).toFixed(0)}%</strong>`;
+
+  tbody.innerHTML = califAsigData.map(a=>{
+    const sinRegla = !a.regla_id;
+    const esTaller = (a.materia_nombre === 'Educación para el Hogar' || a.materia_nombre === 'Artes Industriales');
+    // Construir descripción de las reglas (lo que tiene que registrar el profe)
+    let reglasTxt = "";
+    if(sinRegla){
+      reglasTxt = `<span style="color:var(--naranja);">⚠️ Sin regla REAC asignada — contactá al admin</span>`;
+    } else {
+      const partes = [];
+      if(a.cantidad_pruebas > 0) partes.push(`${a.cantidad_pruebas} prueba${a.cantidad_pruebas>1?'s':''}`);
+      if(a.cantidad_pruebas < 0) partes.push(`mín ${Math.abs(a.cantidad_pruebas)} pruebas`);
+      if(a.cantidad_proyectos > 0) partes.push(`${a.cantidad_proyectos} proyecto${a.cantidad_proyectos>1?'s':''}`);
+      if(a.proyecto_o_prueba) partes.push(`<em>proyecto o prueba</em>`);
+      const piezas = partes.length ? partes.join(" · ") : "Solo cotidiano y tareas";
+      reglasTxt = `<div style="font-size:12px;">${piezas}</div>` +
+                  (a.regla_notas ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${a.regla_notas}</div>` : '');
+    }
+    const avisoSemestral = esTaller
+      ? '<br/><span style="font-size:11px;color:var(--azul);">📌 Materia semestral — nota única</span>'
+      : '';
+    const botonEval = sinRegla
+      ? ''
+      : `<button class="btn btn-primary btn-xs" onclick="abrirEvaluaciones(${a.asignacion_id})">📝 Evaluaciones</button>`;
+    return `<tr ${sinRegla?'style="background:#fef3c7;"':''}>
+      <td><strong>${a.seccion_nombre}</strong></td>
+      <td>${a.materia_nombre}${avisoSemestral}</td>
+      <td>${a.subgrupo ? `<span class="badge b-guia">${a.subgrupo}</span>` : '<span style="color:var(--muted);">—</span>'}</td>
+      <td style="text-align:center;">${fmt(a.porc_cotidiano)}</td>
+      <td style="text-align:center;">${fmt(a.porc_tareas)}</td>
+      <td style="text-align:center;">${fmt(a.porc_pruebas)}</td>
+      <td style="text-align:center;">${fmt(a.porc_proyectos)}</td>
+      <td style="text-align:center;">${fmt(a.porc_asistencia)}</td>
+      <td>${reglasTxt}</td>
+      <td>${botonEval}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ════════════════════════════════════════════════════════════
+//  CALIFICACIONES — Fase 2: Evaluaciones y notas
+// ════════════════════════════════════════════════════════════
+// Estado actual de la asignación seleccionada
+let evalAsigActual = null;       // referencia a la asignación (de califAsigData)
+let evalData = [];               // evaluaciones de la asignación actual
+let evalActual = null;           // evaluación específica al calificar
+let evalEstudiantes = [];        // estudiantes de la sección/subgrupo
+let evalIndicadores = [];        // indicadores de la evaluación actual
+
+function abrirEvaluaciones(asignacionId){
+  const a = califAsigData.find(x => x.asignacion_id === asignacionId);
+  if(!a){ alert("Asignación no encontrada."); return; }
+  evalAsigActual = a;
+  goTo('evaluaciones');
+}
+
+async function iniciarEvaluaciones(){
+  if(!evalAsigActual){
+    // Si entran directo a la página sin pasar por Calificaciones, volver
+    goTo('calificaciones');
+    return;
+  }
+  const a = evalAsigActual;
+  document.getElementById("eval-titulo").innerHTML =
+    `📝 Evaluaciones — <strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}` +
+    (a.subgrupo ? ` · <span class="badge b-guia">${a.subgrupo}</span>` : "");
+  document.getElementById("eval-subtitulo").innerHTML =
+    `<strong>${document.getElementById("calif-periodo").value}</strong> · ` +
+    `Cotid ${a.porc_cotidiano||0}% · Tareas ${a.porc_tareas||0}% · ` +
+    `Pruebas ${a.porc_pruebas||0}% · Proy ${a.porc_proyectos||0}% · Asist ${a.porc_asistencia||0}%`;
+
+  // Mostrar/ocultar botones según la regla REAC
+  document.getElementById("btn-nuevo-examen").style.display = (Number(a.porc_pruebas)>0) ? "" : "none";
+  document.getElementById("btn-nueva-tarea").style.display = (Number(a.porc_tareas)>0) ? "" : "none";
+  document.getElementById("btn-nuevo-cotid").style.display = (Number(a.porc_cotidiano)>0) ? "" : "none";
+  document.getElementById("btn-nuevo-proy").style.display = (Number(a.porc_proyectos)>0) ? "" : "none";
+
+  await cargarEvaluaciones();
+}
+
+async function cargarEvaluaciones(){
+  const a = evalAsigActual;
+  const periodo = document.getElementById("calif-periodo").value;
+  const params = new URLSearchParams({
+    seccion_id: a.seccion_id,
+    materia_id: a.materia_id,
+    periodo
+  });
+  if(a.subgrupo) params.set("subgrupo", a.subgrupo);
+  try{
+    const r = await api(`/api/calificaciones/evaluaciones?${params.toString()}`);
+    if(!r) return;
+    evalData = r.evaluaciones || [];
+    renderEvaluaciones();
+  }catch(e){
+    sa("alert-eval","Error al cargar evaluaciones: "+e.message,"danger");
+  }
+}
+
+function renderEvaluaciones(){
+  const tbody = document.getElementById("eval-tbody");
+  if(!evalData.length){
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Todavía no hay evaluaciones. Creá una con los botones de arriba.</td></tr>`;
+    return;
+  }
+  const tipoIcon = {examen:'📝',tarea:'📄',cotidiano:'📋',proyecto:'📦'};
+  const tipoLbl  = {examen:'Examen',tarea:'Tarea',cotidiano:'Cotidiano',proyecto:'Proyecto'};
+  tbody.innerHTML = evalData.map(e=>{
+    const calif = `${e.cant_calificados||0} / ${e.cant_estudiantes||0}`;
+    const pendiente = Number(e.cant_calificados) < Number(e.cant_estudiantes);
+    return `<tr>
+      <td><strong>${tipoIcon[e.tipo]||''}</strong> ${tipoLbl[e.tipo]||e.tipo}</td>
+      <td><strong>${e.nombre}</strong>${e.descripcion?`<br/><span style="font-size:11px;color:var(--muted);">${e.descripcion}</span>`:''}</td>
+      <td>${fmtF(e.fecha)}</td>
+      <td style="text-align:center;">${e.puntaje_total ? Number(e.puntaje_total).toFixed(0)+' pts' : '—'}${e.cant_indicadores>0?`<br/><span style="font-size:11px;color:var(--muted);">${e.cant_indicadores} ind.</span>`:''}</td>
+      <td style="text-align:center;${pendiente?'color:var(--naranja);':'color:var(--verde);'}font-weight:bold;">${calif}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-primary btn-xs" onclick="abrirCalificar(${e.id})">✏️ Calificar</button>
+        <button class="btn btn-outline btn-xs" onclick="editarEvaluacion(${e.id})">⚙️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarEvaluacion(${e.id})">🗑️</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function nuevaEvaluacion(tipo){
+  document.getElementById("me-id").value = "";
+  document.getElementById("me-tipo").value = tipo;
+  const tipoLbl = {examen:'examen',tarea:'tarea',cotidiano:'cotidiano',proyecto:'proyecto'}[tipo];
+  document.getElementById("me-titulo-mod").textContent = `Nuevo ${tipoLbl}`;
+  document.getElementById("me-nombre").value = "";
+  document.getElementById("me-fecha").value = fechaHoyCR();
+  document.getElementById("me-puntaje").value = "";
+  document.getElementById("me-descripcion").value = "";
+
+  if(tipo === 'examen'){
+    document.getElementById("me-puntaje-wrap").style.display = "";
+    document.getElementById("me-indicadores-wrap").style.display = "none";
+    document.getElementById("me-indicadores-list").innerHTML = "";
+  } else {
+    document.getElementById("me-puntaje-wrap").style.display = "none";
+    document.getElementById("me-indicadores-wrap").style.display = "";
+    document.getElementById("me-ind-titulo").textContent = tipo==='proyecto' ? "Etapas del proyecto" : "Indicadores";
+    document.getElementById("me-indicadores-list").innerHTML = "";
+    // Empezar con 1 indicador por defecto
+    agregarIndicador();
+  }
+  document.getElementById("alert-me").className = "alert";
+  document.getElementById("modal-evaluacion").classList.add("show");
+}
+
+async function editarEvaluacion(evalId){
+  try{
+    const r = await api(`/api/calificaciones/evaluaciones/${evalId}`);
+    if(!r) return;
+    const ev = r.evaluacion;
+    const inds = r.indicadores || [];
+
+    document.getElementById("me-id").value = ev.id;
+    document.getElementById("me-tipo").value = ev.tipo;
+    const tipoLbl = {examen:'examen',tarea:'tarea',cotidiano:'cotidiano',proyecto:'proyecto'}[ev.tipo];
+    document.getElementById("me-titulo-mod").textContent = `Editar ${tipoLbl}`;
+    document.getElementById("me-nombre").value = ev.nombre || "";
+    document.getElementById("me-fecha").value = (ev.fecha||"").slice(0,10);
+    document.getElementById("me-descripcion").value = ev.descripcion || "";
+
+    if(ev.tipo === 'examen'){
+      document.getElementById("me-puntaje").value = ev.puntaje_total || "";
+      document.getElementById("me-puntaje-wrap").style.display = "";
+      document.getElementById("me-indicadores-wrap").style.display = "none";
+    } else {
+      document.getElementById("me-puntaje-wrap").style.display = "none";
+      document.getElementById("me-indicadores-wrap").style.display = "";
+      document.getElementById("me-ind-titulo").textContent = ev.tipo==='proyecto' ? "Etapas del proyecto" : "Indicadores";
+      document.getElementById("me-indicadores-list").innerHTML = "";
+      // Indicadores deshabilitados al editar (no se pueden modificar para no romper notas)
+      const wrap = document.getElementById("me-indicadores-wrap");
+      let aviso = wrap.querySelector(".aviso-no-edit-ind");
+      if(!aviso){
+        aviso = document.createElement("div");
+        aviso.className = "aviso-no-edit-ind";
+        aviso.style.cssText = "background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;font-size:12.5px;color:#78350f;margin-bottom:10px;";
+        aviso.textContent = "ℹ️ Los indicadores no se pueden modificar después de creados (para no romper notas ya registradas). Si necesitás cambiarlos, eliminá esta evaluación y creá una nueva.";
+        wrap.insertBefore(aviso, document.getElementById("me-indicadores-list"));
+      }
+      // Mostrarlos en modo lectura
+      inds.forEach((ind, idx)=>{
+        const div = document.createElement("div");
+        div.style.cssText = "display:flex;gap:6px;margin-bottom:6px;align-items:center;background:#f8fafc;padding:6px 10px;border-radius:6px;";
+        div.innerHTML = `
+          <span style="font-weight:bold;font-size:12px;color:var(--muted);min-width:24px;">${idx+1}.</span>
+          <span style="flex:1;font-size:13px;">${ind.descripcion}</span>
+          <span style="font-size:12px;color:var(--muted);">máx ${ind.puntaje_maximo} pts</span>`;
+        document.getElementById("me-indicadores-list").appendChild(div);
+      });
+      // Ocultar botón de agregar al editar
+      const btnAdd = wrap.querySelector("button.btn-outline.btn-xs");
+      if(btnAdd) btnAdd.style.display = "none";
+    }
+    document.getElementById("alert-me").className = "alert";
+    document.getElementById("modal-evaluacion").classList.add("show");
+  }catch(e){
+    sa("alert-eval", e.message, "danger");
+  }
+}
+
+function agregarIndicador(descripcion="", maxPuntaje=3){
+  const list = document.getElementById("me-indicadores-list");
+  const idx = list.children.length + 1;
+  const row = document.createElement("div");
+  row.className = "me-ind-row";
+  row.style.cssText = "display:flex;gap:6px;margin-bottom:6px;align-items:center;";
+  row.innerHTML = `
+    <span style="font-weight:bold;font-size:12px;color:var(--muted);min-width:24px;">${idx}.</span>
+    <input type="text" class="me-ind-desc" value="${descripcion.replace(/"/g,'&quot;')}" placeholder="Descripción del indicador" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;"/>
+    <input type="number" class="me-ind-max" value="${maxPuntaje}" min="1" step="1" style="width:70px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;" title="Puntaje máximo"/>
+    <button class="btn btn-danger btn-xs" onclick="this.parentElement.remove();renumerarIndicadores()">✕</button>
+  `;
+  list.appendChild(row);
+}
+
+function renumerarIndicadores(){
+  const list = document.getElementById("me-indicadores-list");
+  Array.from(list.children).forEach((row,i)=>{
+    row.firstElementChild.textContent = `${i+1}.`;
+  });
+}
+
+async function guardarEvaluacion(){
+  const id = document.getElementById("me-id").value;
+  const tipo = document.getElementById("me-tipo").value;
+  const nombre = document.getElementById("me-nombre").value.trim();
+  const fecha = document.getElementById("me-fecha").value;
+  const descripcion = document.getElementById("me-descripcion").value.trim();
+  if(!nombre){ sa("alert-me","El nombre es obligatorio.","danger"); return; }
+  if(!fecha){ sa("alert-me","La fecha es obligatoria.","danger"); return; }
+
+  const body = { tipo, nombre, descripcion, fecha };
+
+  if(tipo === 'examen'){
+    const pt = Number(document.getElementById("me-puntaje").value);
+    if(!pt || pt <= 0){ sa("alert-me","Indicá el puntaje total del examen.","danger"); return; }
+    body.puntaje_total = pt;
+  } else {
+    // Leer indicadores
+    const rows = document.querySelectorAll("#me-indicadores-list .me-ind-row");
+    const inds = [];
+    for(const row of rows){
+      const desc = row.querySelector(".me-ind-desc").value.trim();
+      const max = Number(row.querySelector(".me-ind-max").value);
+      if(!desc){ sa("alert-me","Todos los indicadores deben tener descripción.","danger"); return; }
+      if(!Number.isInteger(max) || max <= 0){ sa("alert-me","El puntaje máximo de cada indicador debe ser entero positivo.","danger"); return; }
+      inds.push({descripcion:desc, puntaje_maximo:max});
+    }
+    if(!inds.length){ sa("alert-me","Agregá al menos un indicador.","danger"); return; }
+    body.indicadores = inds;
+  }
+
+  try{
+    if(id){
+      // Editar (solo metadatos)
+      await api(`/api/calificaciones/evaluaciones/${id}`,"PUT",body);
+      sa("alert-eval","✅ Evaluación actualizada.","success");
+    } else {
+      // Crear
+      body.seccion_id = evalAsigActual.seccion_id;
+      body.materia_id = evalAsigActual.materia_id;
+      body.subgrupo   = evalAsigActual.subgrupo || null;
+      body.periodo    = document.getElementById("calif-periodo").value;
+      const r = await api("/api/calificaciones/evaluaciones","POST",body);
+      let msg = "✅ Evaluación creada.";
+      if(r && r.aviso) msg += " ⚠️ " + r.aviso;
+      sa("alert-eval", msg, r && r.aviso ? "warning" : "success");
+    }
+    cerrarModal("modal-evaluacion");
+    await cargarEvaluaciones();
+  }catch(e){
+    sa("alert-me", e.message, "danger");
+  }
+}
+
+async function eliminarEvaluacion(evalId){
+  const ev = evalData.find(x => x.id === evalId);
+  if(!ev) return;
+  if(!confirm(`¿Eliminar la evaluación "${ev.nombre}"?\n\nSe borrarán también todas las notas registradas. Esta acción no se puede deshacer.`)) return;
+  try{
+    await api(`/api/calificaciones/evaluaciones/${evalId}`,"DELETE");
+    sa("alert-eval","✅ Evaluación eliminada.","success");
+    await cargarEvaluaciones();
+  }catch(e){
+    sa("alert-eval", e.message, "danger");
+  }
+}
+
+// ── CALIFICAR (grilla de notas) ─────────────────────────────────────────
+function abrirCalificar(evalId){
+  evalActual = evalData.find(x => x.id === evalId);
+  if(!evalActual){ alert("Evaluación no encontrada."); return; }
+  goTo('calificar');
+}
+
+function volverAEvaluaciones(){
+  goTo('evaluaciones');
+}
+
+async function iniciarCalificar(){
+  if(!evalActual){ goTo('calificaciones'); return; }
+  try{
+    const r = await api(`/api/calificaciones/evaluaciones/${evalActual.id}/notas`);
+    if(!r) return;
+    evalActual = r.evaluacion;
+    evalEstudiantes = r.estudiantes || [];
+    evalIndicadores = r.indicadores || [];
+    const notasArr = r.notas || [];
+
+    const a = evalAsigActual;
+    const tipoLbl = {examen:'Examen',tarea:'Tarea',cotidiano:'Cotidiano',proyecto:'Proyecto'}[evalActual.tipo];
+    document.getElementById("calif-titulo").innerHTML =
+      `✏️ Calificar — <strong>${tipoLbl}: ${evalActual.nombre}</strong>`;
+    document.getElementById("calif-subtitulo").innerHTML =
+      `${a.seccion_nombre} · ${a.materia_nombre}` +
+      (a.subgrupo ? ` · <span class="badge b-guia">${a.subgrupo}</span>` : "") +
+      ` · Fecha: ${fmtF(evalActual.fecha)}` +
+      (evalActual.tipo==='examen' ? ` · Puntaje: ${Number(evalActual.puntaje_total).toFixed(0)} pts` : ` · ${evalIndicadores.length} indicador${evalIndicadores.length!==1?'es':''}`);
+
+    renderGrillaNotas(notasArr);
+  }catch(e){
+    sa("alert-calif-notas","Error al cargar: "+e.message,"danger");
+  }
+}
+
+function renderGrillaNotas(notasArr){
+  const thead = document.getElementById("calif-thead");
+  const tbody = document.getElementById("calif-tbody-notas");
+
+  if(evalActual.tipo === 'examen'){
+    const ptotal = Number(evalActual.puntaje_total);
+    thead.innerHTML = `<tr>
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;width:60%;">Estudiante</th>
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Puntos obtenidos<br/><span style="font-size:11px;font-weight:normal;">/ ${ptotal}</span></th>
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Nota /100</th>
+    </tr>`;
+    // notasArr: [{estudiante_id, puntos_obtenidos}]
+    const notasMap = new Map(notasArr.map(n => [Number(n.estudiante_id), n.puntos_obtenidos]));
+    tbody.innerHTML = evalEstudiantes.map(e=>{
+      const v = notasMap.has(e.id) ? notasMap.get(e.id) : "";
+      return `<tr>
+        <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong> <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span></td>
+        <td style="text-align:center;">
+          <input type="number" class="calif-input-examen" data-estudiante="${e.id}"
+                 min="0" max="${ptotal}" step="0.5"
+                 value="${v!=null?v:''}"
+                 oninput="actualizarNotaExamen(this)"
+                 style="width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;"/>
+        </td>
+        <td style="text-align:center;font-weight:bold;color:var(--azul);" id="nota-${e.id}">${v!=null && v!==""? ((Number(v)*100)/ptotal).toFixed(1) : "—"}</td>
+      </tr>`;
+    }).join("");
+  } else {
+    // tarea / cotidiano / proyecto: una columna por indicador
+    const sumaMax = evalIndicadores.reduce((s,i)=>s+i.puntaje_maximo, 0);
+    thead.innerHTML = `<tr>
+      <th style="position:sticky;top:0;left:0;background:var(--azul);color:#fff;z-index:3;min-width:240px;">Estudiante</th>
+      ${evalIndicadores.map((i,idx)=>`<th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;font-size:12px;min-width:90px;" title="${i.descripcion}">${idx+1}<br/><span style="font-size:10px;font-weight:normal;">/${i.puntaje_maximo}</span></th>`).join("")}
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Total<br/><span style="font-size:11px;font-weight:normal;">/${sumaMax}</span></th>
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Nota /100</th>
+    </tr>`;
+    // notasArr: [{estudiante_id, indicador_id, puntaje}]
+    // Map: estudiante_id -> Map(indicador_id -> puntaje)
+    const notasMap = new Map();
+    notasArr.forEach(n => {
+      const eid = Number(n.estudiante_id);
+      if(!notasMap.has(eid)) notasMap.set(eid, new Map());
+      notasMap.get(eid).set(Number(n.indicador_id), n.puntaje);
+    });
+    tbody.innerHTML = evalEstudiantes.map(e=>{
+      const notasEst = notasMap.get(e.id) || new Map();
+      let suma = 0, todasLlenas = true;
+      const cols = evalIndicadores.map(ind=>{
+        const v = notasEst.has(ind.id) ? notasEst.get(ind.id) : null;
+        if(v == null) todasLlenas = false;
+        else suma += Number(v);
+        // Generar select 0..max
+        let opts = '<option value="">—</option>';
+        for(let i=0; i<=ind.puntaje_maximo; i++){
+          opts += `<option value="${i}" ${v==i?'selected':''}>${i}</option>`;
+        }
+        return `<td style="text-align:center;">
+          <select class="calif-input-ind" data-estudiante="${e.id}" data-indicador="${ind.id}" data-max="${ind.puntaje_maximo}"
+                  onchange="actualizarNotaIndicador(this)"
+                  style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;">${opts}</select>
+        </td>`;
+      }).join("");
+      const notaCalc = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
+      return `<tr>
+        <td style="position:sticky;left:0;background:#fff;"><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong> <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span></td>
+        ${cols}
+        <td style="text-align:center;font-weight:bold;" id="suma-${e.id}">${todasLlenas?suma:'—'}</td>
+        <td style="text-align:center;font-weight:bold;color:var(--azul);" id="nota-${e.id}">${notaCalc}</td>
+      </tr>`;
+    }).join("");
+  }
+}
+
+function actualizarNotaExamen(input){
+  const eid = Number(input.dataset.estudiante);
+  const v = input.value;
+  const ptotal = Number(evalActual.puntaje_total);
+  const cell = document.getElementById(`nota-${eid}`);
+  if(v === "" || v == null){
+    cell.textContent = "—";
+  } else {
+    const num = Number(v);
+    if(isNaN(num) || num < 0 || num > ptotal){
+      cell.textContent = "❌";
+      cell.style.color = "var(--rojo)";
+    } else {
+      cell.textContent = ((num*100)/ptotal).toFixed(1);
+      cell.style.color = "var(--azul)";
+    }
+  }
+}
+
+function actualizarNotaIndicador(select){
+  const eid = Number(select.dataset.estudiante);
+  // Recolectar todos los valores del estudiante
+  let suma = 0, todasLlenas = true;
+  let sumaMax = 0;
+  evalIndicadores.forEach(ind=>{
+    sumaMax += ind.puntaje_maximo;
+    const s = document.querySelector(`select.calif-input-ind[data-estudiante="${eid}"][data-indicador="${ind.id}"]`);
+    if(!s || s.value === ""){ todasLlenas = false; }
+    else suma += Number(s.value);
+  });
+  document.getElementById(`suma-${eid}`).textContent = todasLlenas ? suma : '—';
+  const cell = document.getElementById(`nota-${eid}`);
+  cell.textContent = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : '—';
+}
+
+async function guardarNotas(){
+  if(!evalActual){ return; }
+  const btn = document.getElementById("btn-guardar-notas");
+  btn.disabled = true;
+  const txtOrig = btn.innerHTML;
+  btn.innerHTML = "⏳ Guardando...";
+
+  try{
+    let notas = [];
+    if(evalActual.tipo === 'examen'){
+      const inputs = document.querySelectorAll("input.calif-input-examen");
+      inputs.forEach(inp=>{
+        notas.push({
+          estudiante_id: Number(inp.dataset.estudiante),
+          puntos_obtenidos: inp.value === "" ? null : Number(inp.value)
+        });
+      });
+    } else {
+      const selects = document.querySelectorAll("select.calif-input-ind");
+      selects.forEach(sel=>{
+        notas.push({
+          estudiante_id: Number(sel.dataset.estudiante),
+          indicador_id:  Number(sel.dataset.indicador),
+          puntaje:       sel.value === "" ? null : Number(sel.value)
+        });
+      });
+    }
+    await api(`/api/calificaciones/evaluaciones/${evalActual.id}/notas`,"PUT",{notas});
+    sa("alert-calif-notas","✅ Notas guardadas.","success");
+  }catch(e){
+    sa("alert-calif-notas", e.message, "danger");
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = txtOrig;
   }
 }
 

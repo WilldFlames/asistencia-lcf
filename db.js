@@ -526,6 +526,223 @@ async function initDB() {
         created_at    TIMESTAMP DEFAULT NOW()
       )
     `);
+
+    // ── MÓDULO DE CALIFICACIONES ──────────────────────────────────────────
+    // Catálogo OFICIAL de evaluación según el REAC 2026 (porcentajes fijos).
+    // No es editable por el profesor — solo informativo. Los porcentajes los
+    // define el MEP. Si el REAC cambia en años futuros, se actualiza acá.
+    //
+    // Cada regla aplica a un rango de niveles (nivel_min..nivel_max) y a una
+    // lista de nombres de materia. El sistema busca la regla por (materia, nivel).
+    //
+    // IMPORTANTE: se elimina la tabla anterior configuracion_calificacion que
+    // permitía configurar % manualmente — el REAC no permite eso. Si tenía
+    // datos, se descartan (Fase 1 estaba en pruebas).
+    await client.query(`DROP TABLE IF EXISTS configuracion_calificacion CASCADE`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS materia_evaluacion_oficial (
+        id                  SERIAL PRIMARY KEY,
+        codigo              TEXT UNIQUE NOT NULL,
+        descripcion         TEXT NOT NULL,
+        nivel_min           INTEGER NOT NULL,
+        nivel_max           INTEGER NOT NULL,
+        porc_cotidiano      NUMERIC(5,2) NOT NULL DEFAULT 0,
+        porc_tareas         NUMERIC(5,2) NOT NULL DEFAULT 0,
+        porc_pruebas        NUMERIC(5,2) NOT NULL DEFAULT 0,
+        porc_proyectos      NUMERIC(5,2) NOT NULL DEFAULT 0,
+        porc_asistencia     NUMERIC(5,2) NOT NULL DEFAULT 0,
+        cantidad_pruebas    INTEGER DEFAULT 0,
+        cantidad_proyectos  INTEGER DEFAULT 0,
+        proyecto_o_prueba   BOOLEAN DEFAULT false,
+        notas               TEXT
+      )
+    `);
+
+    // Tabla puente: qué materias del catálogo `materias` usan cada regla.
+    // Esto permite agregar/quitar materias sin modificar la regla.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS materia_regla_evaluacion (
+        id           SERIAL PRIMARY KEY,
+        materia_id   INTEGER NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
+        regla_id     INTEGER NOT NULL REFERENCES materia_evaluacion_oficial(id) ON DELETE CASCADE,
+        nivel_min    INTEGER NOT NULL,
+        nivel_max    INTEGER NOT NULL,
+        UNIQUE(materia_id, nivel_min, nivel_max)
+      )
+    `);
+
+    // Sembrar reglas oficiales REAC 2026 (idempotente: ON CONFLICT DO NOTHING)
+    const reglas = [
+      // 7°-9°
+      { cod:'acad_7_9',     desc:'Académica básica (7°-9°)',         lvl:[7,9],   pc:45, pt:10, pp:40, ppr:0,  pa:5, np:2, npr:0, op:false,
+        nota:'2 pruebas obligatorias (20% c/u)' },
+      { cod:'religiosa_7_9',desc:'Ética y Valores (7°-9°)',          lvl:[7,9],   pc:70, pt:25, pp:0,  ppr:0,  pa:5, np:0, npr:0, op:false,
+        nota:'Sin pruebas ni proyectos' },
+      { cod:'practica_7_9', desc:'Práctica (7°-9°)',                  lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:0, op:true,
+        nota:'Proyecto o Prueba (1 evaluación de 25%)' },
+      { cod:'civica_7_9',   desc:'Educación Cívica (7°-9°)',          lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:0, op:true,
+        nota:'Proyecto o Prueba (1 evaluación de 25%)' },
+      { cod:'tecno_7_9',    desc:'Formación Tecnológica (7°-9°)',     lvl:[7,9],   pc:65, pt:10, pp:20, ppr:0,  pa:5, np:1, npr:0, op:false,
+        nota:'1 prueba (20%)' },
+      // 10°-11°
+      { cod:'acad_10_11',   desc:'Académica (10°-11°)',               lvl:[10,11], pc:35, pt:10, pp:50, ppr:0,  pa:5, np:2, npr:0, op:false,
+        nota:'2 pruebas obligatorias (25% c/u)' },
+      { cod:'practica_10_11',desc:'Práctica (10°-11°)',               lvl:[10,11], pc:45, pt:10, pp:0,  ppr:40, pa:5, np:0, npr:1, op:false,
+        nota:'1 proyecto (40%)' },
+      { cod:'civica_10_11', desc:'Educación Cívica (10°-11°)',        lvl:[10,11], pc:35, pt:10, pp:20, ppr:30, pa:5, np:1, npr:1, op:false,
+        nota:'1 prueba (20%) + 1 proyecto (30%)' },
+      { cod:'religiosa_10_11',desc:'Ética y Valores (10°-11°)',       lvl:[10,11], pc:70, pt:25, pp:0,  ppr:0,  pa:5, np:0, npr:0, op:false,
+        nota:'Sin pruebas ni proyectos' },
+      { cod:'paz_10_11',    desc:'Filosofía/Psicología (10°-11°)',    lvl:[10,11], pc:45, pt:10, pp:0,  ppr:40, pa:5, np:0, npr:1, op:false,
+        nota:'1 proyecto (40%)' },
+      { cod:'tecno_10_11',  desc:'Tecnologías Diversificadas (10°-11°)',lvl:[10,11],pc:35, pt:10, pp:50, ppr:0,  pa:5, np:2, npr:0, op:false,
+        nota:'Mínimo 2 pruebas (50% total)' },
+    ];
+    for(const r of reglas){
+      await client.query(`
+        INSERT INTO materia_evaluacion_oficial
+          (codigo, descripcion, nivel_min, nivel_max,
+           porc_cotidiano, porc_tareas, porc_pruebas, porc_proyectos, porc_asistencia,
+           cantidad_pruebas, cantidad_proyectos, proyecto_o_prueba, notas)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        ON CONFLICT (codigo) DO UPDATE SET
+          descripcion=EXCLUDED.descripcion,
+          porc_cotidiano=EXCLUDED.porc_cotidiano,
+          porc_tareas=EXCLUDED.porc_tareas,
+          porc_pruebas=EXCLUDED.porc_pruebas,
+          porc_proyectos=EXCLUDED.porc_proyectos,
+          porc_asistencia=EXCLUDED.porc_asistencia,
+          cantidad_pruebas=EXCLUDED.cantidad_pruebas,
+          cantidad_proyectos=EXCLUDED.cantidad_proyectos,
+          proyecto_o_prueba=EXCLUDED.proyecto_o_prueba,
+          notas=EXCLUDED.notas
+      `, [r.cod, r.desc, r.lvl[0], r.lvl[1], r.pc, r.pt, r.pp, r.ppr, r.pa, r.np, r.npr, r.op, r.nota]);
+    }
+
+    // Mapeo materia → regla (por nivel)
+    // Si una materia se usa en distintos niveles con reglas distintas, se inserta dos veces.
+    const mapeoMaterias = [
+      // 7°-9° académicas
+      { materia:'Matemática',          regla:'acad_7_9',     lvl:[7,9] },
+      { materia:'Español',             regla:'acad_7_9',     lvl:[7,9] },
+      { materia:'Estudios Sociales',   regla:'acad_7_9',     lvl:[7,9] },
+      { materia:'Ciencias',            regla:'acad_7_9',     lvl:[7,9] },
+      { materia:'Inglés',              regla:'acad_7_9',     lvl:[7,9] },
+      { materia:'Francés',             regla:'acad_7_9',     lvl:[7,9] },
+      // 7°-9° religiosa
+      { materia:'Ética y Valores',     regla:'religiosa_7_9',lvl:[7,9] },
+      // 7°-9° práctica
+      { materia:'Educación Física',    regla:'practica_7_9', lvl:[7,9] },
+      { materia:'Educación para el Hogar',regla:'practica_7_9',lvl:[7,9] },
+      { materia:'Artes Industriales',  regla:'practica_7_9', lvl:[7,9] },
+      { materia:'Artes Plásticas',     regla:'practica_7_9', lvl:[7,9] },
+      // 7°-9° cívica
+      { materia:'Cívica',              regla:'civica_7_9',   lvl:[7,9] },
+      // 7°-9° tecnológica
+      { materia:'Informática Educativa',regla:'tecno_7_9',   lvl:[7,9] },
+      { materia:'Fortalecimiento Matemático',regla:'tecno_7_9',lvl:[7,9] },
+
+      // 10°-11° académicas
+      { materia:'Matemática',          regla:'acad_10_11',   lvl:[10,11] },
+      { materia:'Español',             regla:'acad_10_11',   lvl:[10,11] },
+      { materia:'Estudios Sociales',   regla:'acad_10_11',   lvl:[10,11] },
+      { materia:'Biología',            regla:'acad_10_11',   lvl:[10,11] },
+      { materia:'Física Matemática',   regla:'acad_10_11',   lvl:[10,11] },
+      { materia:'Química',             regla:'acad_10_11',   lvl:[10,11] },
+      { materia:'Inglés',              regla:'acad_10_11',   lvl:[10,11] },
+      { materia:'Francés',             regla:'acad_10_11',   lvl:[10,11] },
+      // 10°-11° práctica
+      { materia:'Educación Física',    regla:'practica_10_11',lvl:[10,11] },
+      { materia:'Artes Plásticas',     regla:'practica_10_11',lvl:[10,11] },
+      // 10°-11° cívica
+      { materia:'Cívica',              regla:'civica_10_11', lvl:[10,11] },
+      // 10°-11° religiosa
+      { materia:'Ética y Valores',     regla:'religiosa_10_11',lvl:[10,11] },
+      // 10°-11° filosofía/psicología
+      { materia:'Educación para la Paz',regla:'paz_10_11',   lvl:[10,11] },
+      // 10°-11° tecnologías
+      { materia:'Inglés Conversacional',regla:'tecno_10_11', lvl:[10,11] },
+      { materia:'Diseño Publicitario', regla:'tecno_10_11',  lvl:[10,11] },
+      // Filosofía y Psicología si existen como materias separadas
+      { materia:'Filosofía',           regla:'paz_10_11',    lvl:[10,11] },
+      { materia:'Psicología',          regla:'paz_10_11',    lvl:[10,11] },
+    ];
+
+    for(const m of mapeoMaterias){
+      try{
+        await client.query(`
+          INSERT INTO materia_regla_evaluacion (materia_id, regla_id, nivel_min, nivel_max)
+          SELECT mat.id, reg.id, $3, $4
+          FROM materias mat
+          CROSS JOIN materia_evaluacion_oficial reg
+          WHERE mat.nombre = $1 AND reg.codigo = $2
+          ON CONFLICT (materia_id, nivel_min, nivel_max) DO UPDATE SET regla_id = EXCLUDED.regla_id
+        `, [m.materia, m.regla, m.lvl[0], m.lvl[1]]);
+      }catch(e){
+        console.log(`Mapeo ${m.materia} → ${m.regla}:`, e.message);
+      }
+    }
+
+    // ── MÓDULO DE CALIFICACIONES (Fase 2) ─────────────────────────────────
+    // Evaluaciones concretas: cada examen, tarea, cotidiano o proyecto que
+    // el profesor registra para una asignación específica.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS evaluaciones (
+        id            SERIAL PRIMARY KEY,
+        profesor_id   INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        seccion_id    INTEGER NOT NULL REFERENCES secciones(id) ON DELETE CASCADE,
+        materia_id    INTEGER NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
+        subgrupo      TEXT DEFAULT NULL,
+        periodo       TEXT NOT NULL CHECK(periodo IN ('I Período','II Período')),
+        tipo          TEXT NOT NULL CHECK(tipo IN ('examen','tarea','cotidiano','proyecto')),
+        nombre        TEXT NOT NULL,
+        descripcion   TEXT,
+        fecha         DATE NOT NULL,
+        puntaje_total NUMERIC(7,2),
+        created_at    TIMESTAMP DEFAULT NOW(),
+        updated_at    TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    // Índice para listar rápido por asignación
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_eval_asig ON evaluaciones(profesor_id, seccion_id, materia_id, periodo)`);
+
+    // Indicadores: solo para tarea/cotidiano/proyecto. Cada uno aporta puntos al total.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS indicadores (
+        id              SERIAL PRIMARY KEY,
+        evaluacion_id   INTEGER NOT NULL REFERENCES evaluaciones(id) ON DELETE CASCADE,
+        orden           INTEGER NOT NULL DEFAULT 1,
+        descripcion     TEXT NOT NULL,
+        puntaje_maximo  INTEGER NOT NULL DEFAULT 3 CHECK(puntaje_maximo > 0)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_indicador_eval ON indicadores(evaluacion_id, orden)`);
+
+    // Notas para EXAMENES (directo: puntos obtenidos del total)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notas_examen (
+        evaluacion_id    INTEGER NOT NULL REFERENCES evaluaciones(id) ON DELETE CASCADE,
+        estudiante_id    INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        puntos_obtenidos NUMERIC(7,2),
+        updated_at       TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (evaluacion_id, estudiante_id)
+      )
+    `);
+
+    // Notas por INDICADOR (para tarea/cotidiano/proyecto)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notas_indicador (
+        evaluacion_id   INTEGER NOT NULL REFERENCES evaluaciones(id) ON DELETE CASCADE,
+        indicador_id    INTEGER NOT NULL REFERENCES indicadores(id) ON DELETE CASCADE,
+        estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        puntaje         INTEGER,
+        updated_at      TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (evaluacion_id, indicador_id, estudiante_id)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_notas_ind_est ON notas_indicador(estudiante_id, evaluacion_id)`);
+
     // Actualizar CHECK de infracciones
     await client.query(`ALTER TABLE infracciones DROP CONSTRAINT IF EXISTS infracciones_tipo_check`);
     await client.query(`ALTER TABLE infracciones ADD CONSTRAINT infracciones_tipo_check CHECK(tipo IN ('muy_leve','leve','grave','muy_grave','gravisima'))`);
