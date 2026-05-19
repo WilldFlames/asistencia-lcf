@@ -8554,6 +8554,15 @@ function nuevaEvaluacion(tipo){
   document.getElementById("me-puntaje").value = "";
   document.getElementById("me-descripcion").value = "";
 
+  // IMPORTANTE: limpiar cualquier "modo edición" anterior. Si en la sesión
+  // previa se editó una evaluación, se ocultó el botón "+ Agregar indicador"
+  // y se insertó un aviso amarillo. Hay que restaurar el estado original.
+  const wrap = document.getElementById("me-indicadores-wrap");
+  const avisoViejo = wrap.querySelector(".aviso-no-edit-ind");
+  if(avisoViejo) avisoViejo.remove();
+  const btnAdd = wrap.querySelector("button.btn-outline.btn-xs");
+  if(btnAdd) btnAdd.style.display = "";
+
   if(tipo === 'examen'){
     document.getElementById("me-puntaje-wrap").style.display = "";
     document.getElementById("me-indicadores-wrap").style.display = "none";

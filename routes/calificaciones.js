@@ -135,7 +135,13 @@ router.get("/evaluaciones", requireAuth, async (req, res) => {
           ELSE (SELECT COUNT(DISTINCT ni.estudiante_id) FROM notas_indicador ni WHERE ni.evaluacion_id=e.id AND ni.puntaje IS NOT NULL)
         END AS cant_calificados,
         (SELECT COUNT(*) FROM estudiantes est
-          WHERE est.seccion_id = e.seccion_id AND est.activo = true) AS cant_estudiantes
+          WHERE est.seccion_id = e.seccion_id
+            AND est.activo = true
+            AND (
+              e.subgrupo IS NULL
+              OR est.subgrupo = e.subgrupo
+            )
+        ) AS cant_estudiantes
       FROM evaluaciones e
       WHERE e.profesor_id = $1
         AND e.seccion_id  = $2
@@ -293,12 +299,14 @@ router.get("/evaluaciones/:id/notas", requireAuth, async (req, res) => {
   const { row: ev, err, msg } = await getEvaluacionMia(u, req.params.id);
   if (err) return res.status(err).json({ error: msg });
 
-  // Estudiantes de la sección (activos), filtrando por subgrupo si aplica
+  // Estudiantes de la sección (activos), filtrando por subgrupo si aplica.
+  // Si la evaluación tiene subgrupo, SOLO estudiantes con ese subgrupo exacto.
+  // Si la evaluación no tiene subgrupo (toda la sección), todos los activos.
   const estudiantes = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido, e.subgrupo
     FROM estudiantes e
     WHERE e.seccion_id = $1 AND e.activo = true
-      AND (($2::text IS NULL) OR e.subgrupo = $2 OR e.subgrupo IS NULL)
+      AND (($2::text IS NULL) OR e.subgrupo = $2)
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [ev.seccion_id, ev.subgrupo || null]);
 
