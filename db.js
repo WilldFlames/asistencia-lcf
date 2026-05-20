@@ -4,9 +4,7 @@ const bcrypt = require("bcryptjs");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL.includes("railway.internal")
-    ? false
-    : { rejectUnauthorized: false },
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
 const MATERIAS_DEFAULT = [
@@ -585,8 +583,8 @@ async function initDB() {
         nota:'1 proyecto (25%)' },
       { cod:'civica_7_9',   desc:'Educación Cívica (7°-9°)',          lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:1, op:false,
         nota:'1 proyecto (25%)' },
-      { cod:'tecno_7_9',    desc:'Formación Tecnológica (7°-9°)',     lvl:[7,9],   pc:65, pt:10, pp:20, ppr:0,  pa:5, np:1, npr:0, op:false,
-        nota:'1 prueba (20%)' },
+      { cod:'tecno_7_9',    desc:'Formación Tecnológica (7°-9°)',     lvl:[7,9],   pc:45, pt:10, pp:0,  ppr:40, pa:5, np:0, npr:1, op:false,
+        nota:'1 proyecto (40%)' },
       { cod:'idioma_7_9',   desc:'Inglés/Francés (7°-9°)',           lvl:[7,9],   pc:35, pt:10, pp:50, ppr:0,  pa:5, np:2, npr:0, op:false,
         nota:'2 pruebas obligatorias (25% c/u)' },
       // 10°-11°
