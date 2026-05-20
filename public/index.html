@@ -677,7 +677,10 @@ tr:hover td{background:#f8fafc;}
       <div>
         <button class="btn btn-outline btn-sm" onclick="volverAEvaluaciones()">← Volver a evaluaciones</button>
       </div>
-      <button class="btn btn-success" onclick="guardarNotas()" id="btn-guardar-notas">💾 Guardar notas</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline" onclick="imprimirEvaluacion()">🖨️ Imprimir</button>
+        <button class="btn btn-success" onclick="guardarNotas()" id="btn-guardar-notas">💾 Guardar notas</button>
+      </div>
     </div>
     <h2 id="calif-titulo" style="margin:14px 0 4px;">Calificar</h2>
     <div id="calif-subtitulo" style="font-size:13px;color:var(--muted);"></div>
@@ -1825,6 +1828,31 @@ tr:hover td{background:#f8fafc;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-cambiar-seccion')">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmarCambioSeccion()">✔ Confirmar Traslado</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Cambiar cédula del estudiante -->
+<div class="modal-overlay" id="modal-cambiar-cedula">
+  <div class="modal" style="max-width:480px;">
+    <h3>🆔 Cambiar Cédula</h3>
+    <p id="mcc-est" style="font-size:13px;margin-bottom:6px;color:var(--muted);"></p>
+    <p id="mcc-actual" style="font-size:13px;margin-bottom:14px;"><strong>Cédula actual:</strong> <span id="mcc-actual-val"></span></p>
+    <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:10px 12px;border-radius:6px;margin-bottom:12px;font-size:12.5px;color:#78350f;">
+      ⚠️ Esta acción cambia la cédula del estudiante en todo el sistema. Asegurate de tipear correctamente — verificá la cédula contra el documento oficial del estudiante.
+    </div>
+    <div class="fg">
+      <label>Cédula nueva *</label>
+      <input type="text" id="mcc-cedula-nueva" placeholder="Ej: 123456789" maxlength="20"/>
+    </div>
+    <div class="fg">
+      <label>Justificación (opcional)</label>
+      <textarea id="mcc-justificacion" placeholder="Indique por qué se cambia (ej: error de tipeo, actualización a DIMEX, etc.)" style="min-height:60px;"></textarea>
+    </div>
+    <div id="alert-mcc" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-cambiar-cedula')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarCambioCedula()">✔ Confirmar Cambio</button>
     </div>
   </div>
 </div>
@@ -3548,6 +3576,7 @@ async function cargarEstudiantes(){
     <td style="white-space:nowrap;">
       ${isAux?`<button class="btn btn-outline btn-xs" onclick="editarEstudiante(${e.id})">✏️</button>
                <button class="btn btn-purple btn-xs" onclick="abrirEncargados(${e.id})">👨‍👩‍👧</button>
+               <button class="btn btn-outline btn-xs" style="color:var(--azul);border-color:var(--azul);" onclick="abrirCambioCedula(${e.id})" title="Cambiar cédula">🆔</button>
                <button class="btn btn-orange btn-xs" onclick="abrirCambioSec(${e.id})">🔄</button>
                <button class="btn btn-outline btn-xs" style="color:var(--naranja);border-color:var(--naranja);" onclick="abrirArchivarEst(${e.id})">📁</button>
                <button class="btn btn-danger btn-xs" onclick="eliminarEst(${e.id})">🗑️</button>`:""}
@@ -3750,6 +3779,36 @@ async function confirmarCambioSeccion(){
     cargarEstudiantes();
     sa("alert-est","✅ Traslado registrado. Profesores de ambas secciones fueron notificados.","success");
   }catch(e){sa("alert-mcs",e.message,"danger");}
+}
+
+// ── CAMBIAR CÉDULA ───────────────────────
+let cambCedEstId = null;
+function abrirCambioCedula(id){
+  const e = window.estCache?.get(id);
+  if(!e){ alert("No se pudo cargar el estudiante."); return; }
+  cambCedEstId = id;
+  document.getElementById("mcc-est").innerHTML =
+    `Estudiante: <strong>${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}</strong>`;
+  document.getElementById("mcc-actual-val").textContent = e.cedula || '—';
+  document.getElementById("mcc-cedula-nueva").value = "";
+  document.getElementById("mcc-justificacion").value = "";
+  document.getElementById("alert-mcc").className = "alert";
+  document.getElementById("modal-cambiar-cedula").classList.add("show");
+}
+
+async function confirmarCambioCedula(){
+  if(!cambCedEstId){ return; }
+  const cedNueva = document.getElementById("mcc-cedula-nueva").value.trim();
+  const justif = document.getElementById("mcc-justificacion").value.trim();
+  if(!cedNueva){ sa("alert-mcc","Ingresá la cédula nueva.","danger"); return; }
+  try{
+    const r = await api(`/api/estudiantes/${cambCedEstId}/cedula`,"PUT",{cedula_nueva:cedNueva, justificacion:justif});
+    cerrarModal("modal-cambiar-cedula");
+    await cargarEstudiantes();
+    sa("alert-est",`✅ Cédula actualizada: ${r.cedula_anterior} → ${r.cedula_nueva}`,"success");
+  }catch(e){
+    sa("alert-mcc", e.message, "danger");
+  }
 }
 
 // ── ENCARGADOS ────────────────────────
@@ -8966,6 +9025,157 @@ async function guardarNotas(){
     btn.disabled = false;
     btn.innerHTML = txtOrig;
   }
+}
+
+// ── IMPRIMIR EVALUACIÓN (con notas actuales) ──────────────────────────
+function imprimirEvaluacion(){
+  if(!evalActual || !evalAsigActual){ sa("alert-calif-notas","No hay evaluación cargada.","danger"); return; }
+  const a = evalAsigActual;
+  const ev = evalActual;
+  const tipoLbl = {examen:'EXAMEN',tarea:'TAREA',cotidiano:'COTIDIANO',proyecto:'PROYECTO'}[ev.tipo] || ev.tipo.toUpperCase();
+  const periodo = document.getElementById("calif-periodo").value || detectarPeriodo(null);
+
+  // Construir filas con notas actuales (lo que esté en la pantalla, guardado o no)
+  let filasHTML = '';
+  if(ev.tipo === 'examen'){
+    const ptotal = Number(ev.puntaje_total);
+    filasHTML = evalEstudiantes.map((e,idx)=>{
+      const inp = document.querySelector(`input.calif-input-examen[data-estudiante="${e.id}"]`);
+      const v = inp ? inp.value : "";
+      const nota = (v !== "" && !isNaN(Number(v))) ? ((Number(v)*100)/ptotal).toFixed(1) : "—";
+      return `<tr>
+        <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:11px;color:#555;text-align:center;">${idx+1}</td>
+        <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:12px;"><strong>${e.primer_apellido} ${e.segundo_apellido}</strong>, ${e.nombre}</td>
+        <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:11px;color:#555;">${e.cedula}</td>
+        <td style="border:1px solid #94a3b8;padding:4px 8px;text-align:center;font-size:12px;">${v!==""?v:"—"}</td>
+        <td style="border:1px solid #94a3b8;padding:4px 8px;text-align:center;font-size:12px;font-weight:bold;">${nota}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    // Tarea / cotidiano / proyecto: una columna por indicador
+    const sumaMax = evalIndicadores.reduce((s,i)=>s+i.puntaje_maximo, 0);
+    filasHTML = evalEstudiantes.map((e,idx)=>{
+      let suma = 0, todasLlenas = true;
+      const cols = evalIndicadores.map(ind=>{
+        const inp = document.querySelector(`input.calif-input-ind[data-estudiante="${e.id}"][data-indicador="${ind.id}"]`);
+        const v = inp ? inp.value : "";
+        if(v === "" || isNaN(Number(v))) { todasLlenas = false; return `<td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;color:#999;">—</td>`; }
+        suma += Number(v);
+        return `<td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${v}</td>`;
+      }).join('');
+      const nota = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
+      return `<tr>
+        <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;text-align:center;">${idx+1}</td>
+        <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${e.primer_apellido} ${e.segundo_apellido}</strong>, ${e.nombre}</td>
+        ${cols}
+        <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;font-weight:bold;">${todasLlenas?suma:'—'}</td>
+        <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;font-weight:bold;color:#1a3a5c;">${nota}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Encabezado de la tabla (varía según tipo)
+  let theadHTML = '';
+  if(ev.tipo === 'examen'){
+    theadHTML = `<tr style="background:#1a3a5c;color:#fff;">
+      <th style="padding:5px 8px;font-size:11px;border:1px solid #1a3a5c;">#</th>
+      <th style="padding:5px 8px;font-size:11px;border:1px solid #1a3a5c;text-align:left;">Estudiante</th>
+      <th style="padding:5px 8px;font-size:11px;border:1px solid #1a3a5c;">Cédula</th>
+      <th style="padding:5px 8px;font-size:11px;border:1px solid #1a3a5c;">Puntos /${Number(ev.puntaje_total).toFixed(0)}</th>
+      <th style="padding:5px 8px;font-size:11px;border:1px solid #1a3a5c;">Nota /100</th>
+    </tr>`;
+  } else {
+    const sumaMax = evalIndicadores.reduce((s,i)=>s+i.puntaje_maximo, 0);
+    const colsInd = evalIndicadores.map((i,idx)=>`<th style="padding:5px 6px;font-size:10px;border:1px solid #1a3a5c;text-align:center;" title="${i.descripcion}">Ind ${idx+1}<br/><span style="font-weight:normal;font-size:9px;">/${i.puntaje_maximo}</span></th>`).join('');
+    theadHTML = `<tr style="background:#1a3a5c;color:#fff;">
+      <th style="padding:5px 6px;font-size:11px;border:1px solid #1a3a5c;">#</th>
+      <th style="padding:5px 6px;font-size:11px;border:1px solid #1a3a5c;text-align:left;">Estudiante</th>
+      ${colsInd}
+      <th style="padding:5px 6px;font-size:11px;border:1px solid #1a3a5c;">Total<br/><span style="font-weight:normal;font-size:9px;">/${sumaMax}</span></th>
+      <th style="padding:5px 6px;font-size:11px;border:1px solid #1a3a5c;">Nota /100</th>
+    </tr>`;
+  }
+
+  // Sección de indicadores (legenda)
+  let legendaInd = '';
+  if(ev.tipo !== 'examen' && evalIndicadores.length){
+    legendaInd = `
+      <div style="margin-top:14px;font-size:11px;">
+        <strong>Indicadores evaluados:</strong>
+        <ol style="margin:6px 0 0 22px;padding:0;">
+          ${evalIndicadores.map(i=>`<li style="margin-bottom:2px;">${i.descripcion} <span style="color:#666;">(máx ${i.puntaje_maximo} pts)</span></li>`).join('')}
+        </ol>
+      </div>`;
+  }
+
+  // Fecha legible
+  const fechaEv = ev.fecha ? fmtF(ev.fecha) : '';
+  const fechaAsig = ev.fecha_asignacion ? fmtF(ev.fecha_asignacion) : '';
+  const lineaFecha = (ev.tipo === 'tarea' || ev.tipo === 'proyecto') && fechaAsig
+    ? `Asignada: <strong>${fechaAsig}</strong> · Entrega: <strong>${fechaEv}</strong>`
+    : `Fecha: <strong>${fechaEv}</strong>`;
+
+  // Profesor (de la sesión actual)
+  const profNombre = `${ME.primer_apellido||''} ${ME.nombre||''}`.trim();
+
+  // Construir HTML imprimible
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:12px 18px;">
+${encabezadoMEP(`${tipoLbl}: ${ev.nombre}`)}
+
+      <div style="border-top:2px solid #1a3a5c;border-bottom:2px solid #1a3a5c;padding:6px 0;margin:10px 0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;">
+        <div>
+          <div><strong>Sección:</strong> ${a.seccion_nombre}${a.subgrupo?` · Subgrupo ${a.subgrupo}`:''}</div>
+          <div><strong>Materia:</strong> ${a.materia_nombre}</div>
+          <div><strong>Profesor(a):</strong> ${profNombre}</div>
+        </div>
+        <div style="text-align:right;">
+          <div>${lineaFecha}</div>
+          <div><strong>Período:</strong> ${periodo}</div>
+          ${ev.tipo==='examen' ? `<div><strong>Puntaje total:</strong> ${Number(ev.puntaje_total).toFixed(0)} pts</div>` : `<div><strong>Indicadores:</strong> ${evalIndicadores.length}</div>`}
+        </div>
+      </div>
+
+      ${ev.descripcion ? `<div style="font-size:12px;margin-bottom:10px;padding:8px 12px;background:#f8fafc;border-radius:6px;"><strong>Descripción:</strong> ${ev.descripcion}</div>` : ''}
+
+      <table style="width:100%;border-collapse:collapse;margin-top:6px;">
+        <thead>${theadHTML}</thead>
+        <tbody>${filasHTML}</tbody>
+      </table>
+
+      <div style="margin-top:8px;font-size:11px;color:#666;">
+        <strong>Total de estudiantes:</strong> ${evalEstudiantes.length}
+      </div>
+
+      ${legendaInd}
+
+      <div style="margin-top:30px;text-align:center;page-break-inside:avoid;">
+        <div style="display:inline-block;min-width:280px;border-top:1px solid #94a3b8;padding-top:6px;font-size:12px;color:#555;">
+          Firma del profesor<br/><strong>${profNombre}</strong>
+        </div>
+      </div>
+      ${piePaginaMEP()}
+    </div>`;
+
+  // Estilo @page para mejor uso del papel
+  let style = document.getElementById("print-style-evaluacion");
+  if(style) style.remove();
+  style = document.createElement("style");
+  style.id = "print-style-evaluacion";
+  style.innerHTML = `
+    @page { size: A4 portrait; margin: 10mm; }
+    @media print {
+      body > *:not(#print-boleta-area) { display:none!important; }
+      #print-boleta-area { display:block!important; }
+      table, tr { page-break-inside: avoid; break-inside: avoid; }
+    }
+  `;
+  document.head.appendChild(style);
+  imprimirConEncabezado(printArea, style);
 }
 
 
