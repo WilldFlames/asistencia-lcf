@@ -82,53 +82,6 @@ router.put("/:id", canManage, async (req, res) => {
   res.json({ ok:true });
 });
 
-// ── CAMBIAR CÉDULA ────────────────────────────────────────────────────
-// Endpoint separado porque cambiar cédula es delicado (afecta historial).
-// Como la cédula es FK indirecta vía id, cambiarla en estudiantes se propaga
-// automáticamente a todas las demás tablas que referencian por id.
-// Las tablas que guardan la cédula como texto (prematricula, archivo_*) NO se
-// tocan porque son registros históricos independientes.
-router.put("/:id/cedula", canManage, async (req, res) => {
-  const { cedula_nueva, justificacion } = req.body;
-  const u = req.session.usuario;
-  const id = req.params.id;
-
-  // Validaciones
-  if(!cedula_nueva || !String(cedula_nueva).trim()){
-    return res.status(400).json({ error: "La cédula nueva es obligatoria." });
-  }
-  const ced = String(cedula_nueva).trim();
-  // La cédula puede ser numérica (nacional) o alfanumérica (DIMEX/pasaporte)
-  if(!/^[A-Za-z0-9\-]{4,20}$/.test(ced)){
-    return res.status(400).json({ error: "Cédula inválida (use solo letras, números y guiones, entre 4 y 20 caracteres)." });
-  }
-
-  // Verificar que el estudiante existe
-  const est = await pool.query("SELECT id, cedula, nombre, primer_apellido FROM estudiantes WHERE id=$1", [id]);
-  if(!est.rows.length) return res.status(404).json({ error: "Estudiante no encontrado." });
-  const cedulaActual = est.rows[0].cedula;
-
-  if(ced === cedulaActual){
-    return res.status(400).json({ error: "La cédula nueva es igual a la actual." });
-  }
-
-  // Verificar que la nueva no esté en uso por otro estudiante
-  const dup = await pool.query("SELECT id FROM estudiantes WHERE cedula=$1 AND id<>$2", [ced, id]);
-  if(dup.rows.length){
-    return res.status(409).json({ error: `Esta cédula ya pertenece a otro estudiante registrado (id ${dup.rows[0].id}). Si ese estudiante está duplicado o archivado, contactá al administrador.` });
-  }
-
-  try {
-    await pool.query("UPDATE estudiantes SET cedula=$1 WHERE id=$2", [ced, id]);
-    // Log opcional para auditoría
-    console.log(`[CEDULA] Usuario ${u.id} (${u.rol}) cambió cédula de estudiante ${id}: ${cedulaActual} → ${ced}${justificacion?` · Justif: ${justificacion}`:''}`);
-    res.json({ ok: true, cedula_anterior: cedulaActual, cedula_nueva: ced });
-  } catch(e) {
-    console.error("PUT estudiantes/:id/cedula:", e);
-    res.status(500).json({ error: "Error al cambiar la cédula." });
-  }
-});
-
 // ── ACTUALIZAR BECA COMEDOR (orientadores — solo su sección) ─────
 router.put("/:id/becado", require("../middleware/auth").requireRol("admin","auxiliar","orientador"), async (req, res) => {
   const { becado } = req.body;
