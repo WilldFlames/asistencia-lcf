@@ -352,6 +352,8 @@ tr:hover td{background:#f8fafc;}
   <div class="sidebar-section" id="sec-docente" style="display:none">Docente</div>
   <button class="nav-btn" data-page="asistencia" id="nav-asistencia" onclick="goTo('asistencia')" style="display:none"><span class="icon">✅</span><span>Asistencia</span></button>
   <button class="nav-btn" data-page="calificaciones" id="nav-calificaciones" onclick="goTo('calificaciones')" style="display:none"><span class="icon">📊</span><span>Calificaciones</span></button>
+  <button class="nav-btn" data-page="promedio" id="nav-promedio" onclick="goTo('promedio')" style="display:none"><span class="icon">📈</span><span>Promedio</span></button>
+  <button class="nav-btn" data-page="promedio" id="nav-promedio" onclick="goTo('promedio')" style="display:none"><span class="icon">📈</span><span>Promedio</span></button>
   <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
@@ -693,6 +695,69 @@ tr:hover td{background:#f8fafc;}
         <thead id="calif-thead"><tr><th>Cargando...</th></tr></thead>
         <tbody id="calif-tbody-notas"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- PROMEDIO (Fase 3) — planilla por asignación + acta + cierre  -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-promedio">
+  <div class="card" style="margin-bottom:14px;">
+    <h2 style="margin:0 0 10px;">📈 Promedio</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+      Resumen de notas por estudiante con el desglose de cada rubro y el promedio del período.
+      La asistencia se calcula automáticamente desde el módulo de asistencia diaria.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="fg" style="min-width:200px;">
+        <label>Sección · Materia</label>
+        <select id="prom-asig" onchange="prom_onCambioAsig()">
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="fg" style="min-width:120px;">
+        <label>Vista</label>
+        <select id="prom-vista" onchange="prom_recargar()">
+          <option value="I Período">I Período</option>
+          <option value="II Período">II Período</option>
+          <option value="anual">Anual (I + II)</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-success btn-sm" onclick="prom_imprimirActa()" id="btn-prom-imprimir" disabled>🖨️ Imprimir acta</button>
+        <button class="btn btn-orange btn-sm" onclick="prom_cerrarPeriodo()" id="btn-prom-cerrar" style="display:none">🔒 Cerrar período</button>
+        <button class="btn btn-primary btn-sm" onclick="prom_reabrirPeriodo()" id="btn-prom-reabrir" style="display:none">🔓 Reabrir (admin)</button>
+      </div>
+    </div>
+    <div id="prom-info-cierre" style="margin-top:10px;font-size:13px;"></div>
+    <div id="alert-prom" class="alert"></div>
+  </div>
+
+  <div class="card">
+    <div id="prom-resumen-rubros" style="display:none;margin-bottom:12px;padding:10px 14px;background:#f1f5f9;border-radius:8px;font-size:13px;"></div>
+    <div class="table-wrap" style="max-height:65vh;overflow:auto;">
+      <table id="prom-tabla">
+        <thead id="prom-thead"><tr><th class="empty" colspan="9">Seleccioná una asignación.</th></tr></thead>
+        <tbody id="prom-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Reabrir período (admin) -->
+<div class="modal-overlay" id="modal-reabrir-periodo">
+  <div class="modal" style="max-width:480px;">
+    <h3>🔓 Reabrir período cerrado</h3>
+    <p id="mrp-info" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></p>
+    <div class="fg">
+      <label>Motivo de la reapertura *</label>
+      <textarea id="mrp-motivo" placeholder="Indique el motivo (ej: corrección de nota, revisión solicitada por estudiante, etc.)" style="min-height:80px;"></textarea>
+    </div>
+    <div id="alert-mrp" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-reabrir-periodo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="prom_confirmarReapertura()">✔ Reabrir</button>
     </div>
   </div>
 </div>
@@ -2596,6 +2661,7 @@ function goTo(page){
   if(page==="asistencia")  cargarMisAsig();
   if(page==="calificaciones") iniciarCalificaciones();
   if(page==="evaluaciones") iniciarEvaluaciones();
+  if(page==="promedio")     iniciarPromedio();
   if(page==="calificar")    iniciarCalificar();
   if(page==="cumplimiento") {
     const hoy=fechaHoyCR();
@@ -2656,6 +2722,11 @@ async function iniciarApp(){
   if(esProfesor||esGuia||esOrientador){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-calificaciones").style.display="";
+    document.getElementById("nav-promedio").style.display="";
+  }
+  // Admin también puede ver Promedio (para reabrir períodos cerrados)
+  if(esAdmin){
+    document.getElementById("nav-promedio").style.display="";
   }
   // Conducta: admin, guía, orientador, auxiliar
   if(esAdmin||esGuia||esOrientador||esAuxiliar){
@@ -2991,7 +3062,7 @@ async function cargarDashboard(){
         ],
         [
           [{sub:'Español', lvls:[8,9]}],
-          [{sub:'Inglés', lvls:[8]}],
+          [{sub:'Sociales', lvls:[10]}],
           [{sub:'Ciencias', lvls:[8]}],
           [{sub:'Matemática', lvls:[8]}],
           [{sub:'Sociales', lvls:[8]}],
@@ -3002,12 +3073,12 @@ async function cargarDashboard(){
           [{sub:'Sociales', lvls:[9]}],
           [{sub:'Química', lvls:[10,11]}],
           [{sub:'Matemática', lvls:[10,11]}],
-          [{sub:'Inglés', lvls:[9]}, {sub:'Tecnología', lvls:[11]}],
+          [{sub:'Tecnología', lvls:[11]}],
           [{sub:'Cívica', lvls:[10]}],
         ],
         [
           [{sub:'Español', lvls:[11]}, {sub:'Física', lvls:[10]}],
-          [{sub:'Sociales', lvls:[10,11]}],
+          [{sub:'Sociales', lvls:[11]}],
           [{sub:'Ciencias', lvls:[9]}, {sub:'Tecnología', lvls:[10]}],
           [{sub:'Matemática', lvls:[9]}],
           [{sub:'Biología', lvls:[10,11]}],
@@ -4514,7 +4585,14 @@ function abrirObservaciones(estId, nombre, fecha){
   document.getElementById("obs-est-id").value=estId;
   document.getElementById("obs-nombre").textContent=nombre;
   document.getElementById("obs-fecha").textContent=fmtF(fecha);
-  document.getElementById("obs-texto").value="";
+  const ta = document.getElementById("obs-texto");
+  ta.value="";
+  delete ta.dataset.editId;  // limpiar modo edición previo
+  // Restaurar texto del botón Guardar y quitar "Cancelar edición" si existe
+  const btnPrim = document.querySelector("#modal-observaciones .modal-actions button.btn-primary");
+  if(btnPrim) btnPrim.textContent = "💾 Guardar";
+  const btnCancel = document.getElementById("btn-cancelar-edit-obs");
+  if(btnCancel) btnCancel.remove();
   document.getElementById("alert-obs").className="alert";
   cargarObsEstudiante(estId, fecha);
   document.getElementById("modal-observaciones").classList.add("show");
@@ -4526,30 +4604,106 @@ async function cargarObsEstudiante(estId, fecha){
     if(!lista) return;
     const hoy=rows.filter(o=>o.fecha&&o.fecha.slice(0,10)===fecha);
     const otros=rows.filter(o=>!o.fecha||o.fecha.slice(0,10)!==fecha);
+    // Helper: render una observación con botones de editar/eliminar si el usuario es dueño o admin
+    const renderObs = (o, hoyMode) => {
+      const texto = (o.observacion||o.contenido||'').replace(/"/g,'&quot;');
+      const puedeEditar = (o.usuario_id === ME.id) || (ME.rol === 'admin');
+      const botones = puedeEditar
+        ? `<span style="margin-left:6px;white-space:nowrap;">
+            <button class="btn btn-outline btn-xs" style="padding:1px 5px;font-size:10px;" onclick="editarObsInline(${o.id}, '${texto.replace(/'/g,"\\'")}', ${estId}, '${fecha}')" title="Editar">✏️</button>
+            <button class="btn btn-danger btn-xs" style="padding:1px 5px;font-size:10px;" onclick="eliminarObs(${o.id}, ${estId}, '${fecha}')" title="Eliminar">🗑️</button>
+           </span>`
+        : '';
+      if(hoyMode){
+        return `<div style="background:#f0f9ff;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:12px;display:flex;align-items:flex-start;gap:6px;">
+          <div style="flex:1;">${o.observacion||o.contenido||''}
+            <span style="color:var(--muted);margin-left:6px;">${o.prof_ap1||o.autor_ap1||''} ${o.prof_nombre||o.autor_nombre||''}</span>
+          </div>
+          ${botones}
+        </div>`;
+      } else {
+        return `<div style="background:#f8fafc;border-radius:6px;padding:5px 10px;margin-bottom:4px;font-size:11px;display:flex;align-items:flex-start;gap:6px;">
+          <div style="flex:1;">
+            <span style="color:var(--muted);">${fmtF(o.fecha)}</span>
+            ${o.observacion||o.contenido||''}
+          </div>
+          ${botones}
+        </div>`;
+      }
+    };
     lista.innerHTML=(hoy.length?
       `<div style="font-weight:bold;font-size:12px;color:var(--azul);margin-bottom:4px;">Hoy</div>`+
-      hoy.map(o=>`<div style="background:#f0f9ff;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:12px;">
-        ${o.observacion||o.contenido||''}
-        <span style="color:var(--muted);margin-left:6px;">${o.prof_ap1||o.autor_ap1||''} ${o.prof_nombre||o.autor_nombre||''}</span>
-      </div>`).join("")+`<hr style="margin:8px 0;"/>`:"")+
+      hoy.map(o=>renderObs(o,true)).join("")+`<hr style="margin:8px 0;"/>`:"")+
     (otros.length?
       `<div style="font-weight:bold;font-size:12px;color:var(--muted);margin-bottom:4px;">Anteriores</div>`+
-      otros.slice(0,5).map(o=>`<div style="background:#f8fafc;border-radius:6px;padding:5px 10px;margin-bottom:4px;font-size:11px;">
-        <span style="color:var(--muted);">${fmtF(o.fecha)}</span>
-        ${o.observacion||o.contenido||''}
-      </div>`).join(""):
+      otros.slice(0,5).map(o=>renderObs(o,false)).join(""):
       "<div style='color:var(--muted);font-size:12px;'>Sin observaciones previas.</div>");
   }catch{}
 }
+
+// Editar observación: carga el texto en el textarea y deja "Guardar cambios"
+function editarObsInline(obsId, textoActual, estId, fecha){
+  const ta = document.getElementById("obs-texto");
+  ta.value = textoActual;
+  ta.focus();
+  // Guardar el id en el textarea para que guardarObservacion sepa que es edición
+  ta.dataset.editId = obsId;
+  // Cambiar el botón Guardar para que diga "Guardar cambios"
+  const btn = document.querySelector("#modal-observaciones .modal-actions button.btn-primary");
+  if(btn) btn.textContent = "💾 Guardar cambios";
+  // Agregar botón "Cancelar edición" si no existe
+  if(!document.getElementById("btn-cancelar-edit-obs")){
+    const btnCancel = document.createElement("button");
+    btnCancel.id = "btn-cancelar-edit-obs";
+    btnCancel.className = "btn btn-outline btn-sm";
+    btnCancel.textContent = "✕ Cancelar edición";
+    btnCancel.onclick = cancelarEdicionObs;
+    btn.parentElement.insertBefore(btnCancel, btn);
+  }
+  sa("alert-obs","Editando observación. Modificá el texto y guardá.","warning");
+}
+
+function cancelarEdicionObs(){
+  const ta = document.getElementById("obs-texto");
+  ta.value = "";
+  delete ta.dataset.editId;
+  const btn = document.querySelector("#modal-observaciones .modal-actions button.btn-primary");
+  if(btn) btn.textContent = "💾 Guardar";
+  const btnCancel = document.getElementById("btn-cancelar-edit-obs");
+  if(btnCancel) btnCancel.remove();
+  document.getElementById("alert-obs").className = "alert";
+}
+
+async function eliminarObs(obsId, estId, fecha){
+  if(!confirm("¿Eliminar esta observación? Esta acción no se puede deshacer.")) return;
+  try{
+    await api(`/api/observaciones/${obsId}`,"DELETE");
+    sa("alert-obs","✅ Observación eliminada.","success");
+    cargarObsEstudiante(estId, fecha);
+  }catch(e){
+    sa("alert-obs", e.message, "danger");
+  }
+}
+
 async function guardarObservacion(){
   const estId=document.getElementById("obs-est-id").value;
-  const texto=document.getElementById("obs-texto").value.trim();
+  const ta=document.getElementById("obs-texto");
+  const texto=ta.value.trim();
+  const editId=ta.dataset.editId;
   if(!texto){sa("alert-obs","Escribí la observación.","danger");return;}
   const fecha=document.getElementById("asis-fecha").value||fechaHoyCR();
   try{
-    await api("/api/observaciones","POST",{estudiante_id:+estId, observacion:texto, fecha});
-    document.getElementById("obs-texto").value="";
-    sa("alert-obs","✅ Guardado.","success");
+    if(editId){
+      // Edición
+      await api(`/api/observaciones/${editId}`,"PUT",{observacion:texto});
+      cancelarEdicionObs();
+      sa("alert-obs","✅ Observación actualizada.","success");
+    } else {
+      // Nueva
+      await api("/api/observaciones","POST",{estudiante_id:+estId, observacion:texto, fecha});
+      ta.value="";
+      sa("alert-obs","✅ Guardado.","success");
+    }
     cargarObsEstudiante(estId, fecha);
   }catch(e){sa("alert-obs",e.message,"danger");}
 }
@@ -6370,8 +6524,8 @@ async function generarConstanciaRetiro(){
   printArea.innerHTML=`
   <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
     ${encabezadoMEP()}
-    <h2 style="text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;">CONSTANCIA DE RETIRO DE ESTUDIANTE</h2>
-    <div style="font-size:13px;line-height:2;text-align:justify;">
+    <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;">CONSTANCIA DE RETIRO DE ESTUDIANTE</h2>
+    <div style="font-size:16px;line-height:1.8;text-align:justify;">
       <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
       <strong>${est.primer_apellido} ${est.segundo_apellido||''}, ${est.nombre}</strong>,
       portador(a) de la cédula de identidad número <strong>${est.cedula}</strong>,
@@ -6387,14 +6541,14 @@ async function generarConstanciaRetiro(){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:60px;">
       <div style="text-align:center;"><div style="border-top:1px solid #374151;padding-top:8px;">
-        <div style="font-size:13px;font-weight:bold;">${auxNombre}</div>
-        <div style="font-size:12px;">Cédula: ${auxCedula}</div>
-        <div style="font-size:12px;">Auxiliar Administrativo</div>
+        <div style="font-size:15px;font-weight:bold;">${auxNombre}</div>
+        <div style="font-size:14px;">Cédula: ${auxCedula}</div>
+        <div style="font-size:14px;">Auxiliar Administrativo</div>
       </div></div>
       <div style="text-align:center;"><div style="border-top:1px solid #374151;padding-top:8px;">
-        <div style="font-size:13px;font-weight:bold;">${encNombre}</div>
-        <div style="font-size:12px;">Cédula: ${encCedula}</div>
-        <div style="font-size:12px;">Encargado(a) Legal</div>
+        <div style="font-size:15px;font-weight:bold;">${encNombre}</div>
+        <div style="font-size:14px;">Cédula: ${encCedula}</div>
+        <div style="font-size:14px;">Encargado(a) Legal</div>
       </div></div>
     </div>
     ${piePaginaMEP()}
@@ -7080,8 +7234,8 @@ async function generarConstancia(){
   printArea.innerHTML=`
     <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
       ${encabezadoMEP()}
-      <h2 style="text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE ESTUDIANTE</h2>
-      <div style="font-size:13px;line-height:2;text-align:justify;">
+      <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE ESTUDIANTE</h2>
+      <div style="font-size:16px;line-height:1.8;text-align:justify;">
         <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
         <strong>${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre}</strong>,
         portador(a) de la cédula de identidad número <strong>${est.cedula}</strong>,
@@ -7094,11 +7248,11 @@ async function generarConstancia(){
         del año <strong>${anioTexto}</strong>.</p>
       </div>
       <div style="margin-top:60px;text-align:center;">
-        <div style="border-top:1px solid #374151;width:300px;margin:0 auto;padding-top:8px;">
-          <div style="font-size:13px;font-weight:bold;">${auxNombre}</div>
-          <div style="font-size:12px;color:#555;">Cédula: ${auxCedula||"—"}</div>
-          <div style="font-size:12px;color:#555;">Auxiliar Administrativo</div>
-          <div style="font-size:12px;color:#555;">Liceo de Calle Fallas</div>
+        <div style="border-top:1px solid #374151;width:320px;margin:0 auto;padding-top:8px;">
+          <div style="font-size:15px;font-weight:bold;">${auxNombre}</div>
+          <div style="font-size:14px;color:#555;">Cédula: ${auxCedula||"—"}</div>
+          <div style="font-size:14px;color:#555;">Auxiliar Administrativo</div>
+          <div style="font-size:14px;color:#555;">Liceo de Calle Fallas</div>
         </div>
       </div>
       ${piePaginaMEP()}
@@ -8576,7 +8730,19 @@ async function cargarEvaluaciones(){
     const r = await api(`/api/calificaciones/evaluaciones?${params.toString()}`);
     if(!r) return;
     evalData = r.evaluaciones || [];
+    window.evalCierreActual = r.cierre || { cerrado: false };
     renderEvaluaciones();
+    // Si el período está cerrado, deshabilitar los botones de nuevo
+    const cerrado = window.evalCierreActual.cerrado;
+    ['btn-nuevo-examen','btn-nueva-tarea','btn-nuevo-cotid','btn-nuevo-proy'].forEach(id=>{
+      const b = document.getElementById(id);
+      if(!b) return;
+      b.disabled = cerrado;
+      b.title = cerrado ? 'Período cerrado — no se pueden crear evaluaciones' : '';
+    });
+    if(cerrado){
+      sa("alert-eval","🔒 Este período está cerrado. Las evaluaciones se ven en modo lectura.","warning");
+    }
   }catch(e){
     sa("alert-eval","Error al cargar evaluaciones: "+e.message,"danger");
   }
@@ -8607,9 +8773,9 @@ function renderEvaluaciones(){
       <td style="text-align:center;">${e.puntaje_total ? Number(e.puntaje_total).toFixed(0)+' pts' : '—'}${e.cant_indicadores>0?`<br/><span style="font-size:11px;color:var(--muted);">${e.cant_indicadores} ind.</span>`:''}</td>
       <td style="text-align:center;${pendiente?'color:var(--naranja);':'color:var(--verde);'}font-weight:bold;">${calif}</td>
       <td style="white-space:nowrap;">
-        <button class="btn btn-primary btn-xs" onclick="abrirCalificar(${e.id})">✏️ Calificar</button>
-        <button class="btn btn-outline btn-xs" onclick="editarEvaluacion(${e.id})">⚙️</button>
-        <button class="btn btn-danger btn-xs" onclick="eliminarEvaluacion(${e.id})">🗑️</button>
+        <button class="btn btn-primary btn-xs" onclick="abrirCalificar(${e.id})">✏️ ${(window.evalCierreActual&&window.evalCierreActual.cerrado)?'Ver':'Calificar'}</button>
+        <button class="btn btn-outline btn-xs" onclick="editarEvaluacion(${e.id})" ${(window.evalCierreActual&&window.evalCierreActual.cerrado)?'disabled title="Período cerrado"':''}>⚙️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarEvaluacion(${e.id})" ${(window.evalCierreActual&&window.evalCierreActual.cerrado)?'disabled title="Período cerrado"':''}>🗑️</button>
       </td>
     </tr>`;
   }).join("");
@@ -8843,8 +9009,10 @@ async function iniciarCalificar(){
 
     const a = evalAsigActual;
     const tipoLbl = {examen:'Examen',tarea:'Tarea',cotidiano:'Cotidiano',proyecto:'Proyecto'}[evalActual.tipo];
+    const cerrado = (window.evalCierreActual && window.evalCierreActual.cerrado);
     document.getElementById("calif-titulo").innerHTML =
-      `✏️ Calificar — <strong>${tipoLbl}: ${evalActual.nombre}</strong>`;
+      `✏️ ${cerrado?'Ver':'Calificar'} — <strong>${tipoLbl}: ${evalActual.nombre}</strong>` +
+      (cerrado ? ' <span style="color:var(--rojo);font-size:12px;">(período cerrado)</span>' : '');
     document.getElementById("calif-subtitulo").innerHTML =
       `${a.seccion_nombre} · ${a.materia_nombre}` +
       (a.subgrupo ? ` · <span class="badge b-guia">${a.subgrupo}</span>` : "") +
@@ -8852,6 +9020,21 @@ async function iniciarCalificar(){
       (evalActual.tipo==='examen' ? ` · Puntaje: ${Number(evalActual.puntaje_total).toFixed(0)} pts` : ` · ${evalIndicadores.length} indicador${evalIndicadores.length!==1?'es':''}`);
 
     renderGrillaNotas(notasArr);
+
+    // Deshabilitar el botón de guardar si el período está cerrado
+    const btn = document.getElementById("btn-guardar-notas");
+    if(btn){
+      btn.disabled = !!cerrado;
+      btn.title = cerrado ? 'Período cerrado — notas en modo lectura' : '';
+    }
+    // Y deshabilitar todos los inputs/selects de la grilla
+    if(cerrado){
+      setTimeout(()=>{
+        document.querySelectorAll('#calif-tbody-notas input, #calif-tbody-notas select').forEach(el=>{
+          el.disabled = true;
+        });
+      }, 50);
+    }
   }catch(e){
     sa("alert-calif-notas","Error al cargar: "+e.message,"danger");
   }
@@ -8863,6 +9046,8 @@ function renderGrillaNotas(notasArr){
 
   if(evalActual.tipo === 'examen'){
     const ptotal = Number(evalActual.puntaje_total);
+    const readonly = (window.evalCierreActual && window.evalCierreActual.cerrado) ? 'readonly' : '';
+    const styleRO = readonly ? 'background:#f1f5f9;cursor:not-allowed;' : '';
     thead.innerHTML = `<tr>
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;width:60%;">Estudiante</th>
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Puntos obtenidos<br/><span style="font-size:11px;font-weight:normal;">/ ${ptotal}</span></th>
@@ -8877,9 +9062,9 @@ function renderGrillaNotas(notasArr){
         <td style="text-align:center;">
           <input type="number" class="calif-input-examen" data-estudiante="${e.id}"
                  min="0" max="${ptotal}" step="0.5"
-                 value="${v!=null?v:''}"
+                 value="${v!=null?v:''}" ${readonly}
                  oninput="actualizarNotaExamen(this)"
-                 style="width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;"/>
+                 style="width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;${styleRO}"/>
         </td>
         <td style="text-align:center;font-weight:bold;color:var(--azul);" id="nota-${e.id}">${v!=null && v!==""? ((Number(v)*100)/ptotal).toFixed(1) : "—"}</td>
       </tr>`;
@@ -8901,6 +9086,8 @@ function renderGrillaNotas(notasArr){
       if(!notasMap.has(eid)) notasMap.set(eid, new Map());
       notasMap.get(eid).set(Number(n.indicador_id), n.puntaje);
     });
+    const readonly = (window.evalCierreActual && window.evalCierreActual.cerrado) ? 'readonly' : '';
+    const styleRO = readonly ? 'background:#f1f5f9;cursor:not-allowed;' : '';
     tbody.innerHTML = evalEstudiantes.map(e=>{
       const notasEst = notasMap.get(e.id) || new Map();
       let suma = 0, todasLlenas = true;
@@ -8913,10 +9100,10 @@ function renderGrillaNotas(notasArr){
           <input type="number" class="calif-input-ind"
                  data-estudiante="${e.id}" data-indicador="${ind.id}" data-max="${ind.puntaje_maximo}"
                  min="0" max="${ind.puntaje_maximo}" step="1"
-                 value="${v!=null?v:''}"
+                 value="${v!=null?v:''}" ${readonly}
                  oninput="actualizarNotaIndicador(this)"
                  onfocus="this.select()"
-                 style="width:56px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;"/>
+                 style="width:56px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;${styleRO}"/>
         </td>`;
       }).join("");
       const notaCalc = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
@@ -9168,6 +9355,441 @@ ${encabezadoMEP(`${tipoLbl}: ${ev.nombre}`)}
   style.id = "print-style-evaluacion";
   style.innerHTML = `
     @page { size: A4 portrait; margin: 10mm; }
+    @media print {
+      body > *:not(#print-boleta-area) { display:none!important; }
+      #print-boleta-area { display:block!important; }
+      table, tr { page-break-inside: avoid; break-inside: avoid; }
+    }
+  `;
+  document.head.appendChild(style);
+  imprimirConEncabezado(printArea, style);
+}
+
+
+
+// ════════════════════════════════════════════════════════════
+//  PROMEDIO — Fase 3: planilla por asignación + cierre/reapertura
+// ════════════════════════════════════════════════════════════
+let promAsignaciones = []; // lista de asignaciones del profesor (o todas si admin)
+let promDataActual = null; // {asignacion, regla, estudiantes, cierre} o vista anual
+
+async function iniciarPromedio(){
+  // Resetear pantalla
+  document.getElementById("prom-thead").innerHTML = '<tr><th class="empty" colspan="9">Cargando asignaciones...</th></tr>';
+  document.getElementById("prom-tbody").innerHTML = '';
+  document.getElementById("prom-info-cierre").innerHTML = '';
+  document.getElementById("prom-resumen-rubros").style.display = 'none';
+  document.getElementById("btn-prom-imprimir").disabled = true;
+  document.getElementById("btn-prom-cerrar").style.display = 'none';
+  document.getElementById("btn-prom-reabrir").style.display = 'none';
+
+  // Vista por defecto: período actual
+  const selV = document.getElementById("prom-vista");
+  if(!selV.dataset.init){
+    selV.value = detectarPeriodo(null) || "I Período";
+    selV.dataset.init = "1";
+  }
+
+  // Cargar asignaciones (mismo endpoint que Calificaciones)
+  try{
+    const periodoListado = selV.value === 'anual' ? 'I Período' : selV.value;
+    const rows = await api(`/api/calificaciones/mis-asignaciones?periodo=${encodeURIComponent(periodoListado)}`) || [];
+    // Filtrar las que tengan regla REAC (no tiene sentido promediar sin regla)
+    promAsignaciones = rows.filter(r => r.regla_id);
+    const sel = document.getElementById("prom-asig");
+    sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+      promAsignaciones.map((a, i) => {
+        const sg = a.subgrupo ? ` (${a.subgrupo})` : '';
+        return `<option value="${i}">${a.seccion_nombre} · ${a.materia_nombre}${sg}</option>`;
+      }).join("");
+    if(!promAsignaciones.length){
+      document.getElementById("prom-thead").innerHTML = '<tr><th class="empty" colspan="9">No tenés asignaciones con regla REAC en este período.</th></tr>';
+    } else {
+      document.getElementById("prom-thead").innerHTML = '<tr><th class="empty" colspan="9">Seleccioná una asignación arriba para ver el promedio.</th></tr>';
+    }
+  }catch(e){
+    sa("alert-prom","Error al cargar asignaciones: "+e.message,"danger");
+  }
+}
+
+function prom_onCambioAsig(){
+  prom_recargar();
+}
+
+async function prom_recargar(){
+  const idx = document.getElementById("prom-asig").value;
+  if(idx === "" || idx == null){
+    document.getElementById("prom-thead").innerHTML = '<tr><th class="empty" colspan="9">Seleccioná una asignación.</th></tr>';
+    document.getElementById("prom-tbody").innerHTML = '';
+    document.getElementById("prom-info-cierre").innerHTML = '';
+    document.getElementById("prom-resumen-rubros").style.display = 'none';
+    document.getElementById("btn-prom-imprimir").disabled = true;
+    document.getElementById("btn-prom-cerrar").style.display = 'none';
+    document.getElementById("btn-prom-reabrir").style.display = 'none';
+    return;
+  }
+  const a = promAsignaciones[Number(idx)];
+  if(!a) return;
+  const vista = document.getElementById("prom-vista").value;
+  document.getElementById("prom-thead").innerHTML = '<tr><th class="empty" colspan="9">Calculando promedios...</th></tr>';
+  document.getElementById("prom-tbody").innerHTML = '';
+
+  try{
+    const params = new URLSearchParams({
+      seccion_id: a.seccion_id,
+      materia_id: a.materia_id
+    });
+    if(a.subgrupo) params.set("subgrupo", a.subgrupo);
+    let endpoint;
+    if(vista === 'anual'){
+      endpoint = `/api/calificaciones/promedio/anual?${params.toString()}`;
+    } else {
+      params.set("periodo", vista);
+      endpoint = `/api/calificaciones/promedio/seccion?${params.toString()}`;
+    }
+    const r = await api(endpoint);
+    if(!r) return;
+    promDataActual = r;
+    if(vista === 'anual') renderPromAnual(r);
+    else renderPromPeriodo(r);
+  }catch(e){
+    sa("alert-prom","Error: "+e.message,"danger");
+    document.getElementById("prom-thead").innerHTML = '<tr><th class="empty" colspan="9">Error al calcular.</th></tr>';
+  }
+}
+
+function renderPromPeriodo(data){
+  const a = data.asignacion;
+  const reg = data.regla;
+  const est = data.estudiantes || [];
+  const cierre = data.cierre || { cerrado: false };
+
+  // Cabecera con los pesos del rubro
+  // Backend usa claves: cotidiano, tarea, examen, proyecto + asistencia aparte
+  const colDef = [
+    { label: 'Cotidiano', peso: reg.porc_cotidiano, key: 'cotidiano' },
+    { label: 'Tareas',    peso: reg.porc_tareas,    key: 'tarea' },
+    { label: 'Pruebas',   peso: reg.porc_pruebas,   key: 'examen' },
+    { label: 'Proyecto',  peso: reg.porc_proyectos, key: 'proyecto' },
+  ].filter(c => Number(c.peso) > 0);
+  const muestraAsist = Number(reg.porc_asistencia) > 0;
+
+  // Mostrar resumen de rubros arriba
+  const resumenItems = colDef.map(c=>`${c.label} ${c.peso}%`);
+  if(muestraAsist) resumenItems.push(`Asist ${reg.porc_asistencia}%`);
+  document.getElementById("prom-resumen-rubros").style.display = '';
+  document.getElementById("prom-resumen-rubros").innerHTML =
+    `<strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}` +
+    (a.subgrupo ? ` · Subgrupo ${a.subgrupo}` : '') +
+    ` · <strong>${document.getElementById("prom-vista").value}</strong>` +
+    ` — Reglas REAC: ${resumenItems.join(" · ")}` +
+    (reg.notas ? ` · <em>${reg.notas}</em>` : '');
+
+  // Cabecera tabla
+  const nivel = a.seccion_nivel || (a.nivel) || 7;
+  const aprobMin = (nivel >= 10) ? 70 : 65;
+  let theadHtml = `<tr>
+    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;min-width:240px;">Estudiante</th>`;
+  colDef.forEach(c => {
+    theadHtml += `<th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">${c.label}<br/><span style="font-size:11px;font-weight:normal;">/${c.peso}</span></th>`;
+  });
+  if(muestraAsist){
+    theadHtml += `<th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Asist.<br/><span style="font-size:11px;font-weight:normal;">/${reg.porc_asistencia}</span></th>`;
+  }
+  theadHtml += `<th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">FINAL<br/><span style="font-size:11px;font-weight:normal;">/100</span></th>
+    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Estado</th>
+  </tr>`;
+  document.getElementById("prom-thead").innerHTML = theadHtml;
+
+  // Filas
+  if(!est.length){
+    const totalCols = 3 + colDef.length + (muestraAsist?1:0);
+    document.getElementById("prom-tbody").innerHTML = `<tr><td colspan="${totalCols}" class="empty">Sin estudiantes en esta asignación.</td></tr>`;
+  } else {
+    document.getElementById("prom-tbody").innerHTML = est.map(e=>{
+      const cels = colDef.map(c=>{
+        const r = e.rubros && e.rubros[c.key];
+        const pct = r && r.pct != null ? Number(r.pct).toFixed(1) : '—';
+        let detalle = '';
+        if(r){
+          if(r.cant_evals === 0){
+            detalle = `<br/><span style="font-size:10px;color:var(--naranja);">Sin eval.</span>`;
+          } else if(r.nota_100 != null){
+            detalle = `<br/><span style="font-size:10px;color:var(--muted);">${r.cant_evals} eval · ${Number(r.nota_100).toFixed(0)}/100</span>`;
+          } else {
+            detalle = `<br/><span style="font-size:10px;color:var(--muted);">${r.cant_evals} eval</span>`;
+          }
+        }
+        return `<td style="text-align:center;">${pct}${detalle}</td>`;
+      }).join('');
+      let celAsist = '';
+      if(muestraAsist){
+        const A = e.asistencia || {};
+        const pctA = A.pct != null ? Number(A.pct).toFixed(1) : '—';
+        const ausPct = A.porcentaje_ausencias != null ? Number(A.porcentaje_ausencias).toFixed(1) : '0';
+        celAsist = `<td style="text-align:center;">${pctA}<br/><span style="font-size:10px;color:var(--muted);">${ausPct}% aus</span></td>`;
+      }
+      const total = Number(e.total||0);
+      const aprobado = total >= aprobMin;
+      const colorEst = total >= aprobMin ? 'var(--verde)' : (total >= aprobMin - 10 ? 'var(--naranja)' : 'var(--rojo)');
+      const lblEst = aprobado ? '✓ Aprobado' : '✗ Aplazado';
+      return `<tr>
+        <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong><br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
+        ${cels}
+        ${celAsist}
+        <td style="text-align:center;font-weight:bold;font-size:15px;color:${colorEst};">${total.toFixed(1)}</td>
+        <td style="text-align:center;color:${colorEst};font-weight:bold;font-size:12px;">${lblEst}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Estado de cierre + botones
+  const fmtFlash = (ts)=> ts ? new Date(ts).toLocaleString('es-CR') : '';
+  const infoEl = document.getElementById("prom-info-cierre");
+  if(cierre.cerrado){
+    infoEl.innerHTML = `<span style="display:inline-block;padding:6px 14px;background:#fee2e2;color:#7f1d1d;border-radius:6px;border-left:3px solid var(--rojo);">🔒 Período cerrado el ${fmtFlash(cierre.cerrado_en)}. Las notas están en modo lectura.</span>`;
+    document.getElementById("btn-prom-cerrar").style.display = 'none';
+    if(ME.rol === 'admin'){
+      document.getElementById("btn-prom-reabrir").style.display = '';
+    } else {
+      document.getElementById("btn-prom-reabrir").style.display = 'none';
+    }
+  } else {
+    infoEl.innerHTML = `<span style="display:inline-block;padding:6px 14px;background:#dcfce7;color:#14532d;border-radius:6px;border-left:3px solid var(--verde);">✓ Período abierto. Podés seguir creando y modificando evaluaciones.</span>`;
+    // Solo el profesor dueño puede cerrar
+    if(ME.id === a.profesor_id){
+      document.getElementById("btn-prom-cerrar").style.display = '';
+    } else {
+      document.getElementById("btn-prom-cerrar").style.display = 'none';
+    }
+    document.getElementById("btn-prom-reabrir").style.display = 'none';
+  }
+  document.getElementById("btn-prom-imprimir").disabled = est.length === 0;
+}
+
+function renderPromAnual(data){
+  const a = data.asignacion;
+  const est = data.estudiantes || [];
+
+  document.getElementById("prom-resumen-rubros").style.display = '';
+  document.getElementById("prom-resumen-rubros").innerHTML =
+    `<strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}` +
+    (a.subgrupo ? ` · Subgrupo ${a.subgrupo}` : '') +
+    ` · <strong>Vista anual</strong> — Promedio anual = (I Período + II Período) / 2`;
+
+  const aprobMin = (a.seccion_nivel >= 10) ? 70 : 65;
+  document.getElementById("prom-thead").innerHTML = `<tr>
+    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;min-width:240px;">Estudiante</th>
+    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">I Período<br/><span style="font-size:11px;font-weight:normal;">/100</span></th>
+    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">II Período<br/><span style="font-size:11px;font-weight:normal;">/100</span></th>
+    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Promedio anual<br/><span style="font-size:11px;font-weight:normal;">/100</span></th>
+    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Estado</th>
+  </tr>`;
+
+  if(!est.length){
+    document.getElementById("prom-tbody").innerHTML = `<tr><td colspan="5" class="empty">Sin estudiantes.</td></tr>`;
+  } else {
+    document.getElementById("prom-tbody").innerHTML = est.map(e=>{
+      const nI = e.nota_I != null ? Number(e.nota_I).toFixed(1) : '—';
+      const nII = e.nota_II != null ? Number(e.nota_II).toFixed(1) : '—';
+      const nA = e.promedio_anual != null ? Number(e.promedio_anual).toFixed(1) : '—';
+      const aprob = e.estado === 'Aprobado';
+      const aplaz = e.estado === 'Aplazado';
+      const color = aprob ? 'var(--verde)' : (aplaz ? 'var(--rojo)' : 'var(--muted)');
+      const lbl = aprob ? '✓ Aprobado' : (aplaz ? '✗ Aplazado' : '—');
+      return `<tr>
+        <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong><br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
+        <td style="text-align:center;">${nI}</td>
+        <td style="text-align:center;">${nII}</td>
+        <td style="text-align:center;font-weight:bold;font-size:15px;color:${color};">${nA}</td>
+        <td style="text-align:center;color:${color};font-weight:bold;font-size:12px;">${lbl}</td>
+      </tr>`;
+    }).join('');
+  }
+  // En vista anual no se muestra el botón de cierre (es por período)
+  document.getElementById("prom-info-cierre").innerHTML = '';
+  document.getElementById("btn-prom-cerrar").style.display = 'none';
+  document.getElementById("btn-prom-reabrir").style.display = 'none';
+  document.getElementById("btn-prom-imprimir").disabled = est.length === 0;
+}
+
+// ── Cerrar período (profesor) ─────────────────────────────
+async function prom_cerrarPeriodo(){
+  if(!promDataActual || !promDataActual.asignacion) return;
+  const a = promDataActual.asignacion;
+  const periodo = document.getElementById("prom-vista").value;
+  if(periodo === 'anual'){ sa("alert-prom","Para cerrar, elegí el período específico (I o II), no vista anual.","warning"); return; }
+  if(!confirm(`¿Cerrar ${periodo} para ${a.seccion_nombre} · ${a.materia_nombre}?\n\nDespués de cerrar:\n- No podrás crear/editar/eliminar evaluaciones de este período\n- Solo el administrador puede reabrirlo\n\n¿Continuar?`)) return;
+  try{
+    const body = {
+      seccion_id: a.seccion_id,
+      materia_id: a.materia_id,
+      subgrupo:   a.subgrupo || null,
+      periodo
+    };
+    await api("/api/calificaciones/periodo/cerrar","POST",body);
+    sa("alert-prom","✅ Período cerrado.","success");
+    await prom_recargar();
+  }catch(e){
+    sa("alert-prom", e.message, "danger");
+  }
+}
+
+// ── Reabrir período (admin) ───────────────────────────────
+function prom_reabrirPeriodo(){
+  if(!promDataActual || !promDataActual.asignacion) return;
+  const a = promDataActual.asignacion;
+  const periodo = document.getElementById("prom-vista").value;
+  document.getElementById("mrp-info").innerHTML =
+    `Reabrir <strong>${periodo}</strong> de <strong>${a.seccion_nombre} · ${a.materia_nombre}</strong>` +
+    (a.subgrupo?` (${a.subgrupo})`:'');
+  document.getElementById("mrp-motivo").value = '';
+  document.getElementById("alert-mrp").className = "alert";
+  document.getElementById("modal-reabrir-periodo").classList.add("show");
+}
+
+async function prom_confirmarReapertura(){
+  const motivo = document.getElementById("mrp-motivo").value.trim();
+  if(!motivo){ sa("alert-mrp","El motivo es obligatorio.","danger"); return; }
+  const a = promDataActual.asignacion;
+  const periodo = document.getElementById("prom-vista").value;
+  try{
+    await api("/api/calificaciones/periodo/reabrir","POST",{
+      seccion_id: a.seccion_id,
+      materia_id: a.materia_id,
+      subgrupo:   a.subgrupo || null,
+      periodo,
+      motivo
+    });
+    cerrarModal("modal-reabrir-periodo");
+    sa("alert-prom","✅ Período reabierto.","success");
+    await prom_recargar();
+  }catch(e){
+    sa("alert-mrp", e.message, "danger");
+  }
+}
+
+// ── Imprimir acta ─────────────────────────────────────────
+function prom_imprimirActa(){
+  if(!promDataActual || !promDataActual.asignacion){ return; }
+  const a = promDataActual.asignacion;
+  const est = promDataActual.estudiantes || [];
+  if(!est.length){ sa("alert-prom","No hay estudiantes para imprimir.","warning"); return; }
+  const vista = document.getElementById("prom-vista").value;
+
+  let tablaHTML;
+  let titulo;
+
+  if(vista === 'anual'){
+    titulo = `ACTA ANUAL DE NOTAS — ${a.seccion_nombre} · ${a.materia_nombre}`;
+    tablaHTML = `<thead>
+      <tr style="background:#1a3a5c;color:#fff;">
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">#</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;text-align:left;">Estudiante</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">Cédula</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">I Período</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">II Período</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">Anual</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">Estado</th>
+      </tr></thead><tbody>` +
+      est.map((e,i)=>{
+        const nI = e.nota_I != null ? Number(e.nota_I).toFixed(1) : '—';
+        const nII = e.nota_II != null ? Number(e.nota_II).toFixed(1) : '—';
+        const nA = e.promedio_anual != null ? Number(e.promedio_anual).toFixed(1) : '—';
+        const lbl = e.estado || '—';
+        return `<tr>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${i+1}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${e.primer_apellido} ${e.segundo_apellido}</strong>, ${e.nombre}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;">${e.cedula}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${nI}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${nII}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:12px;font-weight:bold;">${nA}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${lbl}</td>
+        </tr>`;
+      }).join('') + `</tbody>`;
+  } else {
+    const reg = promDataActual.regla;
+    const colDef = [
+      { label:'Cotid', peso:reg.porc_cotidiano,  key:'cotidiano' },
+      { label:'Tareas',peso:reg.porc_tareas,     key:'tarea' },
+      { label:'Pruebas',peso:reg.porc_pruebas,   key:'examen' },
+      { label:'Proy',  peso:reg.porc_proyectos,  key:'proyecto' }
+    ].filter(c => Number(c.peso) > 0);
+    const muestraAsist = Number(reg.porc_asistencia) > 0;
+    titulo = `ACTA DE NOTAS — ${vista} — ${a.seccion_nombre} · ${a.materia_nombre}`;
+    let colsH = colDef.map(c=>`<th style="padding:5px;font-size:10px;border:1px solid #1a3a5c;">${c.label}<br/><span style="font-weight:normal;">/${c.peso}</span></th>`).join('');
+    if(muestraAsist) colsH += `<th style="padding:5px;font-size:10px;border:1px solid #1a3a5c;">Asist<br/><span style="font-weight:normal;">/${reg.porc_asistencia}</span></th>`;
+    tablaHTML = `<thead>
+      <tr style="background:#1a3a5c;color:#fff;">
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">#</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;text-align:left;">Estudiante</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">Cédula</th>
+        ${colsH}
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">Final</th>
+        <th style="padding:5px;font-size:11px;border:1px solid #1a3a5c;">Estado</th>
+      </tr></thead><tbody>` +
+      est.map((e,i)=>{
+        const colsC = colDef.map(c=>{
+          const r = e.rubros && e.rubros[c.key];
+          const v = r && r.pct != null ? Number(r.pct).toFixed(1) : '—';
+          return `<td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${v}</td>`;
+        }).join('');
+        let colAsist = '';
+        if(muestraAsist){
+          const A = e.asistencia || {};
+          const v = A.pct != null ? Number(A.pct).toFixed(1) : '—';
+          colAsist = `<td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${v}</td>`;
+        }
+        const nivel = a.seccion_nivel || 7;
+        const aprobMin = (nivel >= 10) ? 70 : 65;
+        const total = Number(e.total||0);
+        const aprob = total >= aprobMin;
+        return `<tr>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${i+1}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${e.primer_apellido} ${e.segundo_apellido}</strong>, ${e.nombre}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;">${e.cedula}</td>
+          ${colsC}
+          ${colAsist}
+          <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:12px;font-weight:bold;">${total.toFixed(1)}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${aprob?'Aprobado':'Aplazado'}</td>
+        </tr>`;
+      }).join('') + `</tbody>`;
+  }
+
+  const profNombre = `${ME.primer_apellido||''} ${ME.nombre||''}`.trim();
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:12px 18px;">
+${encabezadoMEP(titulo)}
+      <div style="border-top:2px solid #1a3a5c;border-bottom:2px solid #1a3a5c;padding:6px 0;margin:10px 0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;">
+        <div>
+          <div><strong>Sección:</strong> ${a.seccion_nombre}${a.subgrupo?` · Subgrupo ${a.subgrupo}`:''}</div>
+          <div><strong>Materia:</strong> ${a.materia_nombre}</div>
+          <div><strong>Profesor(a):</strong> ${profNombre}</div>
+        </div>
+        <div style="text-align:right;">
+          <div><strong>Total estudiantes:</strong> ${est.length}</div>
+          <div><strong>Fecha de emisión:</strong> ${fmtF(fechaHoyCR())}</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-top:6px;">${tablaHTML}</table>
+      <div style="margin-top:30px;text-align:center;page-break-inside:avoid;">
+        <div style="display:inline-block;min-width:280px;border-top:1px solid #94a3b8;padding-top:6px;font-size:12px;color:#555;">
+          Firma del profesor<br/><strong>${profNombre}</strong>
+        </div>
+      </div>
+      ${piePaginaMEP()}
+    </div>`;
+
+  let style = document.getElementById("print-style-prom");
+  if(style) style.remove();
+  style = document.createElement("style");
+  style.id = "print-style-prom";
+  style.innerHTML = `
+    @page { size: A4 landscape; margin: 8mm; }
     @media print {
       body > *:not(#print-boleta-area) { display:none!important; }
       #print-boleta-area { display:block!important; }

@@ -43,13 +43,28 @@ router.post("/", requireAuth, async (req, res) => {
   res.json({ ok: true, id: r.rows[0].id });
 });
 
+// Editar observación (solo quien la creó o admin)
+router.put("/:id", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const { observacion } = req.body;
+  if (!observacion || !String(observacion).trim()) {
+    return res.status(400).json({ error: "La observación no puede estar vacía." });
+  }
+  const r = await pool.query("SELECT usuario_id FROM observaciones_diarias WHERE id=$1", [req.params.id]);
+  if (!r.rows.length) return res.status(404).json({ error: "No encontrada" });
+  if (r.rows[0].usuario_id !== u.id && u.rol !== "admin")
+    return res.status(403).json({ error: "Solo quien creó la observación o un admin puede editarla." });
+  await pool.query("UPDATE observaciones_diarias SET observacion=$1 WHERE id=$2", [String(observacion).trim(), req.params.id]);
+  res.json({ ok: true });
+});
+
 // Eliminar observación (solo quien la creó o admin)
 router.delete("/:id", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   const r = await pool.query("SELECT usuario_id FROM observaciones_diarias WHERE id=$1", [req.params.id]);
   if (!r.rows.length) return res.status(404).json({ error: "No encontrada" });
   if (r.rows[0].usuario_id !== u.id && u.rol !== "admin")
-    return res.status(403).json({ error: "Sin permisos" });
+    return res.status(403).json({ error: "Solo quien creó la observación o un admin puede eliminarla." });
   await pool.query("DELETE FROM observaciones_diarias WHERE id=$1", [req.params.id]);
   res.json({ ok: true });
 });

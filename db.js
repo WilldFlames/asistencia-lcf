@@ -581,6 +581,8 @@ async function initDB() {
         nota:'Sin pruebas ni proyectos' },
       { cod:'practica_7_9', desc:'Práctica (7°-9°)',                  lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:1, op:false,
         nota:'1 proyecto (25%)' },
+      { cod:'taller_7_9',   desc:'Talleres semestrales (Hogar / Industriales)', lvl:[7,9], pc:45, pt:10, pp:0, ppr:40, pa:5, np:0, npr:1, op:false,
+        nota:'1 proyecto (40%) — Nota única semestral' },
       { cod:'civica_7_9',   desc:'Educación Cívica (7°-9°)',          lvl:[7,9],   pc:60, pt:10, pp:0,  ppr:25, pa:5, np:0, npr:1, op:false,
         nota:'1 proyecto (25%)' },
       { cod:'tecno_7_9',    desc:'Formación Tecnológica (7°-9°)',     lvl:[7,9],   pc:45, pt:10, pp:0,  ppr:40, pa:5, np:0, npr:1, op:false,
@@ -636,14 +638,13 @@ async function initDB() {
       { materia:'Ética y Valores',     regla:'religiosa_7_9',lvl:[7,9] },
       // 7°-9° práctica
       { materia:'Educación Física',    regla:'practica_7_9', lvl:[7,9] },
-      { materia:'Educación para el Hogar',regla:'practica_7_9',lvl:[7,9] },
-      { materia:'Artes Industriales',  regla:'practica_7_9', lvl:[7,9] },
+      { materia:'Educación para el Hogar',regla:'taller_7_9', lvl:[7,9] },
+      { materia:'Artes Industriales',  regla:'taller_7_9',   lvl:[7,9] },
       { materia:'Artes Plásticas',     regla:'practica_7_9', lvl:[7,9] },
       // 7°-9° cívica
       { materia:'Cívica',              regla:'civica_7_9',   lvl:[7,9] },
       // 7°-9° tecnológica
       { materia:'Informática Educativa',regla:'tecno_7_9',   lvl:[7,9] },
-      { materia:'Fortalecimiento Matemático',regla:'tecno_7_9',lvl:[7,9] },
 
       // 10°-11° académicas
       { materia:'Matemática',          regla:'acad_10_11',   lvl:[10,11] },
@@ -748,6 +749,29 @@ async function initDB() {
       )
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_notas_ind_est ON notas_indicador(estudiante_id, evaluacion_id)`);
+
+    // ── MÓDULO DE CALIFICACIONES (Fase 3) ─────────────────────────────────
+    // Tabla para registrar cuándo un profesor cierra el período de una de sus
+    // asignaciones. Si existe el registro con reabierto_en NULL, el período
+    // está cerrado (notas read-only). Si reabierto_en está lleno, vuelve a
+    // estar abierto. Historial completo de cierres y reaperturas.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS periodos_cerrados (
+        id            SERIAL PRIMARY KEY,
+        profesor_id   INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        seccion_id    INTEGER NOT NULL REFERENCES secciones(id) ON DELETE CASCADE,
+        materia_id    INTEGER NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
+        subgrupo      TEXT DEFAULT NULL,
+        periodo       TEXT NOT NULL CHECK(periodo IN ('I Período','II Período')),
+        cerrado_en    TIMESTAMP NOT NULL DEFAULT NOW(),
+        cerrado_por   INTEGER REFERENCES usuarios(id),
+        reabierto_en  TIMESTAMP DEFAULT NULL,
+        reabierto_por INTEGER REFERENCES usuarios(id),
+        motivo_reapertura TEXT DEFAULT NULL
+      )
+    `);
+    // Índice parcial: solo períodos actualmente cerrados (consulta más común)
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_periodo_cerrado ON periodos_cerrados(profesor_id, seccion_id, materia_id, subgrupo, periodo) WHERE reabierto_en IS NULL`);
 
     // Actualizar CHECK de infracciones
     await client.query(`ALTER TABLE infracciones DROP CONSTRAINT IF EXISTS infracciones_tipo_check`);
