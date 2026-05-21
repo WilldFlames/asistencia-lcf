@@ -726,6 +726,7 @@ tr:hover td{background:#f8fafc;}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-success btn-sm" onclick="prom_imprimirActa()" id="btn-prom-imprimir" disabled>🖨️ Imprimir acta</button>
+        <button class="btn btn-outline btn-sm" onclick="prom_imprimirBoletas()" id="btn-prom-boletas" disabled style="color:var(--azul);border-color:var(--azul);">📄 Boletas individuales</button>
         <button class="btn btn-orange btn-sm" onclick="prom_cerrarPeriodo()" id="btn-prom-cerrar" style="display:none">🔒 Cerrar período</button>
         <button class="btn btn-primary btn-sm" onclick="prom_reabrirPeriodo()" id="btn-prom-reabrir" style="display:none">🔓 Reabrir (admin)</button>
       </div>
@@ -9379,7 +9380,7 @@ async function iniciarPromedio(){
   document.getElementById("prom-tbody").innerHTML = '';
   document.getElementById("prom-info-cierre").innerHTML = '';
   document.getElementById("prom-resumen-rubros").style.display = 'none';
-  document.getElementById("btn-prom-imprimir").disabled = true;
+  document.getElementById("btn-prom-imprimir").disabled = true; document.getElementById("btn-prom-boletas").disabled = true;
   document.getElementById("btn-prom-cerrar").style.display = 'none';
   document.getElementById("btn-prom-reabrir").style.display = 'none';
 
@@ -9423,7 +9424,7 @@ async function prom_recargar(){
     document.getElementById("prom-tbody").innerHTML = '';
     document.getElementById("prom-info-cierre").innerHTML = '';
     document.getElementById("prom-resumen-rubros").style.display = 'none';
-    document.getElementById("btn-prom-imprimir").disabled = true;
+    document.getElementById("btn-prom-imprimir").disabled = true; document.getElementById("btn-prom-boletas").disabled = true;
     document.getElementById("btn-prom-cerrar").style.display = 'none';
     document.getElementById("btn-prom-reabrir").style.display = 'none';
     return;
@@ -9564,7 +9565,7 @@ function renderPromPeriodo(data){
     }
     document.getElementById("btn-prom-reabrir").style.display = 'none';
   }
-  document.getElementById("btn-prom-imprimir").disabled = est.length === 0;
+  document.getElementById("btn-prom-imprimir").disabled = est.length === 0; document.getElementById("btn-prom-boletas").disabled = est.length === 0;
 }
 
 function renderPromAnual(data){
@@ -9610,7 +9611,7 @@ function renderPromAnual(data){
   document.getElementById("prom-info-cierre").innerHTML = '';
   document.getElementById("btn-prom-cerrar").style.display = 'none';
   document.getElementById("btn-prom-reabrir").style.display = 'none';
-  document.getElementById("btn-prom-imprimir").disabled = est.length === 0;
+  document.getElementById("btn-prom-imprimir").disabled = est.length === 0; document.getElementById("btn-prom-boletas").disabled = est.length === 0;
 }
 
 // ── Cerrar período (profesor) ─────────────────────────────
@@ -9789,11 +9790,156 @@ ${encabezadoMEP(titulo)}
   style = document.createElement("style");
   style.id = "print-style-prom";
   style.innerHTML = `
-    @page { size: A4 landscape; margin: 8mm; }
+    @page { size: A4 portrait; margin: 10mm; }
     @media print {
       body > *:not(#print-boleta-area) { display:none!important; }
       #print-boleta-area { display:block!important; }
       table, tr { page-break-inside: avoid; break-inside: avoid; }
+    }
+  `;
+  document.head.appendChild(style);
+  imprimirConEncabezado(printArea, style);
+}
+
+// ── BOLETAS INDIVIDUALES (varias por hoja) ─────────────────────────────
+// Cada estudiante recibe una mini-boleta compacta. 2 estudiantes por página A4.
+function prom_imprimirBoletas(){
+  if(!promDataActual || !promDataActual.asignacion){ return; }
+  const a = promDataActual.asignacion;
+  const est = promDataActual.estudiantes || [];
+  if(!est.length){ sa("alert-prom","No hay estudiantes para imprimir.","warning"); return; }
+  const vista = document.getElementById("prom-vista").value;
+  const nivel = a.seccion_nivel || 7;
+  const aprobMin = (nivel >= 10) ? 70 : 65;
+  const profNombre = `${ME.primer_apellido||''} ${ME.nombre||''}`.trim();
+  const fechaEmision = fmtF(fechaHoyCR());
+
+  // Renderiza UNA boleta compacta para un estudiante
+  const renderBoleta = (e, idx) => {
+    const nombreCompleto = `${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}`.trim();
+
+    let cuerpoHTML = '';
+    let notaFinal, estadoTxt, estadoColor;
+
+    if(vista === 'anual'){
+      const nI = e.nota_I != null ? Number(e.nota_I).toFixed(1) : '—';
+      const nII = e.nota_II != null ? Number(e.nota_II).toFixed(1) : '—';
+      const nA = e.promedio_anual != null ? Number(e.promedio_anual).toFixed(1) : '—';
+      notaFinal = nA;
+      estadoTxt = e.estado || '—';
+      estadoColor = (e.estado === 'Aprobado') ? '#16a34a' : (e.estado === 'Aplazado' ? '#dc2626' : '#64748b');
+      cuerpoHTML = `
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
+          <tr style="background:#f1f5f9;">
+            <td style="border:1px solid #cbd5e1;padding:4px 8px;width:40%;"><strong>I Período</strong></td>
+            <td style="border:1px solid #cbd5e1;padding:4px 8px;text-align:center;">${nI}</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid #cbd5e1;padding:4px 8px;"><strong>II Período</strong></td>
+            <td style="border:1px solid #cbd5e1;padding:4px 8px;text-align:center;">${nII}</td>
+          </tr>
+          <tr style="background:#dbeafe;">
+            <td style="border:1px solid #1a3a5c;padding:4px 8px;font-weight:bold;">Promedio Anual</td>
+            <td style="border:1px solid #1a3a5c;padding:4px 8px;text-align:center;font-weight:bold;font-size:13px;">${nA}</td>
+          </tr>
+        </table>`;
+    } else {
+      const reg = promDataActual.regla;
+      const total = Number(e.total||0);
+      notaFinal = total > 0 ? total.toFixed(1) : '—';
+      const aprobado = total >= aprobMin;
+      estadoTxt = aprobado ? 'Aprobado' : (total > 0 ? 'Aplazado' : '—');
+      estadoColor = aprobado ? '#16a34a' : (total > 0 ? '#dc2626' : '#64748b');
+      // Desglose por rubro
+      const rubros = [
+        { label:'Cotidiano', key:'cotidiano',  peso:reg.porc_cotidiano },
+        { label:'Tareas',    key:'tarea',      peso:reg.porc_tareas },
+        { label:'Pruebas',   key:'examen',     peso:reg.porc_pruebas },
+        { label:'Proyectos', key:'proyecto',   peso:reg.porc_proyectos }
+      ].filter(r => Number(r.peso) > 0);
+      let rows = rubros.map(r=>{
+        const v = e.rubros && e.rubros[r.key] && e.rubros[r.key].pct != null ? Number(e.rubros[r.key].pct).toFixed(1) : '—';
+        return `<tr>
+          <td style="border:1px solid #cbd5e1;padding:3px 7px;font-size:11px;"><strong>${r.label}</strong></td>
+          <td style="border:1px solid #cbd5e1;padding:3px 7px;text-align:center;font-size:11px;color:#555;">${r.peso}%</td>
+          <td style="border:1px solid #cbd5e1;padding:3px 7px;text-align:center;font-size:11px;font-weight:bold;">${v}</td>
+        </tr>`;
+      }).join('');
+      if(Number(reg.porc_asistencia) > 0){
+        const A = e.asistencia || {};
+        const pct = A.pct != null ? Number(A.pct).toFixed(1) : '—';
+        const pctAus = A.pct_ausencias != null ? Number(A.pct_ausencias).toFixed(1) : '—';
+        rows += `<tr>
+          <td style="border:1px solid #cbd5e1;padding:3px 7px;font-size:11px;"><strong>Asistencia</strong> <span style="color:#64748b;font-size:10px;">(${pctAus}% aus.)</span></td>
+          <td style="border:1px solid #cbd5e1;padding:3px 7px;text-align:center;font-size:11px;color:#555;">${reg.porc_asistencia}%</td>
+          <td style="border:1px solid #cbd5e1;padding:3px 7px;text-align:center;font-size:11px;font-weight:bold;">${pct}</td>
+        </tr>`;
+      }
+      cuerpoHTML = `
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;">
+          <thead>
+            <tr style="background:#1a3a5c;color:#fff;">
+              <th style="padding:4px 7px;font-size:11px;border:1px solid #1a3a5c;text-align:left;">Rubro</th>
+              <th style="padding:4px 7px;font-size:11px;border:1px solid #1a3a5c;">Peso</th>
+              <th style="padding:4px 7px;font-size:11px;border:1px solid #1a3a5c;">Obtenido</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    // Cada boleta: marco con borde punteado para que se note dónde recortar
+    return `
+      <div class="boleta-individual" style="border:1px dashed #94a3b8;padding:10px 14px;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a3a5c;padding-bottom:5px;margin-bottom:6px;">
+          <div>
+            <div style="font-size:13px;font-weight:bold;color:#1a3a5c;">${nombreCompleto}</div>
+            <div style="font-size:10px;color:#555;">Cédula: ${e.cedula||'—'} · ${a.seccion_nombre}${a.subgrupo?' · '+a.subgrupo:''}</div>
+            <div style="font-size:10px;color:#555;">${a.materia_nombre} · ${vista==='anual'?'Promedio Anual':vista} · ${fechaEmision}</div>
+          </div>
+          <div style="text-align:right;min-width:120px;">
+            <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Nota final</div>
+            <div style="font-size:30px;font-weight:bold;color:${estadoColor};line-height:1;">${notaFinal}</div>
+            <div style="font-size:11px;font-weight:bold;color:${estadoColor};">${estadoTxt}</div>
+          </div>
+        </div>
+        ${cuerpoHTML}
+        <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:10px;color:#555;">
+          <div>Profesor: <strong>${profNombre}</strong></div>
+          <div>Firma del encargado legal: ____________________</div>
+        </div>
+      </div>`;
+  };
+
+  // Construir HTML: pares de estudiantes (2 por página)
+  let bloque = '';
+  for(let i=0; i<est.length; i++){
+    bloque += renderBoleta(est[i], i);
+    // Cada 2 estudiantes, salto de página explícito (excepto al final)
+    if((i+1) % 2 === 0 && i < est.length - 1){
+      bloque += '<div style="page-break-after:always;break-after:page;"></div>';
+    }
+  }
+
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
+  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:8px 12px;">
+      ${bloque}
+    </div>`;
+
+  let style = document.getElementById("print-style-boletas");
+  if(style) style.remove();
+  style = document.createElement("style");
+  style.id = "print-style-boletas";
+  style.innerHTML = `
+    @page { size: A4 portrait; margin: 8mm; }
+    @media print {
+      body > *:not(#print-boleta-area) { display:none!important; }
+      #print-boleta-area { display:block!important; }
+      .boleta-individual { page-break-inside: avoid; break-inside: avoid; }
     }
   `;
   document.head.appendChild(style);
