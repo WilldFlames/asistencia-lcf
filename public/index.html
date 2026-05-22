@@ -649,24 +649,8 @@ tr:hover td{background:#f8fafc;}
     <div id="alert-eval" class="alert"></div>
   </div>
 
-  <div class="card">
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Tipo</th>
-            <th>Nombre</th>
-            <th>Fecha</th>
-            <th style="text-align:center;">Puntaje</th>
-            <th style="text-align:center;">Calificados</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="eval-tbody">
-          <tr><td colspan="6" class="empty">Cargando...</td></tr>
-        </tbody>
-      </table>
-    </div>
+  <div id="eval-cards-wrap">
+    <div class="empty" style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>
   </div>
 </div>
 
@@ -8800,36 +8784,101 @@ async function cargarEvaluaciones(){
 }
 
 function renderEvaluaciones(){
-  const tbody = document.getElementById("eval-tbody");
+  const wrap = document.getElementById("eval-cards-wrap");
+  if(!wrap) return;
   if(!evalData.length){
-    tbody.innerHTML = `<tr><td colspan="6" class="empty">Todavía no hay evaluaciones. Creá una con los botones de arriba.</td></tr>`;
+    wrap.innerHTML = `<div class="card" style="padding:30px;text-align:center;color:var(--muted);">
+      Todavía no hay evaluaciones. Creá una con los botones de arriba.
+    </div>`;
     return;
   }
-  const tipoIcon = {examen:'📝',tarea:'📄',cotidiano:'📋',proyecto:'📦'};
-  const tipoLbl  = {examen:'Examen',tarea:'Tarea',cotidiano:'Cotidiano',proyecto:'Proyecto'};
-  tbody.innerHTML = evalData.map(e=>{
-    const calif = `${e.cant_calificados||0} / ${e.cant_estudiantes||0}`;
-    const pendiente = Number(e.cant_calificados) < Number(e.cant_estudiantes);
-    // Para tareas y proyectos, mostrar fecha de asignación encima de la fecha de entrega
-    let celdaFecha;
+
+  // Estilos por tipo: borde lateral, color de fondo del badge, ícono
+  const tipoStyle = {
+    examen:    { color:'#dc2626', bg:'#fee2e2', icon:'📝', label:'Examen'    },
+    tarea:     { color:'#2563eb', bg:'#dbeafe', icon:'📄', label:'Tarea'     },
+    cotidiano: { color:'#16a34a', bg:'#dcfce7', icon:'📋', label:'Cotidiano' },
+    proyecto:  { color:'#9333ea', bg:'#f3e8ff', icon:'📦', label:'Proyecto'  },
+  };
+  const cerrado = !!(window.evalCierreActual && window.evalCierreActual.cerrado);
+
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;">` +
+    evalData.map(e=>{
+    const st = tipoStyle[e.tipo] || tipoStyle.cotidiano;
+    const cantCal = Number(e.cant_calificados||0);
+    const cantTot = Number(e.cant_estudiantes||0);
+    const pendientes = Math.max(0, cantTot - cantCal);
+    const pctCal = cantTot > 0 ? Math.round((cantCal/cantTot)*100) : 0;
+    const completo = cantTot > 0 && cantCal === cantTot;
+
+    // Fecha: si tarea/proyecto, mostrar dos fechas en una línea
+    let fechaHTML;
     if((e.tipo === 'tarea' || e.tipo === 'proyecto') && e.fecha_asignacion){
-      celdaFecha = `<span style="font-size:11px;color:var(--muted);">Asignada: ${fmtF(e.fecha_asignacion)}</span><br/><strong>Entrega: ${fmtF(e.fecha)}</strong>`;
+      fechaHTML = `<div style="display:flex;gap:8px;font-size:12px;flex-wrap:wrap;">
+        <span><span style="color:var(--muted);">Asignada:</span> <strong>${fmtF(e.fecha_asignacion)}</strong></span>
+        <span style="color:#cbd5e1;">→</span>
+        <span><span style="color:var(--muted);">Entrega:</span> <strong>${fmtF(e.fecha)}</strong></span>
+      </div>`;
     } else {
-      celdaFecha = fmtF(e.fecha);
+      fechaHTML = `<div style="font-size:12px;"><span style="color:var(--muted);">📅 Fecha:</span> <strong>${fmtF(e.fecha)}</strong></div>`;
     }
-    return `<tr>
-      <td><strong>${tipoIcon[e.tipo]||''}</strong> ${tipoLbl[e.tipo]||e.tipo}</td>
-      <td><strong>${e.nombre}</strong>${e.descripcion?`<br/><span style="font-size:11px;color:var(--muted);">${e.descripcion}</span>`:''}</td>
-      <td>${celdaFecha}</td>
-      <td style="text-align:center;">${e.puntaje_total ? Number(e.puntaje_total).toFixed(0)+' pts' : '—'}${e.cant_indicadores>0?`<br/><span style="font-size:11px;color:var(--muted);">${e.cant_indicadores} ind.</span>`:''}</td>
-      <td style="text-align:center;${pendiente?'color:var(--naranja);':'color:var(--verde);'}font-weight:bold;">${calif}</td>
-      <td style="white-space:nowrap;">
-        <button class="btn btn-primary btn-xs" onclick="abrirCalificar(${e.id})">✏️ ${(window.evalCierreActual&&window.evalCierreActual.cerrado)?'Ver':'Calificar'}</button>
-        <button class="btn btn-outline btn-xs" onclick="editarEvaluacion(${e.id})" ${(window.evalCierreActual&&window.evalCierreActual.cerrado)?'disabled title="Período cerrado"':''}>⚙️</button>
-        <button class="btn btn-danger btn-xs" onclick="eliminarEvaluacion(${e.id})" ${(window.evalCierreActual&&window.evalCierreActual.cerrado)?'disabled title="Período cerrado"':''}>🗑️</button>
-      </td>
-    </tr>`;
-  }).join("");
+
+    // Indicadores progreso: check para calificados, reloj para pendientes
+    const indicadorCalif = `
+      <div style="display:flex;gap:14px;align-items:center;margin-top:6px;">
+        <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:#16a34a;font-weight:bold;">
+          <span style="font-size:15px;">✅</span> ${cantCal}
+        </span>
+        <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:${pendientes>0?'#ea580c':'#94a3b8'};font-weight:bold;">
+          <span style="font-size:15px;">${pendientes>0?'⏳':'⏱️'}</span> ${pendientes}
+        </span>
+        <span style="font-size:11px;color:var(--muted);margin-left:auto;">
+          ${completo?'✓ Completo':`${pctCal}% calificado`}
+        </span>
+      </div>
+      <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;margin-top:4px;">
+        <div style="height:100%;width:${pctCal}%;background:${completo?'#16a34a':(pctCal>0?'#ea580c':'#cbd5e1')};transition:width 0.3s;"></div>
+      </div>`;
+
+    return `<div class="eval-card" style="background:#fff;border-radius:10px;border:1px solid var(--border);border-left:5px solid ${st.color};padding:12px 14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+
+      <!-- Encabezado: badge tipo + nombre -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;">
+          <span style="display:inline-flex;align-items:center;gap:4px;background:${st.bg};color:${st.color};font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px;width:fit-content;text-transform:uppercase;letter-spacing:0.5px;">
+            ${st.icon} ${st.label}
+          </span>
+          <strong style="font-size:15px;color:#0f172a;line-height:1.3;">${e.nombre}</strong>
+          ${e.descripcion?`<div style="font-size:11.5px;color:var(--muted);line-height:1.3;">${e.descripcion}</div>`:''}
+        </div>
+      </div>
+
+      <!-- Fecha(s) -->
+      ${fechaHTML}
+
+      <!-- Puntaje e indicadores -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;padding:6px 10px;background:#f8fafc;border-radius:6px;">
+        <span><span style="color:var(--muted);">⭐ Puntaje:</span> <strong>${e.puntaje_total ? Number(e.puntaje_total).toFixed(0)+' pts' : '—'}</strong></span>
+        ${e.cant_indicadores>0?`<span><span style="color:var(--muted);">🎯 Indicadores:</span> <strong>${e.cant_indicadores}</strong></span>`:''}
+      </div>
+
+      <!-- Progreso de calificados -->
+      ${indicadorCalif}
+
+      <!-- Botones -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;border-top:1px dashed var(--border);padding-top:8px;">
+        <button class="btn btn-primary btn-sm" onclick="abrirCalificar(${e.id})" style="flex:1;min-width:110px;">
+          ✏️ ${cerrado?'Ver notas':'Calificar'}
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="editarEvaluacion(${e.id})" ${cerrado?'disabled title="Período cerrado"':''}>
+          ⚙️ Editar
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarEvaluacion(${e.id})" ${cerrado?'disabled title="Período cerrado"':''}>
+          🗑️ Eliminar
+        </button>
+      </div>
+    </div>`;
+  }).join("") + `</div>`;
 }
 
 function nuevaEvaluacion(tipo){
