@@ -3772,21 +3772,71 @@ async function guardarEstudiante(){
   }catch(e){sa("alert-me",e.message,"danger");}
 }
 
+// Redimensiona y comprime una foto antes de subirla.
+// Objetivo: máximo 600px en el lado más largo, JPEG calidad 85%.
+// Esto baja una foto de celular de 5-10 MB a ~40-100 KB sin pérdida visible
+// para el tamaño en que se va a mostrar (carnet, tabla, expediente).
+function redimensionarFoto(file, maxLado = 600, calidad = 0.85){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Calcular nuevas dimensiones manteniendo proporción
+        let w = img.width;
+        let h = img.height;
+        if(w > maxLado || h > maxLado){
+          if(w > h){
+            h = Math.round(h * (maxLado / w));
+            w = maxLado;
+          } else {
+            w = Math.round(w * (maxLado / h));
+            h = maxLado;
+          }
+        }
+        // Dibujar en canvas y exportar como JPEG comprimido
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        // Fondo blanco para fotos con transparencia
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        // toDataURL devuelve base64 listo para subir
+        try {
+          const dataUrl = canvas.toDataURL('image/jpeg', calidad);
+          resolve(dataUrl);
+        } catch(err) {
+          reject(err);
+        }
+      };
+      img.onerror = () => reject(new Error('No se pudo cargar la imagen. Revisá que sea un archivo válido.'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function subirFoto(estId){
   const fileInput = document.getElementById("me-foto-file");
   const file = fileInput?.files[0];
   if(!file || !estId) return;
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        await api(`/api/estudiantes/${estId}/foto`, "PUT", { foto_url: e.target.result });
-        resolve();
-      } catch(err) { reject(err); }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  // Validar que sea imagen
+  if(!file.type.startsWith('image/')){
+    throw new Error('El archivo seleccionado no es una imagen.');
+  }
+  // Validar tamaño máximo antes de procesar (15 MB tope para no colgar el navegador)
+  if(file.size > 15 * 1024 * 1024){
+    throw new Error('La foto es muy grande (máximo 15 MB). Tomá una con menos resolución o recortala.');
+  }
+  try {
+    const dataUrl = await redimensionarFoto(file, 600, 0.85);
+    await api(`/api/estudiantes/${estId}/foto`, "PUT", { foto_url: dataUrl });
+  } catch(err) {
+    throw new Error('No se pudo procesar la foto: ' + (err.message || err));
+  }
 }
 
 function previsualizarFoto(){
@@ -8932,12 +8982,14 @@ async function guardarEvaluacion(){
     body.fecha_asignacion = fa;
   }
 
+  // Puntaje del examen: necesario tanto al crear como al editar
   if(tipo === 'examen'){
     const pt = Number(document.getElementById("ev-puntaje").value);
     if(!pt || pt <= 0){ sa("alert-ev","Indicá el puntaje total del examen.","danger"); return; }
     body.puntaje_total = pt;
-  } else {
-    // Leer indicadores
+  } else if(!id){
+    // Solo al CREAR (no editar): leer indicadores de los inputs.
+    // En modo edición los indicadores son de lectura, no se envían (el backend no los modifica).
     const rows = document.querySelectorAll("#ev-indicadores-list .ev-ind-row");
     const inds = [];
     for(const row of rows){
