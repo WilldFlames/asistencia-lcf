@@ -86,4 +86,16 @@ initDB().then(() => {
     console.log(`   http://localhost:${PORT}`);
     console.log(`   Admin: cédula 0000000000 / contraseña: Admin2024**\n`);
   });
+
+  // Tarea de mantenimiento: re-comprime fotos viejas grandes (una sola vez).
+  // Se lanza en segundo plano para no demorar el arranque.
+  // Si falla, no afecta al servidor.
+  setTimeout(() => {
+    try {
+      const { recomprimirFotos } = require("./scripts/recomprimirFotos");
+      recomprimirFotos().catch(err => console.error("[FOTOS] Error en recompresión:", err.message));
+    } catch (e) {
+      console.error("[FOTOS] No se pudo cargar el script:", e.message);
+    }
+  }, 5000); // espera 5s después del arranque
 }).catch(err => { console.error("Error DB:", err); process.exit(1); });

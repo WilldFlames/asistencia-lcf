@@ -527,6 +527,17 @@ async function initDB() {
       )
     `);
 
+    // Tabla genérica de flags / configuración del sistema (clave-valor).
+    // Usada por procesos de migración únicos (ej: re-compresión de fotos)
+    // para evitar correrlos dos veces.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sistema_flags (
+        codigo     TEXT PRIMARY KEY,
+        valor      TEXT,
+        creado_en  TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     // ── MÓDULO DE CALIFICACIONES ──────────────────────────────────────────
     // Catálogo OFICIAL de evaluación según el REAC 2026 (porcentajes fijos).
     // No es editable por el profesor — solo informativo. Los porcentajes los

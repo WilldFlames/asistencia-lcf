@@ -438,6 +438,7 @@ tr:hover td{background:#f8fafc;}
           <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Comité Comedor</button>
           <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Comité Matrícula</button>
           <button class="btn btn-orange btn-sm" onclick="abrirIntercambioPeriodo()">🔄 Intercambio Hogar↔Industriales (II Período)</button>
+          <button class="btn btn-outline btn-sm" onclick="diagnosticoFotos()" title="Ver cuánto espacio ocupan las fotos en la BD">📊 Diagnóstico Fotos</button>
         </div>
       </div>
       <button class="btn btn-primary" onclick="abrirModalAsignacion()">+ Nueva</button>
@@ -5477,6 +5478,50 @@ ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
   style.innerHTML=`@media print { body > *:not(#print-boleta-area){display:none!important;} #print-boleta-area{display:block!important;} }`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea, document.getElementById("print-style-lista"));
+}
+
+// ── DIAGNÓSTICO DE FOTOS (admin) ──────────────────────────
+async function diagnosticoFotos(){
+  try{
+    const d = await api("/api/admin/diagnostico/fotos");
+    if(!d) return;
+    const estadoRec = d.recompresion_estado
+      ? `<div style="background:#dcfce7;border-left:3px solid #16a34a;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px;">
+           ✅ <strong>Re-compresión ya ejecutada.</strong><br/>
+           <span style="color:#374151;">${d.recompresion_estado}</span>
+         </div>`
+      : `<div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px;">
+           ℹ️ Re-compresión todavía no se ha ejecutado. Se corre automáticamente al próximo arranque del servidor si hay fotos grandes.
+         </div>`;
+    const mensaje = `
+      <div style="font-family:Arial,sans-serif;font-size:13px;line-height:1.6;text-align:left;">
+        ${estadoRec}
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+          <tr style="background:#f1f5f9;"><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Estudiantes totales</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${d.total_estudiantes}</td></tr>
+          <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Estudiantes con foto</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${d.total_con_foto}</td></tr>
+          <tr style="background:#f1f5f9;"><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Espacio total de fotos</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;"><strong style="color:#2563eb;">${d.mb_totales} MB</strong></td></tr>
+          <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Foto más grande</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${d.max_kb} KB</td></tr>
+          <tr style="background:#f1f5f9;"><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Promedio por foto</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${d.promedio_kb} KB</td></tr>
+          <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:${d.grandes_a_recomprimir>0?'#dc2626':'#16a34a'};"><strong>Fotos grandes (>200 KB)</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;color:${d.grandes_a_recomprimir>0?'#dc2626':'#16a34a'};"><strong>${d.grandes_a_recomprimir}</strong> (${d.mb_grandes} MB)</td></tr>
+          ${d.bd_total_mb ? `<tr style="background:#dbeafe;"><td style="padding:8px 10px;"><strong>Tamaño total de la BD</strong></td><td style="padding:8px 10px;text-align:right;"><strong style="color:#1e40af;">${d.bd_total_mb} MB</strong></td></tr>` : ''}
+        </table>
+      </div>`;
+    // Mostrar como modal alert simple
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show';
+    overlay.style.zIndex = 99999;
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:520px;">
+        <h3>📊 Diagnóstico de Fotos</h3>
+        ${mensaje}
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }catch(e){
+    alert("Error al obtener diagnóstico: " + e.message);
+  }
 }
 
 async function abrirGestionComite(){

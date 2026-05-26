@@ -190,4 +190,53 @@ router.get("/profesores", async (req, res) => {
   res.json(r.rows);
 });
 
+// ── DIAGNÓSTICO DE ESPACIO: cuánto ocupan las fotos en PostgreSQL ──────
+// Solo admin. Reporta cuántos estudiantes tienen foto, el peso total,
+// y cuántas son "grandes" (>200 KB en base64) — candidatas a re-compresión.
+router.get("/diagnostico/fotos", onlyAdmin, async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE foto_url IS NOT NULL AND foto_url <> '') AS total_con_foto,
+        COUNT(*) AS total_estudiantes,
+        COALESCE(SUM(LENGTH(foto_url)) FILTER (WHERE foto_url IS NOT NULL), 0) AS bytes_totales,
+        COUNT(*) FILTER (WHERE LENGTH(foto_url) > 200000) AS grandes_a_recomprimir,
+        COALESCE(SUM(LENGTH(foto_url)) FILTER (WHERE LENGTH(foto_url) > 200000), 0) AS bytes_grandes,
+        COALESCE(AVG(LENGTH(foto_url)) FILTER (WHERE foto_url IS NOT NULL AND foto_url <> ''), 0)::bigint AS promedio_bytes,
+        COALESCE(MAX(LENGTH(foto_url)), 0) AS max_bytes
+      FROM estudiantes
+    `);
+    const row = r.rows[0];
+    let bd_total_bytes = null;
+    try {
+      const sz = await pool.query("SELECT pg_database_size(current_database()) AS s");
+      bd_total_bytes = sz.rows[0].s;
+    } catch {}
+
+    // Estado del proceso de re-compresión
+    let estadoRec = null;
+    try {
+      const f = await pool.query("SELECT valor FROM sistema_flags WHERE codigo='RECOMPRIMIR_FOTOS_DONE'");
+      if (f.rows.length) estadoRec = f.rows[0].valor;
+    } catch {}
+
+    res.json({
+      total_estudiantes:        Number(row.total_estudiantes),
+      total_con_foto:           Number(row.total_con_foto),
+      bytes_totales:            Number(row.bytes_totales),
+      mb_totales:               (Number(row.bytes_totales) / 1024 / 1024).toFixed(2),
+      grandes_a_recomprimir:    Number(row.grandes_a_recomprimir),
+      bytes_grandes:            Number(row.bytes_grandes),
+      mb_grandes:               (Number(row.bytes_grandes) / 1024 / 1024).toFixed(2),
+      promedio_kb:              (Number(row.promedio_bytes) / 1024).toFixed(1),
+      max_kb:                   (Number(row.max_bytes) / 1024).toFixed(1),
+      bd_total_mb:              bd_total_bytes ? (Number(bd_total_bytes) / 1024 / 1024).toFixed(2) : null,
+      recompresion_estado:      estadoRec,
+    });
+  } catch (e) {
+    console.error("diagnostico/fotos:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
