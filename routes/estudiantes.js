@@ -34,9 +34,38 @@ router.post("/", canManage, async (req, res) => {
   const { cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, seccion_id, subgrupo, becado } = req.body;
   if (!cedula||!nombre||!primer_apellido||!segundo_apellido)
     return res.status(400).json({ error: "Datos incompletos" });
+
+  // Helper: notifica a todos los profesores asignados a una sección (incluye guías).
+  // Si la sección no tiene profesores asignados aún, simplemente no hace nada.
+  async function notificarProfesoresDeSeccion(seccionId, mensaje, tipo) {
+    if (!seccionId) return;
+    const profs = await pool.query(`
+      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND profesor_id IS NOT NULL
+      UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
+    `, [seccionId]);
+    for (const p of profs.rows) {
+      try {
+        await pool.query(
+          "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,$2,$3)",
+          [p.uid, tipo, mensaje]
+        );
+      } catch (e) {
+        // No bloquear la operación principal si una notificación falla
+        console.error("Error notificando ingreso a profesor", p.uid, e.message);
+      }
+    }
+  }
+
+  // Helper: obtiene el nombre de una sección (o "Sin sección" si no hay)
+  async function nombreSeccion(seccionId) {
+    if (!seccionId) return "Sin sección";
+    const r = await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccionId]);
+    return r.rows[0]?.nombre || "Sin sección";
+  }
+
   try {
     // Verificar si ya existe (activo o inactivo)
-    const existe = await pool.query("SELECT id, activo FROM estudiantes WHERE cedula=$1", [cedula.trim()]);
+    const existe = await pool.query("SELECT id, activo, seccion_id FROM estudiantes WHERE cedula=$1", [cedula.trim()]);
 
     if(existe.rows.length > 0) {
       const est = existe.rows[0];
@@ -53,6 +82,13 @@ router.post("/", canManage, async (req, res) => {
       `, [nombre.trim(), primer_apellido.trim(), segundo_apellido.trim(),
           fecha_nacimiento||null, seccion_id||null, subgrupo||null,
           becado||false, est.id]);
+
+      // Notificar reactivación a la sección nueva
+      if (seccion_id) {
+        const secNombre = await nombreSeccion(seccion_id);
+        const msg = `🔄 Reingreso: ${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()} (${cedula.trim()}) fue reactivado(a) en la sección ${secNombre}.`;
+        await notificarProfesoresDeSeccion(seccion_id, msg, 'reingreso_estudiante');
+      }
       return res.json({ ok:true, id: est.id, reactivado: true });
     }
 
@@ -62,8 +98,18 @@ router.post("/", canManage, async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id
     `, [cedula.trim(), nombre.trim(), primer_apellido.trim(), segundo_apellido.trim(),
         fecha_nacimiento||null, seccion_id||null, subgrupo||null, becado||false]);
+
+    // Notificar nuevo ingreso a profesores y guía de la sección
+    if (seccion_id) {
+      const secNombre = await nombreSeccion(seccion_id);
+      const subTxt = subgrupo ? ` · Subgrupo ${subgrupo}` : "";
+      const msg = `🆕 Nuevo ingreso: ${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()} (${cedula.trim()}) fue matriculado(a) en la sección ${secNombre}${subTxt}.`;
+      await notificarProfesoresDeSeccion(seccion_id, msg, 'nuevo_estudiante');
+    }
+
     res.json({ ok:true, id: r.rows[0].id });
   } catch(e) {
+    console.error("POST estudiantes:", e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -464,6 +510,8 @@ router.post("/importar", canManage, async (req, res) => {
     const inactivos = new Map(inactivosR.rows.map(r => [r.cedula, r.id]));
 
     let insertados = 0, omitidos = 0, reactivados = 0;
+    // Contar ingresos por sección para notificación agrupada al final
+    const ingresosPorSeccion = new Map(); // seccion_id -> count
 
     for(const e of estudiantes){
       const { cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, seccion_id } = e;
@@ -478,18 +526,47 @@ router.post("/importar", canManage, async (req, res) => {
           fecha_nacimiento=$4,seccion_id=$5,activo=true WHERE id=$6
         `, [nombre, primer_apellido, segundo_apellido||'', fecha_nacimiento||null, seccion_id||null, inactivos.get(cedula)]);
         reactivados++;
+        if(seccion_id) ingresosPorSeccion.set(seccion_id, (ingresosPorSeccion.get(seccion_id)||0) + 1);
       } else {
         // Insertar nuevo
-        await client.query(`
+        const ins = await client.query(`
           INSERT INTO estudiantes (cedula,nombre,primer_apellido,segundo_apellido,fecha_nacimiento,seccion_id)
           VALUES ($1,$2,$3,$4,$5,$6)
           ON CONFLICT (cedula) DO NOTHING
+          RETURNING id
         `, [cedula, nombre, primer_apellido, segundo_apellido||'', fecha_nacimiento||null, seccion_id||null]);
-        insertados++;
+        if(ins.rows.length){
+          insertados++;
+          if(seccion_id) ingresosPorSeccion.set(seccion_id, (ingresosPorSeccion.get(seccion_id)||0) + 1);
+        } else {
+          omitidos++;
+        }
       }
     }
 
     await client.query("COMMIT");
+
+    // Notificación agrupada por sección (una sola notif por sección, no una por estudiante)
+    for(const [seccionId, cantidad] of ingresosPorSeccion.entries()){
+      try {
+        const sec = await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccionId]);
+        const secNombre = sec.rows[0]?.nombre || `ID ${seccionId}`;
+        const msg = `🆕 Ingresaron ${cantidad} estudiante${cantidad>1?'s':''} a la sección ${secNombre} (importación masiva).`;
+        const profs = await pool.query(`
+          SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND profesor_id IS NOT NULL
+          UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
+        `, [seccionId]);
+        for(const p of profs.rows){
+          await pool.query(
+            "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'nuevo_estudiante',$2)",
+            [p.uid, msg]
+          );
+        }
+      } catch(e) {
+        console.error("Notif importación sección", seccionId, e.message);
+      }
+    }
+
     res.json({ ok:true, insertados, reactivados, omitidos });
   } catch(e) {
     await client.query("ROLLBACK");
