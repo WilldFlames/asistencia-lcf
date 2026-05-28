@@ -467,6 +467,7 @@ tr:hover td{background:#f8fafc;}
       <h2 style="margin:0">🎒 Estudiantes</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" id="btn-imprimir-lista" onclick="imprimirListaEstudiantes()">🖨️ Imprimir Lista</button>
+        <button class="btn btn-success btn-sm" id="btn-exportar-excel" onclick="exportarEstudiantesExcel()">📊 Exportar Excel</button>
         <button class="btn btn-orange btn-sm" id="btn-importar-excel" onclick="abrirImportarExcel()" style="display:none">📥 Importar Excel</button>
         <button class="btn btn-primary" id="btn-nuevo-est" onclick="abrirModalEstudiante()">+ Nuevo</button>
       </div>
@@ -5406,6 +5407,102 @@ ${encabezadoMEP("INFORME DE RENDIMIENTO ACADÉMICO — "+periodo)}
 
 // ════════════════════════════════════
 //  IMPRIMIR LISTA DE ESTUDIANTES
+// ════════════════════════════════════
+// EXPORTAR LISTA A EXCEL
+// Respeta filtros activos (sección + búsqueda)
+// ════════════════════════════════════
+async function exportarEstudiantesExcel(){
+  if(typeof XLSX === 'undefined'){
+    alert("La librería de Excel no se cargó. Recargá la página e intentá de nuevo.");
+    return;
+  }
+  const btn = document.getElementById("btn-exportar-excel");
+  const txtOrig = btn ? btn.innerHTML : null;
+  if(btn){ btn.disabled = true; btn.innerHTML = "⏳ Exportando..."; }
+  try{
+    const rows = await api("/api/estudiantes");
+    if(!rows || !rows.length){ alert("No hay estudiantes para exportar."); return; }
+
+    // Aplicar filtros actuales (mismos que la tabla)
+    const filtroSec = document.getElementById("filtro-seccion-est")?.value;
+    const buscar = (document.getElementById("buscar-est")?.value || "").toLowerCase();
+    let lista = rows;
+    if(filtroSec) lista = lista.filter(e => e.seccion_id == filtroSec);
+    if(buscar) lista = lista.filter(e =>
+      `${e.primer_apellido||''} ${e.segundo_apellido||''} ${e.nombre||''} ${e.cedula||''}`.toLowerCase().includes(buscar)
+    );
+
+    if(!lista.length){ alert("Con los filtros actuales no hay estudiantes para exportar."); return; }
+
+    // Ordenar por sección y luego por apellido
+    lista.sort((a,b)=>{
+      const s = (a.seccion_nombre||"~~").localeCompare(b.seccion_nombre||"~~");
+      if(s!==0) return s;
+      return (a.primer_apellido||"").localeCompare(b.primer_apellido||"") ||
+             (a.segundo_apellido||"").localeCompare(b.segundo_apellido||"") ||
+             (a.nombre||"").localeCompare(b.nombre||"");
+    });
+
+    // Helper: formato dd/mm/yyyy
+    const fmtFecha = (f) => {
+      if(!f) return "";
+      const d = new Date(f);
+      if(isNaN(d.getTime())) return "";
+      return String(d.getUTCDate()).padStart(2,'0') + "/" +
+             String(d.getUTCMonth()+1).padStart(2,'0') + "/" +
+             d.getUTCFullYear();
+    };
+
+    // Armar filas del Excel (encabezado + datos)
+    const aoa = [
+      ["Sección", "Identificación", "Nombre", "Primer Apellido", "Segundo Apellido", "Fecha de Nacimiento"],
+      ...lista.map(e => [
+        e.seccion_nombre || "",
+        e.cedula || "",
+        e.nombre || "",
+        e.primer_apellido || "",
+        e.segundo_apellido || "",
+        fmtFecha(e.fecha_nacimiento)
+      ])
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Anchos de columna (en caracteres)
+    ws['!cols'] = [
+      { wch: 10 },  // Sección
+      { wch: 14 },  // Identificación
+      { wch: 22 },  // Nombre
+      { wch: 18 },  // Primer Apellido
+      { wch: 18 },  // Segundo Apellido
+      { wch: 14 },  // Fecha de Nacimiento
+    ];
+
+    // Estilo de encabezado: negrita (XLSX simple no soporta estilos sin xlsx-style, pero al menos congelamos la fila)
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Estudiantes");
+
+    // Nombre del archivo: incluye sección si está filtrada
+    const fechaHoy = (new Date()).toISOString().slice(0,10);
+    let nombreArchivo = `Estudiantes_${fechaHoy}`;
+    if(filtroSec){
+      const sel = document.getElementById("filtro-seccion-est");
+      const seccionTxt = sel?.options[sel.selectedIndex]?.text || "";
+      if(seccionTxt && seccionTxt !== "Todas las secciones"){
+        nombreArchivo = `Estudiantes_${seccionTxt.replace(/\s+/g,'_').replace(/[^\w\-]/g,'')}_${fechaHoy}`;
+      }
+    }
+    XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
+  }catch(e){
+    console.error("Error al exportar:", e);
+    alert("Error al exportar: " + (e.message || e));
+  }finally{
+    if(btn && txtOrig){ btn.disabled = false; btn.innerHTML = txtOrig; }
+  }
+}
+
 // ════════════════════════════════════
 async function imprimirListaEstudiantes(){
   const rows = await api("/api/estudiantes");
