@@ -2971,6 +2971,11 @@ function obtenerHorarioHoy(horarios, nombreUsuario){
 }
 
 async function cargarDashboard(){
+  // Evitar carreras: si ya hay una carga en curso, esperar la actual y no
+  // disparar otra paralela. Esto previene el parpadeo del bloque
+  // "Estudiantes por Nivel" cuando el dashboard se llama varias veces seguido.
+  if (cargarDashboard._enCurso) return cargarDashboard._enCurso;
+  cargarDashboard._enCurso = (async ()=>{
   const dias=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
   // Fecha/hora en Costa Rica - extraer año/mes/día directamente sin toISOString
   const _cr = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
@@ -3348,6 +3353,8 @@ async function cargarDashboard(){
     div.innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px;">Error cargando dashboard: ${e.message}</div>`;
     console.error('Dashboard error:', e);
   }
+  })();
+  try { await cargarDashboard._enCurso; } finally { cargarDashboard._enCurso = null; }
 }
 
 // ════════════════════════════════════
@@ -3713,8 +3720,17 @@ async function editarEstudiante(id){
   limpiarFotoInput();
   const fotoPrev = document.getElementById("me-foto-preview");
   if(fotoPrev){
-    if(e.foto_url){ fotoPrev.src=e.foto_url; fotoPrev.style.display=""; }
-    else { fotoPrev.src=""; fotoPrev.style.display="none"; }
+    if(e.tiene_foto){
+      // Cargar foto bajo demanda (no viene en el listado para no saturar)
+      fotoPrev.style.display = "";
+      fotoPrev.src = ""; // placeholder mientras carga
+      api(`/api/estudiantes/${e.id}/foto`).then(r => {
+        if(r && r.foto_url){ fotoPrev.src = r.foto_url; }
+        else { fotoPrev.style.display = "none"; }
+      }).catch(() => { fotoPrev.style.display = "none"; });
+    } else {
+      fotoPrev.src=""; fotoPrev.style.display="none";
+    }
   }
   document.getElementById("modal-estudiante").classList.add("show");
 }
@@ -8397,6 +8413,25 @@ async function cargarEstCarnet(){
     document.getElementById("carnet-titulo-sec").textContent =
       `Estudiantes de la sección`;
     renderEstCarnet();
+    // Cargar fotos batch en segundo plano (no bloquea el render)
+    const idsConFoto = rows.filter(r => r.tiene_foto).map(r => r.id);
+    if(idsConFoto.length){
+      // En lotes de 50 para evitar URLs gigantes
+      const lotes = [];
+      for(let i=0; i<idsConFoto.length; i+=50) lotes.push(idsConFoto.slice(i,i+50));
+      for(const lote of lotes){
+        try {
+          const fotos = await api(`/api/estudiantes/fotos?ids=${lote.join(",")}`);
+          if(fotos){
+            for(const id of Object.keys(fotos)){
+              const est = carnetEstData.find(e => String(e.id) === String(id));
+              if(est) est.foto_url = fotos[id];
+            }
+          }
+        } catch {}
+      }
+      renderEstCarnet(); // re-render con fotos cargadas
+    }
   }catch(e){
     sa("alert-carnet","Error cargando estudiantes: "+e.message,"danger");
   }
@@ -8416,10 +8451,17 @@ function renderEstCarnet(){
   } else {
     tbody.innerHTML = lista.map(e=>{
       const checked = carnetSeleccionados.has(e.id) ? "checked" : "";
-      const fotoHtml = e.foto_url
-        ? `<img src="${e.foto_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border);" alt=""/>`
-        : `<div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;">👤</div>`;
-      const warnFoto = e.foto_url ? "" :
+      // Mostrar foto si ya está cargada; si no, mostrar placeholder según tiene_foto
+      let fotoHtml;
+      if(e.foto_url){
+        fotoHtml = `<img src="${e.foto_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border);" alt=""/>`;
+      } else if(e.tiene_foto){
+        // Indica que sí tiene foto pero todavía no llegó del batch
+        fotoHtml = `<div style="width:36px;height:36px;border-radius:50%;background:#dbeafe;display:inline-flex;align-items:center;justify-content:center;color:var(--azul);font-size:14px;" title="Cargando foto...">⏳</div>`;
+      } else {
+        fotoHtml = `<div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;">👤</div>`;
+      }
+      const warnFoto = e.tiene_foto ? "" :
         `<span style="color:var(--naranja);font-size:11px;margin-left:6px;" title="Sin foto: el carnet saldrá con un avatar genérico">⚠️ sin foto</span>`;
       return `<tr>
         <td><input type="checkbox" onchange="carnetToggle(${e.id}, this.checked)" ${checked}/></td>
@@ -8656,16 +8698,36 @@ function construirCarnetHTML(est){
   return wrap;
 }
 
-function previewCarnetUno(id){
+async function previewCarnetUno(id){
   // Forzar selección de uno solo para previsualización rápida
   const est = carnetEstData.find(e=>e.id===id);
   if(!est) return;
+  // Si todavía no tenemos la foto pero el estudiante sí la tiene, cargarla puntualmente
+  if(!est.foto_url && est.tiene_foto){
+    try {
+      const r = await api(`/api/estudiantes/${id}/foto`);
+      if(r && r.foto_url) est.foto_url = r.foto_url;
+    } catch {}
+  }
   renderPreview([est]);
 }
 
-function previsualizarCarnets(){
+async function previsualizarCarnets(){
   if(!carnetSeleccionados.size){ sa("alert-carnet","Seleccioná al menos un estudiante.","warning"); return; }
   const ests = carnetEstData.filter(e=>carnetSeleccionados.has(e.id));
+  // Asegurar que todas las fotos seleccionadas estén cargadas
+  const faltantes = ests.filter(e => !e.foto_url && e.tiene_foto).map(e => e.id);
+  if(faltantes.length){
+    try {
+      const fotos = await api(`/api/estudiantes/fotos?ids=${faltantes.join(",")}`);
+      if(fotos){
+        for(const id of Object.keys(fotos)){
+          const est = carnetEstData.find(e => String(e.id) === String(id));
+          if(est) est.foto_url = fotos[id];
+        }
+      }
+    } catch {}
+  }
   renderPreview(ests);
 }
 

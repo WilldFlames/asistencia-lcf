@@ -5,15 +5,58 @@ const { requireAuth, requireRol } = require("../middleware/auth");
 const canManage = requireRol("admin","auxiliar");
 
 // ── LISTAR ────────────────────────────────────────────────────
+// IMPORTANTE: NO traer foto_url. La foto se guarda como base64 en una
+// columna TEXT y puede pesar cientos de KB. Multiplicado por 800 estudiantes
+// es ~100+ MB de payload innecesario en cada llamada. La foto se consulta
+// puntualmente cuando se abre un expediente o el carnet.
 router.get("/", requireAuth, async (req, res) => {
   const { seccion_id, q } = req.query;
-  let sql = `SELECT e.*, s.nombre AS seccion_nombre FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
+  let sql = `SELECT
+      e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      e.fecha_nacimiento, e.seccion_id, e.subgrupo, e.becado, e.activo, e.archivado,
+      e.justificacion_cambio_seccion, e.justificacion_baja,
+      (e.foto_url IS NOT NULL AND e.foto_url <> '') AS tiene_foto,
+      s.nombre AS seccion_nombre
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
   const params = [];
   if (seccion_id) { params.push(seccion_id); sql += ` AND e.seccion_id=$${params.length}`; }
   if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }
   sql += " ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre";
   const r = await pool.query(sql, params);
   res.json(r.rows);
+});
+
+// ── FOTOS BATCH (varias fotos por IDs) ─────────────────────
+// Devuelve un mapa id->foto_url para los IDs pasados como query string.
+// Ej: GET /api/estudiantes/fotos?ids=1,5,12,33
+// Útil para pantallas que muestran miniatura de varios estudiantes a la vez
+// (ej. carnet), pero sin pagar el costo de traer todas las fotos del listado.
+router.get("/fotos", requireAuth, async (req, res) => {
+  const idsStr = String(req.query.ids || "");
+  if (!idsStr) return res.json({});
+  const ids = idsStr.split(",")
+    .map(s => parseInt(s, 10))
+    .filter(n => Number.isInteger(n) && n > 0)
+    .slice(0, 100); // cap razonable para evitar payloads gigantes
+  if (!ids.length) return res.json({});
+  const r = await pool.query(
+    "SELECT id, foto_url FROM estudiantes WHERE id = ANY($1::int[])",
+    [ids]
+  );
+  const out = {};
+  for (const row of r.rows) out[row.id] = row.foto_url || null;
+  res.json(out);
+});
+
+// ── FOTO INDIVIDUAL ─────────────────────────────────────────
+// Devuelve solo la foto_url base64 de un estudiante. Se llama bajo demanda
+// cuando se necesita mostrar (expediente, carnet, etc.).
+router.get("/:id/foto", requireAuth, async (req, res) => {
+  const r = await pool.query("SELECT foto_url FROM estudiantes WHERE id=$1", [req.params.id]);
+  if (!r.rows.length) return res.status(404).json({ error: "No encontrado" });
+  res.json({ foto_url: r.rows[0].foto_url || null });
 });
 
 // ── CONSULTA POR CÉDULA (todos los docentes) ─────────────────
