@@ -39,12 +39,14 @@ async function recomprimirFotos() {
   }
 
   // 2. Cargar sharp en runtime (require diferido para no romper si no está instalado)
+  // En Railway sharp falla al compilar, así que se decidió correr la
+  // re-compresión desde un script en la PC del admin (ver recomprimir-fotos.zip).
+  // Acá silenciamos el mensaje: si no hay sharp, simplemente no hacemos nada.
   let sharp;
   try {
     sharp = require("sharp");
   } catch (e) {
-    console.error("[FOTOS] ⚠ No se pudo cargar 'sharp':", e.message);
-    console.error("[FOTOS] Verificá que esté en package.json y que Railway corra `npm install`.");
+    console.log("[FOTOS] (sharp no instalado en producción — re-compresión se hace desde script externo)");
     return;
   }
 

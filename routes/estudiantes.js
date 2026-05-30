@@ -4,6 +4,22 @@ const { requireAuth, requireRol } = require("../middleware/auth");
 
 const canManage = requireRol("admin","auxiliar");
 
+// Caché de columnas de la tabla estudiantes (excluyendo foto_url).
+// Se llena en la primera consulta para no depender de saber qué columnas
+// existen en cada instalación (algunas instalaciones tienen
+// justificacion_baja, otras no, etc.)
+let _columnasEstudiantes = null;
+async function getColumnasEstudiantesSinFoto() {
+  if (_columnasEstudiantes) return _columnasEstudiantes;
+  const r = await pool.query(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'estudiantes' AND column_name <> 'foto_url'
+    ORDER BY ordinal_position
+  `);
+  _columnasEstudiantes = r.rows.map(x => `e.${x.column_name}`).join(", ");
+  return _columnasEstudiantes;
+}
+
 // ── LISTAR ────────────────────────────────────────────────────
 // IMPORTANTE: NO traer foto_url. La foto se guarda como base64 en una
 // columna TEXT y puede pesar cientos de KB. Multiplicado por 800 estudiantes
@@ -11,21 +27,25 @@ const canManage = requireRol("admin","auxiliar");
 // puntualmente cuando se abre un expediente o el carnet.
 router.get("/", requireAuth, async (req, res) => {
   const { seccion_id, q } = req.query;
-  let sql = `SELECT
-      e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
-      e.fecha_nacimiento, e.seccion_id, e.subgrupo, e.becado, e.activo, e.archivado,
-      e.justificacion_cambio_seccion, e.justificacion_baja,
-      (e.foto_url IS NOT NULL AND e.foto_url <> '') AS tiene_foto,
-      s.nombre AS seccion_nombre
-    FROM estudiantes e
-    LEFT JOIN secciones s ON s.id=e.seccion_id
-    WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
-  const params = [];
-  if (seccion_id) { params.push(seccion_id); sql += ` AND e.seccion_id=$${params.length}`; }
-  if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }
-  sql += " ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre";
-  const r = await pool.query(sql, params);
-  res.json(r.rows);
+  try {
+    const cols = await getColumnasEstudiantesSinFoto();
+    // OCTET_LENGTH(foto_url) > 0 es rapidísimo: PostgreSQL no necesita
+    // cargar el contenido completo del TEXT para saber su longitud.
+    let sql = `SELECT ${cols}, s.nombre AS seccion_nombre,
+        COALESCE(OCTET_LENGTH(e.foto_url) > 0, false) AS tiene_foto
+      FROM estudiantes e
+      LEFT JOIN secciones s ON s.id=e.seccion_id
+      WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
+    const params = [];
+    if (seccion_id) { params.push(seccion_id); sql += ` AND e.seccion_id=$${params.length}`; }
+    if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }
+    sql += " ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre";
+    const r = await pool.query(sql, params);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET /estudiantes:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── FOTOS BATCH (varias fotos por IDs) ─────────────────────

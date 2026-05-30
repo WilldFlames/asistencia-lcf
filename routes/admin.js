@@ -239,4 +239,49 @@ router.get("/diagnostico/fotos", onlyAdmin, async (req, res) => {
   }
 });
 
+// ── BORRAR TODAS LAS FOTOS ─────────────────────────────────────────────
+// Solo admin. Pone foto_url=NULL en todos los estudiantes (activos o no).
+// Devuelve cuántas fotos había antes para mostrar al usuario.
+// NO se hace respaldo: la idea es liberar espacio de la BD.
+router.post("/borrar-fotos", onlyAdmin, async (req, res) => {
+  try {
+    // Conteo y peso antes
+    const antes = await pool.query(`
+      SELECT COUNT(*) FILTER (WHERE foto_url IS NOT NULL AND foto_url <> '') AS cantidad,
+             COALESCE(SUM(LENGTH(foto_url)) FILTER (WHERE foto_url IS NOT NULL), 0) AS bytes
+      FROM estudiantes
+    `);
+    const cantidad = Number(antes.rows[0].cantidad);
+    const bytes = Number(antes.rows[0].bytes);
+
+    if (cantidad === 0) {
+      return res.json({ ok: true, cantidad: 0, mb_liberados: "0.00", mensaje: "No había fotos para borrar." });
+    }
+
+    // Borrar
+    await pool.query("UPDATE estudiantes SET foto_url=NULL WHERE foto_url IS NOT NULL");
+
+    // VACUUM para liberar realmente el espacio físico en disco.
+    // No se puede correr dentro de una transacción, lo hacemos suelto.
+    try {
+      await pool.query("VACUUM estudiantes");
+    } catch (e) {
+      // Si VACUUM falla (permisos), no es crítico — el espacio se libera con el tiempo.
+      console.warn("VACUUM estudiantes:", e.message);
+    }
+
+    const u = req.session.usuario;
+    console.log(`[FOTOS] Admin ${u.id} (${u.cedula}) borró ${cantidad} fotos (${(bytes/1024/1024).toFixed(2)} MB)`);
+
+    res.json({
+      ok: true,
+      cantidad,
+      mb_liberados: (bytes / 1024 / 1024).toFixed(2)
+    });
+  } catch (e) {
+    console.error("borrar-fotos:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
