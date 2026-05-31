@@ -5623,8 +5623,9 @@ async function diagnosticoFotos(){
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay show';
     overlay.style.zIndex = 99999;
-    // Solo admin ve el botón de borrar todas
-    const botonBorrar = (ME.rol === 'admin' && d.total_con_foto > 0)
+    // Solo admin/administrativo ve el botón de borrar todas
+    const esAdminParaBorrar = (ME.rol === 'admin' || ME.rol === 'administrativo');
+    const botonBorrar = (esAdminParaBorrar && d.total_con_foto > 0)
       ? `<button class="btn btn-danger" onclick="borrarTodasLasFotos(this)">🗑️ Borrar todas las fotos (${d.total_con_foto})</button>`
       : '';
     overlay.innerHTML = `
