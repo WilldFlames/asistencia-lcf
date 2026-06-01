@@ -158,20 +158,34 @@ router.delete("/comite/lista/:id", requireAuth, async (req, res) => {
 
 // ── ELIMINAR PREMATRÍCULA (libera consecutivo) ───────────────────────
 router.delete("/:id", canAccess, async (req, res) => {
-  const { justificacion } = req.body || {};
+  const { justificacion, forzar } = req.body || {};
   if(!justificacion?.trim())
     return res.status(400).json({ error:"La justificación es obligatoria." });
 
   const r = await pool.query("SELECT * FROM prematricula WHERE id=$1", [req.params.id]);
   if(!r.rows.length) return res.status(404).json({ error:"No encontrada." });
-  if(r.rows[0].estado === "matriculado")
-    return res.status(409).json({ error:"No se puede eliminar una prematrícula que ya fue matriculada. Eliminá primero la matrícula." });
+  const premat = r.rows[0];
 
-  // Eliminar encargado y prematrícula — el consecutivo queda libre automáticamente
+  // Si ya fue matriculada, requerir flag explícito "forzar" para confirmar.
+  // Esto evita eliminaciones accidentales pero permite limpiar al final del proceso.
+  if(premat.estado === "matriculado" && !forzar) {
+    return res.status(409).json({
+      error: "Esta prematrícula ya fue matriculada. Para eliminarla y liberar el consecutivo, marcá la opción 'Forzar eliminación' (el estudiante matriculado NO se borra, solo se desliga de esta prematrícula).",
+      requiere_forzar: true
+    });
+  }
+
+  // Eliminar encargado y prematrícula — el consecutivo queda libre automáticamente.
+  // El estudiante matriculado en la tabla `estudiantes` NO se toca; solo se libera
+  // el registro de prematrícula.
   await pool.query("DELETE FROM prematricula_encargado WHERE prematricula_id=$1", [req.params.id]);
   await pool.query("DELETE FROM prematricula WHERE id=$1", [req.params.id]);
 
-  res.json({ ok:true, consecutivo_liberado: r.rows[0].consecutivo_prematricula });
+  res.json({
+    ok: true,
+    consecutivo_liberado: premat.consecutivo_prematricula,
+    era_matriculado: premat.estado === "matriculado"
+  });
 });
 
 module.exports = router;

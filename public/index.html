@@ -8185,7 +8185,7 @@ function renderPremat(){
     <td style="display:flex;gap:4px;">
       <button class="btn btn-outline btn-xs" onclick="verPremat(${p.id})" title="Ver detalles">👁️</button>
       <button class="btn btn-outline btn-xs" onclick="reimprimir(${p.id})" title="Reimprimir constancia">🖨️</button>
-      ${p.estado!=='matriculado'?`<button class="btn btn-danger btn-xs" onclick="abrirEliminarPremat(${p.id})" title="Eliminar (libera consecutivo)">🗑️</button>`:''}
+      <button class="btn btn-danger btn-xs" onclick="abrirEliminarPremat(${p.id})" title="${p.estado==='matriculado'?'Eliminar y liberar consecutivo (el estudiante matriculado NO se borra)':'Eliminar (libera consecutivo)'}">🗑️</button>
     </td>
   </tr>`).join("") : `<tr><td colspan="7" class="empty">No hay prematrículas.</td></tr>`;
 }
@@ -8372,20 +8372,47 @@ function abrirEliminarPremat(id){
   document.getElementById("del-premat-consec").textContent = consec;
   document.getElementById("del-premat-justificacion").value = "";
   document.getElementById("alert-del-premat").className = "alert";
+  // Si está matriculada, mostrar advertencia extra
+  const yaMatric = p.estado === 'matriculado';
+  const wrapAviso = document.getElementById("del-premat-aviso-matric");
+  if(wrapAviso){
+    wrapAviso.style.display = yaMatric ? "" : "none";
+  } else if(yaMatric) {
+    // Crear el aviso si no existe (compatibilidad con HTML viejo)
+    const modal = document.querySelector("#modal-eliminar-premat .modal");
+    if(modal){
+      const div = document.createElement("div");
+      div.id = "del-premat-aviso-matric";
+      div.style.cssText = "background:#fef2f2;border-left:3px solid #dc2626;padding:8px 12px;border-radius:6px;font-size:12px;color:#7f1d1d;margin-bottom:10px;";
+      div.innerHTML = "⚠️ <strong>Esta prematrícula ya fue matriculada.</strong> Al eliminarla, el estudiante matriculado en la lista de estudiantes <strong>NO se borra</strong>; solo se libera el consecutivo y el registro de prematrícula. Útil para corregir errores o si el estudiante se retiró.";
+      modal.insertBefore(div, modal.querySelector(".modal-actions"));
+    }
+  }
+  // Marcar el modo "forzar" si está matriculada
+  document.getElementById("del-premat-id").dataset.matriculado = yaMatric ? "1" : "0";
   document.getElementById("modal-eliminar-premat").classList.add("show");
 }
 
 async function confirmarEliminarPremat(){
-  const id = document.getElementById("del-premat-id").value;
+  const idEl = document.getElementById("del-premat-id");
+  const id = idEl.value;
+  const yaMatric = idEl.dataset.matriculado === "1";
   const just = document.getElementById("del-premat-justificacion").value.trim();
   if(!just){ sa("alert-del-premat","La justificación es obligatoria.","danger"); return; }
+  // Confirmación extra si está matriculada
+  if(yaMatric){
+    if(!confirm("⚠️ Esta prematrícula ya fue matriculada.\n\nAl eliminarla:\n  · Se libera el consecutivo\n  · El estudiante matriculado NO se borra\n\n¿Continuar?")) return;
+  }
   try{
-    const r = await api(`/api/prematricula/${id}`,"DELETE",{justificacion:just});
+    const body = { justificacion: just };
+    if(yaMatric) body.forzar = true;
+    const r = await api(`/api/prematricula/${id}`,"DELETE",body);
     const consec = r.consecutivo_liberado
       ? ` Consecutivo N°${String(r.consecutivo_liberado).padStart(3,'0')} liberado.`
       : "";
+    const extra = r.era_matriculado ? " El estudiante matriculado quedó intacto en la lista." : "";
     cerrarModal("modal-eliminar-premat");
-    sa("alert-premat",`✅ Prematrícula eliminada.${consec}`,"success");
+    sa("alert-premat",`✅ Prematrícula eliminada.${consec}${extra}`,"success");
     iniciarPrematricula();
   }catch(e){
     sa("alert-del-premat", e.message, "danger");
