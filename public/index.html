@@ -773,6 +773,14 @@ tr:hover td{background:#f8fafc;}
         <label>Puntaje total (puntos del examen)</label>
         <input type="number" id="ev-puntaje" min="1" step="0.5" placeholder="Ej: 100"/>
       </div>
+      <div class="fg" id="ev-valor-porc-wrap" style="display:none;">
+        <label>Valor porcentual de este examen <span style="color:var(--rojo);">*</span></label>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="number" id="ev-valor-porc" min="0.1" max="100" step="0.1" placeholder="Ej: 20" style="flex:1;"/>
+          <span style="font-size:14px;color:var(--muted);">%</span>
+        </div>
+        <small id="ev-valor-porc-info" style="display:block;color:var(--muted);font-size:11px;margin-top:4px;">Cuánto vale este examen del total de la materia.</small>
+      </div>
     </div>
     <div class="fg">
       <label>Descripción (opcional)</label>
@@ -9261,10 +9269,15 @@ function nuevaEvaluacion(tipo){
 
   if(tipo === 'examen'){
     document.getElementById("ev-puntaje-wrap").style.display = "";
+    document.getElementById("ev-valor-porc-wrap").style.display = "";
+    document.getElementById("ev-valor-porc").value = "";
+    // Mostrar pista del % disponible para esta materia
+    actualizarPistaValorPorc();
     document.getElementById("ev-indicadores-wrap").style.display = "none";
     document.getElementById("ev-indicadores-list").innerHTML = "";
   } else {
     document.getElementById("ev-puntaje-wrap").style.display = "none";
+    document.getElementById("ev-valor-porc-wrap").style.display = "none";
     document.getElementById("ev-indicadores-wrap").style.display = "";
     document.getElementById("ev-ind-titulo").textContent = tipo==='proyecto' ? "Etapas del proyecto" : "Indicadores";
     document.getElementById("ev-indicadores-list").innerHTML = "";
@@ -9303,9 +9316,14 @@ async function editarEvaluacion(evalId){
     if(ev.tipo === 'examen'){
       document.getElementById("ev-puntaje").value = ev.puntaje_total || "";
       document.getElementById("ev-puntaje-wrap").style.display = "";
+      document.getElementById("ev-valor-porc").value = ev.valor_porcentual || "";
+      document.getElementById("ev-valor-porc-wrap").style.display = "";
+      // Actualizar pista (excluyendo este examen del cálculo)
+      actualizarPistaValorPorc(ev.id);
       document.getElementById("ev-indicadores-wrap").style.display = "none";
     } else {
       document.getElementById("ev-puntaje-wrap").style.display = "none";
+      document.getElementById("ev-valor-porc-wrap").style.display = "none";
       document.getElementById("ev-indicadores-wrap").style.display = "";
       document.getElementById("ev-ind-titulo").textContent = ev.tipo==='proyecto' ? "Etapas del proyecto" : "Indicadores";
       document.getElementById("ev-indicadores-list").innerHTML = "";
@@ -9362,6 +9380,37 @@ function renumerarIndicadores(){
   });
 }
 
+// Actualiza el texto debajo del campo "valor porcentual" para indicar
+// cuánto % de pruebas queda disponible en la materia. Si excluirEvalId
+// está presente, no cuenta ese examen (para edición).
+async function actualizarPistaValorPorc(excluirEvalId){
+  const info = document.getElementById("ev-valor-porc-info");
+  if(!info || !evalAsigActual) return;
+  const pesoPruebas = Number(evalAsigActual.porc_pruebas || 0);
+  if(!pesoPruebas){
+    info.innerHTML = "Cuánto vale este examen del total de la materia.";
+    return;
+  }
+  try{
+    const periodo = document.getElementById("calif-periodo").value;
+    // Pedir las evaluaciones existentes para calcular suma
+    const evs = await api(`/api/calificaciones/evaluaciones?seccion_id=${evalAsigActual.seccion_id}&materia_id=${evalAsigActual.materia_id}&subgrupo=${encodeURIComponent(evalAsigActual.subgrupo||'')}&periodo=${periodo}`);
+    let sumaOtros = 0;
+    if(Array.isArray(evs)){
+      for(const e of evs){
+        if(e.tipo === 'examen' && Number(e.id) !== Number(excluirEvalId)){
+          sumaOtros += Number(e.valor_porcentual || 0);
+        }
+      }
+    }
+    const disp = (pesoPruebas - sumaOtros).toFixed(2);
+    const color = (Number(disp) > 0) ? '#16a34a' : '#dc2626';
+    info.innerHTML = `Pruebas valen <strong>${pesoPruebas}%</strong> · Otros exámenes suman <strong>${sumaOtros.toFixed(2)}%</strong> · <span style="color:${color};font-weight:bold;">Disponible: ${disp}%</span>`;
+  }catch{
+    info.innerHTML = "Cuánto vale este examen del total de la materia.";
+  }
+}
+
 async function guardarEvaluacion(){
   const id = document.getElementById("ev-id").value;
   const tipo = document.getElementById("ev-tipo").value;
@@ -9385,6 +9434,13 @@ async function guardarEvaluacion(){
     const pt = Number(document.getElementById("ev-puntaje").value);
     if(!pt || pt <= 0){ sa("alert-ev","Indicá el puntaje total del examen.","danger"); return; }
     body.puntaje_total = pt;
+    // Valor porcentual: cuánto vale este examen del total de la materia
+    const vp = Number(document.getElementById("ev-valor-porc").value);
+    if(!vp || vp <= 0 || vp > 100){
+      sa("alert-ev","Indicá el valor porcentual de este examen (entre 0 y 100).","danger");
+      return;
+    }
+    body.valor_porcentual = vp;
   } else if(!id){
     // Solo al CREAR (no editar): leer indicadores de los inputs.
     // En modo edición los indicadores son de lectura, no se envían (el backend no los modifica).
@@ -9499,15 +9555,23 @@ function renderGrillaNotas(notasArr){
     const ptotal = Number(evalActual.puntaje_total);
     const readonly = (window.evalCierreActual && window.evalCierreActual.cerrado) ? 'readonly' : '';
     const styleRO = readonly ? 'background:#f1f5f9;cursor:not-allowed;' : '';
+    // Valor porcentual FIJO de este examen específico (lo define el profesor al crearlo).
+    // Ej: si vale 20%, una nota 100/100 aporta 20% al período.
+    const valorPorc = Number(evalActual.valor_porcentual || 0);
     thead.innerHTML = `<tr>
-      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;width:60%;">Estudiante</th>
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;width:50%;">Estudiante</th>
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Puntos obtenidos<br/><span style="font-size:11px;font-weight:normal;">/ ${ptotal}</span></th>
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Nota /100</th>
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;" title="Aporte de este examen al porcentaje del período">Porcentaje obtenido<br/><span style="font-size:11px;font-weight:normal;">de ${valorPorc}%</span></th>
     </tr>`;
     // notasArr: [{estudiante_id, puntos_obtenidos}]
     const notasMap = new Map(notasArr.map(n => [Number(n.estudiante_id), n.puntos_obtenidos]));
     tbody.innerHTML = evalEstudiantes.map(e=>{
       const v = notasMap.has(e.id) ? notasMap.get(e.id) : "";
+      const tieneNota = v != null && v !== "";
+      const nota100 = tieneNota ? (Number(v)*100)/ptotal : null;
+      // Porcentaje obtenido = (puntos/total) × valor porcentual del examen
+      const porcentajeObtenido = (tieneNota && valorPorc > 0) ? (Number(v)/ptotal) * valorPorc : null;
       return `<tr>
         <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong> <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span></td>
         <td style="text-align:center;">
@@ -9517,7 +9581,8 @@ function renderGrillaNotas(notasArr){
                  oninput="actualizarNotaExamen(this)"
                  style="width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;text-align:center;font-size:13px;${styleRO}"/>
         </td>
-        <td style="text-align:center;font-weight:bold;color:var(--azul);" id="nota-${e.id}">${v!=null && v!==""? ((Number(v)*100)/ptotal).toFixed(1) : "—"}</td>
+        <td style="text-align:center;font-weight:bold;color:var(--azul);" id="nota-${e.id}">${tieneNota ? nota100.toFixed(1) : "—"}</td>
+        <td style="text-align:center;font-weight:bold;color:var(--verde);" id="porc-${e.id}">${porcentajeObtenido != null ? porcentajeObtenido.toFixed(2) + '%' : '—'}</td>
       </tr>`;
     }).join("");
   } else {
@@ -9572,17 +9637,26 @@ function actualizarNotaExamen(input){
   const eid = Number(input.dataset.estudiante);
   const v = input.value;
   const ptotal = Number(evalActual.puntaje_total);
+  const valorPorc = Number(evalActual.valor_porcentual || 0);
   const cell = document.getElementById(`nota-${eid}`);
+  const cellPorc = document.getElementById(`porc-${eid}`);
   if(v === "" || v == null){
     cell.textContent = "—";
+    if(cellPorc) cellPorc.textContent = "—";
   } else {
     const num = Number(v);
     if(isNaN(num) || num < 0 || num > ptotal){
       cell.textContent = "❌";
       cell.style.color = "var(--rojo)";
+      if(cellPorc) cellPorc.textContent = "—";
     } else {
       cell.textContent = ((num*100)/ptotal).toFixed(1);
       cell.style.color = "var(--azul)";
+      // Actualizar también el porcentaje obtenido en este examen
+      if(cellPorc){
+        const porc = valorPorc > 0 ? (num/ptotal) * valorPorc : 0;
+        cellPorc.textContent = valorPorc > 0 ? porc.toFixed(2) + '%' : '—';
+      }
     }
   }
 }

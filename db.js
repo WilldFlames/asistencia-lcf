@@ -783,6 +783,13 @@ async function initDB() {
     // se interpreta como fecha de entrega. Para los demás tipos, fecha_asignacion
     // queda en NULL.
     await client.query(`ALTER TABLE evaluaciones ADD COLUMN IF NOT EXISTS fecha_asignacion DATE DEFAULT NULL`);
+
+    // Para tipo 'examen': porcentaje fijo que vale esa prueba específica.
+    // Ej: si la materia tiene 40% en pruebas y son 2 exámenes, cada profe
+    // define cuánto vale cada uno (típicamente 20+20, pero puede ser 25+15).
+    // NULL para tipos que no son examen.
+    await client.query(`ALTER TABLE evaluaciones ADD COLUMN IF NOT EXISTS valor_porcentual NUMERIC(5,2) DEFAULT NULL`);
+
     // Índice para listar rápido por asignación
     await client.query(`CREATE INDEX IF NOT EXISTS idx_eval_asig ON evaluaciones(profesor_id, seccion_id, materia_id, periodo)`);
 

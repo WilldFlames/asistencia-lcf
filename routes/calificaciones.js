@@ -165,7 +165,7 @@ router.get("/evaluaciones", requireAuth, async (req, res) => {
 // Body para cotid/proy:    { tipo:'cotidiano'|'proyecto', nombre, descripcion?, fecha, seccion_id, materia_id, subgrupo?, periodo, indicadores: [...] }
 router.post("/evaluaciones", requireAuth, async (req, res) => {
   const u = req.session.usuario;
-  const { tipo, nombre, descripcion, fecha, fecha_asignacion, puntaje_total, indicadores,
+  const { tipo, nombre, descripcion, fecha, fecha_asignacion, puntaje_total, valor_porcentual, indicadores,
           seccion_id, materia_id, subgrupo, periodo } = req.body;
 
   // Validaciones de campos básicos
@@ -197,6 +197,27 @@ router.post("/evaluaciones", requireAuth, async (req, res) => {
   if (tipo === 'examen') {
     if (!puntaje_total || Number(puntaje_total) <= 0) {
       return res.status(400).json({ error: "El puntaje total del examen debe ser mayor a 0." });
+    }
+    // El valor porcentual es OBLIGATORIO en exámenes
+    const vp = Number(valor_porcentual);
+    if (!vp || vp <= 0 || vp > 100) {
+      return res.status(400).json({ error: "Indicá el valor porcentual de este examen (entre 0 y 100)." });
+    }
+    // BLOQUEO: la suma de porcentajes de los exámenes no puede pasar el % de pruebas de la materia
+    const pesoPruebas = Number(asig.porc_pruebas || 0);
+    if (pesoPruebas > 0) {
+      const yaUsado = await pool.query(
+        "SELECT COALESCE(SUM(valor_porcentual),0)::numeric AS suma FROM evaluaciones WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3 AND (($4::text IS NULL AND subgrupo IS NULL) OR subgrupo=$4) AND periodo=$5 AND tipo='examen'",
+        [u.id, seccion_id, materia_id, subgrupo || null, periodo]
+      );
+      const sumaActual = Number(yaUsado.rows[0].suma);
+      const sumaConNuevo = sumaActual + vp;
+      if (sumaConNuevo > pesoPruebas + 0.01) { // 0.01 de tolerancia por redondeo
+        const disponible = (pesoPruebas - sumaActual).toFixed(2);
+        return res.status(400).json({
+          error: `No alcanza el porcentaje disponible. En esta materia las pruebas valen ${pesoPruebas}% y ya hay exámenes que suman ${sumaActual}%. Para este examen quedan disponibles ${disponible}% (vos pediste ${vp}%).`
+        });
+      }
     }
   } else {
     // tarea/cotidiano/proyecto necesitan al menos 1 indicador
@@ -244,11 +265,12 @@ router.post("/evaluaciones", requireAuth, async (req, res) => {
     const pt = tipo === 'examen'
       ? Number(puntaje_total)
       : indicadores.reduce((s, i) => s + Number(i.puntaje_maximo), 0);
+    const vp = tipo === 'examen' ? Number(valor_porcentual) : null;
     const ev = await client.query(`
-      INSERT INTO evaluaciones (profesor_id, seccion_id, materia_id, subgrupo, periodo, tipo, nombre, descripcion, fecha, fecha_asignacion, puntaje_total)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      INSERT INTO evaluaciones (profesor_id, seccion_id, materia_id, subgrupo, periodo, tipo, nombre, descripcion, fecha, fecha_asignacion, puntaje_total, valor_porcentual)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       RETURNING *
-    `, [u.id, seccion_id, materia_id, subgrupo || null, periodo, tipo, nombre.trim(), descripcion || null, fecha, ((tipo === 'tarea' || tipo === 'proyecto') ? fecha_asignacion : null), pt]);
+    `, [u.id, seccion_id, materia_id, subgrupo || null, periodo, tipo, nombre.trim(), descripcion || null, fecha, ((tipo === 'tarea' || tipo === 'proyecto') ? fecha_asignacion : null), pt, vp]);
     const evaluacion = ev.rows[0];
 
     if (tipo !== 'examen') {
@@ -290,10 +312,33 @@ router.put("/evaluaciones/:id", requireAuth, async (req, res) => {
   // Bloquear si período cerrado
   const cierre = await getEstadoPeriodo(u.id, row.seccion_id, row.materia_id, row.subgrupo, row.periodo);
   if (cierre.cerrado) return res.status(423).json({ error: "El período está cerrado. Pedile al admin que lo reabra para hacer cambios." });
-  const { nombre, descripcion, fecha, fecha_asignacion, puntaje_total } = req.body;
+  const { nombre, descripcion, fecha, fecha_asignacion, puntaje_total, valor_porcentual } = req.body;
   if (!nombre || !fecha) return res.status(400).json({ error: "Faltan campos." });
   if (row.tipo === 'examen' && (!puntaje_total || Number(puntaje_total) <= 0)) {
     return res.status(400).json({ error: "El puntaje total debe ser mayor a 0." });
+  }
+  // Si es examen, también validar valor porcentual y que no rompa la suma total
+  if (row.tipo === 'examen') {
+    const vp = Number(valor_porcentual);
+    if (!vp || vp <= 0 || vp > 100) {
+      return res.status(400).json({ error: "Indicá el valor porcentual de este examen (entre 0 y 100)." });
+    }
+    // Buscar la regla REAC para validar la suma
+    const asig = await verificarAsignacion(u.id, row.seccion_id, row.materia_id, row.subgrupo, row.periodo);
+    const pesoPruebas = Number(asig?.porc_pruebas || 0);
+    if (pesoPruebas > 0) {
+      const yaUsado = await pool.query(
+        "SELECT COALESCE(SUM(valor_porcentual),0)::numeric AS suma FROM evaluaciones WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3 AND (($4::text IS NULL AND subgrupo IS NULL) OR subgrupo=$4) AND periodo=$5 AND tipo='examen' AND id<>$6",
+        [u.id, row.seccion_id, row.materia_id, row.subgrupo || null, row.periodo, row.id]
+      );
+      const sumaOtros = Number(yaUsado.rows[0].suma);
+      if (sumaOtros + vp > pesoPruebas + 0.01) {
+        const disponible = (pesoPruebas - sumaOtros).toFixed(2);
+        return res.status(400).json({
+          error: `No alcanza el porcentaje disponible. En esta materia las pruebas valen ${pesoPruebas}% y los otros exámenes suman ${sumaOtros}%. Para este examen quedan disponibles ${disponible}% (vos pediste ${vp}%).`
+        });
+      }
+    }
   }
   if (row.tipo === 'tarea' || row.tipo === 'proyecto') {
     if (!fecha_asignacion) return res.status(400).json({ error: "Falta la fecha de asignación." });
@@ -301,11 +346,12 @@ router.put("/evaluaciones/:id", requireAuth, async (req, res) => {
   // Si cambia el puntaje del examen, las notas siguen siendo válidas
   // (puntos_obtenidos no cambia, solo se reinterpreta la proporción).
   const newPt = row.tipo === 'examen' ? Number(puntaje_total) : row.puntaje_total;
+  const newVp = row.tipo === 'examen' ? Number(valor_porcentual) : null;
   const newFAsig = (row.tipo === 'tarea' || row.tipo === 'proyecto') ? fecha_asignacion : null;
   await pool.query(`
-    UPDATE evaluaciones SET nombre=$1, descripcion=$2, fecha=$3, fecha_asignacion=$4, puntaje_total=$5, updated_at=NOW()
-    WHERE id=$6
-  `, [nombre.trim(), descripcion || null, fecha, newFAsig, newPt, row.id]);
+    UPDATE evaluaciones SET nombre=$1, descripcion=$2, fecha=$3, fecha_asignacion=$4, puntaje_total=$5, valor_porcentual=$6, updated_at=NOW()
+    WHERE id=$7
+  `, [nombre.trim(), descripcion || null, fecha, newFAsig, newPt, newVp, row.id]);
   res.json({ ok: true });
 });
 
@@ -505,11 +551,13 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
   `, [profesor_id, seccion_id, materia_id, sub, periodo]);
 
   // Para cada estudiante, acumuladores por tipo
-  // tipo → { obtenido_total: número, max_total: número, cant_evals: número }
+  // Para exámenes: si la evaluación tiene valor_porcentual definido, vamos
+  // sumando aporte directo (puntos/max × valor_porcentual). Si no (exámenes
+  // viejos sin valor_porcentual), caemos al método anterior basado en puntos totales.
   const rubros = new Map(); // estudiante_id → { examen: {...}, tarea: {...}, ... }
   estudiantes.forEach(e => {
     rubros.set(e.id, {
-      examen:    { obtenido: 0, max: 0, cant_evals: 0, cant_con_nota: 0 },
+      examen:    { obtenido: 0, max: 0, cant_evals: 0, cant_con_nota: 0, pct_sumado: 0, pct_max: 0, tiene_vp: false, sin_vp: false },
       tarea:     { obtenido: 0, max: 0, cant_evals: 0, cant_con_nota: 0 },
       cotidiano: { obtenido: 0, max: 0, cant_evals: 0, cant_con_nota: 0 },
       proyecto:  { obtenido: 0, max: 0, cant_evals: 0, cant_con_nota: 0 }
@@ -521,13 +569,25 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
     if (ev.tipo === 'examen') {
       const ntx = await pool.query("SELECT estudiante_id, puntos_obtenidos FROM notas_examen WHERE evaluacion_id=$1", [ev.id]);
       const notasMap = new Map(ntx.rows.map(n => [Number(n.estudiante_id), Number(n.puntos_obtenidos)]));
+      const ptotal = Number(ev.puntaje_total);
+      const vp = Number(ev.valor_porcentual || 0);
       for (const e of estudiantes) {
         const r = rubros.get(e.id).examen;
         r.cant_evals += 1;
-        r.max += Number(ev.puntaje_total);
+        r.max += ptotal;
+        if (vp > 0) {
+          r.tiene_vp = true;
+          r.pct_max += vp;
+        } else {
+          r.sin_vp = true;
+        }
         if (notasMap.has(e.id) && notasMap.get(e.id) != null && !isNaN(notasMap.get(e.id))) {
-          r.obtenido += notasMap.get(e.id);
+          const puntos = notasMap.get(e.id);
+          r.obtenido += puntos;
           r.cant_con_nota += 1;
+          if (vp > 0 && ptotal > 0) {
+            r.pct_sumado += (puntos / ptotal) * vp;
+          }
         }
       }
     } else {
@@ -604,7 +664,16 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
     // % aplicando peso
     const pctCotid = notaCotid !== null ? (notaCotid * pesos.cotidiano) / 100 : 0;
     const pctTar   = notaTar !== null   ? (notaTar   * pesos.tareas) / 100    : 0;
-    const pctExm   = notaExm !== null   ? (notaExm   * pesos.pruebas) / 100   : 0;
+    // Para exámenes: si todos tienen valor_porcentual definido, usar la suma directa.
+    // Si hay alguno sin valor_porcentual (legacy), caer al método proporcional.
+    let pctExm;
+    if (r.examen.tiene_vp && !r.examen.sin_vp) {
+      // Todos los exámenes tienen valor_porcentual → usar suma directa
+      pctExm = r.examen.pct_sumado;
+    } else {
+      // Modo legacy (proporcional al puntaje total)
+      pctExm = notaExm !== null ? (notaExm * pesos.pruebas) / 100 : 0;
+    }
     const pctProy  = notaProy !== null  ? (notaProy  * pesos.proyectos) / 100 : 0;
     // Asistencia: si total=0 (sin sesiones registradas), darle el máximo
     let porcAusencias = 0;
