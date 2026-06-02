@@ -1909,6 +1909,20 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- MODAL: Historial del estudiante -->
+<div class="modal-overlay" id="modal-historial-est">
+  <div class="modal" style="max-width:760px;">
+    <h3>📜 Historial del Estudiante</h3>
+    <div id="mhe-info" style="font-size:13px;color:var(--muted);margin-bottom:14px;"></div>
+    <div id="mhe-lista" style="max-height:60vh;overflow:auto;">
+      <div style="text-align:center;color:var(--muted);padding:20px;">Cargando...</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="cerrarModal('modal-historial-est')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Informe -->
 <div class="modal-overlay" id="modal-informe">
   <div class="modal" style="max-width:480px;">
@@ -3643,6 +3657,7 @@ async function cargarEstudiantes(){
                <button class="btn btn-purple btn-xs" onclick="abrirEncargados(${e.id})">👨‍👩‍👧</button>
                <button class="btn btn-outline btn-xs" style="color:var(--azul);border-color:var(--azul);" onclick="abrirCambioCedula(${e.id})" title="Cambiar cédula">🆔</button>
                <button class="btn btn-orange btn-xs" onclick="abrirCambioSec(${e.id})">🔄</button>
+               <button class="btn btn-outline btn-xs" style="color:#6b7280;border-color:#6b7280;" onclick="abrirHistorialEstudiante(${e.id})" title="Ver historial de movimientos">📜</button>
                <button class="btn btn-outline btn-xs" style="color:var(--naranja);border-color:var(--naranja);" onclick="abrirArchivarEst(${e.id})">📁</button>
                <button class="btn btn-danger btn-xs" onclick="eliminarEst(${e.id})">🗑️</button>`:""}
     </td>
@@ -3933,6 +3948,74 @@ async function confirmarCambioCedula(){
   }catch(e){
     sa("alert-mcc", e.message, "danger");
   }
+}
+
+// ── HISTORIAL DEL ESTUDIANTE ──────────────────────────────────
+async function abrirHistorialEstudiante(estId){
+  const e = window.estCache?.get(estId);
+  const nombre = e ? `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}` : '';
+  const ced = e ? e.cedula : '';
+  document.getElementById("mhe-info").innerHTML =
+    nombre ? `<strong>${nombre}</strong>${ced?` · Cédula ${ced}`:''}` : '';
+  document.getElementById("mhe-lista").innerHTML =
+    `<div style="text-align:center;color:var(--muted);padding:20px;">Cargando...</div>`;
+  document.getElementById("modal-historial-est").classList.add("show");
+  try{
+    const rows = await api(`/api/estudiantes/${estId}/historial`) || [];
+    renderHistorialEstudiante(rows);
+  }catch(err){
+    document.getElementById("mhe-lista").innerHTML =
+      `<div style="color:var(--rojo);padding:14px;">Error al cargar el historial: ${err.message}</div>`;
+  }
+}
+
+function renderHistorialEstudiante(rows){
+  const div = document.getElementById("mhe-lista");
+  if(!rows.length){
+    div.innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px;font-size:13px;">Sin movimientos registrados todavía. Los cambios que se hagan a partir de ahora aparecerán acá.</div>`;
+    return;
+  }
+  // Diccionario de tipo → ícono y etiqueta legible
+  const tipos = {
+    creacion:           { ic:'🆕', lbl:'Matrícula inicial',   color:'#16a34a' },
+    reactivacion:       { ic:'🔄', lbl:'Reactivación',         color:'#16a34a' },
+    cambio_seccion:     { ic:'🏫', lbl:'Cambio de sección',    color:'#ea580c' },
+    cambio_cedula:      { ic:'🆔', lbl:'Cambio de cédula',     color:'#2563eb' },
+    edicion_nombre:     { ic:'✏️', lbl:'Edición de nombre',    color:'#6b7280' },
+    edicion_fecha_nac:  { ic:'📅', lbl:'Cambio de fecha de nacimiento', color:'#6b7280' },
+    cambio_subgrupo:    { ic:'👥', lbl:'Cambio de subgrupo',   color:'#9333ea' },
+    cambio_becado:      { ic:'🍽️', lbl:'Cambio de estado de beca', color:'#0891b2' },
+    baja:               { ic:'❌', lbl:'Baja',                 color:'#dc2626' },
+    archivado:          { ic:'📦', lbl:'Archivado / Retiro',  color:'#dc2626' },
+  };
+
+  div.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;">` +
+    rows.map(h=>{
+      const t = tipos[h.tipo] || { ic:'•', lbl:h.tipo, color:'#374151' };
+      const fecha = new Date(h.fecha);
+      const fechaTxt = fecha.toLocaleDateString('es-CR', {day:'2-digit', month:'short', year:'numeric'}) +
+                       ' · ' +
+                       fecha.toLocaleTimeString('es-CR', {hour:'2-digit', minute:'2-digit'});
+      const usuario = h.u_nombre || h.u_ap1
+        ? `${h.u_ap1||''} ${h.u_nombre||''}`.trim() + (h.u_rol?` (${h.u_rol})`:'')
+        : '<span style="color:var(--muted);">Sistema</span>';
+      return `<div style="border-left:4px solid ${t.color};background:#f8fafc;padding:10px 14px;border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:bold;color:${t.color};font-size:13px;">${t.ic} ${t.lbl}</div>
+            <div style="font-size:13px;margin-top:4px;color:#1f2937;">
+              ${h.valor_anterior ? `<span style="color:var(--muted);">${h.valor_anterior}</span> → ` : ''}
+              <strong>${h.valor_nuevo || '—'}</strong>
+            </div>
+            ${h.justificacion ? `<div style="font-size:12px;margin-top:6px;background:#fef3c7;padding:4px 8px;border-radius:4px;color:#78350f;">📝 ${h.justificacion}</div>` : ''}
+          </div>
+          <div style="text-align:right;font-size:11px;color:var(--muted);min-width:140px;">
+            <div>${fechaTxt}</div>
+            <div style="margin-top:2px;">${usuario}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join("") + `</div>`;
 }
 
 // ── ENCARGADOS ────────────────────────

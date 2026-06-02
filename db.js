@@ -538,6 +538,67 @@ async function initDB() {
       )
     `);
 
+    // ── HISTORIAL DE ESTUDIANTES ──────────────────────────────────────────
+    // Registra todos los movimientos importantes que afectan a un estudiante:
+    // cambios de sección, de cédula, de datos personales, bajas, reactivaciones,
+    // archivado, etc. Sirve como auditoría y para responder preguntas del tipo
+    // "¿quién cambió esto y cuándo?".
+    //
+    // tipo: el tipo de evento (cambio_seccion, cambio_cedula, edicion, baja, reactivacion, archivado, cambio_subgrupo, cambio_becado)
+    // valor_anterior / valor_nuevo: descripción legible de antes y después (texto, no JSON)
+    // justificacion: motivo que dio el usuario que hizo el cambio (opcional)
+    // usuario_id: quién hizo el cambio (NULL si fue migración o sistema)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS historial_estudiante (
+        id              SERIAL PRIMARY KEY,
+        estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        tipo            TEXT NOT NULL,
+        valor_anterior  TEXT,
+        valor_nuevo     TEXT,
+        justificacion   TEXT,
+        usuario_id      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        fecha           TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_hist_est ON historial_estudiante(estudiante_id, fecha DESC)`);
+
+    // Migración inicial: importar movimientos antiguos.
+    // Si un estudiante tiene una justificación de cambio de sección guardada en
+    // la columna justificacion_cambio_seccion (esquema viejo), crear una entrada
+    // histórica. Solo se hace una vez (controlado por sistema_flags).
+    try {
+      const ya = await client.query("SELECT 1 FROM sistema_flags WHERE codigo='HIST_MIGRACION_INICIAL'");
+      if (!ya.rows.length) {
+        // Verificar si la columna existe (puede no existir en instalaciones nuevas)
+        const colExiste = await client.query(`
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='estudiantes' AND column_name='justificacion_cambio_seccion'
+        `);
+        if (colExiste.rows.length) {
+          await client.query(`
+            INSERT INTO historial_estudiante (estudiante_id, tipo, valor_anterior, valor_nuevo, justificacion, fecha)
+            SELECT e.id, 'cambio_seccion',
+                   '(no registrado)',
+                   COALESCE(s.nombre, '(sin sección)'),
+                   e.justificacion_cambio_seccion,
+                   NOW() - INTERVAL '1 year'  -- fecha aproximada (no la conocemos)
+            FROM estudiantes e
+            LEFT JOIN secciones s ON s.id = e.seccion_id
+            WHERE e.justificacion_cambio_seccion IS NOT NULL
+              AND e.justificacion_cambio_seccion <> ''
+          `);
+        }
+        await client.query(
+          "INSERT INTO sistema_flags (codigo, valor) VALUES ('HIST_MIGRACION_INICIAL', $1)",
+          [`Ejecutada en ${new Date().toISOString()}`]
+        );
+        console.log("✅ Historial: migración inicial completada");
+      }
+    } catch (e) {
+      console.error("Historial migración inicial:", e.message);
+    }
+
+
     // ── MÓDULO DE CALIFICACIONES ──────────────────────────────────────────
     // Catálogo OFICIAL de evaluación según el REAC 2026 (porcentajes fijos).
     // No es editable por el profesor — solo informativo. Los porcentajes los

@@ -4,6 +4,23 @@ const { requireAuth, requireRol } = require("../middleware/auth");
 
 const canManage = requireRol("admin","auxiliar");
 
+// Helper: registra un evento en el historial del estudiante.
+// Es "fire-and-forget" — no bloquea la respuesta si falla, solo loggea.
+// Acepta cliente opcional para usar dentro de transacciones.
+async function logHistorial(estudianteId, tipo, valorAnterior, valorNuevo, justificacion, usuarioId, client) {
+  if (!estudianteId || !tipo) return;
+  const conn = client || pool;
+  try {
+    await conn.query(
+      `INSERT INTO historial_estudiante (estudiante_id, tipo, valor_anterior, valor_nuevo, justificacion, usuario_id)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [estudianteId, tipo, valorAnterior || null, valorNuevo || null, justificacion || null, usuarioId || null]
+    );
+  } catch (e) {
+    console.error(`[HIST] Error registrando ${tipo} para est ${estudianteId}:`, e.message);
+  }
+}
+
 // Caché de columnas de la tabla estudiantes (excluyendo foto_url).
 // Se llena en la primera consulta para no depender de saber qué columnas
 // existen en cada instalación (algunas instalaciones tienen
@@ -92,6 +109,25 @@ router.get("/consulta/:cedula", requireAuth, async (req, res) => {
   res.json({ ...est, encargados: enc.rows });
 });
 
+// ── HISTORIAL del estudiante ──────────────────────────────────
+// Devuelve los movimientos registrados ordenados del más reciente al más antiguo.
+router.get("/:id/historial", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT h.id, h.tipo, h.valor_anterior, h.valor_nuevo, h.justificacion, h.fecha,
+             u.primer_apellido AS u_ap1, u.nombre AS u_nombre, u.rol AS u_rol
+      FROM historial_estudiante h
+      LEFT JOIN usuarios u ON u.id = h.usuario_id
+      WHERE h.estudiante_id = $1
+      ORDER BY h.fecha DESC, h.id DESC
+    `, [req.params.id]);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET historial:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── CREAR ─────────────────────────────────────────────────────
 router.post("/", canManage, async (req, res) => {
   const { cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, seccion_id, subgrupo, becado } = req.body;
@@ -152,6 +188,11 @@ router.post("/", canManage, async (req, res) => {
         const msg = `🔄 Reingreso: ${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()} (${cedula.trim()}) fue reactivado(a) en la sección ${secNombre}.`;
         await notificarProfesoresDeSeccion(seccion_id, msg, 'reingreso_estudiante');
       }
+      // Historial: reactivación
+      await logHistorial(est.id, 'reactivacion',
+        'Estudiante inactivo',
+        seccion_id ? `Reactivado en ${await nombreSeccion(seccion_id)}` : 'Reactivado sin sección',
+        null, req.session.usuario?.id);
       return res.json({ ok:true, id: est.id, reactivado: true });
     }
 
@@ -162,6 +203,14 @@ router.post("/", canManage, async (req, res) => {
     `, [cedula.trim(), nombre.trim(), primer_apellido.trim(), segundo_apellido.trim(),
         fecha_nacimiento||null, seccion_id||null, subgrupo||null, becado||false]);
 
+    const nuevoId = r.rows[0].id;
+    // Historial: creación
+    await logHistorial(nuevoId, 'creacion',
+      null,
+      `${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()}` +
+        (seccion_id ? ` en sección ${await nombreSeccion(seccion_id)}` : ''),
+      null, req.session.usuario?.id);
+
     // Notificar nuevo ingreso a profesores y guía de la sección
     if (seccion_id) {
       const secNombre = await nombreSeccion(seccion_id);
@@ -170,7 +219,7 @@ router.post("/", canManage, async (req, res) => {
       await notificarProfesoresDeSeccion(seccion_id, msg, 'nuevo_estudiante');
     }
 
-    res.json({ ok:true, id: r.rows[0].id });
+    res.json({ ok:true, id: nuevoId });
   } catch(e) {
     console.error("POST estudiantes:", e);
     res.status(500).json({ error: e.message });
@@ -181,12 +230,53 @@ router.post("/", canManage, async (req, res) => {
 router.put("/:id", canManage, async (req, res) => {
   const { nombre, primer_apellido, segundo_apellido, fecha_nacimiento, subgrupo, becado } = req.body;
   const becadoVal = becado !== undefined ? !!becado : null;
+
+  // Leer valores anteriores para comparar y registrar solo cambios reales
+  const antes = await pool.query(
+    "SELECT nombre, primer_apellido, segundo_apellido, fecha_nacimiento, subgrupo, becado FROM estudiantes WHERE id=$1",
+    [req.params.id]
+  );
+  const old = antes.rows[0] || {};
+
   if(becadoVal !== null){
     await pool.query(`UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,fecha_nacimiento=$4,subgrupo=$5,becado=$6 WHERE id=$7`,
       [nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,subgrupo||null,becadoVal,req.params.id]);
   } else {
     await pool.query(`UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,fecha_nacimiento=$4,subgrupo=$5 WHERE id=$6`,
       [nombre.trim(),primer_apellido.trim(),segundo_apellido.trim(),fecha_nacimiento||null,subgrupo||null,req.params.id]);
+  }
+
+  // Registrar cambios en historial. Para no llenar el historial de basura,
+  // solo registramos campos que efectivamente cambiaron.
+  const uid = req.session.usuario?.id;
+  const fmtFecha = (f) => {
+    if (!f) return '';
+    const d = new Date(f);
+    if (isNaN(d.getTime())) return String(f);
+    return String(d.getUTCDate()).padStart(2,'0') + '/' +
+           String(d.getUTCMonth()+1).padStart(2,'0') + '/' + d.getUTCFullYear();
+  };
+  const nombreNuevo = `${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()}`;
+  const nombreViejo = `${old.primer_apellido||''} ${old.segundo_apellido||''}, ${old.nombre||''}`;
+  if (nombreViejo !== nombreNuevo) {
+    await logHistorial(req.params.id, 'edicion_nombre', nombreViejo, nombreNuevo, null, uid);
+  }
+  const fechaViejaTxt = fmtFecha(old.fecha_nacimiento);
+  const fechaNuevaTxt = fmtFecha(fecha_nacimiento);
+  if (fechaViejaTxt !== fechaNuevaTxt) {
+    await logHistorial(req.params.id, 'edicion_fecha_nac', fechaViejaTxt || '(sin fecha)', fechaNuevaTxt || '(sin fecha)', null, uid);
+  }
+  if ((old.subgrupo||'') !== (subgrupo||'')) {
+    await logHistorial(req.params.id, 'cambio_subgrupo',
+      old.subgrupo ? `Subgrupo ${old.subgrupo}` : 'Sin subgrupo',
+      subgrupo ? `Subgrupo ${subgrupo}` : 'Sin subgrupo',
+      null, uid);
+  }
+  if (becadoVal !== null && Boolean(old.becado) !== becadoVal) {
+    await logHistorial(req.params.id, 'cambio_becado',
+      old.becado ? 'Becado' : 'No becado',
+      becadoVal ? 'Becado' : 'No becado',
+      null, uid);
   }
   res.json({ ok:true });
 });
@@ -231,6 +321,8 @@ router.put("/:id/cedula", canManage, async (req, res) => {
     await pool.query("UPDATE estudiantes SET cedula=$1 WHERE id=$2", [ced, id]);
     // Log opcional para auditoría
     console.log(`[CEDULA] Usuario ${u.id} (${u.rol}) cambió cédula de estudiante ${id}: ${cedulaActual} → ${ced}${justificacion?` · Justif: ${justificacion}`:''}`);
+    // Historial
+    await logHistorial(id, 'cambio_cedula', cedulaActual, ced, justificacion, u.id);
     res.json({ ok: true, cedula_anterior: cedulaActual, cedula_nueva: ced });
   } catch(e) {
     console.error("PUT estudiantes/:id/cedula:", e);
@@ -307,6 +399,9 @@ router.put("/:id/seccion", canManage, async (req, res) => {
     }
   }
 
+  // Historial
+  await logHistorial(estId, 'cambio_seccion', seccionAnteriorNombre, secNombreNueva, justificacion, req.session.usuario?.id);
+
   res.json({ ok: true });
 });
 
@@ -342,6 +437,9 @@ router.delete("/:id", canManage, async (req, res) => {
       [admin.id, mensaje, "baja_estudiante"]
     );
   }
+
+  // Historial
+  await logHistorial(req.params.id, 'baja', 'Activo', 'Inactivo (baja)', justificacion.trim(), u.id);
 
   res.json({ ok: true });
 });
@@ -426,6 +524,12 @@ router.post("/:id/archivar", canManage, async (req, res) => {
       );
     }
   }
+
+  // Historial
+  const desc = motivo ? `Retirado del centro — ${motivo}` : 'Retirado del centro';
+  await logHistorial(req.params.id, 'archivado',
+    `Activo en ${est.seccion_nombre || 'sin sección'}`,
+    desc, justificacion.trim(), u.id);
 
   res.json({ ok:true });
 });
