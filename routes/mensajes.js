@@ -107,19 +107,25 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
   // - Si el estudiante tiene subgrupo A o B: solo profesores SIN subgrupo + profesores del mismo subgrupo
   // - Si el estudiante no tiene subgrupo: todos los profesores de la sección
   let profsQuery, profsParams;
+  // Buscar profesores con asignación en esta sección.
+  // IMPORTANTE: incluimos al remitente si también es profesor de materia
+  // de esa misma sección (no solo guía). Es común que un guía dé materia
+  // en su propia sección — debe poder responder el informe como profe de materia.
+  // El DISTINCT garantiza que se cree UNA SOLA copia del informe por profesor,
+  // aunque el guía tenga varias asignaciones (Mate + Esp por ejemplo).
   if (subgrupoEst) {
     profsQuery = `
       SELECT DISTINCT a.profesor_id FROM asignaciones a
-      WHERE a.seccion_id=$1 AND a.profesor_id!=$2
-        AND (a.subgrupo IS NULL OR a.subgrupo='' OR a.subgrupo=$3)
+      WHERE a.seccion_id=$1
+        AND (a.subgrupo IS NULL OR a.subgrupo='' OR a.subgrupo=$2)
     `;
-    profsParams = [seccion_id, remitente_id, subgrupoEst];
+    profsParams = [seccion_id, subgrupoEst];
   } else {
     profsQuery = `
       SELECT DISTINCT a.profesor_id FROM asignaciones a
-      WHERE a.seccion_id=$1 AND a.profesor_id!=$2
+      WHERE a.seccion_id=$1
     `;
-    profsParams = [seccion_id, remitente_id];
+    profsParams = [seccion_id];
   }
 
   const profsR = await pool.query(profsQuery, profsParams);
