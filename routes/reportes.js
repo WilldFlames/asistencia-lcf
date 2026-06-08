@@ -187,6 +187,32 @@ router.get("/seccion/:seccion_id/estudiantes", requireAuth, async (req, res) => 
   res.json(r.rows);
 });
 
+// ── BUSCAR ESTUDIANTES ARCHIVADOS / RETIRADOS ──────────────────────────
+// Permite encontrar estudiantes que ya no están activos en una sección
+// para generar reportes históricos de asistencia, cartas de ausentismo, etc.
+// Acepta búsqueda por cédula (exacta o parcial) o por nombre/apellido.
+router.get("/archivados/buscar", requireAuth, async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  if (!q || q.length < 2) return res.json([]);
+  const r = await pool.query(`
+    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+           e.seccion_id, s.nombre AS seccion_nombre,
+           e.activo, e.archivado
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE (e.activo = false OR e.archivado = true)
+      AND (
+        e.cedula ILIKE $1
+        OR e.primer_apellido ILIKE $1
+        OR e.segundo_apellido ILIKE $1
+        OR e.nombre ILIKE $1
+      )
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
+    LIMIT 50
+  `, [`%${q}%`]);
+  res.json(r.rows);
+});
+
 // ── DASHBOARD PROFESOR ───────────────────────────────────────────────────────
 router.get("/dashboard-profesor", requireAuth, async (req, res) => {
   try {

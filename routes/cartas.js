@@ -24,13 +24,15 @@ router.get("/datos/:estudiante_id", requireDocente, async (req, res) => {
     const p = periodoActual();
     const u = req.session.usuario;
 
-    // Estudiante + sección + primer encargado
+    // Estudiante + sección + primer encargado.
+    // No filtramos por activo=true porque puede ser un retirado/archivado
+    // del cual se necesite generar una carta histórica.
     const estR = await pool.query(`
       SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido, e.subgrupo,
-        s.id AS seccion_id, s.nombre AS seccion_nombre
+        s.id AS seccion_id, s.nombre AS seccion_nombre, e.activo, e.archivado
       FROM estudiantes e
       LEFT JOIN secciones s ON s.id=e.seccion_id
-      WHERE e.id=$1 AND e.activo=true`, [estId]);
+      WHERE e.id=$1`, [estId]);
     if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
     const est = estR.rows[0];
 

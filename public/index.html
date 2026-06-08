@@ -544,14 +544,44 @@ tr:hover td{background:#f8fafc;}
 <div class="page" id="page-reportes">
   <div class="card no-print">
     <h2>📊 Reporte de Asistencia</h2>
-    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
-      <div class="fg"><label>Sección</label><select id="rep-seccion" onchange="cargarEstReporte()"><option value="">— Sección —</option></select></div>
-      <div class="fg"><label>Estudiante</label><select id="rep-estudiante"><option value="">— Estudiante —</option></select></div>
-      <div class="fg"><label>Desde</label><input type="date" id="rep-desde"/></div>
-      <div class="fg"><label>Hasta</label><input type="date" id="rep-hasta"/></div>
-      <button class="btn btn-primary" onclick="generarReporte()">🔍 Ver</button>
-      <button class="btn btn-success no-print" onclick="window.print()">🖨️ Imprimir</button>
-      <button class="btn btn-orange no-print" id="btn-enviar-email" onclick="enviarEmailReporte()" style="display:none">📧 Enviar a Encargado</button>
+    <!-- Tabs: Activos vs Retirados -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);">
+      <button id="rep-tab-activos" class="btn-tab-rep" onclick="repCambiarTab('activos')" style="padding:8px 16px;background:var(--azul);color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:bold;">👥 Estudiantes Activos</button>
+      <button id="rep-tab-retirados" class="btn-tab-rep" onclick="repCambiarTab('retirados')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📦 Estudiantes Retirados</button>
+    </div>
+
+    <!-- Tab activos (selección por sección) -->
+    <div id="rep-panel-activos">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="fg"><label>Sección</label><select id="rep-seccion" onchange="cargarEstReporte()"><option value="">— Sección —</option></select></div>
+        <div class="fg"><label>Estudiante</label><select id="rep-estudiante"><option value="">— Estudiante —</option></select></div>
+        <div class="fg"><label>Desde</label><input type="date" id="rep-desde"/></div>
+        <div class="fg"><label>Hasta</label><input type="date" id="rep-hasta"/></div>
+        <button class="btn btn-primary" onclick="generarReporte()">🔍 Ver</button>
+        <button class="btn btn-success no-print" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn btn-orange no-print" id="btn-enviar-email" onclick="enviarEmailReporte()" style="display:none">📧 Enviar a Encargado</button>
+      </div>
+    </div>
+
+    <!-- Tab retirados (búsqueda por cédula/nombre) -->
+    <div id="rep-panel-retirados" style="display:none;">
+      <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;font-size:12.5px;color:#78350f;margin-bottom:10px;">
+        ℹ️ Estudiantes retirados o archivados ya no aparecen en su sección original. Buscá por cédula o nombre/apellido.
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="fg" style="flex:1;min-width:240px;">
+          <label>Buscar (cédula o nombre)</label>
+          <input type="text" id="rep-buscar-archivado" placeholder="Ej: 115210405 o García..." oninput="buscarEstArchivado()" style="width:100%;"/>
+        </div>
+        <div class="fg" style="flex:1.5;min-width:240px;">
+          <label>Estudiante encontrado</label>
+          <select id="rep-estudiante-arch"><option value="">— Buscá primero —</option></select>
+        </div>
+        <div class="fg"><label>Desde</label><input type="date" id="rep-desde-arch"/></div>
+        <div class="fg"><label>Hasta</label><input type="date" id="rep-hasta-arch"/></div>
+        <button class="btn btn-primary" onclick="generarReporteArchivado()">🔍 Ver</button>
+        <button class="btn btn-success no-print" onclick="window.print()">🖨️ Imprimir</button>
+      </div>
     </div>
     <div id="alert-rep" class="alert"></div>
   </div>
@@ -566,13 +596,42 @@ tr:hover td{background:#f8fafc;}
       Generá una carta dirigida al encargado(a) del estudiante para notificar su nivel de ausentismo en una asignatura, según el REAC vigente.
       Los datos del estudiante, ausencias y porcentaje se calculan automáticamente para el período actual.
     </p>
-    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
-      <div class="fg"><label>Sección</label><select id="cart-seccion" onchange="cargarEstCartas()"><option value="">— Sección —</option></select></div>
-      <div class="fg"><label>Estudiante</label><select id="cart-estudiante" onchange="cargarDatosCarta()"><option value="">— Estudiante —</option></select></div>
-      <div class="fg"><label>Asignatura</label><select id="cart-asignacion" onchange="actualizarVistaCarta()"><option value="">— Asignatura —</option></select></div>
-      <button class="btn btn-success no-print" id="btn-guardar-carta" onclick="guardarYImprimirCarta()" disabled>💾 Guardar e Imprimir</button>
-      <button class="btn btn-outline no-print" onclick="verHistorialCartas()">📋 Historial</button>
+    <!-- Tabs Activos / Retirados -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);">
+      <button id="cart-tab-activos" onclick="cartCambiarTab('activos')" style="padding:8px 16px;background:var(--azul);color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:bold;">👥 Estudiantes Activos</button>
+      <button id="cart-tab-retirados" onclick="cartCambiarTab('retirados')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📦 Estudiantes Retirados</button>
     </div>
+
+    <!-- Panel activos -->
+    <div id="cart-panel-activos">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="fg"><label>Sección</label><select id="cart-seccion" onchange="cargarEstCartas()"><option value="">— Sección —</option></select></div>
+        <div class="fg"><label>Estudiante</label><select id="cart-estudiante" onchange="cargarDatosCarta()"><option value="">— Estudiante —</option></select></div>
+        <div class="fg"><label>Asignatura</label><select id="cart-asignacion" onchange="actualizarVistaCarta()"><option value="">— Asignatura —</option></select></div>
+        <button class="btn btn-success no-print" id="btn-guardar-carta" onclick="guardarYImprimirCarta()" disabled>💾 Guardar e Imprimir</button>
+        <button class="btn btn-outline no-print" onclick="verHistorialCartas()">📋 Historial</button>
+      </div>
+    </div>
+
+    <!-- Panel retirados -->
+    <div id="cart-panel-retirados" style="display:none;">
+      <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;font-size:12.5px;color:#78350f;margin-bottom:10px;">
+        ℹ️ Estudiantes retirados o archivados. Buscá por cédula o nombre/apellido.
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="fg" style="flex:1;min-width:240px;">
+          <label>Buscar</label>
+          <input type="text" id="cart-buscar-archivado" placeholder="Cédula o nombre..." oninput="buscarEstArchivadoCart()" style="width:100%;"/>
+        </div>
+        <div class="fg" style="flex:1.5;min-width:240px;">
+          <label>Estudiante</label>
+          <select id="cart-estudiante-arch" onchange="cargarDatosCartaArch()"><option value="">— Buscá primero —</option></select>
+        </div>
+        <div class="fg"><label>Asignatura</label><select id="cart-asignacion-arch" onchange="actualizarVistaCartaArch()"><option value="">— Asignatura —</option></select></div>
+        <button class="btn btn-success no-print" id="btn-guardar-carta-arch" onclick="guardarYImprimirCartaArch()" disabled>💾 Guardar e Imprimir</button>
+      </div>
+    </div>
+
     <div id="alert-cart" class="alert"></div>
   </div>
   <div id="carta-contenido"></div>
@@ -4870,6 +4929,76 @@ async function cargarEstReporte(){
   document.getElementById("rep-estudiante").innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
 }
 
+// ── REPORTE: tab activos vs retirados ────────────────────────
+function repCambiarTab(tab){
+  const tabAct = document.getElementById("rep-tab-activos");
+  const tabRet = document.getElementById("rep-tab-retirados");
+  const panAct = document.getElementById("rep-panel-activos");
+  const panRet = document.getElementById("rep-panel-retirados");
+  if(tab === 'activos'){
+    tabAct.style.background = "var(--azul)"; tabAct.style.color = "#fff"; tabAct.style.fontWeight = "bold";
+    tabRet.style.background = "transparent"; tabRet.style.color = "var(--muted)"; tabRet.style.fontWeight = "normal";
+    panAct.style.display = ""; panRet.style.display = "none";
+  } else {
+    tabRet.style.background = "var(--azul)"; tabRet.style.color = "#fff"; tabRet.style.fontWeight = "bold";
+    tabAct.style.background = "transparent"; tabAct.style.color = "var(--muted)"; tabAct.style.fontWeight = "normal";
+    panAct.style.display = "none"; panRet.style.display = "";
+  }
+}
+
+// Búsqueda de estudiantes archivados con debounce simple
+let _archSearchTimer = null;
+function buscarEstArchivado(){
+  clearTimeout(_archSearchTimer);
+  _archSearchTimer = setTimeout(async ()=>{
+    const q = document.getElementById("rep-buscar-archivado").value.trim();
+    const sel = document.getElementById("rep-estudiante-arch");
+    if(q.length < 2){
+      sel.innerHTML = '<option value="">— Escribí al menos 2 caracteres —</option>';
+      return;
+    }
+    try{
+      const rows = await api(`/api/reportes/archivados/buscar?q=${encodeURIComponent(q)}`);
+      if(!rows || !rows.length){
+        sel.innerHTML = '<option value="">— Sin resultados —</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">— Elegí —</option>' + rows.map(e=>{
+        const sec = e.seccion_nombre ? ` · ${e.seccion_nombre}` : '';
+        const estado = e.archivado ? ' [archivado]' : ' [inactivo]';
+        return `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre} (${e.cedula})${sec}${estado}</option>`;
+      }).join("");
+    }catch(err){
+      sel.innerHTML = '<option value="">— Error al buscar —</option>';
+    }
+  }, 300);
+}
+
+async function generarReporteArchivado(){
+  const eid = document.getElementById("rep-estudiante-arch").value;
+  if(!eid){ alert("Buscá y seleccioná un estudiante."); return; }
+  // Sincronizar los inputs del flujo principal y llamar a generarReporte normal.
+  // Esto reusa todo el render existente sin duplicar código.
+  // El select 'rep-estudiante' puede no tener este id como opción (es de otra sección);
+  // creamos una opción temporal.
+  const selPrincipal = document.getElementById("rep-estudiante");
+  let opt = selPrincipal.querySelector(`option[value="${eid}"]`);
+  if(!opt){
+    opt = document.createElement("option");
+    opt.value = eid;
+    // Tomar el texto del select de archivados
+    const selArch = document.getElementById("rep-estudiante-arch");
+    opt.textContent = selArch.options[selArch.selectedIndex].textContent;
+    selPrincipal.appendChild(opt);
+  }
+  selPrincipal.value = eid;
+  // Copiar fechas del panel de archivados al principal
+  document.getElementById("rep-desde").value = document.getElementById("rep-desde-arch").value;
+  document.getElementById("rep-hasta").value = document.getElementById("rep-hasta-arch").value;
+  // Ahora llamar al flujo normal
+  await generarReporte();
+}
+
 async function generarReporte(){
   const eid=document.getElementById("rep-estudiante").value;
   const desde=document.getElementById("rep-desde").value;
@@ -7854,14 +7983,90 @@ async function cargarEstCartas(){
   } catch(e){ sa("alert-cart","Error cargando estudiantes: "+e.message,"danger"); }
 }
 
+// ── CARTAS: tabs activos / retirados ─────────────────────────────
+function cartCambiarTab(tab){
+  const tabAct = document.getElementById("cart-tab-activos");
+  const tabRet = document.getElementById("cart-tab-retirados");
+  const panAct = document.getElementById("cart-panel-activos");
+  const panRet = document.getElementById("cart-panel-retirados");
+  if(tab === 'activos'){
+    tabAct.style.background = "var(--azul)"; tabAct.style.color = "#fff"; tabAct.style.fontWeight = "bold";
+    tabRet.style.background = "transparent"; tabRet.style.color = "var(--muted)"; tabRet.style.fontWeight = "normal";
+    panAct.style.display = ""; panRet.style.display = "none";
+  } else {
+    tabRet.style.background = "var(--azul)"; tabRet.style.color = "#fff"; tabRet.style.fontWeight = "bold";
+    tabAct.style.background = "transparent"; tabAct.style.color = "var(--muted)"; tabAct.style.fontWeight = "normal";
+    panAct.style.display = "none"; panRet.style.display = "";
+  }
+}
+
+let _cartArchTimer = null;
+function buscarEstArchivadoCart(){
+  clearTimeout(_cartArchTimer);
+  _cartArchTimer = setTimeout(async ()=>{
+    const q = document.getElementById("cart-buscar-archivado").value.trim();
+    const sel = document.getElementById("cart-estudiante-arch");
+    if(q.length < 2){
+      sel.innerHTML = '<option value="">— Escribí al menos 2 caracteres —</option>';
+      return;
+    }
+    try{
+      const rows = await api(`/api/reportes/archivados/buscar?q=${encodeURIComponent(q)}`);
+      if(!rows || !rows.length){
+        sel.innerHTML = '<option value="">— Sin resultados —</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">— Elegí —</option>' + rows.map(e=>{
+        const sec = e.seccion_nombre ? ` · ${e.seccion_nombre}` : '';
+        const estado = e.archivado ? ' [archivado]' : ' [inactivo]';
+        return `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre} (${e.cedula})${sec}${estado}</option>`;
+      }).join("");
+    }catch(err){
+      sel.innerHTML = '<option value="">— Error al buscar —</option>';
+    }
+  }, 300);
+}
+
+async function cargarDatosCartaArch(){
+  const eid = document.getElementById("cart-estudiante-arch").value;
+  // Sincronizar con el select activo y reusar lógica existente
+  const selActivo = document.getElementById("cart-estudiante");
+  let opt = selActivo.querySelector(`option[value="${eid}"]`);
+  if(!opt && eid){
+    opt = document.createElement("option");
+    opt.value = eid;
+    const selArch = document.getElementById("cart-estudiante-arch");
+    opt.textContent = selArch.options[selArch.selectedIndex].textContent;
+    selActivo.appendChild(opt);
+  }
+  if(eid) selActivo.value = eid;
+  await cargarDatosCarta();
+  // Reflejar las asignaturas en el select de archivados
+  document.getElementById("cart-asignacion-arch").innerHTML = document.getElementById("cart-asignacion").innerHTML;
+  document.getElementById("btn-guardar-carta-arch").disabled = document.getElementById("btn-guardar-carta").disabled;
+}
+
+function actualizarVistaCartaArch(){
+  // Sincronizar selección al select principal y reusar
+  document.getElementById("cart-asignacion").value = document.getElementById("cart-asignacion-arch").value;
+  actualizarVistaCarta();
+  document.getElementById("btn-guardar-carta-arch").disabled = document.getElementById("btn-guardar-carta").disabled;
+}
+
+async function guardarYImprimirCartaArch(){
+  // Sincronizar y reusar
+  document.getElementById("cart-asignacion").value = document.getElementById("cart-asignacion-arch").value;
+  await guardarYImprimirCarta();
+}
+
+
 async function cargarDatosCarta(){
   const eid = document.getElementById("cart-estudiante").value;
   document.getElementById("cart-asignacion").innerHTML='<option value="">— Asignatura —</option>';
   document.getElementById("carta-contenido").innerHTML="";
   document.getElementById("btn-guardar-carta").disabled = true;
   cartasDatos = null;
-  if(!eid) return;
-  try {
+  if(!eid) return;  try {
     const d = await api(`/api/cartas/datos/${eid}`);
     if(!d){ sa("alert-cart","No se pudieron obtener los datos.","danger"); return; }
     cartasDatos = d;
