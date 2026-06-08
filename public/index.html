@@ -1711,7 +1711,7 @@ tr:hover td{background:#f8fafc;}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <h2 style="margin:0;">⚠️ Precautoria</h2>
-      <button class="btn btn-primary" onclick="abrirNuevaMedida('precautoria')">+ Nueva Precautoria</button>
+      <button class="btn btn-primary" id="btn-nueva-precautoria" onclick="abrirNuevaMedida('precautoria')">+ Nueva Precautoria</button>
     </div>
     <div id="alert-precautoria" class="alert"></div>
     <div class="table-wrap"><table>
@@ -1728,7 +1728,7 @@ tr:hover td{background:#f8fafc;}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <h2 style="margin:0;">🚫 Suspensión</h2>
-      <button class="btn btn-primary" onclick="abrirNuevaMedida('suspension')">+ Nueva Suspensión</button>
+      <button class="btn btn-primary" id="btn-nueva-suspension" onclick="abrirNuevaMedida('suspension')">+ Nueva Suspensión</button>
     </div>
     <div id="alert-suspension" class="alert"></div>
     <div class="table-wrap"><table>
@@ -1745,7 +1745,7 @@ tr:hover td{background:#f8fafc;}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <h2 style="margin:0;">🏠 Educación Híbrida</h2>
-      <button class="btn btn-primary" onclick="abrirNuevaMedida('educacion_hibrida')">+ Nueva Ed. Híbrida</button>
+      <button class="btn btn-primary" id="btn-nueva-hibrida" onclick="abrirNuevaMedida('educacion_hibrida')">+ Nueva Ed. Híbrida</button>
     </div>
     <div id="alert-hibrida" class="alert"></div>
     <div class="table-wrap"><table>
@@ -2855,11 +2855,23 @@ async function iniciarApp(){
   }
 
   // ── MEDIDAS (precautoria, suspensión, ed. híbrida) ───────────────
-  const rolesMedidas = ["admin","auxiliar","orientador","secretaria","administrativo","profesor_guia"];
-  if(rolesMedidas.includes(ME.rol)){
+  // Los profesores también ven estas pestañas, pero solo en modo lectura
+  // (no pueden crear, modificar ni eliminar). Esto les permite consultar
+  // qué medidas tiene un estudiante de su sección, incluso las vencidas.
+  const rolesMedidasLectura = ["admin","auxiliar","orientador","secretaria","administrativo","profesor_guia","profesor"];
+  const puedeEditarMedidas  = ["admin","auxiliar","orientador","secretaria","administrativo","profesor_guia"].includes(ME.rol);
+  window.medidasSoloLectura = !puedeEditarMedidas;
+  if(rolesMedidasLectura.includes(ME.rol)){
     document.getElementById("nav-precautoria").style.display="";
     document.getElementById("nav-suspension").style.display="";
     document.getElementById("nav-hibrida").style.display="";
+    // Si es solo lectura (profesor sin otros roles), ocultar los botones "+ Nueva ..."
+    if(window.medidasSoloLectura){
+      ["btn-nueva-precautoria","btn-nueva-suspension","btn-nueva-hibrida"].forEach(id=>{
+        const b = document.getElementById(id);
+        if(b) b.style.display = "none";
+      });
+    }
   }
 
   // ── ADMIN ────────────────────────────────────────────────────
@@ -6117,7 +6129,7 @@ function renderMedidas(rows, tipo){
       <td style="font-size:12px;font-weight:bold;color:${activa?cfg.color:'#64748b'};">${fmtF(r.fecha_fin)}</td>
       <td>${estado}</td>
       <td style="font-size:12px;color:var(--muted);">${r.creado_ap1||''} ${r.creado_nombre||''}</td>
-      <td><button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button></td>
+      <td>${window.medidasSoloLectura ? '<span style="color:var(--muted);font-size:11px;" title="Solo lectura">👁️</span>' : `<button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button>`}</td>
     </tr>`;
   }).join('');
 }
