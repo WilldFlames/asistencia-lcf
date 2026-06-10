@@ -6968,20 +6968,22 @@ function imprimirPasoDPDirecto(tipo, orden){
   }
 
   if(tipo === 'acta_apertura'){
-    body = `<h2 style="text-align:center;">ACTA DE INFORMACIÓN DE LOS HECHOS</h2>
-      <p><strong>Expediente:</strong> ${nro}</p>
+    const hechosTxt = (c.hechos || '').trim();
+    const hechosConCierre = hechosTxt
+      ? `${hechosTxt}\n\n------ Última Línea ------`
+      : '------ Última Línea ------';
+    body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p><strong>Fecha:</strong> ${c.fecha_hechos || '_____________'}</p>
       <p>Yo, <strong>${c.informante||'__________________'}</strong>, portador de la cédula de identidad <strong>${c.informante_cedula||'____________'}</strong>, en calidad de <strong>${c.informante_calidad||'____________'}</strong>, manifiesto lo siguiente:</p>
       <p>Se hace constar que la presente se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes...</p>
       <p>Pongo en conocimiento los siguientes hechos:</p>
-      <div style="border:1px solid #ccc;padding:10px;min-height:140px;white-space:pre-wrap;">${c.hechos||''}</div>
+      <div style="border:1px solid #ccc;padding:10px;min-height:140px;white-space:pre-wrap;">${hechosConCierre}</div>
       <p>Leída la presente declaración, manifiesto haberla comprendido en su totalidad y la ratifico en todas sus partes.</p>
       <p style="margin-top:30px;">Nombre del Informante: ${c.informante||'____________________________'}</p>
       <p>Cédula: ${c.informante_cedula||'__________'} &nbsp;&nbsp; Firma: _________________ &nbsp;&nbsp; Fecha: ${c.fecha_hechos||'__________'}</p>`;
   } else if(tipo.startsWith('cita_')){
     const tipoF = c.tipo_falta || 'grave';
-    body = `<h2 style="text-align:center;">BOLETA DE CITA ENCARGADO LEGAL</h2>
-      <p><strong>Expediente:</strong> ${nro}</p>
+    body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p><strong>Fecha:</strong> ${c.fecha_notificacion || '____________'}</p>
       <p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong> encargado(a) legal del estudiante: <strong>${testigo ? `${testigo.primer_apellido} ${testigo.nombre}` : estudiante}</strong>, sección: <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p>Saludo cordial,</p>
@@ -6994,20 +6996,23 @@ function imprimirPasoDPDirecto(tipo, orden){
     const calidad = c.calidad || (tipo === 'decl_ofendido' ? 'ofendido' : tipo === 'decl_ofensor' ? 'ofensor' : 'testigo');
     const nombreDeclarante = testigo ? `${testigo.primer_apellido} ${testigo.segundo_apellido||''}, ${testigo.nombre}` : estudiante;
     const cedulaDeclarante = testigo ? testigo.cedula : dp.cedula;
-    body = `<h2 style="text-align:center;">DECLARACIÓN</h2>
-      <p><strong>Expediente:</strong> ${nro}</p>
+    // Cierre legal: marcar fin del texto de la declaración para evitar agregados posteriores
+    const declTexto = (c.declaracion || '').trim();
+    const declConCierre = declTexto
+      ? `${declTexto}\n\n------ Última Línea ------`
+      : '------ Última Línea ------';
+    body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el docente a cargo/profesor guía: <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong> y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong> comparece el estudiante: <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong> de la sección <strong>${dp.seccion_nombre||'___'}</strong>, en calidad de supuesto <strong>${calidad}</strong> a rendir libremente y sin coacción alguna, su declaración en la causa disciplinaria que está siendo investigada.</p>
       <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
       <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
       <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
-      <div style="border:1px solid #ccc;padding:10px;min-height:200px;white-space:pre-wrap;">${c.declaracion||''}</div>
+      <div style="border:1px solid #ccc;padding:10px;min-height:200px;white-space:pre-wrap;">${declConCierre}</div>
       <p style="margin-top:30px;">Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
       <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
       <p>Firma profesor guía: ____________________ &nbsp; Cédula: ${dp.guia_cedula||'____'}</p>
       <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>`;
   } else if(tipo === 'acta_sesion'){
-    body = `<h2 style="text-align:center;">ACTA DE SESIÓN DOCENTE-ORIENTADOR</h2>
-      <p><strong>Expediente:</strong> ${nro}</p>
+    body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>En presencia del(la) profesor(a) guía <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong>, y de la orientadora <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, se procede a la investigación correspondiente del(la) estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p><strong>Tipificación de la falta:</strong><br/>Artículo: ${c.art_falta||'____'} &nbsp; Inciso: ${c.inc_falta||'____'}</p>
       <p><strong>Rebajo de puntos:</strong><br/>Artículo: ${c.art_rebajo||'____'} &nbsp; Inciso: ${c.inc_rebajo||'____'}</p>
@@ -7018,8 +7023,7 @@ function imprimirPasoDPDirecto(tipo, orden){
       <p style="margin-top:40px;">Profesor(a) Guía: ____________________ &nbsp; ${guia}</p>
       <p>Orientador(a): ____________________ &nbsp; ${orientador}</p>`;
   } else if(tipo === 'traslado_cargos'){
-    body = `<h2 style="text-align:center;">TRASLADO DE CARGOS</h2>
-      <p><strong>Expediente:</strong> ${nro}</p>
+    body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>El suscrito docente a cargo <strong>${guia}</strong>, de la sección <strong>${dp.seccion_nombre||'___'}</strong>, siendo las <strong>${c.hora_notif||'____'}</strong> horas del día <strong>${c.fecha_notif||'____'}</strong>, procede a notificar el presente traslado de cargos.</p>
       <p>De conformidad con el artículo 144, inciso d) del REAC, se concede un plazo de <strong>tres días hábiles</strong> para ejercer el derecho de defensa.</p>
       <p>Se notifica a <strong>${c.encargado_nombre||'____'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, encargado(a) del estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
@@ -7032,8 +7036,7 @@ function imprimirPasoDPDirecto(tipo, orden){
       <p style="margin-top:20px;"><strong>RECIBIDO</strong></p>
       <p>Nombre del encargado: ${c.encargado_nombre||'____'}<br/>Cédula: ${c.encargado_cedula||'____'} &nbsp; Firma: ____________</p>`;
   } else if(tipo === 'resolucion_final'){
-    body = `<h2 style="text-align:center;">RESOLUCIÓN FINAL</h2>
-      <p><strong>Expediente:</strong> ${nro}</p>
+    body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>Al ser las <strong>${c.hora_resol||'____'}</strong> horas del día <strong>${c.fecha_resol||'____'}</strong>, en relación con el proceso aplicado al(la) estudiante <strong>${estudiante}</strong>, expediente <strong>${nro}</strong>, sección a cargo del docente <strong>${guia}</strong>, se resuelve:</p>
       <p><strong>I. ANTECEDENTES</strong></p>
       <p>Una vez analizado el expediente, con base en el REAC y respetando el debido proceso, se determina lo siguiente:</p>
@@ -7052,8 +7055,7 @@ function imprimirPasoDPDirecto(tipo, orden){
       <p><strong>Notifíquese. Cúmplase.</strong></p>
       <p style="margin-top:30px;">Firma del docente: ____________________ ${guia}<br/>Firma del estudiante: ____________________<br/>Firma del encargado legal: ____________________</p>`;
   } else if(tipo === 'desestima'){
-    body = `<h2 style="text-align:center;">DESESTIMA DEL PROCESO</h2>
-      <p><strong>Expediente:</strong> ${nro}</p>
+    body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>Al ser las <strong>${c.hora_desest||'____'}</strong> horas del día <strong>${c.fecha_desest||'____'}</strong>, en relación con el proceso seguido contra <strong>${estudiante}</strong>, expediente <strong>${c.expediente||nro}</strong>, el(la) docente <strong>${guia}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>, resuelve:</p>
       <p><strong>I. ANTECEDENTES</strong></p>
       <p>Conforme al procedimiento del REAC, se realizó la investigación correspondiente.</p>
@@ -7065,10 +7067,32 @@ function imprimirPasoDPDirecto(tipo, orden){
   }
 
   // Generar área de impresión
+  // Título oficial para el encabezado según tipo de paso
+  const TITULOS_OFICIALES = {
+    acta_apertura:    "ACTA DE INFORMACIÓN DE LOS HECHOS",
+    cita_ofendido:    "BOLETA DE CITA ENCARGADO LEGAL",
+    cita_ofensor:     "BOLETA DE CITA ENCARGADO LEGAL",
+    cita_testigo:     "BOLETA DE CITA ENCARGADO LEGAL",
+    decl_ofendido:    "DECLARACIÓN DEL SUPUESTO OFENDIDO",
+    decl_ofensor:     "DECLARACIÓN DEL SUPUESTO OFENSOR",
+    decl_testigo:     "DECLARACIÓN DE TESTIGO",
+    acta_sesion:      "ACTA DE SESIÓN DOCENTE-ORIENTADOR",
+    traslado_cargos:  "TRASLADO DE CARGOS",
+    resolucion_final: "RESOLUCIÓN FINAL",
+    desestima:        "DESESTIMA DEL PROCESO",
+  };
+  const tituloOficial = TITULOS_OFICIALES[tipo] || info.nombre.toUpperCase();
+
+  // Generar área de impresión con encabezado y pie de página oficiales
   let printArea = document.getElementById('print-dp-area');
   if(!printArea){ printArea = document.createElement('div'); printArea.id = 'print-dp-area'; document.body.appendChild(printArea); }
   printArea.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
-  printArea.innerHTML = `<div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:10px;font-size:13px;line-height:1.5;">${body}</div>`;
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:10px;padding-bottom:80px;font-size:13px;line-height:1.55;">
+      ${typeof encabezadoMEP === 'function' ? encabezadoMEP(tituloOficial) : `<h2 style="text-align:center;">${tituloOficial}</h2>`}
+      ${body}
+      ${typeof piePaginaMEP === 'function' ? piePaginaMEP() : ''}
+    </div>`;
 
   let style = document.getElementById('print-style-dp');
   if(style) style.remove();
