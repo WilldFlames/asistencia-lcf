@@ -64,6 +64,15 @@ router.post("/", requireAuth, canUse, async (req, res) => {
 
   if(!tipo || !INICIO[tipo]) return res.status(400).json({ error:"Tipo inválido" });
 
+  // Bloqueo: los consecutivos de tipo "proceso" solo se asignan desde el
+  // módulo Debidos Procesos (que llama a asignarConsecutivoInterno).
+  // Esto evita duplicación con los consecutivos asociados a expedientes.
+  if(tipo === "proceso"){
+    return res.status(400).json({
+      error: "Los consecutivos de Debido Proceso se generan automáticamente desde el módulo ⚖️ Debidos Procesos al iniciar el acta de apertura."
+    });
+  }
+
   const solicitante_id = (u.rol === "secretaria" && sol_id_body) ? sol_id_body : u.id;
   const inicio = INICIO[tipo];
   const fechaVal = fecha || new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
@@ -139,4 +148,38 @@ router.get("/tipos-protocolo", requireAuth, (req, res) => {
   res.json(TIPOS_PROTOCOLO);
 });
 
+// Helper exportable: asigna un consecutivo programáticamente desde otros módulos.
+// Devuelve { id, numero } o lanza error.
+async function asignarConsecutivoInterno(tipo, solicitanteId, datos = {}) {
+  if (!INICIO[tipo]) throw new Error(`Tipo de consecutivo inválido: ${tipo}`);
+  const inicio = INICIO[tipo];
+  const fechaVal = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
+  for (let intento = 0; intento < 10; intento++) {
+    if (intento > 0) await new Promise(r => setTimeout(r, 20 + Math.random() * 130));
+    try {
+      const r = await pool.query(`
+        WITH siguiente AS (
+          SELECT n AS numero FROM generate_series($1::int, $2::int) AS n
+          WHERE n NOT IN (SELECT numero FROM consecutivos WHERE tipo=$3 AND eliminado=false)
+          ORDER BY n LIMIT 1
+        )
+        INSERT INTO consecutivos
+          (tipo, numero, solicitante_id, fecha,
+           estudiante_id, motivo_proceso, seccion_id)
+        SELECT $3, siguiente.numero, $4, $5, $6, $7, $8
+        FROM siguiente
+        RETURNING id, numero
+      `, [inicio, MAX, tipo, solicitanteId, fechaVal,
+          datos.estudiante_id || null, datos.motivo_proceso || null, datos.seccion_id || null]);
+      if (!r.rows.length) throw new Error(`No hay consecutivos disponibles para ${tipo}`);
+      return r.rows[0];
+    } catch (e) {
+      if (e.code === "23505") continue; // colisión: reintentar
+      throw e;
+    }
+  }
+  throw new Error("No se pudo asignar consecutivo tras múltiples intentos");
+}
+
 module.exports = router;
+module.exports.asignarConsecutivoInterno = asignarConsecutivoInterno;

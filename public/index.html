@@ -375,6 +375,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="precautoria" id="nav-precautoria" onclick="goTo('precautoria')" style="display:none"><span class="icon">⚠️</span><span>Precautoria</span></button>
   <button class="nav-btn" data-page="suspension" id="nav-suspension" onclick="goTo('suspension')" style="display:none"><span class="icon">🚫</span><span>Suspensión</span></button>
   <button class="nav-btn" data-page="hibrida" id="nav-hibrida" onclick="goTo('hibrida')" style="display:none"><span class="icon">🏠</span><span>Ed. Híbrida</span></button>
+  <button class="nav-btn" data-page="debidos" id="nav-debidos" onclick="goTo('debidos')" style="display:none"><span class="icon">⚖️</span><span>Debidos Procesos</span></button>
 </nav>
 
 <div class="main-content">
@@ -1755,6 +1756,216 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- DEBIDOS PROCESOS                                                 -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-debidos">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+      <h2 style="margin:0;">⚖️ Debidos Procesos</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="abrirNuevoDP()">+ Nuevo Debido Proceso</button>
+      </div>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">
+      Procedimiento correctivo según el REAC. Cualquier profesor puede iniciar el acta de apertura, los pasos posteriores los lleva el guía de la sección del estudiante. El plazo máximo es de <strong>15 días naturales</strong> desde la apertura.
+    </p>
+
+    <!-- Sub-tabs por estado -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);">
+      <button id="dp-tab-curso" class="dp-tab-btn" onclick="dpCambiarTab('en_curso')" style="padding:8px 16px;background:var(--azul);color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:bold;">⏳ En Curso</button>
+      <button id="dp-tab-resueltos" class="dp-tab-btn" onclick="dpCambiarTab('resuelto')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">✅ Resueltos</button>
+      <button id="dp-tab-desestimados" class="dp-tab-btn" onclick="dpCambiarTab('desestimado')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">❌ Desestimados</button>
+    </div>
+
+    <!-- Sección de pendientes (notificaciones del usuario actual) -->
+    <div id="dp-pendientes-wrap" style="display:none;margin-bottom:14px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:6px;padding:10px 14px;">
+      <strong style="color:#78350f;font-size:13px;">🔔 Tareas pendientes para vos</strong>
+      <div id="dp-pendientes-lista" style="margin-top:6px;font-size:12.5px;"></div>
+    </div>
+
+    <div id="alert-dp" class="alert"></div>
+    <div id="dp-lista-wrap"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODALES DE DEBIDOS PROCESOS                                     -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+
+<!-- Modal: Nuevo Debido Proceso (Paso 1 — Acta apertura) -->
+<div class="modal-overlay" id="modal-nuevo-dp">
+  <div class="modal" style="max-width:680px;">
+    <h3>⚖️ Iniciar Debido Proceso — Acta de Apertura</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+      Al guardar se asignará un número consecutivo y se notificará al guía de la sección. Tenés 15 días naturales para cerrar el proceso.
+    </p>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Estudiante (supuesto ofensor) *</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="ndp-buscar-est" placeholder="Cédula o nombre..." oninput="dpBuscarEstudiante()" style="flex:1;"/>
+        </div>
+        <select id="ndp-estudiante-id" style="margin-top:6px;"><option value="">— Buscá primero —</option></select>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Datos del informante (quien presenta la denuncia)</label>
+        <input type="text" id="ndp-informante" placeholder="Nombre completo del informante"/>
+      </div>
+      <div class="fg">
+        <label>Cédula del informante</label>
+        <input type="text" id="ndp-informante-cedula" placeholder="Cédula"/>
+      </div>
+      <div class="fg">
+        <label>Cargo o calidad</label>
+        <input type="text" id="ndp-informante-calidad" placeholder="Ej: madre, docente, encargado..."/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Hechos a poner en conocimiento *</label>
+        <textarea id="ndp-hechos" rows="6" placeholder="Describí los hechos con detalle..."></textarea>
+      </div>
+      <div class="fg">
+        <label>Fecha de los hechos</label>
+        <input type="date" id="ndp-fecha-hechos"/>
+      </div>
+    </div>
+    <div id="alert-ndp" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-nuevo-dp')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarNuevoDP()">💾 Iniciar Proceso</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalle de un debido proceso (lista de pasos) -->
+<div class="modal-overlay" id="modal-dp-detalle">
+  <div class="modal" style="max-width:920px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+      <div>
+        <h3 id="dpd-titulo" style="margin:0 0 4px 0;">Debido Proceso</h3>
+        <div id="dpd-subtitulo" style="font-size:12.5px;color:var(--muted);"></div>
+      </div>
+      <div id="dpd-plazo-badge" style="font-size:12px;font-weight:bold;padding:6px 12px;border-radius:14px;"></div>
+    </div>
+    <div id="alert-dpd" class="alert" style="margin-top:10px;"></div>
+    <div id="dpd-pasos-lista" style="margin-top:14px;max-height:65vh;overflow:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-dp-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal genérico para llenar/editar un paso -->
+<div class="modal-overlay" id="modal-dp-paso">
+  <div class="modal" style="max-width:780px;">
+    <h3 id="dpp-titulo">Paso</h3>
+    <div id="dpp-subtitulo" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+    <div id="dpp-form" style="max-height:60vh;overflow:auto;"></div>
+    <div id="alert-dpp" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-dp-paso')">Cancelar</button>
+      <button class="btn btn-success" onclick="imprimirPasoDP()">🖨️ Guardar e Imprimir</button>
+      <button class="btn btn-primary" onclick="guardarPasoDP()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Agregar testigo -->
+<div class="modal-overlay" id="modal-dp-testigo">
+  <div class="modal" style="max-width:560px;">
+    <h3>➕ Agregar Testigo</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Si el testigo es de otra sección, el sistema le notificará al guía correspondiente para que tome la declaración.
+    </p>
+    <div class="fg" style="grid-column:1/-1;">
+      <label>Buscar estudiante por cédula o nombre</label>
+      <input type="text" id="dpt-buscar" placeholder="Cédula o nombre..." oninput="dpBuscarTestigo()" style="width:100%;"/>
+    </div>
+    <div class="fg" style="margin-top:8px;">
+      <label>Estudiante</label>
+      <select id="dpt-estudiante-id" style="width:100%;"><option value="">— Buscá primero —</option></select>
+    </div>
+    <div id="alert-dpt" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-dp-testigo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarTestigoDP()">➕ Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Decisión paso 8 (continuar/desestimar) -->
+<div class="modal-overlay" id="modal-dp-decision">
+  <div class="modal" style="max-width:680px;">
+    <h3>🧑‍⚖️ Acta Sesión Docente-Orientador</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Después de analizar el expediente, registrá la decisión. <strong>Quedará pendiente de aprobación del orientador asignado</strong> antes de cerrar el proceso.
+    </p>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Tipificación de la falta — Artículo</label>
+        <input type="text" id="dec-art-falta" placeholder="Ej: 75"/>
+      </div>
+      <div class="fg">
+        <label>Inciso</label>
+        <input type="text" id="dec-inc-falta" placeholder="Ej: c"/>
+      </div>
+      <div class="fg">
+        <label>Rebajo de puntos — Artículo</label>
+        <input type="text" id="dec-art-rebajo"/>
+      </div>
+      <div class="fg">
+        <label>Inciso rebajo</label>
+        <input type="text" id="dec-inc-rebajo"/>
+      </div>
+      <div class="fg">
+        <label>Posible acción correctiva — Artículo</label>
+        <input type="text" id="dec-art-accion"/>
+      </div>
+      <div class="fg">
+        <label>Inciso acción</label>
+        <input type="text" id="dec-inc-accion"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Descripción de la acción correctiva</label>
+        <textarea id="dec-desc-accion" rows="3"></textarea>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Decisión *</label>
+        <select id="dec-decision" style="width:100%;">
+          <option value="">— Elegí —</option>
+          <option value="continuar">Continuar con el proceso (traslado de cargos + resolución)</option>
+          <option value="desestimar">Desestimar (cerrar sin sanción)</option>
+        </select>
+      </div>
+    </div>
+    <div id="alert-dec" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-dp-decision')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarDecisionDP()">💾 Registrar Decisión</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Aprobar acta sesión (orientador) -->
+<div class="modal-overlay" id="modal-dp-aprobar">
+  <div class="modal" style="max-width:560px;">
+    <h3>✅ Aprobar Acta Sesión</h3>
+    <p style="font-size:12.5px;margin-bottom:12px;">El guía propuso la siguiente decisión:</p>
+    <div id="aprob-decision-info" style="background:#dbeafe;border-radius:6px;padding:10px;margin-bottom:14px;font-weight:bold;"></div>
+    <div class="fg">
+      <label>Observación (opcional)</label>
+      <textarea id="aprob-obs" rows="3" placeholder="Comentario del orientador..."></textarea>
+    </div>
+    <div id="alert-aprob" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-dp-aprobar')">Cancelar</button>
+      <button class="btn btn-danger" onclick="aprobarSesion('rechazado')">❌ Rechazar</button>
+      <button class="btn btn-success" onclick="aprobarSesion('aprobado')">✅ Aprobar</button>
+    </div>
+  </div>
+</div>
+<!-- /DEBIDOS PROCESOS -->
+
 </div><!-- /main /app-body -->
 
 <!-- ═══ MODALES ═══ -->
@@ -2069,9 +2280,11 @@ tr:hover td{background:#f8fafc;}
         <option value="">— Seleccionar —</option>
         <option value="oficio">📨 Oficio</option>
         <option value="minuta">📝 Minuta</option>
-        <option value="proceso">⚖️ Debido Proceso</option>
         <option value="protocolo">🛡️ Protocolo</option>
       </select>
+      <div style="margin-top:6px;padding:6px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:11.5px;color:#78350f;">
+        ℹ️ Los consecutivos de <strong>Debido Proceso</strong> ahora se generan automáticamente desde el módulo <strong>⚖️ Debidos Procesos</strong> al iniciar el acta de apertura. Los procesos viejos siguen visibles en la lista de abajo a modo de consulta.
+      </div>
     </div>
 
 
@@ -2746,6 +2959,7 @@ function goTo(page){
   if(page==="precautoria") iniciarMedidas('precautoria');
   if(page==="suspension")  iniciarMedidas('suspension');
   if(page==="hibrida")     iniciarMedidas('educacion_hibrida');
+  if(page==="debidos")     iniciarDebidosProcesos();
   if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
   if(page==="archivo")      iniciarArchivo();
@@ -2872,6 +3086,14 @@ async function iniciarApp(){
         if(b) b.style.display = "none";
       });
     }
+  }
+
+  // ── DEBIDOS PROCESOS ────────────────────────────────────────────
+  // Visible para cualquier profesor (puede abrir Paso 1), guías
+  // (gestionan), orientadores (aprueban) y staff administrativo.
+  const rolesDebidos = ["admin","auxiliar","administrativo","secretaria","profesor","profesor_guia","orientador"];
+  if(rolesDebidos.includes(ME.rol)){
+    document.getElementById("nav-debidos").style.display="";
   }
 
   // ── ADMIN ────────────────────────────────────────────────────
@@ -6197,6 +6419,778 @@ async function eliminarMedida(id, tipo){
     await iniciarMedidas(tipo);
     allMedidasActivas = await api('/api/medidas/activas')||[];
   }catch(e){ alert(e.message); }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  DEBIDOS PROCESOS (REAC art. 144)
+// ════════════════════════════════════════════════════════════════════
+// Estado global del módulo
+let dpEstadoActual = 'en_curso';
+let dpProcesoActual = null;  // datos completos del proceso abierto en el modal
+let dpPasoEnEdicion = null;  // {tipo, orden, contenido} del paso en el modal de edición
+
+// Catálogo de tipos de paso con su info de presentación
+const DP_TIPOS_PASO = {
+  acta_apertura:    { nombre:'Acta de información de los hechos', orden:1, icono:'📝' },
+  cita_ofendido:    { nombre:'Boleta cita supuesto ofendido',     orden:2, icono:'✉️' },
+  decl_ofendido:    { nombre:'Declaración supuesto ofendido',     orden:3, icono:'🗣️' },
+  cita_ofensor:     { nombre:'Boleta cita supuesto ofensor',      orden:4, icono:'✉️' },
+  decl_ofensor:     { nombre:'Declaración supuesto ofensor',      orden:5, icono:'🗣️' },
+  cita_testigo:     { nombre:'Boleta cita testigo',               orden:6, icono:'✉️' },
+  decl_testigo:     { nombre:'Declaración testigo',               orden:7, icono:'🗣️' },
+  acta_sesion:      { nombre:'Acta sesión docente-orientador',    orden:8, icono:'🧑‍⚖️' },
+  traslado_cargos:  { nombre:'Traslado de cargos',                orden:9, icono:'📜' },
+  resolucion_final: { nombre:'Resolución final',                  orden:10, icono:'⚖️' },
+  desestima:        { nombre:'Acta de desestima',                 orden:11, icono:'🚫' }
+};
+
+async function iniciarDebidosProcesos(){
+  await cargarDPPendientes();
+  await cargarDPLista(dpEstadoActual);
+}
+
+function dpCambiarTab(estado){
+  dpEstadoActual = estado;
+  // Estilo de tabs
+  ['curso','resueltos','desestimados'].forEach(t=>{
+    const b = document.getElementById(`dp-tab-${t}`);
+    if(b){ b.style.background = 'transparent'; b.style.color='var(--muted)'; b.style.fontWeight='normal'; }
+  });
+  const map = { en_curso:'curso', resuelto:'resueltos', desestimado:'desestimados' };
+  const activo = document.getElementById(`dp-tab-${map[estado]}`);
+  if(activo){ activo.style.background='var(--azul)'; activo.style.color='#fff'; activo.style.fontWeight='bold'; }
+  cargarDPLista(estado);
+}
+
+async function cargarDPLista(estado){
+  const wrap = document.getElementById('dp-lista-wrap');
+  wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Cargando...</div>';
+  try{
+    const rows = await api(`/api/debidos-procesos?estado=${estado}`) || [];
+    if(!rows.length){
+      wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Sin procesos en esta categoría.</div>';
+      return;
+    }
+    const hoy = new Date();
+    wrap.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;">' +
+      rows.map(p => {
+        const creado = new Date(p.created_at);
+        const diffDias = Math.floor((hoy - creado) / (1000*60*60*24));
+        const vencido = (estado === 'en_curso') && diffDias > 15;
+        const porVencer = (estado === 'en_curso') && diffDias >= 10 && diffDias <= 15;
+        let badge = '';
+        if(estado === 'en_curso'){
+          if(vencido) badge = `<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">🚨 VENCIDO (${diffDias}d)</span>`;
+          else if(porVencer) badge = `<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">⚠️ ${15-diffDias}d restantes</span>`;
+          else badge = `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">⏳ Día ${diffDias} de 15</span>`;
+        } else if(estado === 'resuelto'){
+          badge = '<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">✅ Resuelto</span>';
+        } else {
+          badge = '<span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">❌ Desestimado</span>';
+        }
+        const nro = `N°${String(p.numero).padStart(3,'0')}-${p.anio}`;
+        // Total esperado de pasos: 8 base + 2 si continuar, 1 si desestimar.
+        // Hasta que el proceso defina decisión, mostramos al menos 8 como base.
+        let totalEsperado = 8;
+        if(p.decision_sesion === 'continuar') totalEsperado = 10;
+        else if(p.decision_sesion === 'desestimar') totalEsperado = 9;
+        // Si los registrados ya son más (caso de testigos múltiples), usamos el mayor
+        const totalReal = Math.max(totalEsperado, Number(p.pasos_totales||0));
+        const progreso = Math.round((Number(p.pasos_completados||0)/Math.max(totalReal,1))*100);
+        return `<div style="background:#fff;border:1px solid var(--border);border-left:5px solid ${vencido?'#dc2626':'#6366f1'};border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;color:var(--muted);">${nro}</div>
+              <strong style="font-size:14px;color:#0f172a;line-height:1.3;">${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}</strong>
+              <div style="font-size:11px;color:var(--muted);">${p.cedula} · ${p.seccion_nombre||'—'}</div>
+            </div>
+            ${badge}
+          </div>
+          <div style="font-size:11px;color:var(--muted);">
+            <strong>Guía:</strong> ${p.guia_ap1||'—'} ${p.guia_nombre||''} · <strong>Inició:</strong> ${p.ini_ap1||'—'} ${p.ini_nombre||''}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
+            <span style="color:var(--muted);">Progreso:</span>
+            <div style="flex:1;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
+              <div style="height:100%;width:${progreso}%;background:#6366f1;transition:width 0.3s;"></div>
+            </div>
+            <span><strong>${p.pasos_completados}/${p.pasos_totales}</strong></span>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="abrirDPDetalle(${p.id})">📋 Ver / Continuar Pasos</button>
+        </div>`;
+      }).join('') + '</div>';
+  }catch(e){
+    wrap.innerHTML = `<div style="color:var(--rojo);padding:20px;">Error: ${e.message}</div>`;
+  }
+}
+
+async function cargarDPPendientes(){
+  const wrap = document.getElementById('dp-pendientes-wrap');
+  const lista = document.getElementById('dp-pendientes-lista');
+  if(!wrap || !lista) return;
+  try {
+    // Pendientes como profesor receptor de declaración cruzada
+    const pendProf = await api('/api/debidos-procesos/pendientes/mios').catch(()=>[]) || [];
+    // Pendientes como orientador para aprobar
+    let pendOrient = [];
+    if(['orientador','admin','administrativo'].includes(ME.rol)){
+      pendOrient = await api('/api/debidos-procesos/pendientes/orientador').catch(()=>[]) || [];
+    }
+    if(!pendProf.length && !pendOrient.length){ wrap.style.display='none'; return; }
+    wrap.style.display = '';
+    const html = [];
+    pendProf.forEach(p => {
+      const nombre = `${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}`;
+      const tipoLbl = DP_TIPOS_PASO[p.tipo]?.nombre || p.tipo;
+      html.push(`<div style="padding:4px 0;">📋 <strong>N°${p.numero}-${p.anio}</strong> · ${tipoLbl} · ${nombre} (${p.seccion_nombre||'—'})
+        <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirDPDetalle(${p.proceso_id})">Ver proceso</button>
+      </div>`);
+    });
+    pendOrient.forEach(p => {
+      const nombre = `${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}`;
+      html.push(`<div style="padding:4px 0;">🧑‍⚖️ <strong>N°${p.numero}-${p.anio}</strong> · Aprobá acta sesión · ${nombre} (${p.seccion_nombre||'—'}) · Propuesta: <strong>${p.decision_sesion}</strong>
+        <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirDPDetalle(${p.proceso_id})">Ver proceso</button>
+      </div>`);
+    });
+    lista.innerHTML = html.join('');
+  } catch(e){
+    wrap.style.display = 'none';
+  }
+}
+
+// ── NUEVO PROCESO ─────────────────────────────────────────────────────
+function abrirNuevoDP(){
+  ['ndp-buscar-est','ndp-informante','ndp-informante-cedula','ndp-informante-calidad','ndp-hechos','ndp-fecha-hechos'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('ndp-estudiante-id').innerHTML = '<option value="">— Buscá primero —</option>';
+  document.getElementById('alert-ndp').className = 'alert';
+  document.getElementById('modal-nuevo-dp').classList.add('show');
+}
+
+let _dpBuscarTimer = null;
+function dpBuscarEstudiante(){
+  clearTimeout(_dpBuscarTimer);
+  _dpBuscarTimer = setTimeout(async ()=>{
+    const q = document.getElementById('ndp-buscar-est').value.trim();
+    const sel = document.getElementById('ndp-estudiante-id');
+    if(q.length < 2){ sel.innerHTML = '<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
+    try {
+      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
+      sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
+        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+      ).join('');
+    } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
+  }, 300);
+}
+
+async function guardarNuevoDP(){
+  const eid = document.getElementById('ndp-estudiante-id').value;
+  const hechos = document.getElementById('ndp-hechos').value.trim();
+  if(!eid){ sa('alert-ndp','Buscá y seleccioná un estudiante.','danger'); return; }
+  if(!hechos){ sa('alert-ndp','Escribí los hechos.','danger'); return; }
+  const contenido = {
+    informante:        document.getElementById('ndp-informante').value.trim(),
+    informante_cedula: document.getElementById('ndp-informante-cedula').value.trim(),
+    informante_calidad:document.getElementById('ndp-informante-calidad').value.trim(),
+    hechos,
+    fecha_hechos:      document.getElementById('ndp-fecha-hechos').value,
+  };
+  try {
+    const r = await api('/api/debidos-procesos','POST', { estudiante_id: +eid, contenido_apertura: contenido });
+    cerrarModal('modal-nuevo-dp');
+    sa('alert-dp', `✅ Proceso iniciado. N°${String(r.numero).padStart(3,'0')}-${r.anio}`, 'success');
+    await cargarDPLista(dpEstadoActual);
+    // Abrir directamente el detalle para que pueda continuar
+    setTimeout(()=>abrirDPDetalle(r.id), 400);
+  } catch(e) {
+    sa('alert-ndp', e.message, 'danger');
+  }
+}
+
+// ── DETALLE DEL PROCESO ───────────────────────────────────────────────
+async function abrirDPDetalle(procesoId){
+  try {
+    const d = await api(`/api/debidos-procesos/${procesoId}`);
+    dpProcesoActual = d;
+    const dp = d.proceso;
+    const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
+    const nombre = `${dp.est_ap1} ${dp.est_ap2||''}, ${dp.est_nombre}`;
+    document.getElementById('dpd-titulo').textContent = `⚖️ Debido Proceso ${nro}`;
+    document.getElementById('dpd-subtitulo').innerHTML = `
+      <strong>${nombre}</strong> · ${dp.cedula} · ${dp.seccion_nombre||'—'}<br/>
+      Guía: ${dp.guia_ap1||'—'} ${dp.guia_nombre||''} · Orientador: ${dp.orient_ap1||'—'} ${dp.orient_nombre||''}
+    `;
+
+    // Badge de plazo
+    const creado = new Date(dp.created_at);
+    const diffDias = Math.floor((new Date() - creado) / (1000*60*60*24));
+    const badge = document.getElementById('dpd-plazo-badge');
+    if(dp.estado === 'en_curso'){
+      if(diffDias > 15){
+        badge.style.background = '#dc2626'; badge.style.color = '#fff';
+        badge.textContent = `🚨 VENCIDO hace ${diffDias-15}d`;
+      } else if(diffDias >= 10){
+        badge.style.background = '#f59e0b'; badge.style.color = '#fff';
+        badge.textContent = `⚠️ Quedan ${15-diffDias}d`;
+      } else {
+        badge.style.background = '#dbeafe'; badge.style.color = '#1e40af';
+        badge.textContent = `⏳ Día ${diffDias} de 15`;
+      }
+    } else {
+      badge.style.background = dp.estado === 'resuelto' ? '#16a34a' : '#6b7280';
+      badge.style.color = '#fff';
+      badge.textContent = dp.estado === 'resuelto' ? '✅ Resuelto' : '❌ Desestimado';
+    }
+
+    renderDPPasos(d);
+    document.getElementById('alert-dpd').className = 'alert';
+    document.getElementById('modal-dp-detalle').classList.add('show');
+  } catch(e) {
+    alert('Error al cargar proceso: ' + e.message);
+  }
+}
+
+function renderDPPasos(d){
+  const wrap = document.getElementById('dpd-pasos-lista');
+  const dp = d.proceso;
+  const esGuia = (dp.guia_a_cargo === ME.id) || ['admin','administrativo','auxiliar'].includes(ME.rol);
+  const esOrientador = (dp.orientador_id === ME.id) || ['admin','administrativo'].includes(ME.rol);
+
+  // Mapeo paso → registro existente
+  const pasosByKey = {};
+  d.pasos.forEach(p => {
+    const key = `${p.tipo}_${p.orden}`;
+    pasosByKey[key] = p;
+  });
+
+  // Lista lineal de pasos a mostrar
+  const pasosSecuencia = [
+    { tipo:'acta_apertura', orden:1 },
+    { tipo:'cita_ofendido', orden:2 },
+    { tipo:'decl_ofendido', orden:3 },
+    { tipo:'cita_ofensor', orden:4 },
+    { tipo:'decl_ofensor', orden:5 },
+  ];
+  // Testigos: agregar dinámicamente
+  d.testigos.forEach((t, idx) => {
+    pasosSecuencia.push({ tipo:'cita_testigo', orden:idx+1, testigo:t });
+    pasosSecuencia.push({ tipo:'decl_testigo', orden:idx+1, testigo:t });
+  });
+  // Paso 8
+  pasosSecuencia.push({ tipo:'acta_sesion', orden:8 });
+  // Según decisión, paso 9-10 o 11
+  if(dp.decision_sesion === 'continuar'){
+    pasosSecuencia.push({ tipo:'traslado_cargos', orden:9 });
+    pasosSecuencia.push({ tipo:'resolucion_final', orden:10 });
+  } else if(dp.decision_sesion === 'desestimar'){
+    pasosSecuencia.push({ tipo:'desestima', orden:11 });
+  }
+
+  // Render
+  const items = pasosSecuencia.map(ps => {
+    const info = DP_TIPOS_PASO[ps.tipo];
+    const key = `${ps.tipo}_${ps.orden}`;
+    const reg = pasosByKey[key];
+    const completado = reg?.completado;
+    const verificado = reg?.verificado;
+    const asignadoOtro = reg?.asignado_a && reg.asignado_a !== ME.id;
+    const meAsignado = reg?.asignado_a === ME.id;
+
+    let estadoTxt, estadoColor;
+    if(completado){
+      estadoTxt = verificado || !reg?.asignado_a ? '✅ Completado' : '⏳ Pendiente verificación';
+      estadoColor = verificado || !reg?.asignado_a ? '#16a34a' : '#f59e0b';
+    } else if(asignadoOtro){
+      estadoTxt = `📤 Asignado a otro guía (${reg.asig_ap1||''} ${reg.asig_nombre||''})`;
+      estadoColor = '#9333ea';
+    } else {
+      estadoTxt = '⏳ Pendiente';
+      estadoColor = '#94a3b8';
+    }
+
+    // Etiqueta de testigo
+    let extraLabel = '';
+    if(ps.testigo){
+      extraLabel = ` — ${ps.testigo.primer_apellido} ${ps.testigo.nombre}`;
+      if(ps.testigo.seccion_nombre) extraLabel += ` (${ps.testigo.seccion_nombre})`;
+    }
+
+    // Botones según estado y rol
+    const acciones = [];
+    if(dp.estado === 'en_curso'){
+      // Acta apertura ya viene completada al iniciar
+      if(ps.tipo === 'acta_apertura' && reg){
+        if(esGuia) acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden})'>✏️ Ver / Editar</button>`);
+        acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden})'>🖨️ Imprimir</button>`);
+      }
+      // Acta sesión (paso 8): botón especial de decisión
+      else if(ps.tipo === 'acta_sesion'){
+        if(esGuia && !dp.decision_sesion){
+          acciones.push(`<button class="btn btn-primary btn-xs" onclick="abrirDecisionDP()">🧑‍⚖️ Registrar decisión</button>`);
+        } else if(reg){
+          if(esGuia) acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden})'>✏️ Ver</button>`);
+          acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden})'>🖨️ Imprimir</button>`);
+          // Aprobación pendiente
+          const aprobado = d.aprobaciones.find(a => a.paso_id === reg.id);
+          if(!aprobado && dp.decision_sesion && esOrientador){
+            acciones.push(`<button class="btn btn-success btn-xs" onclick="abrirAprobarSesion()">✅ Aprobar</button>`);
+          } else if(aprobado){
+            const c = aprobado.decision === 'aprobado' ? '#16a34a' : '#dc2626';
+            acciones.push(`<span style="font-size:11px;color:${c};font-weight:bold;">${aprobado.decision === 'aprobado' ? '✅ Aprobado' : '❌ Rechazado'} por orientador</span>`);
+          }
+        }
+      }
+      else {
+        // Pasos normales
+        const puedeEditar = esGuia || meAsignado;
+        if(puedeEditar){
+          acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden}${ps.testigo?`,${ps.testigo.id}`:''})'>${reg?'✏️ Ver / Editar':'📝 Llenar'}</button>`);
+        }
+        if(reg?.completado){
+          acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden})'>🖨️ Imprimir</button>`);
+        }
+        // Verificar si asignado a otro y completó
+        if(esGuia && reg?.completado && reg?.asignado_a && !reg?.verificado){
+          acciones.push(`<button class="btn btn-primary btn-xs" onclick="verificarPasoDP(${reg.id})">☑️ Verificar</button>`);
+        }
+      }
+    } else {
+      // Estado cerrado: solo permitir imprimir
+      if(reg) acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden})'>🖨️ Imprimir</button>`);
+    }
+
+    return `<div style="background:#f8fafc;border-left:4px solid ${estadoColor};border-radius:6px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:12px;color:var(--muted);">Paso ${info.orden}${ps.testigo?` · Testigo ${ps.orden}`:''}</div>
+        <strong style="font-size:13px;">${info.icono} ${info.nombre}${extraLabel}</strong>
+        <div style="font-size:11px;color:${estadoColor};margin-top:2px;font-weight:bold;">${estadoTxt}</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">${acciones.join('')}</div>
+    </div>`;
+  });
+
+  // Sección de testigos (botón agregar)
+  const testigosBtn = (dp.estado === 'en_curso' && (esGuia))
+    ? `<div style="margin:14px 0;padding:10px;background:#f1f5f9;border-radius:8px;">
+        <strong style="font-size:12.5px;">Testigos registrados: ${d.testigos.length}</strong>
+        <button class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="abrirAgregarTestigo()">➕ Agregar testigo</button>
+      </div>`
+    : '';
+
+  // Botón cerrar
+  const btnCerrar = (dp.estado === 'en_curso' && dp.decision_sesion && esGuia)
+    ? `<div style="margin-top:14px;text-align:center;">
+        <button class="btn btn-success" onclick="cerrarProcesoDP()">🔒 Cerrar Proceso ${dp.decision_sesion === 'desestimar' ? '(Desestimado)' : '(Resuelto)'}</button>
+      </div>`
+    : '';
+
+  wrap.innerHTML = items.join('') + testigosBtn + btnCerrar;
+}
+
+// ── ABRIR Y EDITAR UN PASO ────────────────────────────────────────────
+function abrirPasoDP(tipo, orden, testigoId){
+  const reg = (dpProcesoActual?.pasos || []).find(p => p.tipo === tipo && Number(p.orden) === Number(orden));
+  const info = DP_TIPOS_PASO[tipo];
+  dpPasoEnEdicion = { tipo, orden, contenido: reg?.contenido || {}, testigo_id: testigoId };
+  document.getElementById('dpp-titulo').textContent = `${info.icono} ${info.nombre}`;
+  document.getElementById('dpp-subtitulo').textContent = reg?.completado_en ? `Última edición: ${new Date(reg.completado_en).toLocaleString('es-CR')}` : 'Sin completar todavía';
+  document.getElementById('alert-dpp').className = 'alert';
+  renderFormularioPaso(tipo, dpPasoEnEdicion.contenido, testigoId);
+  document.getElementById('modal-dp-paso').classList.add('show');
+}
+
+function renderFormularioPaso(tipo, c, testigoId){
+  const form = document.getElementById('dpp-form');
+  c = c || {};
+  // Base común
+  const f = (id, label, val, type='text', extra='') =>
+    `<div class="fg" style="margin-bottom:8px;"><label>${label}</label><input type="${type}" id="dpp-${id}" value="${val||''}" ${extra}/></div>`;
+  const t = (id, label, val, rows=4) =>
+    `<div class="fg" style="margin-bottom:8px;"><label>${label}</label><textarea id="dpp-${id}" rows="${rows}">${val||''}</textarea></div>`;
+
+  if(tipo === 'acta_apertura'){
+    form.innerHTML = `
+      ${f('informante','Informante', c.informante)}
+      ${f('informante_cedula','Cédula del informante', c.informante_cedula)}
+      ${f('informante_calidad','Calidad / cargo', c.informante_calidad)}
+      ${t('hechos','Hechos', c.hechos, 6)}
+      ${f('fecha_hechos','Fecha de los hechos', c.fecha_hechos, 'date')}
+    `;
+  } else if(tipo === 'cita_ofendido' || tipo === 'cita_ofensor' || tipo === 'cita_testigo'){
+    form.innerHTML = `
+      ${f('encargado_nombre','Nombre del encargado legal', c.encargado_nombre)}
+      ${f('encargado_cedula','Cédula del encargado', c.encargado_cedula)}
+      <div class="fg" style="margin-bottom:8px;"><label>Tipo de falta</label>
+        <select id="dpp-tipo_falta">
+          <option value="grave" ${c.tipo_falta==='grave'?'selected':''}>Grave</option>
+          <option value="muy_grave" ${c.tipo_falta==='muy_grave'?'selected':''}>Muy grave</option>
+          <option value="gravisima" ${c.tipo_falta==='gravisima'?'selected':''}>Gravísima</option>
+        </select>
+      </div>
+      ${f('fecha_cita','Fecha de la cita', c.fecha_cita, 'date')}
+      ${f('hora_cita','Hora de la cita', c.hora_cita, 'time')}
+      ${f('fecha_notificacion','Fecha de notificación', c.fecha_notificacion, 'date')}
+    `;
+  } else if(tipo === 'decl_ofendido' || tipo === 'decl_ofensor' || tipo === 'decl_testigo'){
+    const calidad = tipo === 'decl_ofendido' ? 'ofendido' : (tipo === 'decl_ofensor' ? 'ofensor' : 'testigo');
+    form.innerHTML = `
+      <div class="fg" style="margin-bottom:8px;"><label>Calidad</label><input type="text" id="dpp-calidad" value="${c.calidad||calidad}" readonly style="background:#f1f5f9;"/></div>
+      ${f('fecha_decl','Fecha de la declaración', c.fecha_decl, 'date')}
+      ${f('hora_decl','Hora', c.hora_decl, 'time')}
+      ${f('encargado_nombre','Encargado(a) que representa al menor', c.encargado_nombre)}
+      ${f('encargado_cedula','Cédula del encargado', c.encargado_cedula)}
+      ${f('encargado_parentesco','Parentesco', c.encargado_parentesco)}
+      ${f('encargado_direccion','Domicilio', c.encargado_direccion)}
+      ${t('declaracion','Declaración (manifiesto lo siguiente)', c.declaracion, 10)}
+    `;
+  } else if(tipo === 'acta_sesion'){
+    form.innerHTML = `
+      <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;font-size:12px;color:#78350f;margin-bottom:10px;">
+        Solo lectura. Para registrar o cambiar la decisión, usá el botón "Registrar decisión".
+      </div>
+      ${f('art_falta','Artículo falta', c.art_falta)}
+      ${f('inc_falta','Inciso falta', c.inc_falta)}
+      ${f('art_rebajo','Artículo rebajo', c.art_rebajo)}
+      ${f('inc_rebajo','Inciso rebajo', c.inc_rebajo)}
+      ${f('art_accion','Artículo acción correctiva', c.art_accion)}
+      ${f('inc_accion','Inciso acción', c.inc_accion)}
+      ${t('desc_accion','Descripción acción correctiva', c.desc_accion, 3)}
+      <div class="fg"><label>Decisión</label><input type="text" value="${c.decision||''}" readonly style="background:#f1f5f9;"/></div>
+    `;
+  } else if(tipo === 'traslado_cargos'){
+    form.innerHTML = `
+      ${f('fecha_notif','Fecha notificación', c.fecha_notif, 'date')}
+      ${f('hora_notif','Hora notificación', c.hora_notif, 'time')}
+      ${f('encargado_nombre','Encargado legal a notificar', c.encargado_nombre)}
+      ${f('encargado_cedula','Cédula del encargado', c.encargado_cedula)}
+      ${f('art_falta','Artículo de la falta', c.art_falta)}
+      ${f('inc_falta','Inciso', c.inc_falta)}
+      ${t('hecho_imputado','Hecho imputado', c.hecho_imputado, 5)}
+      ${f('fecha_hecho','Fecha del hecho', c.fecha_hecho, 'date')}
+      ${f('art_rebajo','Artículo rebajo de puntos', c.art_rebajo)}
+      ${f('art_accion','Artículo acción correctiva', c.art_accion)}
+    `;
+  } else if(tipo === 'resolucion_final'){
+    form.innerHTML = `
+      ${f('fecha_resol','Fecha de resolución', c.fecha_resol, 'date')}
+      ${f('hora_resol','Hora', c.hora_resol, 'time')}
+      ${t('hecho_probado','Hecho probado (lo que se comprobó)', c.hecho_probado, 4)}
+      ${f('art_falta','Artículo falta', c.art_falta)}
+      ${f('inc_falta','Inciso falta', c.inc_falta)}
+      ${f('art_rebajo','Artículo rebajo', c.art_rebajo)}
+      ${f('inc_rebajo','Inciso rebajo', c.inc_rebajo)}
+      ${f('puntos_rebajados','Puntos rebajados', c.puntos_rebajados, 'number')}
+      ${f('semestre','Semestre', c.semestre)}
+      ${f('art_accion','Artículo acción', c.art_accion)}
+      ${f('inc_accion','Inciso acción', c.inc_accion)}
+      ${t('desc_accion','Descripción acción correctiva', c.desc_accion, 4)}
+      ${f('fecha_inicio_accion','Fecha de inicio acción', c.fecha_inicio_accion, 'date')}
+    `;
+  } else if(tipo === 'desestima'){
+    form.innerHTML = `
+      ${f('fecha_desest','Fecha de desestima', c.fecha_desest, 'date')}
+      ${f('hora_desest','Hora', c.hora_desest, 'time')}
+      ${t('fundamento','Fundamentos de hecho y derecho (por qué se desestima)', c.fundamento, 6)}
+      ${f('expediente','N° expediente administrativo', c.expediente)}
+    `;
+  } else {
+    form.innerHTML = '<p>Tipo no implementado.</p>';
+  }
+}
+
+async function guardarPasoDP(){
+  if(!dpPasoEnEdicion || !dpProcesoActual) return;
+  const contenido = leerContenidoPaso(dpPasoEnEdicion.tipo);
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
+      tipo: dpPasoEnEdicion.tipo,
+      orden: dpPasoEnEdicion.orden,
+      contenido,
+      completar: true
+    });
+    cerrarModal('modal-dp-paso');
+    sa('alert-dpd','✅ Paso guardado.','success');
+    await abrirDPDetalle(dpProcesoActual.proceso.id);
+  } catch(e){ sa('alert-dpp', e.message, 'danger'); }
+}
+
+function leerContenidoPaso(tipo){
+  const c = {};
+  document.querySelectorAll('#dpp-form [id^="dpp-"]').forEach(el => {
+    const key = el.id.replace('dpp-','');
+    c[key] = el.value;
+  });
+  return c;
+}
+
+async function imprimirPasoDP(){
+  if(!dpPasoEnEdicion || !dpProcesoActual) return;
+  // Leer contenido actual del formulario ANTES de guardar
+  const contenido = leerContenidoPaso(dpPasoEnEdicion.tipo);
+  const tipoCopy = dpPasoEnEdicion.tipo;
+  const ordenCopy = dpPasoEnEdicion.orden;
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
+      tipo: tipoCopy,
+      orden: ordenCopy,
+      contenido,
+      completar: true
+    });
+    cerrarModal('modal-dp-paso');
+    sa('alert-dpd','✅ Paso guardado.','success');
+    // Recargar detalle ANTES de imprimir, para que la impresión use datos frescos
+    await abrirDPDetalle(dpProcesoActual.proceso.id);
+    // Ahora sí imprimir, con dpProcesoActual ya actualizado
+    setTimeout(() => imprimirPasoDPDirecto(tipoCopy, ordenCopy), 200);
+  } catch(e){ sa('alert-dpp', e.message, 'danger'); }
+}
+
+// Imprimir un paso ya guardado, generando una hoja con encabezado oficial
+function imprimirPasoDPDirecto(tipo, orden){
+  if(!dpProcesoActual) return;
+  const dp = dpProcesoActual.proceso;
+  const reg = (dpProcesoActual.pasos || []).find(p => p.tipo === tipo && Number(p.orden) === Number(orden));
+  if(!reg && tipo !== 'acta_apertura'){ alert('Este paso aún no se completó.'); return; }
+  const c = reg?.contenido || {};
+  const info = DP_TIPOS_PASO[tipo];
+  const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
+  const estudiante = `${dp.est_ap1} ${dp.est_ap2||''}, ${dp.est_nombre}`;
+  const guia = `${dp.guia_ap1||''} ${dp.guia_nombre||''}`.trim() || '—';
+  const orientador = `${dp.orient_ap1||''} ${dp.orient_nombre||''}`.trim() || '—';
+  let body = '';
+
+  // Buscar testigo si aplica
+  let testigo = null;
+  if((tipo === 'cita_testigo' || tipo === 'decl_testigo') && dpProcesoActual.testigos){
+    testigo = dpProcesoActual.testigos.find(t => t.paso_cita_id === reg.id || t.paso_decl_id === reg.id);
+  }
+
+  if(tipo === 'acta_apertura'){
+    body = `<h2 style="text-align:center;">ACTA DE INFORMACIÓN DE LOS HECHOS</h2>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p><strong>Fecha:</strong> ${c.fecha_hechos || '_____________'}</p>
+      <p>Yo, <strong>${c.informante||'__________________'}</strong>, portador de la cédula de identidad <strong>${c.informante_cedula||'____________'}</strong>, en calidad de <strong>${c.informante_calidad||'____________'}</strong>, manifiesto lo siguiente:</p>
+      <p>Se hace constar que la presente se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes...</p>
+      <p>Pongo en conocimiento los siguientes hechos:</p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:140px;white-space:pre-wrap;">${c.hechos||''}</div>
+      <p>Leída la presente declaración, manifiesto haberla comprendido en su totalidad y la ratifico en todas sus partes.</p>
+      <p style="margin-top:30px;">Nombre del Informante: ${c.informante||'____________________________'}</p>
+      <p>Cédula: ${c.informante_cedula||'__________'} &nbsp;&nbsp; Firma: _________________ &nbsp;&nbsp; Fecha: ${c.fecha_hechos||'__________'}</p>`;
+  } else if(tipo.startsWith('cita_')){
+    const tipoF = c.tipo_falta || 'grave';
+    body = `<h2 style="text-align:center;">BOLETA DE CITA ENCARGADO LEGAL</h2>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p><strong>Fecha:</strong> ${c.fecha_notificacion || '____________'}</p>
+      <p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong> encargado(a) legal del estudiante: <strong>${testigo ? `${testigo.primer_apellido} ${testigo.nombre}` : estudiante}</strong>, sección: <strong>${dp.seccion_nombre||'___'}</strong>.</p>
+      <p>Saludo cordial,</p>
+      <p>Le informo que el Centro Educativo está realizando una investigación para determinar la posible comisión de la falta <strong>${tipoF}</strong>, de una persona estudiante. De conformidad con el debido proceso y las normas del Código de la Niñez y la Adolescencia, se le convoca el día <strong>${c.fecha_cita||'____'}</strong> a las <strong>${c.hora_cita||'____'}</strong> horas para que represente a su hijo(a) en la audiencia que se efectuará en dicha fecha para recibir su testimonio.</p>
+      <p>Cordialmente,</p>
+      <p style="margin-top:30px;">_______________________________<br/>Profesor(a) / Maestro(a) Guía: ${guia}</p>
+      <p>Fecha y hora de la notificación: ${c.fecha_notificacion||'____'} ${c.hora_cita||''}</p>
+      <p>Firma del profesor guía: ____________________________</p>`;
+  } else if(tipo.startsWith('decl_')){
+    const calidad = c.calidad || (tipo === 'decl_ofendido' ? 'ofendido' : tipo === 'decl_ofensor' ? 'ofensor' : 'testigo');
+    const nombreDeclarante = testigo ? `${testigo.primer_apellido} ${testigo.segundo_apellido||''}, ${testigo.nombre}` : estudiante;
+    const cedulaDeclarante = testigo ? testigo.cedula : dp.cedula;
+    body = `<h2 style="text-align:center;">DECLARACIÓN</h2>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el docente a cargo/profesor guía: <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong> y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong> comparece el estudiante: <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong> de la sección <strong>${dp.seccion_nombre||'___'}</strong>, en calidad de supuesto <strong>${calidad}</strong> a rendir libremente y sin coacción alguna, su declaración en la causa disciplinaria que está siendo investigada.</p>
+      <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
+      <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
+      <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:200px;white-space:pre-wrap;">${c.declaracion||''}</div>
+      <p style="margin-top:30px;">Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
+      <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
+      <p>Firma profesor guía: ____________________ &nbsp; Cédula: ${dp.guia_cedula||'____'}</p>
+      <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>`;
+  } else if(tipo === 'acta_sesion'){
+    body = `<h2 style="text-align:center;">ACTA DE SESIÓN DOCENTE-ORIENTADOR</h2>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p>En presencia del(la) profesor(a) guía <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong>, y de la orientadora <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, se procede a la investigación correspondiente del(la) estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
+      <p><strong>Tipificación de la falta:</strong><br/>Artículo: ${c.art_falta||'____'} &nbsp; Inciso: ${c.inc_falta||'____'}</p>
+      <p><strong>Rebajo de puntos:</strong><br/>Artículo: ${c.art_rebajo||'____'} &nbsp; Inciso: ${c.inc_rebajo||'____'}</p>
+      <p><strong>Posible acción correctiva:</strong><br/>Artículo: ${c.art_accion||'____'} &nbsp; Inciso: ${c.inc_accion||'____'}</p>
+      <p><strong>Descripción de la acción correctiva:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;">${c.desc_accion||''}</div>
+      <p><strong>Decisión:</strong> ${c.decision || dp.decision_sesion || '____'}</p>
+      <p style="margin-top:40px;">Profesor(a) Guía: ____________________ &nbsp; ${guia}</p>
+      <p>Orientador(a): ____________________ &nbsp; ${orientador}</p>`;
+  } else if(tipo === 'traslado_cargos'){
+    body = `<h2 style="text-align:center;">TRASLADO DE CARGOS</h2>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p>El suscrito docente a cargo <strong>${guia}</strong>, de la sección <strong>${dp.seccion_nombre||'___'}</strong>, siendo las <strong>${c.hora_notif||'____'}</strong> horas del día <strong>${c.fecha_notif||'____'}</strong>, procede a notificar el presente traslado de cargos.</p>
+      <p>De conformidad con el artículo 144, inciso d) del REAC, se concede un plazo de <strong>tres días hábiles</strong> para ejercer el derecho de defensa.</p>
+      <p>Se notifica a <strong>${c.encargado_nombre||'____'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, encargado(a) del estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
+      <p><strong>Falta:</strong> artículo ${c.art_falta||'____'}, inciso ${c.inc_falta||'____'}</p>
+      <p><strong>Hecho imputado:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:100px;white-space:pre-wrap;">${c.hecho_imputado||''}</div>
+      <p>Fecha del hecho: <strong>${c.fecha_hecho||'____'}</strong></p>
+      <p><strong>Advertencia:</strong> Si transcurrido el plazo no se presenta descargo, se tendrá por aceptada la imputación.</p>
+      <p style="margin-top:40px;">Profesor(a) Guía: ____________________ ${guia}<br/>Fecha: ${c.fecha_notif||'____'}</p>
+      <p style="margin-top:20px;"><strong>RECIBIDO</strong></p>
+      <p>Nombre del encargado: ${c.encargado_nombre||'____'}<br/>Cédula: ${c.encargado_cedula||'____'} &nbsp; Firma: ____________</p>`;
+  } else if(tipo === 'resolucion_final'){
+    body = `<h2 style="text-align:center;">RESOLUCIÓN FINAL</h2>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p>Al ser las <strong>${c.hora_resol||'____'}</strong> horas del día <strong>${c.fecha_resol||'____'}</strong>, en relación con el proceso aplicado al(la) estudiante <strong>${estudiante}</strong>, expediente <strong>${nro}</strong>, sección a cargo del docente <strong>${guia}</strong>, se resuelve:</p>
+      <p><strong>I. ANTECEDENTES</strong></p>
+      <p>Una vez analizado el expediente, con base en el REAC y respetando el debido proceso, se determina lo siguiente:</p>
+      <p><strong>II. HECHO PROBADO</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.hecho_probado||''}</div>
+      <p><strong>III. TIPIFICACIÓN DE LA FALTA</strong></p>
+      <p>El(la) estudiante incumplió el artículo <strong>${c.art_falta||'____'}</strong>, inciso <strong>${c.inc_falta||'____'}</strong> del REAC.</p>
+      <p><strong>IV. POR TANTO</strong></p>
+      <ul>
+        <li><strong>Rebajo de nota de conducta:</strong> según artículo ${c.art_rebajo||'____'}, inciso ${c.inc_rebajo||'____'}, rebajo de <strong>${c.puntos_rebajados||'____'} puntos</strong> en el ${c.semestre||'____'} semestre.</li>
+        <li><strong>Acción correctiva:</strong> artículo ${c.art_accion||'____'}, inciso ${c.inc_accion||'____'}.</li>
+      </ul>
+      <p>Descripción de la acción:</p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:60px;white-space:pre-wrap;">${c.desc_accion||''}</div>
+      <p>A ejecutarse a partir del: <strong>${c.fecha_inicio_accion||'____'}</strong></p>
+      <p><strong>Notifíquese. Cúmplase.</strong></p>
+      <p style="margin-top:30px;">Firma del docente: ____________________ ${guia}<br/>Firma del estudiante: ____________________<br/>Firma del encargado legal: ____________________</p>`;
+  } else if(tipo === 'desestima'){
+    body = `<h2 style="text-align:center;">DESESTIMA DEL PROCESO</h2>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p>Al ser las <strong>${c.hora_desest||'____'}</strong> horas del día <strong>${c.fecha_desest||'____'}</strong>, en relación con el proceso seguido contra <strong>${estudiante}</strong>, expediente <strong>${c.expediente||nro}</strong>, el(la) docente <strong>${guia}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>, resuelve:</p>
+      <p><strong>I. ANTECEDENTES</strong></p>
+      <p>Conforme al procedimiento del REAC, se realizó la investigación correspondiente.</p>
+      <p><strong>II. FUNDAMENTOS</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:120px;white-space:pre-wrap;">${c.fundamento||''}</div>
+      <p><strong>III. POR TANTO</strong></p>
+      <p>Se desestima la continuación del procedimiento. El estudiante queda libre de responsabilidad. Se ordena el archivo del expediente <strong>${c.expediente||nro}</strong>.</p>
+      <p style="margin-top:30px;">Firma del docente: ____________________ ${guia}</p>`;
+  }
+
+  // Generar área de impresión
+  let printArea = document.getElementById('print-dp-area');
+  if(!printArea){ printArea = document.createElement('div'); printArea.id = 'print-dp-area'; document.body.appendChild(printArea); }
+  printArea.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
+  printArea.innerHTML = `<div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:10px;font-size:13px;line-height:1.5;">${body}</div>`;
+
+  let style = document.getElementById('print-style-dp');
+  if(style) style.remove();
+  style = document.createElement('style');
+  style.id = 'print-style-dp';
+  style.innerHTML = `
+    @page { size: A4 portrait; margin: 12mm; }
+    @media print {
+      body > *:not(#print-dp-area) { display:none!important; }
+      #print-dp-area { display:block!important; }
+    }
+  `;
+  document.head.appendChild(style);
+  if(typeof imprimirConEncabezado === 'function') imprimirConEncabezado(printArea, style);
+  else window.print();
+}
+
+// ── TESTIGO ───────────────────────────────────────────────────────────
+function abrirAgregarTestigo(){
+  document.getElementById('dpt-buscar').value = '';
+  document.getElementById('dpt-estudiante-id').innerHTML = '<option value="">— Buscá primero —</option>';
+  document.getElementById('alert-dpt').className = 'alert';
+  document.getElementById('modal-dp-testigo').classList.add('show');
+}
+
+let _dptTimer = null;
+function dpBuscarTestigo(){
+  clearTimeout(_dptTimer);
+  _dptTimer = setTimeout(async ()=>{
+    const q = document.getElementById('dpt-buscar').value.trim();
+    const sel = document.getElementById('dpt-estudiante-id');
+    if(q.length < 2){ sel.innerHTML = '<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
+    try {
+      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
+      sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
+        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+      ).join('');
+    } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
+  }, 300);
+}
+
+async function guardarTestigoDP(){
+  const eid = document.getElementById('dpt-estudiante-id').value;
+  if(!eid){ sa('alert-dpt','Buscá y seleccioná un estudiante.','danger'); return; }
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/testigos`,'POST', { estudiante_id: +eid });
+    cerrarModal('modal-dp-testigo');
+    sa('alert-dpd','✅ Testigo agregado.','success');
+    await abrirDPDetalle(dpProcesoActual.proceso.id);
+  } catch(e){ sa('alert-dpt', e.message, 'danger'); }
+}
+
+async function verificarPasoDP(pasoId){
+  if(!confirm('¿Confirmar que verificaste este paso?')) return;
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos/${pasoId}/verificar`,'POST');
+    sa('alert-dpd','✅ Verificado.','success');
+    await abrirDPDetalle(dpProcesoActual.proceso.id);
+  } catch(e){ alert(e.message); }
+}
+
+// ── DECISIÓN DEL ACTA SESIÓN ──────────────────────────────────────────
+function abrirDecisionDP(){
+  ['dec-art-falta','dec-inc-falta','dec-art-rebajo','dec-inc-rebajo','dec-art-accion','dec-inc-accion','dec-desc-accion'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('dec-decision').value = '';
+  document.getElementById('alert-dec').className = 'alert';
+  document.getElementById('modal-dp-decision').classList.add('show');
+}
+
+async function guardarDecisionDP(){
+  const decision = document.getElementById('dec-decision').value;
+  if(!decision){ sa('alert-dec','Elegí una decisión.','danger'); return; }
+  const contenido = {
+    art_falta:  document.getElementById('dec-art-falta').value.trim(),
+    inc_falta:  document.getElementById('dec-inc-falta').value.trim(),
+    art_rebajo: document.getElementById('dec-art-rebajo').value.trim(),
+    inc_rebajo: document.getElementById('dec-inc-rebajo').value.trim(),
+    art_accion: document.getElementById('dec-art-accion').value.trim(),
+    inc_accion: document.getElementById('dec-inc-accion').value.trim(),
+    desc_accion: document.getElementById('dec-desc-accion').value.trim(),
+  };
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/decidir-sesion`,'POST', { decision, contenido });
+    cerrarModal('modal-dp-decision');
+    sa('alert-dpd','✅ Decisión registrada. Pendiente de aprobación del orientador.','success');
+    await abrirDPDetalle(dpProcesoActual.proceso.id);
+  } catch(e){ sa('alert-dec', e.message, 'danger'); }
+}
+
+// ── APROBAR ACTA SESIÓN (orientador) ──────────────────────────────────
+function abrirAprobarSesion(){
+  const dp = dpProcesoActual?.proceso;
+  if(!dp) return;
+  document.getElementById('aprob-decision-info').innerHTML =
+    `Decisión propuesta: <strong>${dp.decision_sesion === 'continuar' ? 'Continuar el proceso' : 'Desestimar'}</strong>`;
+  document.getElementById('aprob-obs').value = '';
+  document.getElementById('alert-aprob').className = 'alert';
+  document.getElementById('modal-dp-aprobar').classList.add('show');
+}
+
+async function aprobarSesion(decision){
+  const obs = document.getElementById('aprob-obs').value.trim();
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/aprobar-sesion`,'POST', { decision, observacion: obs });
+    cerrarModal('modal-dp-aprobar');
+    sa('alert-dpd', `✅ Acta ${decision === 'aprobado' ? 'aprobada' : 'rechazada'}.`,'success');
+    await abrirDPDetalle(dpProcesoActual.proceso.id);
+  } catch(e){ sa('alert-aprob', e.message, 'danger'); }
+}
+
+// ── CERRAR PROCESO ───────────────────────────────────────────────────
+async function cerrarProcesoDP(){
+  if(!confirm('¿Cerrar el proceso? Esta acción no se puede deshacer.')) return;
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/cerrar`,'POST');
+    cerrarModal('modal-dp-detalle');
+    sa('alert-dp','✅ Proceso cerrado.','success');
+    await cargarDPLista(dpEstadoActual);
+  } catch(e){ alert(e.message); }
 }
 
 // ════════════════════════════════════
