@@ -598,6 +598,109 @@ async function initDB() {
       console.error("Historial migración inicial:", e.message);
     }
 
+    // ── MÓDULO DE DEBIDOS PROCESOS ────────────────────────────────────────
+    // Procedimiento correctivo según REAC art. 144. Cada proceso tiene
+    // múltiples pasos (acta apertura, citas, declaraciones, acta sesión,
+    // traslado de cargos, resolución final o desestima).
+    //
+    // Estado del proceso:
+    //   - 'en_curso': se están registrando pasos
+    //   - 'desestimado': cerrado sin sanción tras paso 8 con decisión desestimar
+    //   - 'resuelto': cerrado con resolución final tras pasos 9 y 10
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS debidos_procesos (
+          id              SERIAL PRIMARY KEY,
+          consecutivo_id  INTEGER REFERENCES consecutivos(id) ON DELETE SET NULL,
+          numero          INTEGER NOT NULL,
+          anio            INTEGER NOT NULL,
+          estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+          iniciado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          guia_a_cargo    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          orientador_id   INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          estado          TEXT NOT NULL DEFAULT 'en_curso',
+          decision_sesion TEXT,
+          created_at      TIMESTAMP DEFAULT NOW(),
+          updated_at      TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dp_est ON debidos_procesos(estudiante_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dp_estado ON debidos_procesos(estado)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dp_guia ON debidos_procesos(guia_a_cargo)`);
+      console.log("✅ DP: tabla debidos_procesos lista");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS dp_pasos (
+          id             SERIAL PRIMARY KEY,
+          proceso_id     INTEGER NOT NULL REFERENCES debidos_procesos(id) ON DELETE CASCADE,
+          tipo           TEXT NOT NULL,
+          orden          INTEGER NOT NULL DEFAULT 1,
+          completado     BOOLEAN DEFAULT false,
+          completado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          completado_en  TIMESTAMP,
+          verificado     BOOLEAN DEFAULT false,
+          verificado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          verificado_en  TIMESTAMP,
+          asignado_a     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          contenido      JSONB DEFAULT '{}'::jsonb,
+          created_at     TIMESTAMP DEFAULT NOW(),
+          updated_at     TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dpp_proceso ON dp_pasos(proceso_id, orden)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dpp_asignado ON dp_pasos(asignado_a) WHERE asignado_a IS NOT NULL`);
+      console.log("✅ DP: tabla dp_pasos lista");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS dp_testigos (
+          id              SERIAL PRIMARY KEY,
+          proceso_id      INTEGER NOT NULL REFERENCES debidos_procesos(id) ON DELETE CASCADE,
+          estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+          paso_cita_id    INTEGER REFERENCES dp_pasos(id) ON DELETE SET NULL,
+          paso_decl_id    INTEGER REFERENCES dp_pasos(id) ON DELETE SET NULL,
+          agregado_en     TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dpt_proceso ON dp_testigos(proceso_id)`);
+      console.log("✅ DP: tabla dp_testigos lista");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS dp_aprobaciones_orientador (
+          id              SERIAL PRIMARY KEY,
+          proceso_id      INTEGER NOT NULL REFERENCES debidos_procesos(id) ON DELETE CASCADE,
+          paso_id         INTEGER NOT NULL REFERENCES dp_pasos(id) ON DELETE CASCADE,
+          orientador_id   INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          decision        TEXT NOT NULL,
+          observacion     TEXT,
+          fecha           TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dpao_proceso ON dp_aprobaciones_orientador(proceso_id)`);
+      console.log("✅ DP: tabla dp_aprobaciones_orientador lista");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS dp_historial_cambios (
+          id              SERIAL PRIMARY KEY,
+          paso_id         INTEGER NOT NULL REFERENCES dp_pasos(id) ON DELETE CASCADE,
+          proceso_id      INTEGER NOT NULL REFERENCES debidos_procesos(id) ON DELETE CASCADE,
+          usuario_id      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          accion          TEXT NOT NULL,
+          fecha           TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dphc_proceso ON dp_historial_cambios(proceso_id, fecha DESC)`);
+      console.log("✅ DP: tabla dp_historial_cambios lista");
+
+      console.log("✅ Tablas de Debidos Procesos listas");
+    } catch (errDP) {
+      console.error("❌❌❌ ERROR CREANDO TABLAS DEBIDOS PROCESOS ❌❌❌");
+      console.error("   Código:", errDP.code);
+      console.error("   Mensaje:", errDP.message);
+      console.error("   Detail:", errDP.detail || '(sin detalle)');
+      console.error("   Hint:", errDP.hint || '(sin hint)');
+      throw errDP; // Forzar que initDB falle ruidosamente para diagnosticar
+    }
+
 
     // ── MÓDULO DE CALIFICACIONES ──────────────────────────────────────────
     // Catálogo OFICIAL de evaluación según el REAC 2026 (porcentajes fijos).

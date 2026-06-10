@@ -79,50 +79,59 @@ async function notificar(usuarioId, tipo, mensaje) {
 // - profesor_guia: los de su sección o donde es guía a cargo
 // - profesor común: solo los donde figura como iniciado_por o asignado a un paso
 router.get("/", requireAuth, async (req, res) => {
-  const u = req.session.usuario;
-  const { estado } = req.query;
+  try {
+    const u = req.session.usuario;
+    const { estado } = req.query;
 
-  let where = [];
-  let params = [];
-  if (estado) {
-    params.push(estado);
-    where.push(`dp.estado = $${params.length}`);
+    let where = [];
+    let params = [];
+    if (estado) {
+      params.push(estado);
+      where.push(`dp.estado = $${params.length}`);
+    }
+
+    // Filtros por rol
+    const esStaff = ["admin","auxiliar","administrativo","secretaria"].includes(u.rol);
+    if (!esStaff) {
+      // Profesor/guía/orientador: solo ven sus propios procesos relacionados
+      params.push(u.id);
+      const iU = params.length;
+      where.push(`(
+        dp.iniciado_por = $${iU}
+        OR dp.guia_a_cargo = $${iU}
+        OR dp.orientador_id = $${iU}
+        OR EXISTS (SELECT 1 FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.asignado_a = $${iU})
+      )`);
+    }
+
+    const sql = `
+      SELECT dp.id, dp.numero, dp.anio, dp.estado, dp.decision_sesion, dp.created_at, dp.updated_at,
+             e.id AS est_id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+             s.id AS seccion_id, s.nombre AS seccion_nombre,
+             g.primer_apellido AS guia_ap1, g.nombre AS guia_nombre,
+             o.primer_apellido AS orient_ap1, o.nombre AS orient_nombre,
+             ini.primer_apellido AS ini_ap1, ini.nombre AS ini_nombre,
+             (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.completado=true)::int AS pasos_completados,
+             (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id)::int AS pasos_totales
+      FROM debidos_procesos dp
+      JOIN estudiantes e ON e.id = dp.estudiante_id
+      LEFT JOIN secciones s ON s.id = e.seccion_id
+      LEFT JOIN usuarios g ON g.id = dp.guia_a_cargo
+      LEFT JOIN usuarios o ON o.id = dp.orientador_id
+      LEFT JOIN usuarios ini ON ini.id = dp.iniciado_por
+      ${where.length ? "WHERE " + where.join(" AND ") : ""}
+      ORDER BY dp.updated_at DESC, dp.id DESC
+    `;
+    const r = await pool.query(sql, params);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET /api/debidos-procesos error:", e);
+    // Si la tabla no existe, devolver lista vacía con mensaje en lugar de crashear
+    if (e.code === '42P01' || e.message?.includes('does not exist')) {
+      return res.json([]);
+    }
+    res.status(500).json({ error: e.message });
   }
-
-  // Filtros por rol
-  const esStaff = ["admin","auxiliar","administrativo","secretaria"].includes(u.rol);
-  if (!esStaff) {
-    // Profesor/guía/orientador: solo ven sus propios procesos relacionados
-    params.push(u.id);
-    const iU = params.length;
-    where.push(`(
-      dp.iniciado_por = $${iU}
-      OR dp.guia_a_cargo = $${iU}
-      OR dp.orientador_id = $${iU}
-      OR EXISTS (SELECT 1 FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.asignado_a = $${iU})
-    )`);
-  }
-
-  const sql = `
-    SELECT dp.id, dp.numero, dp.anio, dp.estado, dp.decision_sesion, dp.created_at, dp.updated_at,
-           e.id AS est_id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
-           s.id AS seccion_id, s.nombre AS seccion_nombre,
-           g.primer_apellido AS guia_ap1, g.nombre AS guia_nombre,
-           o.primer_apellido AS orient_ap1, o.nombre AS orient_nombre,
-           ini.primer_apellido AS ini_ap1, ini.nombre AS ini_nombre,
-           (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.completado=true)::int AS pasos_completados,
-           (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id)::int AS pasos_totales
-    FROM debidos_procesos dp
-    JOIN estudiantes e ON e.id = dp.estudiante_id
-    LEFT JOIN secciones s ON s.id = e.seccion_id
-    LEFT JOIN usuarios g ON g.id = dp.guia_a_cargo
-    LEFT JOIN usuarios o ON o.id = dp.orientador_id
-    LEFT JOIN usuarios ini ON ini.id = dp.iniciado_por
-    ${where.length ? "WHERE " + where.join(" AND ") : ""}
-    ORDER BY dp.updated_at DESC, dp.id DESC
-  `;
-  const r = await pool.query(sql, params);
-  res.json(r.rows);
 });
 
 // ── PROCESOS PENDIENTES DE OTROS PROFESORES (declaraciones por tomar) ─
