@@ -108,9 +108,9 @@ router.get("/", requireAuth, async (req, res) => {
       SELECT dp.id, dp.numero, dp.anio, dp.estado, dp.decision_sesion, dp.created_at, dp.updated_at,
              e.id AS est_id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
              s.id AS seccion_id, s.nombre AS seccion_nombre,
-             g.primer_apellido AS guia_ap1, g.nombre AS guia_nombre,
-             o.primer_apellido AS orient_ap1, o.nombre AS orient_nombre,
-             ini.primer_apellido AS ini_ap1, ini.nombre AS ini_nombre,
+             g.primer_apellido AS guia_ap1, g.segundo_apellido AS guia_ap2, g.nombre AS guia_nombre,
+             o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2, o.nombre AS orient_nombre,
+             ini.primer_apellido AS ini_ap1, ini.segundo_apellido AS ini_ap2, ini.nombre AS ini_nombre,
              (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.completado=true)::int AS pasos_completados,
              (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id)::int AS pasos_totales
       FROM debidos_procesos dp
@@ -183,7 +183,7 @@ router.get("/:id", requireAuth, async (req, res) => {
            e.seccion_id, s.nombre AS seccion_nombre,
            g.nombre AS guia_nombre, g.primer_apellido AS guia_ap1, g.segundo_apellido AS guia_ap2, g.cedula AS guia_cedula,
            o.nombre AS orient_nombre, o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2, o.cedula AS orient_cedula,
-           ini.nombre AS ini_nombre, ini.primer_apellido AS ini_ap1
+           ini.nombre AS ini_nombre, ini.primer_apellido AS ini_ap1, ini.segundo_apellido AS ini_ap2
     FROM debidos_procesos dp
     JOIN estudiantes e ON e.id = dp.estudiante_id
     LEFT JOIN secciones s ON s.id = e.seccion_id
@@ -197,9 +197,9 @@ router.get("/:id", requireAuth, async (req, res) => {
 
   // Pasos
   const pasosR = await pool.query(`
-    SELECT pp.*, u1.primer_apellido AS comp_ap1, u1.nombre AS comp_nombre,
-           u2.primer_apellido AS verif_ap1, u2.nombre AS verif_nombre,
-           u3.primer_apellido AS asig_ap1, u3.nombre AS asig_nombre, u3.id AS asig_id
+    SELECT pp.*, u1.primer_apellido AS comp_ap1, u1.segundo_apellido AS comp_ap2, u1.nombre AS comp_nombre,
+           u2.primer_apellido AS verif_ap1, u2.segundo_apellido AS verif_ap2, u2.nombre AS verif_nombre,
+           u3.primer_apellido AS asig_ap1, u3.segundo_apellido AS asig_ap2, u3.nombre AS asig_nombre, u3.id AS asig_id
     FROM dp_pasos pp
     LEFT JOIN usuarios u1 ON u1.id = pp.completado_por
     LEFT JOIN usuarios u2 ON u2.id = pp.verificado_por
@@ -222,7 +222,7 @@ router.get("/:id", requireAuth, async (req, res) => {
 
   // Aprobaciones del orientador
   const aprobR = await pool.query(`
-    SELECT a.*, u.primer_apellido AS orient_ap1, u.nombre AS orient_nombre
+    SELECT a.*, u.primer_apellido AS orient_ap1, u.segundo_apellido AS orient_ap2, u.nombre AS orient_nombre
     FROM dp_aprobaciones_orientador a
     LEFT JOIN usuarios u ON u.id = a.orientador_id
     WHERE a.proceso_id = $1

@@ -6507,7 +6507,7 @@ async function cargarDPLista(estado){
             ${badge}
           </div>
           <div style="font-size:11px;color:var(--muted);">
-            <strong>Guía:</strong> ${p.guia_ap1||'—'} ${p.guia_nombre||''} · <strong>Inició:</strong> ${p.ini_ap1||'—'} ${p.ini_nombre||''}
+            <strong>Guía:</strong> ${p.guia_ap1||'—'} ${p.guia_ap2||''} ${p.guia_nombre||''} · <strong>Inició:</strong> ${p.ini_ap1||'—'} ${p.ini_ap2||''} ${p.ini_nombre||''}
           </div>
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
             <span style="color:var(--muted);">Progreso:</span>
@@ -6620,7 +6620,7 @@ async function abrirDPDetalle(procesoId){
     document.getElementById('dpd-titulo').textContent = `⚖️ Debido Proceso ${nro}`;
     document.getElementById('dpd-subtitulo').innerHTML = `
       <strong>${nombre}</strong> · ${dp.cedula} · ${dp.seccion_nombre||'—'}<br/>
-      Guía: ${dp.guia_ap1||'—'} ${dp.guia_nombre||''} · Orientador: ${dp.orient_ap1||'—'} ${dp.orient_nombre||''}
+      Guía: ${dp.guia_ap1||'—'} ${dp.guia_ap2||''} ${dp.guia_nombre||''} · Orientador: ${dp.orient_ap1||'—'} ${dp.orient_ap2||''} ${dp.orient_nombre||''}
     `;
 
     // Badge de plazo
@@ -6703,7 +6703,7 @@ function renderDPPasos(d){
       estadoTxt = verificado || !reg?.asignado_a ? '✅ Completado' : '⏳ Pendiente verificación';
       estadoColor = verificado || !reg?.asignado_a ? '#16a34a' : '#f59e0b';
     } else if(asignadoOtro){
-      estadoTxt = `📤 Asignado a otro guía (${reg.asig_ap1||''} ${reg.asig_nombre||''})`;
+      estadoTxt = `📤 Asignado a otro guía (${reg.asig_ap1||''} ${reg.asig_ap2||''} ${reg.asig_nombre||''})`.replace(/\s+/g,' ');
       estadoColor = '#9333ea';
     } else {
       estadoTxt = '⏳ Pendiente';
@@ -6713,7 +6713,7 @@ function renderDPPasos(d){
     // Etiqueta de testigo
     let extraLabel = '';
     if(ps.testigo){
-      extraLabel = ` — ${ps.testigo.primer_apellido} ${ps.testigo.nombre}`;
+      extraLabel = ` — ${ps.testigo.primer_apellido} ${ps.testigo.segundo_apellido||''} ${ps.testigo.nombre}`.replace(/\s+/g,' ');
       if(ps.testigo.seccion_nombre) extraLabel += ` (${ps.testigo.seccion_nombre})`;
     }
 
@@ -6956,9 +6956,9 @@ function imprimirPasoDPDirecto(tipo, orden){
   const c = reg?.contenido || {};
   const info = DP_TIPOS_PASO[tipo];
   const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
-  const estudiante = `${dp.est_ap1} ${dp.est_ap2||''}, ${dp.est_nombre}`;
-  const guia = `${dp.guia_ap1||''} ${dp.guia_nombre||''}`.trim() || '—';
-  const orientador = `${dp.orient_ap1||''} ${dp.orient_nombre||''}`.trim() || '—';
+  const estudiante = `${dp.est_ap1} ${dp.est_ap2||''}, ${dp.est_nombre}`.replace(/\s+/g,' ').trim();
+  const guia = `${dp.guia_ap1||''} ${dp.guia_ap2||''} ${dp.guia_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+  const orientador = `${dp.orient_ap1||''} ${dp.orient_ap2||''} ${dp.orient_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
   let body = '';
 
   // Buscar testigo si aplica
@@ -6978,14 +6978,30 @@ function imprimirPasoDPDirecto(tipo, orden){
       <p>Se hace constar que la presente se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes...</p>
       <p>Pongo en conocimiento los siguientes hechos:</p>
       <div style="border:1px solid #ccc;padding:10px;min-height:140px;white-space:pre-wrap;">${hechosConCierre}</div>
-      <p>Leída la presente declaración, manifiesto haberla comprendido en su totalidad y la ratifico en todas sus partes.</p>
-      <p style="margin-top:30px;">Nombre del Informante: ${c.informante||'____________________________'}</p>
-      <p>Cédula: ${c.informante_cedula||'__________'} &nbsp;&nbsp; Firma: _________________ &nbsp;&nbsp; Fecha: ${c.fecha_hechos||'__________'}</p>`;
+      <p style="margin-top:14px;">Leída la presente declaración, manifiesto haberla comprendido en su totalidad y la ratifico en todas sus partes.</p>
+      <div style="margin-top:60px;">
+        <div style="border-bottom:1px solid #000;height:30px;width:380px;"></div>
+        <p style="margin:4px 0 0 0;font-size:12px;"><strong>Nombre del Informante:</strong> ${c.informante||''}</p>
+      </div>
+      <div style="margin-top:50px;display:flex;gap:30px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="border-bottom:1px solid #000;height:30px;"></div>
+          <p style="margin:4px 0 0 0;font-size:12px;"><strong>Cédula:</strong> ${c.informante_cedula||''}</p>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div style="border-bottom:1px solid #000;height:30px;"></div>
+          <p style="margin:4px 0 0 0;font-size:12px;"><strong>Firma del Informante</strong></p>
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <div style="border-bottom:1px solid #000;height:30px;"></div>
+          <p style="margin:4px 0 0 0;font-size:12px;"><strong>Fecha:</strong> ${c.fecha_hechos||''}</p>
+        </div>
+      </div>`;
   } else if(tipo.startsWith('cita_')){
     const tipoF = c.tipo_falta || 'grave';
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p><strong>Fecha:</strong> ${c.fecha_notificacion || '____________'}</p>
-      <p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong> encargado(a) legal del estudiante: <strong>${testigo ? `${testigo.primer_apellido} ${testigo.nombre}` : estudiante}</strong>, sección: <strong>${dp.seccion_nombre||'___'}</strong>.</p>
+      <p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong> encargado(a) legal del estudiante: <strong>${testigo ? `${testigo.primer_apellido} ${testigo.segundo_apellido||''} ${testigo.nombre}`.replace(/\s+/g,' ').trim() : estudiante}</strong>, sección: <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p>Saludo cordial,</p>
       <p>Le informo que el Centro Educativo está realizando una investigación para determinar la posible comisión de la falta <strong>${tipoF}</strong>, de una persona estudiante. De conformidad con el debido proceso y las normas del Código de la Niñez y la Adolescencia, se le convoca el día <strong>${c.fecha_cita||'____'}</strong> a las <strong>${c.hora_cita||'____'}</strong> horas para que represente a su hijo(a) en la audiencia que se efectuará en dicha fecha para recibir su testimonio.</p>
       <p>Cordialmente,</p>
