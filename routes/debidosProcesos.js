@@ -292,6 +292,11 @@ router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
       await notificar(guiaId, "debido_proceso",
         `📋 Se inició un debido proceso (N°${consec.numero}-${anio}) que te toca continuar como guía de la sección.`);
     }
+    // Notificar al orientador asignado de la sección
+    if (orientadorId && orientadorId !== u.id) {
+      await notificar(orientadorId, "debido_proceso",
+        `📋 Se inició un debido proceso (N°${consec.numero}-${anio}) en la sección que orientás. Lo vas a revisar cuando se complete el acta sesión.`);
+    }
 
     res.json({ ok: true, id: procesoId, numero: consec.numero, anio });
   } catch (e) {
@@ -623,6 +628,18 @@ router.post("/:id/cerrar", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Debe completarse el acta sesión antes de cerrar." });
   }
   await pool.query("UPDATE debidos_procesos SET estado=$1, updated_at=NOW() WHERE id=$2", [nuevoEstado, req.params.id]);
+
+  // Notificaciones: iniciador, orientador y guía (todos los involucrados)
+  const etiqueta = nuevoEstado === "resuelto" ? "✅ resuelto" : "❌ desestimado";
+  const destinatarios = new Set();
+  if (dp.iniciado_por && dp.iniciado_por !== u.id) destinatarios.add(dp.iniciado_por);
+  if (dp.guia_a_cargo && dp.guia_a_cargo !== u.id) destinatarios.add(dp.guia_a_cargo);
+  if (dp.orientador_id && dp.orientador_id !== u.id) destinatarios.add(dp.orientador_id);
+  for (const uid of destinatarios) {
+    await notificar(uid, "debido_proceso",
+      `📋 El debido proceso N°${dp.numero}-${dp.anio} fue cerrado como ${etiqueta}.`);
+  }
+
   res.json({ ok: true, estado: nuevoEstado });
 });
 

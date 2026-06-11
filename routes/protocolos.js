@@ -39,6 +39,20 @@ function puedeEditar(u, p) {
   return p.iniciado_por === u.id;
 }
 
+// Helper: crear notificación interna (la campanita).
+// Falla silenciosa: si la tabla no existe o el usuario es null, no rompe.
+async function notificar(usuarioId, tipo, mensaje) {
+  if (!usuarioId) return;
+  try {
+    await pool.query(
+      "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,$2,$3)",
+      [usuarioId, tipo, mensaje]
+    );
+  } catch (e) {
+    console.error("Notif Protocolo:", e.message);
+  }
+}
+
 // ── CATÁLOGO de pautas ─────────────────────────────────────────────────
 router.get("/catalogo/pautas", requireAuth, (req, res) => {
   res.json(PAUTAS);
@@ -268,6 +282,13 @@ router.post("/", requireAuth, async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    // Notificar al orientador (si fue autoasignado y no es el mismo iniciador)
+    if (orientadorFinal && orientadorFinal !== u.id) {
+      await notificar(orientadorFinal, "protocolo",
+        `🛡️ Se inició un protocolo (N°${String(proto.numero).padStart(3,'0')}-${proto.anio}) — ${PAUTAS[pauta].nombre} — en una sección que orientás. Vas a poder revisarlo cuando se completen los formularios.`);
+    }
+
     res.json({ ok: true, id: proto.id, numero: proto.numero, anio: proto.anio, orientador_asignado: orientadorFinal });
   } catch (e) {
     await client.query("ROLLBACK");
@@ -318,6 +339,13 @@ router.post("/:id/formularios/:formId", requireAuth, async (req, res) => {
 
   await pool.query("UPDATE protocolos SET updated_at = NOW() WHERE id = $1", [req.params.id]);
 
+  // Notificar al orientador cuando se completa (no cuando se marca N/A o pendiente)
+  if (marcar_completado && p.orientador_id && p.orientador_id !== u.id) {
+    const tipoForm = fR.rows[0].tipo;
+    await notificar(p.orientador_id, "protocolo",
+      `🛡️ Se completó el formulario ${tipoForm} del protocolo N°${String(p.numero).padStart(3,'0')}-${p.anio}. Podés revisarlo.`);
+  }
+
   res.json({ ok: true, estado: nuevoEstado });
 });
 
@@ -357,8 +385,21 @@ router.post("/:id/cerrar", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   const pR = await pool.query("SELECT * FROM protocolos WHERE id=$1", [req.params.id]);
   if (!pR.rows.length) return res.status(404).json({ error: "Protocolo no encontrado" });
-  if (!puedeEditar(u, pR.rows[0])) return res.status(403).json({ error: "Sin permisos" });
+  const p = pR.rows[0];
+  if (!puedeEditar(u, p)) return res.status(403).json({ error: "Sin permisos" });
   await pool.query("UPDATE protocolos SET estado='cerrado', fecha_cierre=NOW(), updated_at=NOW() WHERE id=$1", [req.params.id]);
+
+  // Notificar a iniciador y orientador (los que no son el usuario actual)
+  const nroTxt = `N°${String(p.numero).padStart(3,'0')}-${p.anio}`;
+  if (p.iniciado_por && p.iniciado_por !== u.id) {
+    await notificar(p.iniciado_por, "protocolo",
+      `🛡️ El protocolo ${nroTxt} fue cerrado.`);
+  }
+  if (p.orientador_id && p.orientador_id !== u.id && p.orientador_id !== p.iniciado_por) {
+    await notificar(p.orientador_id, "protocolo",
+      `🛡️ El protocolo ${nroTxt} fue cerrado.`);
+  }
+
   res.json({ ok: true });
 });
 
