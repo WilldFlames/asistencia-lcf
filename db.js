@@ -702,6 +702,125 @@ async function initDB() {
     }
 
 
+    // ── MÓDULO DE PROTOCOLOS (Pautas MEP) ─────────────────────────────────
+    // Cada protocolo activa una de las 9 Pautas y genera un expediente con
+    // los formularios oficiales correspondientes a esa pauta. Los formularios
+    // van en orden secuencial pero se pueden marcar como "no aplica" si la
+    // situación no lo requiere.
+    //
+    // Estado:
+    //   - 'activo': se están llenando los formularios
+    //   - 'cerrado': expediente cerrado tras todos los formularios necesarios
+    try {
+      // Configuración del centro educativo (solo 1 fila, configurable por admin)
+      // Se usa para auto-rellenar los formularios oficiales del MEP.
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS config_centro (
+          id                    SERIAL PRIMARY KEY,
+          nombre_centro         TEXT,
+          codigo_presupuestario TEXT,
+          circuito_escolar      TEXT,
+          dre                   TEXT,
+          telefono              TEXT,
+          correo                TEXT,
+          direccion             TEXT,
+          director_nombre       TEXT,
+          director_cedula       TEXT,
+          updated_at            TIMESTAMP DEFAULT NOW(),
+          updated_by            INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
+        )
+      `);
+      // Insertar fila inicial con datos por defecto si la tabla está vacía
+      const cfg = await client.query("SELECT COUNT(*)::int AS n FROM config_centro");
+      if (cfg.rows[0].n === 0) {
+        await client.query(`
+          INSERT INTO config_centro (nombre_centro, circuito_escolar, dre, direccion)
+          VALUES ('Liceo de Calle Fallas', '07', 'Desamparados',
+                  'San José, Desamparados, 1 Km al sur del Centro Comercial Multicentro de Desamparados')
+        `);
+      }
+      console.log("✅ Protocolos: tabla config_centro lista");
+
+      // Tabla principal del protocolo
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS protocolos (
+          id              SERIAL PRIMARY KEY,
+          consecutivo_id  INTEGER REFERENCES consecutivos(id) ON DELETE SET NULL,
+          numero          INTEGER NOT NULL,
+          anio            INTEGER NOT NULL,
+          pauta           INTEGER NOT NULL,
+          iniciado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          orientador_id   INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          estado          TEXT NOT NULL DEFAULT 'activo',
+          fecha_cierre    TIMESTAMP,
+          created_at      TIMESTAMP DEFAULT NOW(),
+          updated_at      TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_prot_estado ON protocolos(estado)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_prot_pauta ON protocolos(pauta)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_prot_iniciado ON protocolos(iniciado_por)`);
+      console.log("✅ Protocolos: tabla protocolos lista");
+
+      // Formularios del protocolo. Cada protocolo genera N filas (una por
+      // formulario de la pauta). Estado: 'pendiente', 'completado', 'no_aplica'.
+      // tipo: 'F1', 'F2', 'F3', ..., 'F12'
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS protocolo_formularios (
+          id              SERIAL PRIMARY KEY,
+          protocolo_id    INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+          tipo            TEXT NOT NULL,
+          orden           INTEGER NOT NULL DEFAULT 1,
+          estado          TEXT NOT NULL DEFAULT 'pendiente',
+          contenido       JSONB DEFAULT '{}'::jsonb,
+          completado_por  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          completado_en   TIMESTAMP,
+          created_at      TIMESTAMP DEFAULT NOW(),
+          updated_at      TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_pf_proto ON protocolo_formularios(protocolo_id, orden)`);
+      console.log("✅ Protocolos: tabla protocolo_formularios lista");
+
+      // Personas vinculadas al protocolo. Pueden ser estudiantes registrados
+      // (estudiante_id NOT NULL) o externos (datos cargados a mano).
+      // rol: 'afectado', 'ofensor', 'observador', 'externo'
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS protocolo_personas (
+          id              SERIAL PRIMARY KEY,
+          protocolo_id    INTEGER NOT NULL REFERENCES protocolos(id) ON DELETE CASCADE,
+          estudiante_id   INTEGER REFERENCES estudiantes(id) ON DELETE SET NULL,
+          es_externo      BOOLEAN DEFAULT false,
+          es_mayor_edad   BOOLEAN DEFAULT false,
+          rol             TEXT NOT NULL,
+          nombre_completo TEXT,
+          cedula          TEXT,
+          edad            INTEGER,
+          seccion         TEXT,
+          fecha_nacimiento DATE,
+          telefono        TEXT,
+          correo          TEXT,
+          direccion       TEXT,
+          encargado_nombre TEXT,
+          encargado_cedula TEXT,
+          encargado_telef  TEXT,
+          notas           TEXT,
+          created_at      TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_pp_proto ON protocolo_personas(protocolo_id)`);
+      console.log("✅ Protocolos: tabla protocolo_personas lista");
+
+      console.log("✅ Tablas de Protocolos listas");
+    } catch (errPR) {
+      console.error("❌❌❌ ERROR CREANDO TABLAS PROTOCOLOS ❌❌❌");
+      console.error("   Código:", errPR.code);
+      console.error("   Mensaje:", errPR.message);
+      console.error("   Detail:", errPR.detail || '(sin detalle)');
+      throw errPR;
+    }
+
+
     // ── MÓDULO DE CALIFICACIONES ──────────────────────────────────────────
     // Catálogo OFICIAL de evaluación según el REAC 2026 (porcentajes fijos).
     // No es editable por el profesor — solo informativo. Los porcentajes los
