@@ -6754,7 +6754,10 @@ async function cargarDPLista(estado){
             </div>
             <span><strong>${p.pasos_completados}/${p.pasos_totales}</strong></span>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="abrirDPDetalle(${p.id})">📋 Ver / Continuar Pasos</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="abrirDPDetalle(${p.id})">📋 Ver / Continuar Pasos</button>
+            ${['admin','administrativo'].includes(ME.rol) ? `<button class="btn btn-danger btn-sm" onclick="eliminarDP(${p.id}, ${p.numero}, ${p.anio})" title="Eliminar proceso (irreversible)">🗑️</button>` : ''}
+          </div>
         </div>`;
       }).join('') + '</div>';
   }catch(e){
@@ -7572,6 +7575,22 @@ async function cerrarProcesoDP(){
   } catch(e){ alert(e.message); }
 }
 
+// ── ELIMINAR proceso (solo admin/administrativo) ─────────────────────
+// Doble confirmación porque es irreversible. Borra todo y libera consecutivo.
+async function eliminarDP(id, numero, anio){
+  const nro = `N°${String(numero).padStart(3,'0')}-${anio}`;
+  if(!confirm(`¿ELIMINAR el debido proceso ${nro}?\n\nEsto borra el expediente completo: pasos, testigos, aprobaciones e historial. El número de consecutivo se libera.\n\nEs IRREVERSIBLE.`)) return;
+  if(!confirm(`Última confirmación: ¿estás seguro de eliminar ${nro}?`)) return;
+  try {
+    await api(`/api/debidos-procesos/${id}`,'DELETE');
+    // Cerrar modal si está abierto el detalle de este proceso
+    if(dpProcesoActual?.proceso?.id === id) cerrarModal('modal-dp-detalle');
+    sa('alert-dp',`✅ Proceso ${nro} eliminado. Consecutivo liberado.`,'success');
+    await cargarDPLista(dpEstadoActual);
+    await cargarDPPendientes();
+  } catch(e){ alert('Error: ' + e.message); }
+}
+
 // ════════════════════════════════════════════════════════════════════
 //  PROTOCOLOS (Pautas MEP)
 // ════════════════════════════════════════════════════════════════════
@@ -7665,7 +7684,10 @@ async function cargarProtLista(estado){
             </div>
             <span><strong>${p.f_completados||0}/${totalRelevantes}</strong>${p.f_no_aplica ? ` (+${p.f_no_aplica} N/A)` : ''}</span>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="abrirProtoDetalle(${p.id})">📋 Ver / Continuar</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="abrirProtoDetalle(${p.id})">📋 Ver / Continuar</button>
+            ${['admin','administrativo'].includes(ME.rol) ? `<button class="btn btn-danger btn-sm" onclick="eliminarProto(${p.id}, ${p.numero}, ${p.anio})" title="Eliminar protocolo (irreversible)">🗑️</button>` : ''}
+          </div>
         </div>`;
       }).join('') + '</div>';
   }catch(e){
@@ -8336,6 +8358,20 @@ async function cerrarProtocolo(){
     sa('alert-prot','✅ Protocolo cerrado.','success');
     await cargarProtLista(protEstadoActual);
   }catch(e){ alert(e.message); }
+}
+
+// ── ELIMINAR protocolo (solo admin/administrativo) ────────────────────
+async function eliminarProto(id, numero, anio){
+  const nro = `N°${String(numero).padStart(3,'0')}-${anio}`;
+  if(!confirm(`¿ELIMINAR el protocolo ${nro}?\n\nEsto borra el expediente completo: formularios, personas involucradas. El número de consecutivo se libera.\n\nEs IRREVERSIBLE.`)) return;
+  if(!confirm(`Última confirmación: ¿estás seguro de eliminar ${nro}?`)) return;
+  try{
+    await api(`/api/protocolos/${id}`,'DELETE');
+    if(protActual?.protocolo?.id === id) cerrarModal('modal-prot-detalle');
+    sa('alert-prot',`✅ Protocolo ${nro} eliminado. Consecutivo liberado.`,'success');
+    await cargarProtLista(protEstadoActual);
+    await cargarProtPendientes();
+  }catch(e){ alert('Error: ' + e.message); }
 }
 
 // ── CONFIG CENTRO ──────────────────────────────────────────────────

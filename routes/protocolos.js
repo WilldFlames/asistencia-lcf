@@ -371,4 +371,36 @@ router.post("/:id/reabrir", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── ELIMINAR un protocolo completo (solo admin/administrativo) ────────
+// Borra el protocolo, sus formularios y personas. Libera el consecutivo.
+// IRREVERSIBLE — pensada para limpiar registros de prueba.
+router.delete("/:id", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  if (!["admin","administrativo"].includes(u.rol)) {
+    return res.status(403).json({ error: "Solo administración puede eliminar protocolos." });
+  }
+  const pR = await pool.query("SELECT id, consecutivo_id, numero, anio FROM protocolos WHERE id=$1", [req.params.id]);
+  if (!pR.rows.length) return res.status(404).json({ error: "Protocolo no encontrado" });
+  const p = pR.rows[0];
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("DELETE FROM protocolo_personas WHERE protocolo_id=$1", [p.id]);
+    await client.query("DELETE FROM protocolo_formularios WHERE protocolo_id=$1", [p.id]);
+    await client.query("DELETE FROM protocolos WHERE id=$1", [p.id]);
+    if (p.consecutivo_id) {
+      await client.query("DELETE FROM consecutivos WHERE id=$1", [p.consecutivo_id]);
+    }
+    await client.query("COMMIT");
+    res.json({ ok: true, consecutivo_liberado: p.numero, anio: p.anio });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("DELETE protocolo:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

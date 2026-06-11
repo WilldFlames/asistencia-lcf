@@ -626,4 +626,42 @@ router.post("/:id/cerrar", requireAuth, async (req, res) => {
   res.json({ ok: true, estado: nuevoEstado });
 });
 
+// ── ELIMINAR un proceso completo (solo admin/administrativo) ──────────
+// Borra el proceso, sus pasos, testigos, aprobaciones e historial. Además
+// libera el consecutivo asociado para que pueda ser reutilizado por otro
+// proceso. Es IRREVERSIBLE — pensada para limpiar registros de prueba.
+router.delete("/:id", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  if (!["admin","administrativo"].includes(u.rol)) {
+    return res.status(403).json({ error: "Solo administración puede eliminar procesos." });
+  }
+  const dpR = await pool.query("SELECT id, consecutivo_id, numero, anio FROM debidos_procesos WHERE id=$1", [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Borrar dependientes (las FK tienen ON DELETE CASCADE pero por seguridad
+    // los borramos explícitamente en orden).
+    await client.query("DELETE FROM dp_historial_cambios WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_aprobaciones_orientador WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_testigos WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_pasos WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM debidos_procesos WHERE id=$1", [dp.id]);
+    // Liberar el consecutivo asociado
+    if (dp.consecutivo_id) {
+      await client.query("DELETE FROM consecutivos WHERE id=$1", [dp.consecutivo_id]);
+    }
+    await client.query("COMMIT");
+    res.json({ ok: true, consecutivo_liberado: dp.numero, anio: dp.anio });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("DELETE debido proceso:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
