@@ -2073,9 +2073,9 @@ tr:hover td{background:#f8fafc;}
       </div>
 
       <div class="fg" style="grid-column:1/-1;margin-top:8px;">
-        <label>Orientador asignado (opcional)</label>
-        <select id="np-orientador-id" style="width:100%;"><option value="">— Sin asignar —</option></select>
-        <small style="color:var(--muted);font-size:11px;">Si se asigna, podrá ver el protocolo desde su perfil para verificar avance.</small>
+        <div style="background:#f0f9ff;border-left:3px solid #0891b2;padding:8px 12px;border-radius:6px;font-size:11.5px;color:#0c4a6e;">
+          ℹ️ El <strong>orientador</strong> se asigna automáticamente según la sección del estudiante afectado (si tiene uno asignado). Si la persona afectada es externa o sin sección, queda sin orientador asignado y el admin puede asignarlo después.
+        </div>
       </div>
     </div>
     <div id="alert-np" class="alert"></div>
@@ -7701,13 +7701,8 @@ async function abrirNuevoProtocolo(){
   document.querySelector('input[name="np-tipo"][value="interno"]').checked = true;
   npToggleTipo();
 
-  // Cargar lista de orientadores
-  try{
-    const us = await api('/api/usuarios?rol=orientador').catch(()=>[]) || [];
-    document.getElementById('np-orientador-id').innerHTML =
-      '<option value="">— Sin asignar —</option>' +
-      us.map(o => `<option value="${o.id}">${o.primer_apellido||''} ${o.segundo_apellido||''} ${o.nombre||''}</option>`).join('');
-  }catch{}
+  // Orientador: se asigna automáticamente en backend según la sección del afectado.
+  // No se pide ya en el formulario.
 
   document.getElementById('alert-np').className='alert';
   document.getElementById('modal-nuevo-prot').classList.add('show');
@@ -7759,11 +7754,14 @@ async function guardarNuevoProtocolo(){
       encargado_nombre: document.getElementById('np-ext-encnombre').value.trim(),
     };
   }
-  const orientador_id = document.getElementById('np-orientador-id').value || null;
+  // El orientador se asigna automáticamente desde la sección del afectado en backend
   try{
-    const r = await api('/api/protocolos','POST',{ pauta, personas:[{ ...persona_afectada, rol:'afectado' }], orientador_id });
+    const r = await api('/api/protocolos','POST',{ pauta, personas:[{ ...persona_afectada, rol:'afectado' }] });
     cerrarModal('modal-nuevo-prot');
-    sa('alert-prot',`✅ Protocolo iniciado. N°${String(r.numero).padStart(3,'0')}-${r.anio}`,'success');
+    const msgOri = r.orientador_asignado
+      ? ' Se asignó automáticamente el orientador de la sección.'
+      : ' Sin orientador asignado (el admin puede asignarlo después).';
+    sa('alert-prot',`✅ Protocolo iniciado. N°${String(r.numero).padStart(3,'0')}-${r.anio}.${msgOri}`,'success');
     await cargarProtLista(protEstadoActual);
     setTimeout(()=>abrirProtoDetalle(r.id), 400);
   }catch(e){ sa('alert-np',e.message,'danger'); }

@@ -223,11 +223,28 @@ router.post("/", requireAuth, async (req, res) => {
     const cons = await asignarConsecutivoInterno("protocolo", u.id, { estudiante_id: null, descripcion: PAUTAS[pauta].nombre });
     if (!cons) throw new Error("No se pudo asignar consecutivo de protocolo (revisar capacidad).");
 
+    // Autoasignar orientador desde la sección del afectado (si es interno).
+    // Si la persona afectada es interna (tiene estudiante_id), buscamos al
+    // orientador asignado a su sección. Si es externa o no tiene orientador
+    // asignado, queda en NULL — el admin puede asignarlo manualmente después.
+    let orientadorFinal = null;
+    const afectado = personas.find(p => p.rol === 'afectado');
+    if (afectado && afectado.estudiante_id) {
+      const ori = await client.query(`
+        SELECT so.orientador_id
+        FROM estudiantes e
+        JOIN seccion_orientador so ON so.seccion_id = e.seccion_id
+        WHERE e.id = $1 AND so.orientador_id IS NOT NULL
+        LIMIT 1
+      `, [afectado.estudiante_id]);
+      if (ori.rows.length) orientadorFinal = ori.rows[0].orientador_id;
+    }
+
     const anio = new Date().getFullYear();
     const pR = await client.query(`
       INSERT INTO protocolos (consecutivo_id, numero, anio, pauta, iniciado_por, orientador_id)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-    `, [cons.id, cons.numero, anio, pauta, u.id, orientador_id || null]);
+    `, [cons.id, cons.numero, anio, pauta, u.id, orientadorFinal]);
     const proto = pR.rows[0];
 
     const formularios = PAUTAS[pauta].formularios;
@@ -251,7 +268,7 @@ router.post("/", requireAuth, async (req, res) => {
     }
 
     await client.query("COMMIT");
-    res.json({ ok: true, id: proto.id, numero: proto.numero, anio: proto.anio });
+    res.json({ ok: true, id: proto.id, numero: proto.numero, anio: proto.anio, orientador_asignado: orientadorFinal });
   } catch (e) {
     await client.query("ROLLBACK");
     console.error("POST protocolos:", e);
