@@ -376,6 +376,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="suspension" id="nav-suspension" onclick="goTo('suspension')" style="display:none"><span class="icon">🚫</span><span>Suspensión</span></button>
   <button class="nav-btn" data-page="hibrida" id="nav-hibrida" onclick="goTo('hibrida')" style="display:none"><span class="icon">🏠</span><span>Ed. Híbrida</span></button>
   <button class="nav-btn" data-page="debidos" id="nav-debidos" onclick="goTo('debidos')" style="display:none"><span class="icon">⚖️</span><span>Debidos Procesos</span></button>
+  <button class="nav-btn" data-page="protocolos" id="nav-protocolos" onclick="goTo('protocolos')" style="display:none"><span class="icon">🛡️</span><span>Protocolos</span></button>
 </nav>
 
 <div class="main-content">
@@ -1848,6 +1849,9 @@ tr:hover td{background:#f8fafc;}
       <div id="dpd-plazo-badge" style="font-size:12px;font-weight:bold;padding:6px 12px;border-radius:14px;"></div>
     </div>
     <div id="alert-dpd" class="alert" style="margin-top:10px;"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="imprimirPortadaDP()" style="border-color:#6366f1;color:#6366f1;">📄 Imprimir Portada del Expediente</button>
+    </div>
     <div id="dpd-pasos-lista" style="margin-top:14px;max-height:65vh;overflow:auto;"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-dp-detalle')">Cerrar</button>
@@ -1965,6 +1969,232 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 <!-- /DEBIDOS PROCESOS -->
+
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- PROTOCOLOS — Pautas MEP                                          -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-protocolos">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+      <h2 style="margin:0;">🛡️ Protocolos (Pautas MEP)</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-outline" id="btn-config-centro" onclick="abrirConfigCentro()" style="display:none;">⚙️ Configurar Centro</button>
+        <button class="btn btn-primary" onclick="abrirNuevoProtocolo()">+ Nuevo Protocolo</button>
+      </div>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">
+      Activación de las 9 Pautas oficiales del MEP. Cualquier funcionario docente o administrativo puede activarlas.
+      Los datos del centro educativo y del estudiante se autocompletan cuando es posible. El orientador asignado puede verificar el avance.
+    </p>
+
+    <!-- Sub-tabs por estado -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);">
+      <button id="prot-tab-activos" class="prot-tab-btn" onclick="protCambiarTab('activo')" style="padding:8px 16px;background:var(--azul);color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:bold;">⏳ Activos</button>
+      <button id="prot-tab-cerrados" class="prot-tab-btn" onclick="protCambiarTab('cerrado')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">✅ Cerrados</button>
+      <button id="prot-tab-todos" class="prot-tab-btn" onclick="protCambiarTab('todos')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📋 Todos</button>
+    </div>
+
+    <!-- Pendientes orientador -->
+    <div id="prot-pendientes-wrap" style="display:none;margin-bottom:14px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:6px;padding:10px 14px;">
+      <strong style="color:#78350f;font-size:13px;">🔔 Protocolos donde sos orientador asignado</strong>
+      <div id="prot-pendientes-lista" style="margin-top:6px;font-size:12.5px;"></div>
+    </div>
+
+    <div id="alert-prot" class="alert"></div>
+    <div id="prot-lista-wrap"></div>
+  </div>
+</div>
+
+<!-- Modal: Nuevo Protocolo -->
+<div class="modal-overlay" id="modal-nuevo-prot">
+  <div class="modal" style="max-width:740px;">
+    <h3>🛡️ Nuevo Protocolo</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+      Al guardar se asigna un consecutivo. Podrás llenar los formularios después en cualquier orden.
+    </p>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Pauta a activar <span style="color:var(--rojo);">*</span></label>
+        <select id="np-pauta" style="width:100%;">
+          <option value="">— Seleccionar —</option>
+          <option value="1">Pauta 1 — Violencia física y psicológica entre estudiantes</option>
+          <option value="2">Pauta 2 — Violencia sexual entre estudiantes</option>
+          <option value="3">Pauta 3 — Bullying (acoso escolar)</option>
+          <option value="4">Pauta 4 — Violencia ejercida por un funcionario contra una estudiante</option>
+          <option value="5">Pauta 5 — Violencia ejercida por una tercera persona contra una estudiante</option>
+          <option value="6">Pauta 6 — Riesgo de autolesión y comportamiento suicida</option>
+          <option value="7">Pauta 7 — Hallazgo, tenencia, consumo y tráfico de drogas</option>
+          <option value="8">Pauta 8 — Hallazgo, tenencia y uso de armas</option>
+          <option value="9">Pauta 9 — Embarazo, postparto y lactancia</option>
+        </select>
+      </div>
+
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Tipo de persona afectada <span style="color:var(--rojo);">*</span></label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+            <input type="radio" name="np-tipo" value="interno" checked onchange="npToggleTipo()"/> Estudiante del sistema
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+            <input type="radio" name="np-tipo" value="externo" onchange="npToggleTipo()"/> Persona externa (no registrada)
+          </label>
+        </div>
+      </div>
+
+      <!-- Interno: buscar estudiante -->
+      <div id="np-bloque-interno" style="grid-column:1/-1;">
+        <div class="fg">
+          <label>Buscar estudiante (cédula o nombre)</label>
+          <input type="text" id="np-buscar-est" placeholder="Cédula o nombre..." oninput="npBuscarEstudiante()" style="width:100%;"/>
+        </div>
+        <div class="fg" style="margin-top:6px;">
+          <label>Estudiante</label>
+          <select id="np-estudiante-id" style="width:100%;"><option value="">— Buscá primero —</option></select>
+        </div>
+      </div>
+
+      <!-- Externo: datos a mano -->
+      <div id="np-bloque-externo" style="display:none;grid-column:1/-1;">
+        <div class="form-grid">
+          <div class="fg" style="grid-column:1/-1;">
+            <label>Nombre completo de la persona afectada *</label>
+            <input type="text" id="np-ext-nombre" placeholder="Ej: Pérez Gómez, María"/>
+          </div>
+          <div class="fg"><label>Cédula</label><input type="text" id="np-ext-cedula"/></div>
+          <div class="fg"><label>Edad</label><input type="number" id="np-ext-edad" min="0" max="120"/></div>
+          <div class="fg"><label>Teléfono</label><input type="text" id="np-ext-telefono"/></div>
+          <div class="fg"><label>¿Es mayor de edad?</label>
+            <select id="np-ext-mayor"><option value="false">No (menor de edad)</option><option value="true">Sí (mayor de edad)</option></select>
+          </div>
+          <div class="fg" style="grid-column:1/-1;"><label>Dirección</label><input type="text" id="np-ext-direccion"/></div>
+          <div class="fg" style="grid-column:1/-1;"><label>Encargado(a) legal (si aplica)</label><input type="text" id="np-ext-encnombre"/></div>
+        </div>
+      </div>
+
+      <div class="fg" style="grid-column:1/-1;margin-top:8px;">
+        <label>Orientador asignado (opcional)</label>
+        <select id="np-orientador-id" style="width:100%;"><option value="">— Sin asignar —</option></select>
+        <small style="color:var(--muted);font-size:11px;">Si se asigna, podrá ver el protocolo desde su perfil para verificar avance.</small>
+      </div>
+    </div>
+    <div id="alert-np" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-nuevo-prot')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarNuevoProtocolo()">💾 Iniciar Protocolo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalle del protocolo (lista de formularios) -->
+<div class="modal-overlay" id="modal-prot-detalle">
+  <div class="modal" style="max-width:960px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+      <div>
+        <h3 id="pd-titulo" style="margin:0 0 4px 0;">Protocolo</h3>
+        <div id="pd-subtitulo" style="font-size:12.5px;color:var(--muted);"></div>
+      </div>
+      <div id="pd-estado-badge" style="font-size:12px;font-weight:bold;padding:6px 12px;border-radius:14px;"></div>
+    </div>
+    <div id="alert-pd" class="alert" style="margin-top:10px;"></div>
+
+    <div id="pd-personas-wrap" style="margin-top:14px;background:#f8fafc;padding:10px;border-radius:6px;font-size:12px;"></div>
+
+    <div id="pd-forms-lista" style="margin-top:14px;max-height:55vh;overflow:auto;"></div>
+
+    <div class="modal-actions" id="pd-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-prot-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Llenar un formulario -->
+<div class="modal-overlay" id="modal-prot-form">
+  <div class="modal" style="max-width:880px;">
+    <h3 id="pf-titulo">Formulario</h3>
+    <div id="pf-subtitulo" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+    <div id="pf-form-body" style="max-height:60vh;overflow:auto;"></div>
+    <div id="alert-pf" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-prot-form')">Cancelar</button>
+      <button class="btn btn-success" onclick="imprimirFormProtocolo()">🖨️ Guardar e Imprimir</button>
+      <button class="btn btn-primary" onclick="guardarFormProtocolo()">💾 Guardar como Completado</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Agregar persona adicional (ofensor, observador) -->
+<div class="modal-overlay" id="modal-prot-persona">
+  <div class="modal" style="max-width:620px;">
+    <h3 id="pp-titulo">Agregar Persona</h3>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Rol</label>
+        <select id="pp-rol" style="width:100%;">
+          <option value="ofensor">Persona que ejerció la violencia</option>
+          <option value="observador">Observador / Testigo</option>
+          <option value="externo">Persona externa</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Tipo</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <label style="font-weight:normal;"><input type="radio" name="pp-tipo" value="interno" checked onchange="ppToggleTipo()"/> Estudiante del sistema</label>
+          <label style="font-weight:normal;"><input type="radio" name="pp-tipo" value="externo" onchange="ppToggleTipo()"/> Persona externa</label>
+        </div>
+      </div>
+      <div id="pp-bloque-interno" style="grid-column:1/-1;">
+        <div class="fg">
+          <label>Buscar estudiante</label>
+          <input type="text" id="pp-buscar" oninput="ppBuscarEstudiante()" placeholder="Cédula o nombre..." style="width:100%;"/>
+        </div>
+        <div class="fg" style="margin-top:6px;">
+          <select id="pp-estudiante-id" style="width:100%;"><option value="">— Buscá primero —</option></select>
+        </div>
+      </div>
+      <div id="pp-bloque-externo" style="display:none;grid-column:1/-1;">
+        <div class="form-grid">
+          <div class="fg" style="grid-column:1/-1;"><label>Nombre completo *</label><input type="text" id="pp-ext-nombre"/></div>
+          <div class="fg"><label>Cédula</label><input type="text" id="pp-ext-cedula"/></div>
+          <div class="fg"><label>Edad</label><input type="number" id="pp-ext-edad"/></div>
+        </div>
+      </div>
+    </div>
+    <div id="alert-pp" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-prot-persona')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPersonaProtocolo()">➕ Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Configurar datos del centro -->
+<div class="modal-overlay" id="modal-config-centro">
+  <div class="modal" style="max-width:620px;">
+    <h3>⚙️ Configurar datos del Centro Educativo</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Estos datos se utilizarán para auto-rellenar los formularios oficiales del MEP.
+    </p>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1;"><label>Nombre del Centro</label><input type="text" id="cfg-nombre" style="width:100%;"/></div>
+      <div class="fg"><label>Código presupuestario</label><input type="text" id="cfg-codigo"/></div>
+      <div class="fg"><label>Circuito escolar</label><input type="text" id="cfg-circuito"/></div>
+      <div class="fg"><label>DRE (Dirección Regional Educación)</label><input type="text" id="cfg-dre"/></div>
+      <div class="fg"><label>Teléfono</label><input type="text" id="cfg-telefono"/></div>
+      <div class="fg" style="grid-column:1/-1;"><label>Correo institucional</label><input type="text" id="cfg-correo"/></div>
+      <div class="fg" style="grid-column:1/-1;"><label>Dirección física</label><input type="text" id="cfg-direccion"/></div>
+      <div class="fg"><label>Director(a) — Nombre</label><input type="text" id="cfg-director"/></div>
+      <div class="fg"><label>Director(a) — Cédula</label><input type="text" id="cfg-directorced"/></div>
+    </div>
+    <div id="alert-cfg" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-config-centro')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarConfigCentro()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+<!-- /PROTOCOLOS -->
+
 
 </div><!-- /main /app-body -->
 
@@ -2280,10 +2510,9 @@ tr:hover td{background:#f8fafc;}
         <option value="">— Seleccionar —</option>
         <option value="oficio">📨 Oficio</option>
         <option value="minuta">📝 Minuta</option>
-        <option value="protocolo">🛡️ Protocolo</option>
       </select>
       <div style="margin-top:6px;padding:6px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:11.5px;color:#78350f;">
-        ℹ️ Los consecutivos de <strong>Debido Proceso</strong> ahora se generan automáticamente desde el módulo <strong>⚖️ Debidos Procesos</strong> al iniciar el acta de apertura. Los procesos viejos siguen visibles en la lista de abajo a modo de consulta.
+        ℹ️ Los consecutivos de <strong>Debido Proceso</strong> y <strong>Protocolo</strong> se generan automáticamente desde sus módulos respectivos (⚖️ Debidos Procesos y 🛡️ Protocolos) al iniciar el expediente. Los expedientes viejos siguen visibles en la lista de abajo a modo de consulta.
       </div>
     </div>
 
@@ -2960,6 +3189,7 @@ function goTo(page){
   if(page==="suspension")  iniciarMedidas('suspension');
   if(page==="hibrida")     iniciarMedidas('educacion_hibrida');
   if(page==="debidos")     iniciarDebidosProcesos();
+  if(page==="protocolos")  iniciarProtocolos();
   if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
   if(page==="archivo")      iniciarArchivo();
@@ -3094,6 +3324,14 @@ async function iniciarApp(){
   const rolesDebidos = ["admin","auxiliar","administrativo","secretaria","profesor","profesor_guia","orientador"];
   if(rolesDebidos.includes(ME.rol)){
     document.getElementById("nav-debidos").style.display="";
+  }
+
+  // ── PROTOCOLOS ──────────────────────────────────────────────────
+  // Cualquier persona del staff docente o administrativo puede activar
+  // un protocolo MEP. El admin/orientador ven todo.
+  const rolesProtocolos = ["admin","auxiliar","administrativo","secretaria","profesor","profesor_guia","orientador"];
+  if(rolesProtocolos.includes(ME.rol)){
+    document.getElementById("nav-protocolos").style.display="";
   }
 
   // ── ADMIN ────────────────────────────────────────────────────
@@ -6947,6 +7185,107 @@ async function imprimirPasoDP(){
   } catch(e){ sa('alert-dpp', e.message, 'danger'); }
 }
 
+// ── PORTADA DEL EXPEDIENTE ───────────────────────────────────────────
+// Genera la hoja oficial de apertura con datos auto-rellenados:
+// nombre del estudiante, cédula, sección, encargado legal y fecha.
+// Se imprime aparte de los pasos del proceso.
+function imprimirPortadaDP(){
+  if(!dpProcesoActual) return;
+  const dp = dpProcesoActual.proceso;
+
+  // Datos del estudiante (ya con dos apellidos)
+  const nombreEst = `${dp.est_ap1||''} ${dp.est_ap2||''}, ${dp.est_nombre||''}`.replace(/\s+/g,' ').trim();
+  // Número de expediente en formato oficial: LCF-EXP.EST-001-2026
+  const numFmt = `LCF-EXP.EST-${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
+  // Buscar encargado legal desde la acta de apertura (donde se anotó) o desde
+  // los pasos posteriores (cita encargado, etc.). Si no hay, queda en blanco.
+  let encNombre = '', encCedula = '', encTelef = '';
+  const pasos = dpProcesoActual.pasos || [];
+  // Recorrer pasos buscando el primer encargado registrado
+  for (const p of pasos) {
+    const c = p.contenido || {};
+    if (!encNombre && (c.encargado_nombre || c.informante)) {
+      encNombre = c.encargado_nombre || c.informante || '';
+    }
+    if (!encCedula && (c.encargado_cedula || c.informante_cedula)) {
+      encCedula = c.encargado_cedula || c.informante_cedula || '';
+    }
+    if (!encTelef && c.encargado_telefono) {
+      encTelef = c.encargado_telefono;
+    }
+    if (encNombre && encCedula) break;
+  }
+  // Fecha de apertura: la del proceso
+  const fechaApertura = dp.created_at
+    ? new Date(dp.created_at).toLocaleDateString('es-CR', {day:'2-digit', month:'long', year:'numeric'})
+    : '';
+
+  // HTML de la portada: layout vertical centrado tipo ficha oficial
+  const body = `
+    <div style="text-align:center;font-family:Arial,sans-serif;padding:40px 60px;">
+      <h1 style="font-size:30px;margin:20px 0 6px 0;color:#0f172a;">Apertura de Expediente</h1>
+      <p style="font-size:18px;color:#374151;margin:4px 0 18px 0;">Número de Expediente</p>
+      <p style="font-size:22px;font-weight:bold;letter-spacing:1px;margin:0 0 60px 0;color:#0f172a;">${numFmt}</p>
+
+      <div style="margin-bottom:34px;">
+        <p style="font-size:17px;font-weight:bold;margin:0 0 8px 0;">Nombre completo del estudiante:</p>
+        <p style="font-size:17px;border-bottom:2px solid #000;display:inline-block;min-width:380px;padding:4px 12px;margin:0;">${nombreEst}</p>
+      </div>
+
+      <div style="margin-bottom:24px;">
+        <p style="font-size:16px;font-weight:bold;margin:0 0 6px 0;">Cédula: <span style="font-weight:normal;border-bottom:2px solid #000;display:inline-block;min-width:200px;padding:2px 8px;">${dp.cedula||''}</span></p>
+      </div>
+
+      <div style="margin-bottom:34px;">
+        <p style="font-size:16px;font-weight:bold;margin:0 0 6px 0;">Sección: <span style="font-weight:normal;border-bottom:2px solid #000;display:inline-block;min-width:120px;padding:2px 8px;">${dp.seccion_nombre||''}</span></p>
+      </div>
+
+      <div style="margin-bottom:24px;">
+        <p style="font-size:17px;font-weight:bold;margin:0 0 8px 0;">Nombre del padre/madre o encargado legal</p>
+        <p style="font-size:17px;border-bottom:2px solid #000;display:inline-block;min-width:380px;padding:4px 12px;margin:0;">${encNombre}</p>
+      </div>
+
+      <div style="margin-bottom:24px;">
+        <p style="font-size:16px;font-weight:bold;margin:0 0 6px 0;">Cédula: <span style="font-weight:normal;border-bottom:2px solid #000;display:inline-block;min-width:240px;padding:2px 8px;">${encCedula}</span></p>
+      </div>
+
+      <div style="margin-bottom:34px;">
+        <p style="font-size:16px;font-weight:bold;margin:0 0 6px 0;">Teléfono: <span style="font-weight:normal;border-bottom:2px solid #000;display:inline-block;min-width:200px;padding:2px 8px;">${encTelef}</span></p>
+      </div>
+
+      <div style="margin-bottom:24px;">
+        <p style="font-size:16px;font-weight:bold;margin:0 0 6px 0;">Fecha de apertura: <span style="font-weight:normal;border-bottom:2px solid #000;display:inline-block;min-width:240px;padding:2px 8px;">${fechaApertura}</span></p>
+      </div>
+    </div>
+  `;
+
+  // Renderizar con encabezado y pie oficiales del MEP
+  let printArea = document.getElementById('print-dp-area');
+  if(!printArea){ printArea = document.createElement('div'); printArea.id = 'print-dp-area'; document.body.appendChild(printArea); }
+  printArea.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:10px;padding-bottom:80px;font-size:13px;line-height:1.55;">
+      ${typeof encabezadoMEP === 'function' ? encabezadoMEP('PORTADA DEL EXPEDIENTE') : '<h2 style="text-align:center;">PORTADA DEL EXPEDIENTE</h2>'}
+      ${body}
+      ${typeof piePaginaMEP === 'function' ? piePaginaMEP() : ''}
+    </div>`;
+
+  let style = document.getElementById('print-style-dp');
+  if(style) style.remove();
+  style = document.createElement('style');
+  style.id = 'print-style-dp';
+  style.innerHTML = `
+    @page { size: A4 portrait; margin: 12mm; }
+    @media print {
+      body > *:not(#print-dp-area) { display:none!important; }
+      #print-dp-area { display:block!important; }
+    }
+  `;
+  document.head.appendChild(style);
+  if(typeof imprimirConEncabezado === 'function') imprimirConEncabezado(printArea, style);
+  else window.print();
+}
+
 // Imprimir un paso ya guardado, generando una hoja con encabezado oficial
 function imprimirPasoDPDirecto(tipo, orden){
   if(!dpProcesoActual) return;
@@ -7231,6 +7570,1062 @@ async function cerrarProcesoDP(){
     sa('alert-dp','✅ Proceso cerrado.','success');
     await cargarDPLista(dpEstadoActual);
   } catch(e){ alert(e.message); }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  PROTOCOLOS (Pautas MEP)
+// ════════════════════════════════════════════════════════════════════
+let protEstadoActual = 'activo';
+let protActual = null;        // proceso/protocolo abierto en el detalle
+let protFormEnEdicion = null; // {id, tipo, contenido}
+let protConfigCentro = {};    // cache local del config del centro
+
+const PAUTA_NOMBRES = {
+  1: 'Violencia física y psicológica entre estudiantes',
+  2: 'Violencia sexual entre estudiantes',
+  3: 'Bullying (acoso escolar)',
+  4: 'Violencia ejercida por un funcionario contra una estudiante',
+  5: 'Violencia ejercida por una tercera persona contra una estudiante',
+  6: 'Riesgo de autolesión y comportamiento suicida',
+  7: 'Hallazgo, tenencia, consumo y tráfico de drogas',
+  8: 'Hallazgo, tenencia y uso de armas',
+  9: 'Embarazo, postparto y lactancia',
+};
+
+const FORMULARIO_NOMBRES = {
+  F1:  'F1 — Información inicial (violencia)',
+  F2:  'F2 — Información inicial (vulnerabilidad/riesgo)',
+  F3:  'F3 — Acta de traslado a otra instancia',
+  F4:  'F4 — Acta de recolección y resguardo (armas/drogas)',
+  F5:  'F5 — Comunicación al encargado legal',
+  F6:  'F6 — Compilación de información de estudiantes involucrados',
+  F7:  'F7 — Referencia a otras instituciones',
+  F8:  'F8 — Denuncia a Fiscalía / OIJ',
+  F9:  'F9 — Referencia interinstitucional (riesgo suicida)',
+  F10: 'F10 — Referencia a dependencias internas MEP',
+  F11: 'F11 — Informe de actuación',
+  F12: 'F12 — Informe de seguimiento',
+};
+
+async function iniciarProtocolos(){
+  // Mostrar botón configurar centro solo a admin/administrativo
+  if(['admin','administrativo'].includes(ME.rol)){
+    document.getElementById('btn-config-centro').style.display = '';
+  }
+  // Cargar config del centro en cache
+  try{ protConfigCentro = await api('/api/protocolos/config-centro') || {}; }catch{ protConfigCentro = {}; }
+  await cargarProtPendientes();
+  await cargarProtLista(protEstadoActual);
+}
+
+function protCambiarTab(estado){
+  protEstadoActual = estado;
+  ['activos','cerrados','todos'].forEach(t=>{
+    const b = document.getElementById(`prot-tab-${t}`);
+    if(b){ b.style.background='transparent'; b.style.color='var(--muted)'; b.style.fontWeight='normal'; }
+  });
+  const map = { activo:'activos', cerrado:'cerrados', todos:'todos' };
+  const activo = document.getElementById(`prot-tab-${map[estado]}`);
+  if(activo){ activo.style.background='var(--azul)'; activo.style.color='#fff'; activo.style.fontWeight='bold'; }
+  cargarProtLista(estado);
+}
+
+async function cargarProtLista(estado){
+  const wrap = document.getElementById('prot-lista-wrap');
+  wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Cargando...</div>';
+  try{
+    const rows = await api(`/api/protocolos?estado=${estado}`) || [];
+    if(!rows.length){
+      wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Sin protocolos en esta categoría.</div>';
+      return;
+    }
+    wrap.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;">' +
+      rows.map(p => {
+        const nro = `N°${String(p.numero).padStart(3,'0')}-${p.anio}`;
+        const totalRelevantes = (Number(p.f_total||0) - Number(p.f_no_aplica||0));
+        const progreso = totalRelevantes > 0 ? Math.round((Number(p.f_completados||0)/totalRelevantes)*100) : 0;
+        const estadoBadge = p.estado === 'activo'
+          ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">⏳ Activo</span>'
+          : '<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">✅ Cerrado</span>';
+        const ini = `${p.ini_ap1||''} ${p.ini_ap2||''} ${p.ini_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+        return `<div style="background:#fff;border:1px solid var(--border);border-left:5px solid #0891b2;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:11px;color:var(--muted);">${nro}</div>
+              <strong style="font-size:13px;color:#0f172a;line-height:1.3;">Pauta ${p.pauta}: ${p.pauta_nombre || ''}</strong>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">👤 ${p.afectados_txt || 'Sin afectado registrado'}</div>
+            </div>
+            ${estadoBadge}
+          </div>
+          <div style="font-size:11px;color:var(--muted);"><strong>Inició:</strong> ${ini}</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
+            <span style="color:var(--muted);">Progreso:</span>
+            <div style="flex:1;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
+              <div style="height:100%;width:${progreso}%;background:#0891b2;transition:width 0.3s;"></div>
+            </div>
+            <span><strong>${p.f_completados||0}/${totalRelevantes}</strong>${p.f_no_aplica ? ` (+${p.f_no_aplica} N/A)` : ''}</span>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="abrirProtoDetalle(${p.id})">📋 Ver / Continuar</button>
+        </div>`;
+      }).join('') + '</div>';
+  }catch(e){
+    wrap.innerHTML = `<div style="color:var(--rojo);padding:20px;">Error: ${e.message}</div>`;
+  }
+}
+
+async function cargarProtPendientes(){
+  const wrap = document.getElementById('prot-pendientes-wrap');
+  const lista = document.getElementById('prot-pendientes-lista');
+  if(!wrap || !lista) return;
+  if(!['orientador','admin','administrativo'].includes(ME.rol)){ wrap.style.display='none'; return; }
+  try{
+    const rows = await api('/api/protocolos/pendientes/orientador').catch(()=>[]) || [];
+    if(!rows.length){ wrap.style.display='none'; return; }
+    wrap.style.display = '';
+    lista.innerHTML = rows.map(p => {
+      const ini = `${p.ini_ap1||''} ${p.ini_ap2||''} ${p.ini_nombre||''}`.replace(/\s+/g,' ').trim();
+      return `<div style="padding:4px 0;">🛡️ <strong>N°${p.numero}-${p.anio}</strong> · ${p.pauta_nombre || 'Pauta '+p.pauta} · Inició: ${ini}
+        <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirProtoDetalle(${p.id})">Ver</button>
+      </div>`;
+    }).join('');
+  }catch{ wrap.style.display='none'; }
+}
+
+// ── NUEVO PROTOCOLO ────────────────────────────────────────────────
+async function abrirNuevoProtocolo(){
+  ['np-pauta','np-buscar-est','np-ext-nombre','np-ext-cedula','np-ext-edad','np-ext-telefono','np-ext-direccion','np-ext-encnombre'].forEach(id=>{
+    const e = document.getElementById(id); if(e) e.value='';
+  });
+  document.getElementById('np-estudiante-id').innerHTML = '<option value="">— Buscá primero —</option>';
+  document.getElementById('np-ext-mayor').value = 'false';
+  document.querySelector('input[name="np-tipo"][value="interno"]').checked = true;
+  npToggleTipo();
+
+  // Cargar lista de orientadores
+  try{
+    const us = await api('/api/usuarios?rol=orientador').catch(()=>[]) || [];
+    document.getElementById('np-orientador-id').innerHTML =
+      '<option value="">— Sin asignar —</option>' +
+      us.map(o => `<option value="${o.id}">${o.primer_apellido||''} ${o.segundo_apellido||''} ${o.nombre||''}</option>`).join('');
+  }catch{}
+
+  document.getElementById('alert-np').className='alert';
+  document.getElementById('modal-nuevo-prot').classList.add('show');
+}
+
+function npToggleTipo(){
+  const tipo = document.querySelector('input[name="np-tipo"]:checked')?.value;
+  document.getElementById('np-bloque-interno').style.display = tipo === 'interno' ? '' : 'none';
+  document.getElementById('np-bloque-externo').style.display = tipo === 'externo' ? '' : 'none';
+}
+
+let _npTimer = null;
+function npBuscarEstudiante(){
+  clearTimeout(_npTimer);
+  _npTimer = setTimeout(async ()=>{
+    const q = document.getElementById('np-buscar-est').value.trim();
+    const sel = document.getElementById('np-estudiante-id');
+    if(q.length < 2){ sel.innerHTML='<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
+    try{
+      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
+      sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
+        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+      ).join('');
+    }catch{ sel.innerHTML='<option value="">— Error —</option>'; }
+  }, 300);
+}
+
+async function guardarNuevoProtocolo(){
+  const pauta = +document.getElementById('np-pauta').value;
+  if(!pauta){ sa('alert-np','Elegí una pauta.','danger'); return; }
+  const tipo = document.querySelector('input[name="np-tipo"]:checked')?.value;
+  let persona_afectada = {};
+  if(tipo === 'interno'){
+    const eid = document.getElementById('np-estudiante-id').value;
+    if(!eid){ sa('alert-np','Buscá y seleccioná un estudiante.','danger'); return; }
+    const opt = document.getElementById('np-estudiante-id').selectedOptions[0];
+    persona_afectada = { estudiante_id:+eid, es_externo:false, nombre_completo: opt.textContent };
+  } else {
+    const nom = document.getElementById('np-ext-nombre').value.trim();
+    if(!nom){ sa('alert-np','Escribí el nombre completo.','danger'); return; }
+    persona_afectada = {
+      es_externo:true, nombre_completo:nom,
+      cedula: document.getElementById('np-ext-cedula').value.trim(),
+      edad:   document.getElementById('np-ext-edad').value || null,
+      telefono: document.getElementById('np-ext-telefono').value.trim(),
+      es_mayor_edad: document.getElementById('np-ext-mayor').value === 'true',
+      direccion: document.getElementById('np-ext-direccion').value.trim(),
+      encargado_nombre: document.getElementById('np-ext-encnombre').value.trim(),
+    };
+  }
+  const orientador_id = document.getElementById('np-orientador-id').value || null;
+  try{
+    const r = await api('/api/protocolos','POST',{ pauta, personas:[{ ...persona_afectada, rol:'afectado' }], orientador_id });
+    cerrarModal('modal-nuevo-prot');
+    sa('alert-prot',`✅ Protocolo iniciado. N°${String(r.numero).padStart(3,'0')}-${r.anio}`,'success');
+    await cargarProtLista(protEstadoActual);
+    setTimeout(()=>abrirProtoDetalle(r.id), 400);
+  }catch(e){ sa('alert-np',e.message,'danger'); }
+}
+
+// ── DETALLE PROTOCOLO ─────────────────────────────────────────────
+async function abrirProtoDetalle(protoId){
+  try{
+    const d = await api(`/api/protocolos/${protoId}`);
+    protActual = d;
+    const p = d.protocolo;
+    const nro = `N°${String(p.numero).padStart(3,'0')}-${p.anio}`;
+    document.getElementById('pd-titulo').textContent = `🛡️ ${nro} — Pauta ${p.pauta}`;
+    const ini = `${p.ini_ap1||''} ${p.ini_ap2||''} ${p.ini_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+    const orient = `${p.orient_ap1||''} ${p.orient_ap2||''} ${p.orient_nombre||''}`.replace(/\s+/g,' ').trim() || 'Sin asignar';
+    document.getElementById('pd-subtitulo').innerHTML = `
+      <strong>${PAUTA_NOMBRES[p.pauta] || ''}</strong><br/>
+      Inició: ${ini} · Orientador: ${orient}
+    `;
+    const badge = document.getElementById('pd-estado-badge');
+    if(p.estado === 'activo'){
+      badge.style.background = '#dbeafe'; badge.style.color = '#1e40af';
+      badge.textContent = '⏳ Activo';
+    } else {
+      badge.style.background = '#16a34a'; badge.style.color = '#fff';
+      badge.textContent = '✅ Cerrado';
+    }
+
+    // Personas
+    renderPersonasProto(d);
+    // Formularios
+    renderFormsProto(d);
+    document.getElementById('alert-pd').className = 'alert';
+    document.getElementById('modal-prot-detalle').classList.add('show');
+  }catch(e){ alert('Error: '+e.message); }
+}
+
+function renderPersonasProto(d){
+  const wrap = document.getElementById('pd-personas-wrap');
+  const personas = d.personas || [];
+  const dp = d.protocolo;
+  const esStaff = ['admin','administrativo'].includes(ME.rol);
+  const puedeEditar = (esStaff || dp.iniciado_por === ME.id) && dp.estado === 'activo';
+
+  const lista = personas.map(pe => {
+    const nombre = pe.estudiante_id
+      ? `${pe.est_ap1||''} ${pe.est_ap2||''}, ${pe.est_nombre||''}`.replace(/\s+/g,' ').trim() + (pe.est_cedula?` (${pe.est_cedula})`:'') + (pe.est_seccion?` · ${pe.est_seccion}`:'')
+      : `${pe.nombre_completo||''}${pe.cedula?` (${pe.cedula})`:''}${pe.es_externo?' [externo]':''}${pe.es_mayor_edad?' [mayor de edad]':''}`;
+    const iconos = { afectado:'👤', ofensor:'⚠️', observador:'👁️', externo:'🌐' };
+    const eliminar = puedeEditar && pe.rol !== 'afectado'
+      ? `<button class="btn btn-danger btn-xs" style="margin-left:6px;padding:1px 6px;" onclick="eliminarPersonaProto(${pe.id})" title="Quitar">✕</button>`
+      : '';
+    return `<div style="padding:3px 0;">${iconos[pe.rol]||'•'} <strong>${pe.rol}:</strong> ${nombre}${eliminar}</div>`;
+  }).join('');
+
+  const btnAgregar = puedeEditar
+    ? `<button class="btn btn-outline btn-xs" style="margin-top:6px;" onclick="abrirAgregarPersona()">➕ Agregar persona</button>`
+    : '';
+  wrap.innerHTML = `<strong>Personas involucradas:</strong>${lista || '<div style="color:var(--muted);font-size:11px;margin-top:4px;">Solo la afectada.</div>'}${btnAgregar}`;
+}
+
+function renderFormsProto(d){
+  const wrap = document.getElementById('pd-forms-lista');
+  const dp = d.protocolo;
+  const esStaff = ['admin','administrativo'].includes(ME.rol);
+  const puedeEditar = (esStaff || dp.iniciado_por === ME.id) && dp.estado === 'activo';
+
+  const items = d.formularios.map(f => {
+    const nombre = FORMULARIO_NOMBRES[f.tipo] || f.tipo;
+    let estadoTxt, color;
+    if(f.estado === 'completado'){ estadoTxt='✅ Completado'; color='#16a34a'; }
+    else if(f.estado === 'no_aplica'){ estadoTxt='➖ No aplica'; color='#94a3b8'; }
+    else { estadoTxt='⏳ Pendiente'; color='#f59e0b'; }
+
+    const acciones = [];
+    if(dp.estado === 'activo'){
+      if(puedeEditar){
+        if(f.estado === 'no_aplica'){
+          acciones.push(`<button class="btn btn-outline btn-xs" onclick='reabrirFormProto(${f.id})'>↩️ Reabrir</button>`);
+        } else {
+          acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirFormProto(${f.id},"${f.tipo}")'>${f.estado==='completado'?'✏️ Ver/Editar':'📝 Llenar'}</button>`);
+          if(f.estado === 'pendiente'){
+            acciones.push(`<button class="btn btn-outline btn-xs" style="color:#94a3b8;border-color:#cbd5e1;" onclick='marcarNoAplicaForm(${f.id})'>➖ No aplica</button>`);
+          }
+        }
+      }
+      if(f.estado === 'completado'){
+        acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirFormProtocoloDirecto(${f.id},"${f.tipo}")'>🖨️ Imprimir</button>`);
+      }
+    } else {
+      if(f.estado === 'completado'){
+        acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirFormProtocoloDirecto(${f.id},"${f.tipo}")'>🖨️ Imprimir</button>`);
+      }
+    }
+
+    return `<div style="background:#f8fafc;border-left:4px solid ${color};border-radius:6px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <strong style="font-size:13px;">${nombre}</strong>
+        <div style="font-size:11px;color:${color};margin-top:2px;font-weight:bold;">${estadoTxt}</div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">${acciones.join('')}</div>
+    </div>`;
+  }).join('');
+
+  // Botón cerrar
+  const btnCerrar = (dp.estado === 'activo' && puedeEditar)
+    ? `<div style="margin-top:14px;text-align:center;">
+        <button class="btn btn-success" onclick="cerrarProtocolo()">🔒 Cerrar Protocolo</button>
+      </div>`
+    : '';
+  wrap.innerHTML = items + btnCerrar;
+}
+
+// ── LLENAR FORMULARIO ─────────────────────────────────────────────
+function abrirFormProto(formId, tipo){
+  const f = protActual.formularios.find(x => x.id === formId);
+  if(!f) return;
+  protFormEnEdicion = { id:formId, tipo, contenido: f.contenido || {} };
+  document.getElementById('pf-titulo').textContent = FORMULARIO_NOMBRES[tipo] || tipo;
+  document.getElementById('pf-subtitulo').textContent = f.completado_en ? `Última edición: ${new Date(f.completado_en).toLocaleString('es-CR')}` : 'Sin completar todavía';
+  renderFormProto(tipo, protFormEnEdicion.contenido);
+  document.getElementById('alert-pf').className='alert';
+  document.getElementById('modal-prot-form').classList.add('show');
+}
+
+// Helper: auto-rellenar campos comunes desde config_centro + persona afectada
+function valoresAutorrelleno(){
+  const c = protConfigCentro || {};
+  const p = (protActual?.personas || []).find(x => x.rol === 'afectado') || {};
+  const nombreAfectado = p.estudiante_id
+    ? `${p.est_ap1||''} ${p.est_ap2||''}, ${p.est_nombre||''}`.replace(/\s+/g,' ').trim()
+    : (p.nombre_completo || '');
+  const cedulaAfectado = p.estudiante_id ? p.est_cedula : p.cedula;
+  const seccionAfectado = p.estudiante_id ? p.est_seccion : p.seccion;
+  const fechaNacAfectado = p.estudiante_id ? (p.est_fnac ? new Date(p.est_fnac).toISOString().slice(0,10) : '') : p.fecha_nacimiento;
+  const ini = protActual?.protocolo || {};
+  const iniNombre = `${ini.ini_ap1||''} ${ini.ini_ap2||''} ${ini.ini_nombre||''}`.replace(/\s+/g,' ').trim();
+  return {
+    centro_nombre: c.nombre_centro || 'Liceo de Calle Fallas',
+    codigo_pres: c.codigo_presupuestario || '',
+    circuito: c.circuito_escolar || '07',
+    dre: c.dre || 'Desamparados',
+    director: c.director_nombre || '',
+    afectado_nombre: nombreAfectado,
+    afectado_cedula: cedulaAfectado || '',
+    afectado_seccion: seccionAfectado || '',
+    afectado_fechanac: fechaNacAfectado || '',
+    afectado_edad: p.edad || '',
+    afectado_direccion: p.direccion || '',
+    encargado_nombre: p.encargado_nombre || p.enc_nombre || '',
+    encargado_cedula: p.encargado_cedula || p.enc_cedula || '',
+    encargado_telef: p.encargado_telef || p.enc_telefono || '',
+    iniciador: iniNombre,
+    hoy: new Date().toISOString().slice(0,10),
+  };
+}
+
+function renderFormProto(tipo, c){
+  const wrap = document.getElementById('pf-form-body');
+  c = c || {};
+  const auto = valoresAutorrelleno();
+  const v = (k, d) => c[k] !== undefined ? c[k] : (d !== undefined ? d : '');
+
+  const f = (id, label, val, type='text') =>
+    `<div class="fg" style="margin-bottom:8px;"><label>${label}</label><input type="${type}" id="pfi-${id}" value="${val||''}"/></div>`;
+  const t = (id, label, val, rows=4) =>
+    `<div class="fg" style="margin-bottom:8px;"><label>${label}</label><textarea id="pfi-${id}" rows="${rows}">${val||''}</textarea></div>`;
+  const cb = (id, label, val) =>
+    `<label style="display:flex;align-items:center;gap:6px;font-weight:normal;margin:4px 0;"><input type="checkbox" id="pfi-${id}" ${val?'checked':''}/> ${label}</label>`;
+
+  if(tipo === 'F1' || tipo === 'F2'){
+    const esF1 = tipo === 'F1';
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      ${f('centro_nombre','Centro educativo', v('centro_nombre', auto.centro_nombre))}
+      ${f('codigo_pres','Código presupuestario', v('codigo_pres', auto.codigo_pres))}
+      ${f('circuito','Circuito escolar', v('circuito', auto.circuito))}
+      ${f('dre','DRE', v('dre', auto.dre))}
+      <div class="fg"><label>¿De dónde proviene el relato?</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+          ${esF1 ? cb('orig_propia','Detección propia', v('orig_propia',false)) : cb('orig_funcionaria','Persona funcionaria', v('orig_funcionaria',false))}
+          ${cb('orig_familia','Familiares', v('orig_familia',false))}
+          ${esF1 ? cb('orig_victima','Presunta víctima', v('orig_victima',false)) : cb('orig_estudobs','Estudiante observador', v('orig_estudobs',false))}
+          ${cb('orig_direccion','Dirección', v('orig_direccion',false))}
+          ${esF1 ? cb('orig_observadores','Estudiantes observadores', v('orig_observadores',false)) : cb('orig_otros','Otros', v('orig_otros',false))}
+        </div>
+        ${f('orig_otros_detalle','Otros (detalle)', v('orig_otros_detalle'))}
+      </div>
+      ${t('relato','Recepción inicial: transcribir relato tal cual es narrado (no interprete)', v('relato'), 6)}
+      ${t('cuando_donde','¿Cuándo, dónde y quién?', v('cuando_donde'), 4)}
+      ${t('desde_cuando','¿Desde cuándo se producen estas situaciones?', v('desde_cuando'), 3)}
+      ${f('a_cargo','Nombre persona a cargo de ejecutar la Pauta', v('a_cargo', auto.iniciador))}
+      ${f('director','Nombre persona directora', v('director', auto.director))}
+    `;
+  } else if(tipo === 'F3'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      ${f('estudiante','Nombre estudiante', v('estudiante', auto.afectado_nombre))}
+      ${f('seccion','Sección', v('seccion', auto.afectado_seccion))}
+      <div class="fg">
+        <label>¿Se contactó a familiar/encargado?</label>
+        <select id="pfi-contacto_familia"><option value="si" ${v('contacto_familia')==='si'?'selected':''}>Sí</option><option value="no" ${v('contacto_familia')==='no'?'selected':''}>No</option></select>
+      </div>
+      ${t('motivo','Motivo del traslado', v('motivo'), 4)}
+      ${f('destino','Destino del traslado', v('destino'))}
+      ${f('transporte','Medio de transporte', v('transporte'))}
+      ${f('placa','Placa', v('placa'))}
+      ${f('acomp1_nombre','Acompañante 1 (conductor) — Nombre', v('acomp1_nombre'))}
+      ${f('acomp1_ced','Acompañante 1 — Identificación', v('acomp1_ced'))}
+      ${f('acomp1_telef','Acompañante 1 — Teléfono', v('acomp1_telef'))}
+      ${f('acomp1_cargo','Acompañante 1 — Cargo', v('acomp1_cargo'))}
+      ${f('acomp2_nombre','Acompañante 2 — Nombre', v('acomp2_nombre'))}
+      ${f('acomp2_ced','Acompañante 2 — Identificación', v('acomp2_ced'))}
+      ${f('acomp2_telef','Acompañante 2 — Teléfono', v('acomp2_telef'))}
+      ${f('acomp2_cargo','Acompañante 2 — Cargo', v('acomp2_cargo'))}
+      ${f('director','Nombre y firma persona directora', v('director', auto.director))}
+    `;
+  } else if(tipo === 'F4'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      ${f('responsable_nombre','Persona responsable que activa la Pauta', v('responsable_nombre', auto.iniciador))}
+      ${f('responsable_ced','# Identificación', v('responsable_ced'))}
+      ${f('responsable_cargo','Cargo', v('responsable_cargo'))}
+      <h4 style="margin:14px 0 6px;font-size:13px;">1. Detección</h4>
+      ${t('det_descripcion','Descripción del arma / droga', v('det_descripcion'), 2)}
+      ${f('det_lugar','Lugar donde se encontró', v('det_lugar'))}
+      ${f('det_testigo','Nombre persona testigo', v('det_testigo'))}
+      ${f('det_testigo_cargo','Cargo del testigo', v('det_testigo_cargo'))}
+      <h4 style="margin:14px 0 6px;font-size:13px;">2. Tenencia</h4>
+      ${f('ten_estudiante','Nombre del estudiante', v('ten_estudiante', auto.afectado_nombre))}
+      ${f('ten_seccion','Sección', v('ten_seccion', auto.afectado_seccion))}
+      ${t('ten_descripcion','Descripción del arma / droga', v('ten_descripcion'), 2)}
+      ${f('ten_tipo','Tipo de arma o droga', v('ten_tipo'))}
+      ${f('ten_testigo','Persona testigo', v('ten_testigo'))}
+      ${f('ten_testigo_cargo','Cargo del testigo', v('ten_testigo_cargo'))}
+      ${f('director','Persona directora quien recibe lo decomisado', v('director', auto.director))}
+      ${f('fotos_cant','Cantidad de fotos adjuntas', v('fotos_cant'), 'number')}
+      <h4 style="margin:14px 0 6px;font-size:13px;">Devolución al encargado (si aplica)</h4>
+      ${f('dev_enc_nombre','Nombre del encargado legal', v('dev_enc_nombre', auto.encargado_nombre))}
+      ${f('dev_enc_ced','# Identificación', v('dev_enc_ced', auto.encargado_cedula))}
+      ${f('dev_fecha','Fecha de devolución', v('dev_fecha'), 'date')}
+    `;
+  } else if(tipo === 'F5'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      ${f('centro_nombre','Centro educativo', v('centro_nombre', auto.centro_nombre))}
+      ${f('encargado_nombre','Persona encargada legal', v('encargado_nombre', auto.encargado_nombre))}
+      ${f('estudiante','Nombre del estudiante', v('estudiante', auto.afectado_nombre))}
+      ${t('hechos','Supuestos hechos', v('hechos'), 4)}
+      ${f('reunion_con','Reunión con (cargo o nombre)', v('reunion_con'))}
+      ${f('reunion_fecha','Fecha de la reunión', v('reunion_fecha'), 'date')}
+      ${f('reunion_hora','Hora', v('reunion_hora'), 'time')}
+      ${f('telefono_contacto','Teléfono de contacto', v('telefono_contacto'))}
+      ${f('correo_contacto','Correo electrónico', v('correo_contacto'))}
+      ${f('a_cargo','Nombre persona encargada de activar la Pauta', v('a_cargo', auto.iniciador))}
+    `;
+  } else if(tipo === 'F6'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      <h4 style="margin:8px 0 6px;font-size:13px;">A. Datos del estudiante</h4>
+      ${f('estudiante','Nombre completo', v('estudiante', auto.afectado_nombre))}
+      ${f('seccion','Grado y sección', v('seccion', auto.afectado_seccion))}
+      ${f('fecha_nac','Fecha de nacimiento', v('fecha_nac', auto.afectado_fechanac), 'date')}
+      ${f('edad','Edad', v('edad', auto.afectado_edad), 'number')}
+      ${f('encargado_nombre','Persona encargada legal presente', v('encargado_nombre', auto.encargado_nombre))}
+      <div class="fg"><label>Marque a quién se le entrevista:</label>
+        ${cb('entr_violentada','Estudiante violentada', v('entr_violentada',false))}
+        ${cb('entr_observador','Estudiante observador', v('entr_observador',false))}
+        ${cb('entr_ejerce','Estudiante que ejerció la violencia', v('entr_ejerce',false))}
+      </div>
+      <h4 style="margin:8px 0 6px;font-size:13px;">B. Compilación de información</h4>
+      ${t('relato','1. Relato de la situación (transcripción literal)', v('relato'), 6)}
+      ${t('cuando_donde','2. ¿Cuándo y dónde ha sucedido?', v('cuando_donde'), 3)}
+      ${t('quienes','3. ¿Quiénes son las personas que lo hacen?', v('quienes'), 3)}
+      ${t('a_quien_conto','4. ¿Quién conoce la situación? ¿A quién le has contado?', v('a_quien_conto'), 3)}
+      ${t('desde_cuando','5. ¿Desde cuándo se producen estas situaciones?', v('desde_cuando'), 3)}
+      ${f('a_cargo','Persona a cargo de ejecutar la Pauta', v('a_cargo', auto.iniciador))}
+    `;
+  } else if(tipo === 'F7'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      ${f('centro_nombre','Centro educativo', v('centro_nombre', auto.centro_nombre))}
+      <div class="fg"><label>Institución a la que se refiere:</label>
+        ${cb('ref_ccss','CCSS', v('ref_ccss',false))}
+        ${cb('ref_pani','PANI', v('ref_pani',false))}
+        ${cb('ref_risa','RISA (menores de 12 años)', v('ref_risa',false))}
+        ${cb('ref_iafa','IAFA', v('ref_iafa',false))}
+        ${cb('ref_otra','Otra', v('ref_otra',false))}
+        ${f('ref_otra_nombre','Otra (nombre)', v('ref_otra_nombre'))}
+      </div>
+      <div class="fg"><label>Si se refiere al PANI, motivo:</label>
+        ${cb('pani_negligencia','Presunta negligencia parental', v('pani_negligencia',false))}
+        ${cb('pani_omision','Omisión de responsabilidad parental', v('pani_omision',false))}
+        ${cb('pani_riesgo','Vulnerabilidad o riesgo', v('pani_riesgo',false))}
+      </div>
+      <h4 style="margin:10px 0 6px;font-size:13px;">Datos del estudiante</h4>
+      ${f('estudiante','Nombre completo', v('estudiante', auto.afectado_nombre))}
+      ${f('cedula','Cédula', v('cedula', auto.afectado_cedula))}
+      ${f('fecha_nac','Fecha de nacimiento', v('fecha_nac', auto.afectado_fechanac), 'date')}
+      ${f('edad','Edad', v('edad', auto.afectado_edad), 'number')}
+      ${f('nivel','Nivel que cursa', v('nivel', auto.afectado_seccion))}
+      ${t('direccion','Dirección residencia (provincia, cantón, distrito, otras señas)', v('direccion', auto.afectado_direccion), 2)}
+      ${f('enc_nombre','Encargado(a) legal — Nombre', v('enc_nombre', auto.encargado_nombre))}
+      ${f('enc_cedula','Encargado — Cédula', v('enc_cedula', auto.encargado_cedula))}
+      ${f('enc_telef','Encargado — Teléfono', v('enc_telef', auto.encargado_telef))}
+      ${t('motivo','Motivo de referencia', v('motivo'), 5)}
+      ${f('responsable','Persona responsable de activar la Pauta', v('responsable', auto.iniciador))}
+    `;
+  } else if(tipo === 'F8'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      ${f('centro_nombre','Centro educativo', v('centro_nombre', auto.centro_nombre))}
+      ${f('circuito','Circuito escolar', v('circuito', auto.circuito))}
+      ${f('dre','DRE', v('dre', auto.dre))}
+      <h4 style="margin:10px 0 6px;font-size:13px;">Datos de la persona que ejerció la violencia</h4>
+      ${f('ofensor_nombre','Nombre completo', v('ofensor_nombre'))}
+      ${f('ofensor_cedula','Cédula', v('ofensor_cedula'))}
+      ${f('ofensor_fechanac','Fecha de nacimiento', v('ofensor_fechanac'), 'date')}
+      ${f('ofensor_edad','Edad', v('ofensor_edad'), 'number')}
+      ${f('ofensor_nivel','Nivel/cargo', v('ofensor_nivel'))}
+      ${f('ofensor_correo','Correo', v('ofensor_correo'))}
+      ${t('ofensor_direccion','Dirección', v('ofensor_direccion'), 2)}
+      ${f('ofensor_enc_nombre','Encargado legal (si menor)', v('ofensor_enc_nombre'))}
+      ${f('ofensor_enc_ced','Encargado — Cédula', v('ofensor_enc_ced'))}
+      ${f('ofensor_enc_telef','Encargado — Teléfono', v('ofensor_enc_telef'))}
+      ${t('motivo','Motivo de la denuncia', v('motivo'), 6)}
+      <h4 style="margin:10px 0 6px;font-size:13px;">Datos de la persona violentada</h4>
+      ${f('victima_nombre','Nombre completo', v('victima_nombre', auto.afectado_nombre))}
+      ${f('victima_cedula','Cédula', v('victima_cedula', auto.afectado_cedula))}
+      ${f('victima_fechanac','Fecha de nacimiento', v('victima_fechanac', auto.afectado_fechanac), 'date')}
+      ${f('victima_edad','Edad', v('victima_edad', auto.afectado_edad), 'number')}
+      ${f('victima_nivel','Nivel', v('victima_nivel', auto.afectado_seccion))}
+      ${f('victima_enc_nombre','Encargado legal', v('victima_enc_nombre', auto.encargado_nombre))}
+      ${f('victima_enc_ced','Encargado — Cédula', v('victima_enc_ced', auto.encargado_cedula))}
+      ${f('victima_enc_telef','Encargado — Teléfono', v('victima_enc_telef', auto.encargado_telef))}
+      ${t('victima_direccion','Dirección', v('victima_direccion', auto.afectado_direccion), 2)}
+      ${t('testigos','Testigos (nombre, cédula, edad, teléfono, dirección)', v('testigos'), 4)}
+    `;
+  } else if(tipo === 'F9'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      ${f('estudiante','Nombre completo del estudiante', v('estudiante', auto.afectado_nombre))}
+      ${f('cedula','Cédula', v('cedula', auto.afectado_cedula))}
+      ${f('fecha_nac','Fecha de nacimiento', v('fecha_nac', auto.afectado_fechanac), 'date')}
+      ${f('edad','Edad', v('edad', auto.afectado_edad), 'number')}
+      ${f('nivel','Nivel que cursa', v('nivel', auto.afectado_seccion))}
+      ${t('direccion','Dirección residencia', v('direccion', auto.afectado_direccion), 2)}
+      ${f('encargado','Encargado(a) legal', v('encargado', auto.encargado_nombre))}
+      ${f('telef_enc','Teléfono del encargado', v('telef_enc', auto.encargado_telef))}
+      ${t('grupo_familiar','Grupo familiar con el que vive', v('grupo_familiar'), 2)}
+      ${f('contacto_apoyo','Nombre persona de apoyo (contacto)', v('contacto_apoyo'))}
+      ${f('contacto_apoyo_tel','Teléfono y vínculo', v('contacto_apoyo_tel'))}
+      ${f('centro_nombre','Centro educativo', v('centro_nombre', auto.centro_nombre))}
+      ${f('centro_tel','Teléfono institucional', v('centro_tel', protConfigCentro.telefono))}
+      ${f('emite_referencia','Persona que emite la referencia (nombre y cargo)', v('emite_referencia', auto.iniciador))}
+      ${t('motivo','Motivo de referencia (factores de riesgo)', v('motivo'), 5)}
+      <div class="fg"><label>Situación de vulnerabilidad y riesgo:</label>
+        ${cb('autolesion','Autolesiones', v('autolesion',false))}
+        ${cb('ideacion','Ideación suicida', v('ideacion',false))}
+        ${cb('intento','Intento suicida', v('intento',false))}
+      </div>
+      ${t('descripcion_sit','Descripción de la situación', v('descripcion_sit'), 4)}
+    `;
+  } else if(tipo === 'F10'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha', v('fecha', auto.hoy), 'date')}
+      ${f('centro_nombre','Centro educativo', v('centro_nombre', auto.centro_nombre))}
+      ${f('director','Persona directora que solicita el apoyo', v('director', auto.director))}
+      <div class="fg"><label>Intervención solicitada:</label>
+        ${cb('dre','Dirección Regional de Educación', v('dre',false))}
+        ${cb('asesorias','Departamento de Asesorías Pedagógicas', v('asesorias',false))}
+        ${cb('curricular','Dirección de Desarrollo Curricular', v('curricular',false))}
+        ${cb('vidaestud','Dirección de Vida Estudiantil', v('vidaestud',false))}
+        ${cb('upre','UPRE', v('upre',false))}
+        ${cb('panea','PANEA', v('panea',false))}
+        ${cb('otra','Otra instancia', v('otra',false))}
+        ${f('otra_detalle','Otra (detalle)', v('otra_detalle'))}
+      </div>
+      <h4 style="margin:10px 0 6px;font-size:13px;">Estudiante referido</h4>
+      ${f('estudiante','Nombre completo', v('estudiante', auto.afectado_nombre))}
+      ${f('cedula','Cédula', v('cedula', auto.afectado_cedula))}
+      ${f('fecha_nac','Fecha nacimiento', v('fecha_nac', auto.afectado_fechanac), 'date')}
+      ${f('edad','Edad', v('edad', auto.afectado_edad), 'number')}
+      ${f('nivel','Nivel', v('nivel', auto.afectado_seccion))}
+      ${t('solicitud','Describa la solicitud', v('solicitud'), 5)}
+    `;
+  } else if(tipo === 'F11'){
+    wrap.innerHTML = `
+      ${f('centro_nombre','Centro educativo', v('centro_nombre', auto.centro_nombre))}
+      ${f('elaborado_por','Informe elaborado por', v('elaborado_por', auto.iniciador))}
+      ${f('fecha_informe','Fecha de elaboración', v('fecha_informe', auto.hoy), 'date')}
+      ${f('fecha_activacion','Fecha en que se activó la Pauta', v('fecha_activacion'), 'date')}
+      ${cb('no_violencia','No se identificó manifestación de violencia/bullying — proceder al cierre', v('no_violencia',false))}
+      ${cb('no_riesgo','No se identificó situación de vulnerabilidad y riesgo — proceder al cierre', v('no_riesgo',false))}
+      ${t('relato','Breve relato de lo acontecido', v('relato'), 6)}
+      <h4 style="margin:10px 0 6px;font-size:13px;">Articulación inter e intrainstitucional</h4>
+      ${cb('aviso_911','¿Dio aviso al 9-1-1?', v('aviso_911',false))}
+      ${f('numero_reporte','Número de reporte 911', v('numero_reporte'))}
+      ${cb('denuncia_fiscalia','Denuncia a Fiscalía/OIJ', v('denuncia_fiscalia',false))}
+      ${cb('denuncia_red','Denuncia ante cuenta activa/red social', v('denuncia_red',false))}
+      ${cb('aviso_pani','Aviso al PANI', v('aviso_pani',false))}
+      ${cb('referencia_ccss','Referencia a la CCSS', v('referencia_ccss',false))}
+      ${cb('denuncia_disc','Denuncia ante Asuntos Disciplinarios', v('denuncia_disc',false))}
+      ${cb('coord_otras','Coordinaciones con otras instituciones', v('coord_otras',false))}
+      ${f('coord_institucion','Nombre de la institución/recurso', v('coord_institucion'))}
+      ${f('coord_contacto','Persona contacto', v('coord_contacto'))}
+      ${f('coord_fecha','Fecha de coordinación', v('coord_fecha'), 'date')}
+      ${t('medidas_proteccion','Medidas de protección a realizar', v('medidas_proteccion'), 5)}
+      ${t('acciones_psico','Acciones psico-socioeducativas (Plan de atención)', v('acciones_psico'), 4)}
+      <div class="fg"><label>¿Requiere la activación de otra Pauta?</label>
+        <select id="pfi-otra_pauta"><option value="">— Elegí —</option><option value="si" ${v('otra_pauta')==='si'?'selected':''}>Sí</option><option value="no" ${v('otra_pauta')==='no'?'selected':''}>No</option></select>
+      </div>
+      ${t('otra_pauta_detalle','Especifique cuál o por qué no', v('otra_pauta_detalle'), 2)}
+      ${f('fecha_seg1','Fecha del primer informe de seguimiento', v('fecha_seg1'), 'date')}
+      ${f('fecha_seg2','Fecha del segundo informe de seguimiento', v('fecha_seg2'), 'date')}
+      ${f('director','Persona directora', v('director', auto.director))}
+    `;
+  } else if(tipo === 'F12'){
+    wrap.innerHTML = `
+      ${f('fecha','Fecha del primer informe de seguimiento', v('fecha', auto.hoy), 'date')}
+      ${f('centro_nombre','Centro educativo', v('centro_nombre', auto.centro_nombre))}
+      ${f('elaborado_por','Informe elaborado por', v('elaborado_por', auto.iniciador))}
+      <h4 style="margin:10px 0 6px;font-size:13px;">A. Articulación inter e intrainstitucional</h4>
+      ${t('art_fiscalia','Fiscalía (1°, 2°, 3° mes)', v('art_fiscalia'), 2)}
+      ${t('art_pani','PANI', v('art_pani'), 2)}
+      ${t('art_ccss','CCSS', v('art_ccss'), 2)}
+      ${t('art_disc','Asuntos Disciplinarios MEP', v('art_disc'), 2)}
+      ${t('art_otro','Otro', v('art_otro'), 2)}
+      <h4 style="margin:10px 0 6px;font-size:13px;">B. Seguimiento medidas de protección</h4>
+      ${t('seg_medidas','Medidas (1°, 2°, 3° mes / fechas)', v('seg_medidas'), 4)}
+      <h4 style="margin:10px 0 6px;font-size:13px;">C. Acciones psico-socioeducativas</h4>
+      ${t('seg_acciones','Acciones (1°, 2°, 3° mes / fechas)', v('seg_acciones'), 4)}
+      <h4 style="margin:10px 0 6px;font-size:13px;">Cierre del expediente</h4>
+      ${f('fecha_cierre','Fecha de cierre de la Pauta', v('fecha_cierre'), 'date')}
+      ${f('responsable','Encargado(a) de activación', v('responsable', auto.iniciador))}
+      ${f('director','Visto bueno persona directora', v('director', auto.director))}
+    `;
+  } else {
+    wrap.innerHTML = '<p>Tipo de formulario no implementado.</p>';
+  }
+}
+
+function leerContenidoForm(){
+  const c = {};
+  document.querySelectorAll('#pf-form-body [id^="pfi-"]').forEach(el => {
+    const key = el.id.replace('pfi-','');
+    if(el.type === 'checkbox') c[key] = el.checked;
+    else c[key] = el.value;
+  });
+  return c;
+}
+
+async function guardarFormProtocolo(){
+  if(!protFormEnEdicion || !protActual) return;
+  const contenido = leerContenidoForm();
+  try{
+    await api(`/api/protocolos/${protActual.protocolo.id}/formularios/${protFormEnEdicion.id}`,'POST',{
+      contenido, marcar_completado: true
+    });
+    cerrarModal('modal-prot-form');
+    sa('alert-pd','✅ Formulario guardado.','success');
+    await abrirProtoDetalle(protActual.protocolo.id);
+  }catch(e){ sa('alert-pf',e.message,'danger'); }
+}
+
+async function imprimirFormProtocolo(){
+  if(!protFormEnEdicion || !protActual) return;
+  const contenido = leerContenidoForm();
+  const idCopy = protFormEnEdicion.id;
+  const tipoCopy = protFormEnEdicion.tipo;
+  try{
+    await api(`/api/protocolos/${protActual.protocolo.id}/formularios/${idCopy}`,'POST',{ contenido, marcar_completado: true });
+    cerrarModal('modal-prot-form');
+    sa('alert-pd','✅ Formulario guardado.','success');
+    await abrirProtoDetalle(protActual.protocolo.id);
+    setTimeout(()=>imprimirFormProtocoloDirecto(idCopy, tipoCopy), 200);
+  }catch(e){ sa('alert-pf',e.message,'danger'); }
+}
+
+async function marcarNoAplicaForm(formId){
+  if(!confirm('¿Marcar este formulario como No Aplica?')) return;
+  try{
+    await api(`/api/protocolos/${protActual.protocolo.id}/formularios/${formId}`,'POST',{ marcar_no_aplica: true });
+    await abrirProtoDetalle(protActual.protocolo.id);
+  }catch(e){ alert(e.message); }
+}
+
+async function reabrirFormProto(formId){
+  try{
+    await api(`/api/protocolos/${protActual.protocolo.id}/formularios/${formId}`,'POST',{ marcar_pendiente: true });
+    await abrirProtoDetalle(protActual.protocolo.id);
+  }catch(e){ alert(e.message); }
+}
+
+// ── PERSONAS ──────────────────────────────────────────────────────
+function abrirAgregarPersona(){
+  document.getElementById('pp-titulo').textContent = 'Agregar Persona';
+  document.getElementById('pp-rol').value = 'ofensor';
+  document.querySelector('input[name="pp-tipo"][value="interno"]').checked = true;
+  ppToggleTipo();
+  ['pp-buscar','pp-ext-nombre','pp-ext-cedula','pp-ext-edad'].forEach(id=>{
+    const e = document.getElementById(id); if(e) e.value='';
+  });
+  document.getElementById('pp-estudiante-id').innerHTML='<option value="">— Buscá primero —</option>';
+  document.getElementById('alert-pp').className='alert';
+  document.getElementById('modal-prot-persona').classList.add('show');
+}
+
+function ppToggleTipo(){
+  const tipo = document.querySelector('input[name="pp-tipo"]:checked')?.value;
+  document.getElementById('pp-bloque-interno').style.display = tipo === 'interno' ? '' : 'none';
+  document.getElementById('pp-bloque-externo').style.display = tipo === 'externo' ? '' : 'none';
+}
+
+let _ppTimer = null;
+function ppBuscarEstudiante(){
+  clearTimeout(_ppTimer);
+  _ppTimer = setTimeout(async ()=>{
+    const q = document.getElementById('pp-buscar').value.trim();
+    const sel = document.getElementById('pp-estudiante-id');
+    if(q.length < 2){ sel.innerHTML='<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
+    try{
+      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
+      sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
+        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+      ).join('');
+    }catch{ sel.innerHTML='<option value="">— Error —</option>'; }
+  }, 300);
+}
+
+async function guardarPersonaProtocolo(){
+  const rol = document.getElementById('pp-rol').value;
+  const tipo = document.querySelector('input[name="pp-tipo"]:checked')?.value;
+  let body = { rol };
+  if(tipo === 'interno'){
+    const eid = document.getElementById('pp-estudiante-id').value;
+    if(!eid){ sa('alert-pp','Buscá y seleccioná un estudiante.','danger'); return; }
+    const opt = document.getElementById('pp-estudiante-id').selectedOptions[0];
+    body.estudiante_id = +eid;
+    body.es_externo = false;
+    body.nombre_completo = opt.textContent;
+  } else {
+    const nom = document.getElementById('pp-ext-nombre').value.trim();
+    if(!nom){ sa('alert-pp','Escribí el nombre completo.','danger'); return; }
+    body.es_externo = true;
+    body.nombre_completo = nom;
+    body.cedula = document.getElementById('pp-ext-cedula').value.trim();
+    body.edad = document.getElementById('pp-ext-edad').value || null;
+  }
+  try{
+    await api(`/api/protocolos/${protActual.protocolo.id}/personas`,'POST', body);
+    cerrarModal('modal-prot-persona');
+    sa('alert-pd','✅ Persona agregada.','success');
+    await abrirProtoDetalle(protActual.protocolo.id);
+  }catch(e){ sa('alert-pp',e.message,'danger'); }
+}
+
+async function eliminarPersonaProto(personaId){
+  if(!confirm('¿Eliminar a esta persona del protocolo?')) return;
+  try{
+    await api(`/api/protocolos/${protActual.protocolo.id}/personas/${personaId}`,'DELETE');
+    await abrirProtoDetalle(protActual.protocolo.id);
+  }catch(e){ alert(e.message); }
+}
+
+async function cerrarProtocolo(){
+  if(!confirm('¿Cerrar el protocolo? Asegurate de haber completado o marcado como N/A todos los formularios.')) return;
+  try{
+    await api(`/api/protocolos/${protActual.protocolo.id}/cerrar`,'POST');
+    cerrarModal('modal-prot-detalle');
+    sa('alert-prot','✅ Protocolo cerrado.','success');
+    await cargarProtLista(protEstadoActual);
+  }catch(e){ alert(e.message); }
+}
+
+// ── CONFIG CENTRO ──────────────────────────────────────────────────
+async function abrirConfigCentro(){
+  try{
+    const c = await api('/api/protocolos/config-centro') || {};
+    document.getElementById('cfg-nombre').value = c.nombre_centro || '';
+    document.getElementById('cfg-codigo').value = c.codigo_presupuestario || '';
+    document.getElementById('cfg-circuito').value = c.circuito_escolar || '';
+    document.getElementById('cfg-dre').value = c.dre || '';
+    document.getElementById('cfg-telefono').value = c.telefono || '';
+    document.getElementById('cfg-correo').value = c.correo || '';
+    document.getElementById('cfg-direccion').value = c.direccion || '';
+    document.getElementById('cfg-director').value = c.director_nombre || '';
+    document.getElementById('cfg-directorced').value = c.director_cedula || '';
+    document.getElementById('alert-cfg').className='alert';
+    document.getElementById('modal-config-centro').classList.add('show');
+  }catch(e){ alert(e.message); }
+}
+
+async function guardarConfigCentro(){
+  const body = {
+    nombre_centro: document.getElementById('cfg-nombre').value.trim(),
+    codigo_presupuestario: document.getElementById('cfg-codigo').value.trim(),
+    circuito_escolar: document.getElementById('cfg-circuito').value.trim(),
+    dre: document.getElementById('cfg-dre').value.trim(),
+    telefono: document.getElementById('cfg-telefono').value.trim(),
+    correo: document.getElementById('cfg-correo').value.trim(),
+    direccion: document.getElementById('cfg-direccion').value.trim(),
+    director_nombre: document.getElementById('cfg-director').value.trim(),
+    director_cedula: document.getElementById('cfg-directorced').value.trim(),
+  };
+  try{
+    await api('/api/protocolos/config-centro','PUT', body);
+    cerrarModal('modal-config-centro');
+    protConfigCentro = body;
+    sa('alert-prot','✅ Configuración del centro guardada.','success');
+  }catch(e){ sa('alert-cfg',e.message,'danger'); }
+}
+
+// ── IMPRESIÓN: cada formulario tiene su layout con encabezado MEP oficial
+function imprimirFormProtocoloDirecto(formId, tipo){
+  if(!protActual) return;
+  const f = protActual.formularios.find(x => x.id === formId);
+  if(!f || f.estado === 'pendiente'){ alert('Este formulario aún no se completó.'); return; }
+  const c = f.contenido || {};
+  const auto = valoresAutorrelleno();
+  const dp = protActual.protocolo;
+  const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
+
+  // Helper para mostrar checkboxes en impresión
+  const cb = (v) => v ? '☑' : '☐';
+  const fechaFmt = (s) => s ? s : '____________';
+
+  let titulo = FORMULARIO_NOMBRES[tipo] || tipo;
+  let body = '';
+
+  if(tipo === 'F1' || tipo === 'F2'){
+    const esF1 = tipo === 'F1';
+    body = `<p style="text-align:center;font-weight:bold;">${esF1 ? 'COMUNICACIÓN ESCRITA A LA DIRECCIÓN ANTE PRESUNTA MANIFESTACIÓN DE VIOLENCIA' : 'COMUNICACIÓN ESCRITA A LA DIRECCIÓN ANTE PRESUNTAS SITUACIONES DE VULNERABILIDAD Y RIESGO'}</p>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p><strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <p><strong>Centro educativo:</strong> ${c.centro_nombre||''}</p>
+      <p><strong>Código presupuestario:</strong> ${c.codigo_pres||''} · <strong>Circuito:</strong> ${c.circuito||''} · <strong>DRE:</strong> ${c.dre||''}</p>
+      <p><strong>De dónde proviene el relato:</strong></p>
+      <p>${esF1 ? `${cb(c.orig_propia)} Detección propia &nbsp; ${cb(c.orig_victima)} Presunta víctima &nbsp; ${cb(c.orig_observadores)} Estudiantes observadores<br/>${cb(c.orig_familia)} Familiares &nbsp; ${cb(c.orig_direccion)} Dirección &nbsp; ${cb(c.orig_otros)} Otros: ${c.orig_otros_detalle||''}` : `${cb(c.orig_funcionaria)} Persona funcionaria &nbsp; ${cb(c.orig_estudobs)} Estudiante observador &nbsp; ${cb(c.orig_familia)} Familiares<br/>${cb(c.orig_direccion)} Dirección &nbsp; ${cb(c.orig_otros)} Otros: ${c.orig_otros_detalle||''}`}</p>
+      <p><strong>RECEPCIÓN INICIAL:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:120px;white-space:pre-wrap;">${c.relato||''}</div>
+      <p><strong>¿Cuándo, dónde y quién?</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:60px;white-space:pre-wrap;">${c.cuando_donde||''}</div>
+      <p><strong>¿Desde cuándo se producen?</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:50px;white-space:pre-wrap;">${c.desde_cuando||''}</div>
+      <p style="margin-top:40px;"><strong>Nombre persona a cargo:</strong> ${c.a_cargo||''}</p>
+      <p>Firma: ____________________________</p>
+      <p style="margin-top:30px;"><strong>Persona directora:</strong> ${c.director||''}</p>
+      <p>Firma: ____________________________ &nbsp; Fecha: ${fechaFmt(c.fecha)}</p>`;
+  } else if(tipo === 'F3'){
+    body = `<p style="text-align:center;font-weight:bold;">ACTA DE TRASLADO DE LA PERSONA ESTUDIANTE HACIA OTRA INSTANCIA</p>
+      <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <p><strong>Estudiante:</strong> ${c.estudiante||''} · <strong>Sección:</strong> ${c.seccion||''}</p>
+      <p>Se contactó a la madre, el padre o persona encargada: <strong>${c.contacto_familia==='si'?'Sí':'No'}</strong></p>
+      <p><strong>Motivo del traslado:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.motivo||''}</div>
+      <p><strong>Destino:</strong> ${c.destino||''}</p>
+      <p><strong>Medio de transporte:</strong> ${c.transporte||''} · <strong>Placa:</strong> ${c.placa||''}</p>
+      <p><strong>Acompañante 1 (conductor):</strong> ${c.acomp1_nombre||''} · # ID: ${c.acomp1_ced||''} · Tel: ${c.acomp1_telef||''} · Cargo: ${c.acomp1_cargo||''}</p>
+      <p><strong>Acompañante 2:</strong> ${c.acomp2_nombre||''} · # ID: ${c.acomp2_ced||''} · Tel: ${c.acomp2_telef||''} · Cargo: ${c.acomp2_cargo||''}</p>
+      <p style="margin-top:40px;"><strong>Persona directora:</strong> ${c.director||''}</p>
+      <p>Firma: ____________________________ &nbsp; Fecha: ${fechaFmt(c.fecha)}</p>`;
+  } else if(tipo === 'F4'){
+    body = `<p style="text-align:center;font-weight:bold;">ACTA DE RECOLECCIÓN Y RESGUARDO DE ARMAS Y DROGAS</p>
+      <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <p><strong>Persona responsable que activa la Pauta:</strong> ${c.responsable_nombre||''}</p>
+      <p>Identificación: ${c.responsable_ced||''} · Cargo: ${c.responsable_cargo||''}</p>
+      <h4>1. Detección de armas/drogas</h4>
+      <p>Descripción: ${c.det_descripcion||''}</p>
+      <p>Lugar: ${c.det_lugar||''}</p>
+      <p>Persona testigo: ${c.det_testigo||''} · Cargo: ${c.det_testigo_cargo||''}</p>
+      <h4>2. Tenencia</h4>
+      <p>Estudiante: ${c.ten_estudiante||''} · Sección: ${c.ten_seccion||''}</p>
+      <p>Descripción: ${c.ten_descripcion||''}</p>
+      <p>Tipo: ${c.ten_tipo||''}</p>
+      <p>Testigo: ${c.ten_testigo||''} · Cargo: ${c.ten_testigo_cargo||''}</p>
+      <p style="margin-top:30px;">Firma persona que activa la Pauta: ____________________</p>
+      <p><strong>Persona directora que recibe lo decomisado:</strong> ${c.director||''}</p>
+      <p>Firma: ________________ Fecha: ${fechaFmt(c.fecha)}</p>
+      <p>Cantidad de fotos adjuntas: ${c.fotos_cant||0}</p>
+      <hr/>
+      <p><strong>Devolución al encargado legal (si aplica):</strong></p>
+      <p>Encargado: ${c.dev_enc_nombre||''} · # ID: ${c.dev_enc_ced||''}</p>
+      <p>Firma: ________________ Fecha: ${fechaFmt(c.dev_fecha)}</p>`;
+  } else if(tipo === 'F5'){
+    body = `<p style="text-align:center;font-weight:bold;">COMUNICACIÓN A LA PERSONA ENCARGADA LEGAL</p>
+      <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <p><strong>Centro educativo:</strong> ${c.centro_nombre||''}</p>
+      <p><strong>Persona encargada legal:</strong> ${c.encargado_nombre||''}</p>
+      <p>Por este medio le comunicamos que <strong>${c.estudiante||''}</strong> se ha visto implicado/a en los supuestos hechos:</p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.hechos||''}</div>
+      <p>Por lo que les solicitamos acudir al centro educativo a una reunión con <strong>${c.reunion_con||''}</strong>, el día <strong>${fechaFmt(c.reunion_fecha)}</strong> a las <strong>${c.reunion_hora||''}</strong> horas.</p>
+      <p>Inconvenientes: comuníquese al teléfono <strong>${c.telefono_contacto||''}</strong> o correo <strong>${c.correo_contacto||''}</strong>.</p>
+      <p style="margin-top:30px;"><strong>Persona encargada de activar la Pauta:</strong> ${c.a_cargo||''}</p>
+      <p>Firma: ____________________________</p>
+      <p style="margin-top:20px;font-size:11px;color:#666;font-style:italic;">Es deber de los encargados cooperar con el centro educativo. La falta de atención a tres comunicaciones será reportada al PANI según Código de Niñez y Adolescencia.</p>`;
+  } else if(tipo === 'F6'){
+    body = `<p style="text-align:center;font-weight:bold;">COMPILACIÓN DE INFORMACIÓN DE ESTUDIANTES INVOLUCRADOS</p>
+      <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <h4>A. Datos del estudiante</h4>
+      <p><strong>Nombre:</strong> ${c.estudiante||''}</p>
+      <p><strong>Grado/sección:</strong> ${c.seccion||''} · <strong>Fecha nac.:</strong> ${c.fecha_nac||''} · <strong>Edad:</strong> ${c.edad||''}</p>
+      <p><strong>Encargado presente:</strong> ${c.encargado_nombre||''}</p>
+      <p>Tipo de entrevista: ${cb(c.entr_violentada)} Violentada · ${cb(c.entr_observador)} Observador · ${cb(c.entr_ejerce)} Que ejerció</p>
+      <h4>B. Compilación</h4>
+      <p><strong>1. Relato:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:100px;white-space:pre-wrap;">${c.relato||''}</div>
+      <p><strong>2. ¿Cuándo y dónde?</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:60px;white-space:pre-wrap;">${c.cuando_donde||''}</div>
+      <p><strong>3. ¿Quiénes lo hacen?</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:50px;white-space:pre-wrap;">${c.quienes||''}</div>
+      <p><strong>4. ¿Quién conoce / a quién le contó?</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:50px;white-space:pre-wrap;">${c.a_quien_conto||''}</div>
+      <p><strong>5. ¿Desde cuándo se producen?</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:50px;white-space:pre-wrap;">${c.desde_cuando||''}</div>
+      <p style="margin-top:30px;"><strong>Persona a cargo:</strong> ${c.a_cargo||''}</p>
+      <p>Firma: __________________ · Firma encargado: __________________</p>
+      <p>Firma estudiante (mayor de 12): __________________</p>`;
+  } else if(tipo === 'F7'){
+    body = `<p style="text-align:center;font-weight:bold;">REFERENCIA A OTRAS INSTITUCIONES DE ATENCIÓN</p>
+      <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <p><strong>Centro:</strong> ${c.centro_nombre||''}</p>
+      <p>${cb(c.ref_ccss)} CCSS · ${cb(c.ref_pani)} PANI · ${cb(c.ref_risa)} RISA · ${cb(c.ref_iafa)} IAFA · ${cb(c.ref_otra)} Otra: ${c.ref_otra_nombre||''}</p>
+      <p><strong>Motivo PANI:</strong> ${cb(c.pani_negligencia)} Negligencia · ${cb(c.pani_omision)} Omisión · ${cb(c.pani_riesgo)} Riesgo</p>
+      <h4>Datos del estudiante</h4>
+      <p><strong>Nombre:</strong> ${c.estudiante||''} · <strong>Cédula:</strong> ${c.cedula||''}</p>
+      <p><strong>Fecha nac.:</strong> ${c.fecha_nac||''} · <strong>Edad:</strong> ${c.edad||''} · <strong>Nivel:</strong> ${c.nivel||''}</p>
+      <p><strong>Dirección:</strong> ${c.direccion||''}</p>
+      <p><strong>Encargado:</strong> ${c.enc_nombre||''} · Céd: ${c.enc_cedula||''} · Tel: ${c.enc_telef||''}</p>
+      <p><strong>Motivo de referencia:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.motivo||''}</div>
+      <p style="margin-top:30px;"><strong>Responsable:</strong> ${c.responsable||''}</p>
+      <p>Firma: ____________________________ &nbsp; Sello institucional</p>`;
+  } else if(tipo === 'F8'){
+    body = `<p style="text-align:center;font-weight:bold;">DENUNCIA A FISCALÍA / OIJ / PENAL JUVENIL</p>
+      <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <p><strong>Centro educativo:</strong> ${c.centro_nombre||''} · <strong>Circuito:</strong> ${c.circuito||''} · <strong>DRE:</strong> ${c.dre||''}</p>
+      <h4>Datos de quien presuntamente ejerció la violencia</h4>
+      <p><strong>Nombre:</strong> ${c.ofensor_nombre||''} · <strong>Cédula:</strong> ${c.ofensor_cedula||''}</p>
+      <p><strong>Fecha nac.:</strong> ${c.ofensor_fechanac||''} · <strong>Edad:</strong> ${c.ofensor_edad||''} · <strong>Nivel/cargo:</strong> ${c.ofensor_nivel||''}</p>
+      <p><strong>Correo:</strong> ${c.ofensor_correo||''}</p>
+      <p><strong>Dirección:</strong> ${c.ofensor_direccion||''}</p>
+      <p><strong>Encargado:</strong> ${c.ofensor_enc_nombre||''} · Céd: ${c.ofensor_enc_ced||''} · Tel: ${c.ofensor_enc_telef||''}</p>
+      <p><strong>Motivo de la denuncia:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:120px;white-space:pre-wrap;">${c.motivo||''}</div>
+      <h4>Datos de quien presuntamente recibe la violencia</h4>
+      <p><strong>Nombre:</strong> ${c.victima_nombre||''} · <strong>Cédula:</strong> ${c.victima_cedula||''}</p>
+      <p><strong>Fecha nac.:</strong> ${c.victima_fechanac||''} · <strong>Edad:</strong> ${c.victima_edad||''} · <strong>Nivel:</strong> ${c.victima_nivel||''}</p>
+      <p><strong>Encargado:</strong> ${c.victima_enc_nombre||''} · Céd: ${c.victima_enc_ced||''} · Tel: ${c.victima_enc_telef||''}</p>
+      <p><strong>Dirección:</strong> ${c.victima_direccion||''}</p>
+      <h4>Testigos</h4>
+      <div style="border:1px solid #ccc;padding:10px;min-height:60px;white-space:pre-wrap;">${c.testigos||''}</div>
+      <p style="margin-top:20px;">Sello institucional</p>`;
+  } else if(tipo === 'F9'){
+    body = `<p style="text-align:center;font-weight:bold;">REFERENCIA INTERINSTITUCIONAL CON RIESGO SUICIDA O NECESIDADES DE SALUD MENTAL</p>
+      <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <h4>Datos del estudiante</h4>
+      <p><strong>Nombre:</strong> ${c.estudiante||''} · <strong>Cédula:</strong> ${c.cedula||''}</p>
+      <p><strong>Fecha nac.:</strong> ${c.fecha_nac||''} · <strong>Edad:</strong> ${c.edad||''} · <strong>Nivel:</strong> ${c.nivel||''}</p>
+      <p><strong>Dirección:</strong> ${c.direccion||''}</p>
+      <p><strong>Encargado:</strong> ${c.encargado||''} · Tel: ${c.telef_enc||''}</p>
+      <p><strong>Grupo familiar:</strong> ${c.grupo_familiar||''}</p>
+      <p><strong>Contacto apoyo:</strong> ${c.contacto_apoyo||''} · ${c.contacto_apoyo_tel||''}</p>
+      <h4>Centro que refiere</h4>
+      <p><strong>Centro:</strong> ${c.centro_nombre||''} · Tel: ${c.centro_tel||''}</p>
+      <p><strong>Emite referencia:</strong> ${c.emite_referencia||''}</p>
+      <p><strong>Motivo:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.motivo||''}</div>
+      <p><strong>Vulnerabilidad/riesgo:</strong> ${cb(c.autolesion)} Autolesiones · ${cb(c.ideacion)} Ideación · ${cb(c.intento)} Intento</p>
+      <p><strong>Descripción de la situación:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.descripcion_sit||''}</div>
+      <p style="margin-top:20px;">Sello institucional · Copiar a COLOSAM y CORESAM</p>`;
+  } else if(tipo === 'F10'){
+    body = `<p style="text-align:center;font-weight:bold;">REFERENCIA A DEPENDENCIAS INTERNAS DEL MEP</p>
+      <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
+      <p><strong>Centro:</strong> ${c.centro_nombre||''}</p>
+      <p><strong>Solicita el apoyo:</strong> ${c.director||''}</p>
+      <p><strong>Intervención solicitada:</strong></p>
+      <p>${cb(c.dre)} DRE · ${cb(c.asesorias)} Asesorías · ${cb(c.curricular)} Desarrollo Curricular · ${cb(c.vidaestud)} Vida Estudiantil<br/>
+      ${cb(c.upre)} UPRE · ${cb(c.panea)} PANEA · ${cb(c.otra)} Otra: ${c.otra_detalle||''}</p>
+      <h4>Estudiante referido</h4>
+      <p>${c.estudiante||''} · Céd: ${c.cedula||''} · Fnac: ${c.fecha_nac||''} · Edad: ${c.edad||''} · Nivel: ${c.nivel||''}</p>
+      <p><strong>Solicitud:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.solicitud||''}</div>
+      <p style="margin-top:20px;">Firma persona directora: __________________ &nbsp; Sello</p>`;
+  } else if(tipo === 'F11'){
+    body = `<p style="text-align:center;font-weight:bold;">INFORME DE ACTUACIÓN</p>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p><strong>Centro:</strong> ${c.centro_nombre||''}</p>
+      <p><strong>Elaborado por:</strong> ${c.elaborado_por||''}</p>
+      <p><strong>Fecha del informe:</strong> ${c.fecha_informe||''} · <strong>Activación:</strong> ${c.fecha_activacion||''}</p>
+      <p>${cb(c.no_violencia)} No se identificó manifestación de violencia/bullying — proceder al cierre</p>
+      <p>${cb(c.no_riesgo)} No se identificó situación de vulnerabilidad y riesgo — proceder al cierre</p>
+      <p><strong>Relato:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:100px;white-space:pre-wrap;">${c.relato||''}</div>
+      <h4>Articulación inter e intrainstitucional</h4>
+      <p>${cb(c.aviso_911)} 9-1-1 (N° reporte: ${c.numero_reporte||''})</p>
+      <p>${cb(c.denuncia_fiscalia)} Denuncia a Fiscalía/OIJ</p>
+      <p>${cb(c.denuncia_red)} Denuncia ante red social</p>
+      <p>${cb(c.aviso_pani)} Aviso al PANI</p>
+      <p>${cb(c.referencia_ccss)} Referencia a la CCSS</p>
+      <p>${cb(c.denuncia_disc)} Denuncia a Asuntos Disciplinarios</p>
+      <p>${cb(c.coord_otras)} Coordinación con otras instituciones</p>
+      <p>Institución/recurso: ${c.coord_institucion||''} · Contacto: ${c.coord_contacto||''} · Fecha: ${c.coord_fecha||''}</p>
+      <p><strong>Medidas de protección:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.medidas_proteccion||''}</div>
+      <p><strong>Acciones psico-socioeducativas:</strong></p>
+      <div style="border:1px solid #ccc;padding:10px;min-height:60px;white-space:pre-wrap;">${c.acciones_psico||''}</div>
+      <p><strong>¿Requiere otra Pauta?</strong> ${c.otra_pauta==='si'?'Sí':c.otra_pauta==='no'?'No':''} — ${c.otra_pauta_detalle||''}</p>
+      <p><strong>Fecha 1° seguimiento:</strong> ${c.fecha_seg1||''} · <strong>2° seguimiento:</strong> ${c.fecha_seg2||''}</p>
+      <p style="margin-top:30px;"><strong>Quien elaboró:</strong> ${c.elaborado_por||''}</p>
+      <p>Firma: __________________ &nbsp; <strong>Directora:</strong> ${c.director||''} &nbsp; Fecha recibido: __________</p>
+      <p>Sello institucional</p>`;
+  } else if(tipo === 'F12'){
+    body = `<p style="text-align:center;font-weight:bold;">INFORME DE SEGUIMIENTO</p>
+      <p><strong>Expediente:</strong> ${nro}</p>
+      <p><strong>Fecha del primer informe:</strong> ${c.fecha||''}</p>
+      <p><strong>Centro:</strong> ${c.centro_nombre||''}</p>
+      <p><strong>Elaborado por:</strong> ${c.elaborado_por||''}</p>
+      <h4>A. Articulación inter e intrainstitucional (1°, 2°, 3° mes)</h4>
+      <p><strong>Fiscalía:</strong></p><div style="border:1px solid #ccc;padding:8px;min-height:40px;white-space:pre-wrap;">${c.art_fiscalia||''}</div>
+      <p><strong>PANI:</strong></p><div style="border:1px solid #ccc;padding:8px;min-height:40px;white-space:pre-wrap;">${c.art_pani||''}</div>
+      <p><strong>CCSS:</strong></p><div style="border:1px solid #ccc;padding:8px;min-height:40px;white-space:pre-wrap;">${c.art_ccss||''}</div>
+      <p><strong>Asuntos Disciplinarios:</strong></p><div style="border:1px solid #ccc;padding:8px;min-height:40px;white-space:pre-wrap;">${c.art_disc||''}</div>
+      <p><strong>Otro:</strong></p><div style="border:1px solid #ccc;padding:8px;min-height:40px;white-space:pre-wrap;">${c.art_otro||''}</div>
+      <h4>B. Seguimiento medidas de protección</h4>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.seg_medidas||''}</div>
+      <h4>C. Acciones psico-socioeducativas</h4>
+      <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.seg_acciones||''}</div>
+      <h4>Cierre del expediente</h4>
+      <p><strong>Fecha cierre:</strong> ${c.fecha_cierre||''}</p>
+      <p><strong>Encargado activación:</strong> ${c.responsable||''} &nbsp; Firma: __________________</p>
+      <p><strong>Visto bueno directora:</strong> ${c.director||''} &nbsp; Firma: __________________</p>
+      <p>Sello institucional</p>`;
+  }
+
+  // Renderizar e imprimir con encabezado MEP
+  let printArea = document.getElementById('print-prot-area');
+  if(!printArea){ printArea = document.createElement('div'); printArea.id='print-prot-area'; document.body.appendChild(printArea); }
+  printArea.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
+  printArea.innerHTML = `
+    <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:10px;padding-bottom:80px;font-size:13px;line-height:1.55;">
+      ${typeof encabezadoMEP === 'function' ? encabezadoMEP(titulo) : `<h2 style="text-align:center;">${titulo}</h2>`}
+      ${body}
+      ${typeof piePaginaMEP === 'function' ? piePaginaMEP() : ''}
+    </div>`;
+
+  let style = document.getElementById('print-style-prot');
+  if(style) style.remove();
+  style = document.createElement('style');
+  style.id = 'print-style-prot';
+  style.innerHTML = `
+    @page { size: A4 portrait; margin: 12mm; }
+    @media print {
+      body > *:not(#print-prot-area) { display:none!important; }
+      #print-prot-area { display:block!important; }
+    }
+  `;
+  document.head.appendChild(style);
+  if(typeof imprimirConEncabezado === 'function') imprimirConEncabezado(printArea, style);
+  else window.print();
 }
 
 // ════════════════════════════════════
