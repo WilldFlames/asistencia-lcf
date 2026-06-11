@@ -6989,8 +6989,15 @@ function renderDPPasos(d){
         if(puedeEditar){
           acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden}${ps.testigo?`,${ps.testigo.id}`:''})'>${reg?'✏️ Ver / Editar':'📝 Llenar'}</button>`);
         }
-        if(reg?.completado){
-          acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden})'>🖨️ Imprimir</button>`);
+        // Botón de imprimir:
+        // - Para las declaraciones (decl_ofendido, decl_ofensor, decl_testigo),
+        //   permitimos imprimir aunque NO estén completas: muchos prefieren
+        //   llenar la declaración a mano sobre la hoja impresa.
+        // - Los demás pasos (citas, etc.) solo se imprimen una vez completados.
+        const esDecl = ps.tipo === 'decl_ofendido' || ps.tipo === 'decl_ofensor' || ps.tipo === 'decl_testigo';
+        if(reg?.completado || (esDecl && puedeEditar)){
+          const etiqueta = (esDecl && !reg?.completado) ? '🖨️ Imprimir (vacío)' : '🖨️ Imprimir';
+          acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden})'>${etiqueta}</button>`);
         }
         // Verificar si asignado a otro y completó
         if(esGuia && reg?.completado && reg?.asignado_a && !reg?.verificado){
@@ -7289,12 +7296,15 @@ function imprimirPortadaDP(){
   else window.print();
 }
 
-// Imprimir un paso ya guardado, generando una hoja con encabezado oficial
+// Imprimir un paso ya guardado, generando una hoja con encabezado oficial.
+// Las declaraciones se pueden imprimir aunque no estén completas, para
+// llenarse a mano sobre la hoja impresa.
 function imprimirPasoDPDirecto(tipo, orden){
   if(!dpProcesoActual) return;
   const dp = dpProcesoActual.proceso;
   const reg = (dpProcesoActual.pasos || []).find(p => p.tipo === tipo && Number(p.orden) === Number(orden));
-  if(!reg && tipo !== 'acta_apertura'){ alert('Este paso aún no se completó.'); return; }
+  const esDecl = tipo === 'decl_ofendido' || tipo === 'decl_ofensor' || tipo === 'decl_testigo';
+  if(!reg && tipo !== 'acta_apertura' && !esDecl){ alert('Este paso aún no se completó.'); return; }
   const c = reg?.contenido || {};
   const info = DP_TIPOS_PASO[tipo];
   const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
@@ -7303,23 +7313,29 @@ function imprimirPasoDPDirecto(tipo, orden){
   const orientador = `${dp.orient_ap1||''} ${dp.orient_ap2||''} ${dp.orient_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
   let body = '';
 
-  // Buscar testigo si aplica
+  // Buscar testigo si aplica. Si el paso aún no se guardó (reg=null) pero
+  // sabemos que es de un testigo por el orden, igual buscamos por orden de
+  // testigo (los pasos cita_testigo/decl_testigo usan orden = índice del testigo).
   let testigo = null;
   if((tipo === 'cita_testigo' || tipo === 'decl_testigo') && dpProcesoActual.testigos){
-    testigo = dpProcesoActual.testigos.find(t => t.paso_cita_id === reg.id || t.paso_decl_id === reg.id);
+    if (reg) {
+      testigo = dpProcesoActual.testigos.find(t => t.paso_cita_id === reg.id || t.paso_decl_id === reg.id);
+    }
+    if (!testigo) {
+      // Fallback: por orden (1=primer testigo, 2=segundo, etc.)
+      const idx = Number(orden) - 1;
+      if (idx >= 0 && dpProcesoActual.testigos[idx]) testigo = dpProcesoActual.testigos[idx];
+    }
   }
 
   if(tipo === 'acta_apertura'){
     const hechosTxt = (c.hechos || '').trim();
-    const hechosConCierre = hechosTxt
-      ? `${hechosTxt}\n\n------ Última Línea ------`
-      : '------ Última Línea ------';
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p><strong>Fecha:</strong> ${c.fecha_hechos || '_____________'}</p>
       <p>Yo, <strong>${c.informante||'__________________'}</strong>, portador de la cédula de identidad <strong>${c.informante_cedula||'____________'}</strong>, en calidad de <strong>${c.informante_calidad||'____________'}</strong>, manifiesto lo siguiente:</p>
       <p>Se hace constar que la presente se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes...</p>
       <p>Pongo en conocimiento los siguientes hechos:</p>
-      <div style="border:1px solid #ccc;padding:10px;min-height:140px;white-space:pre-wrap;">${hechosConCierre}</div>
+      <div style="border:1px solid #ccc;padding:10px;min-height:280px;white-space:pre-wrap;line-height:2;">${hechosTxt}</div>
       <p style="margin-top:14px;">Leída la presente declaración, manifiesto haberla comprendido en su totalidad y la ratifico en todas sus partes.</p>
       <div style="margin-top:60px;">
         <div style="border-bottom:1px solid #000;height:30px;width:380px;"></div>
@@ -7354,17 +7370,15 @@ function imprimirPasoDPDirecto(tipo, orden){
     const calidad = c.calidad || (tipo === 'decl_ofendido' ? 'ofendido' : tipo === 'decl_ofensor' ? 'ofensor' : 'testigo');
     const nombreDeclarante = testigo ? `${testigo.primer_apellido} ${testigo.segundo_apellido||''}, ${testigo.nombre}` : estudiante;
     const cedulaDeclarante = testigo ? testigo.cedula : dp.cedula;
-    // Cierre legal: marcar fin del texto de la declaración para evitar agregados posteriores
+    // El texto de la declaración puede venir vacío: se imprime con espacio
+    // amplio para que se llene a mano si así lo prefieren.
     const declTexto = (c.declaracion || '').trim();
-    const declConCierre = declTexto
-      ? `${declTexto}\n\n------ Última Línea ------`
-      : '------ Última Línea ------';
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el docente a cargo/profesor guía: <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong> y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong> comparece el estudiante: <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong> de la sección <strong>${dp.seccion_nombre||'___'}</strong>, en calidad de supuesto <strong>${calidad}</strong> a rendir libremente y sin coacción alguna, su declaración en la causa disciplinaria que está siendo investigada.</p>
       <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
       <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
       <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
-      <div style="border:1px solid #ccc;padding:10px;min-height:200px;white-space:pre-wrap;">${declConCierre}</div>
+      <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
       <p style="margin-top:30px;">Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
       <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
       <p>Firma profesor guía: ____________________ &nbsp; Cédula: ${dp.guia_cedula||'____'}</p>
