@@ -64,12 +64,18 @@ router.post("/", requireAuth, canUse, async (req, res) => {
 
   if(!tipo || !INICIO[tipo]) return res.status(400).json({ error:"Tipo inválido" });
 
-  // Bloqueo: los consecutivos de tipo "proceso" solo se asignan desde el
-  // módulo Debidos Procesos (que llama a asignarConsecutivoInterno).
-  // Esto evita duplicación con los consecutivos asociados a expedientes.
+  // Bloqueo: los consecutivos de tipo "proceso" y "protocolo" se asignan
+  // exclusivamente desde sus módulos correspondientes (Debidos Procesos y
+  // Protocolos), que llaman a asignarConsecutivoInterno directamente.
+  // Esto evita duplicación con los expedientes asociados.
   if(tipo === "proceso"){
     return res.status(400).json({
       error: "Los consecutivos de Debido Proceso se generan automáticamente desde el módulo ⚖️ Debidos Procesos al iniciar el acta de apertura."
+    });
+  }
+  if(tipo === "protocolo"){
+    return res.status(400).json({
+      error: "Los consecutivos de Protocolo se generan automáticamente desde el módulo 🛡️ Protocolos al iniciar un nuevo protocolo."
     });
   }
 

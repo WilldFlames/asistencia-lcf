@@ -49,6 +49,7 @@ app.use("/api/cartas",         requireAuth, require("./routes/cartas"));
 app.use("/api/periodos",       requireAuth, require("./routes/periodos"));
 app.use("/api/calificaciones", requireAuth, require("./routes/calificaciones"));
 app.use("/api/debidos-procesos", requireAuth, require("./routes/debidosProcesos"));
+app.use("/api/protocolos", requireAuth, require("./routes/protocolos"));
 
 // Force no-cache for HTML to ensure users always get latest version
 // Versión actual del sistema — se calcula al arrancar el proceso.
