@@ -73,6 +73,32 @@ async function notificar(usuarioId, tipo, mensaje) {
   }
 }
 
+// ── CATÁLOGO REAC ─────────────────────────────────────────────────────
+// Devuelve los incisos del REAC agrupados por categoría y artículo, para
+// poblar los selects en Acta Sesión, Traslado de Cargos y Resolución Final.
+// Filtros opcionales por query string: ?categoria=falta&gravedad=grave
+router.get("/catalogo/reac", requireAuth, async (req, res) => {
+  try {
+    const { categoria, gravedad } = req.query;
+    const where = ["activo = true"];
+    const params = [];
+    if (categoria) { params.push(categoria); where.push(`categoria = $${params.length}`); }
+    if (gravedad)  { params.push(gravedad);  where.push(`gravedad  = $${params.length}`); }
+    const r = await pool.query(
+      `SELECT id, categoria, articulo, inciso, gravedad, puntos, descripcion
+       FROM reac_catalogo
+       WHERE ${where.join(" AND ")}
+       ORDER BY categoria, articulo, inciso`,
+      params
+    );
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET catálogo REAC:", e);
+    if (e.code === '42P01') return res.json([]);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── LISTAR PROCESOS ───────────────────────────────────────────────────
 // Devuelve los procesos filtrados según rol:
 // - admin/auxiliar/administrativo: todos

@@ -1899,48 +1899,97 @@ tr:hover td{background:#f8fafc;}
 
 <!-- Modal: Decisión paso 8 (continuar/desestimar) -->
 <div class="modal-overlay" id="modal-dp-decision">
-  <div class="modal" style="max-width:680px;">
+  <div class="modal" style="max-width:760px;">
     <h3>🧑‍⚖️ Acta Sesión Docente-Orientador</h3>
     <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
       Después de analizar el expediente, registrá la decisión. <strong>Quedará pendiente de aprobación del orientador asignado</strong> antes de cerrar el proceso.
     </p>
-    <div class="form-grid">
-      <div class="fg" style="grid-column:1/-1;">
-        <label>Tipificación de la falta — Artículo</label>
-        <input type="text" id="dec-art-falta" placeholder="Ej: 75"/>
+
+    <!-- TIPIFICACIÓN DE LA FALTA -->
+    <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">
+      <strong style="font-size:13px;color:#78350f;">⚖️ Tipificación de la falta</strong>
+      <div class="form-grid" style="margin-top:8px;">
+        <div class="fg">
+          <label>Artículo</label>
+          <select id="dec-art-falta" onchange="cargarIncisosREAC('falta','dec-art-falta','dec-inc-falta','dec-desc-falta')">
+            <option value="">— Elegí —</option>
+            <option value="140">Art. 140 — Falta grave (20 pts)</option>
+            <option value="141">Art. 141 — Falta muy grave (35 pts)</option>
+            <option value="142">Art. 142 — Falta gravísima (50 pts)</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Inciso</label>
+          <select id="dec-inc-falta" onchange="autorrellenarDescREAC('dec-art-falta','dec-inc-falta','dec-desc-falta')">
+            <option value="">— Primero elegí artículo —</option>
+          </select>
+        </div>
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Descripción del inciso seleccionado</label>
+          <textarea id="dec-desc-falta" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea>
+        </div>
       </div>
-      <div class="fg">
-        <label>Inciso</label>
-        <input type="text" id="dec-inc-falta" placeholder="Ej: c"/>
+    </div>
+
+    <!-- REBAJO DE PUNTOS -->
+    <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:10px 14px;border-radius:6px;margin-bottom:14px;">
+      <strong style="font-size:13px;color:#991b1b;">📉 Rebajo de puntos de conducta</strong>
+      <div class="form-grid" style="margin-top:8px;">
+        <div class="fg">
+          <label>Artículo</label>
+          <select id="dec-art-rebajo" onchange="cargarIncisosREAC('rebajo_puntos','dec-art-rebajo','dec-inc-rebajo','dec-desc-rebajo')">
+            <option value="">— Elegí —</option>
+            <option value="166">Art. 166 — Rebajo de puntos</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Inciso</label>
+          <select id="dec-inc-rebajo" onchange="autorrellenarDescREAC('dec-art-rebajo','dec-inc-rebajo','dec-desc-rebajo')">
+            <option value="">— Primero elegí artículo —</option>
+          </select>
+        </div>
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Descripción del rebajo</label>
+          <textarea id="dec-desc-rebajo" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea>
+        </div>
       </div>
-      <div class="fg">
-        <label>Rebajo de puntos — Artículo</label>
-        <input type="text" id="dec-art-rebajo"/>
+    </div>
+
+    <!-- ACCIÓN CORRECTIVA -->
+    <div style="background:#dbeafe;border-left:4px solid #2563eb;padding:10px 14px;border-radius:6px;margin-bottom:14px;">
+      <strong style="font-size:13px;color:#1e3a8a;">🛠️ Posible acción correctiva</strong>
+      <div class="form-grid" style="margin-top:8px;">
+        <div class="fg">
+          <label>Artículo</label>
+          <select id="dec-art-accion" onchange="cargarIncisosREAC('accion_correctiva','dec-art-accion','dec-inc-accion','dec-desc-accion')">
+            <option value="">— Elegí —</option>
+            <option value="150">Art. 150 — Acción por falta grave</option>
+            <option value="151">Art. 151 — Acción por falta muy grave</option>
+            <option value="152">Art. 152 — Acción por falta gravísima</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Inciso</label>
+          <select id="dec-inc-accion" onchange="autorrellenarDescREAC('dec-art-accion','dec-inc-accion','dec-desc-accion')">
+            <option value="">— Primero elegí artículo —</option>
+          </select>
+        </div>
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Descripción de la acción correctiva</label>
+          <textarea id="dec-desc-accion" rows="3"></textarea>
+          <small style="color:var(--muted);font-size:11px;">Se autorellena al elegir inciso. Podés editarla para precisar la acción específica.</small>
+        </div>
       </div>
-      <div class="fg">
-        <label>Inciso rebajo</label>
-        <input type="text" id="dec-inc-rebajo"/>
-      </div>
-      <div class="fg">
-        <label>Posible acción correctiva — Artículo</label>
-        <input type="text" id="dec-art-accion"/>
-      </div>
-      <div class="fg">
-        <label>Inciso acción</label>
-        <input type="text" id="dec-inc-accion"/>
-      </div>
-      <div class="fg" style="grid-column:1/-1;">
-        <label>Descripción de la acción correctiva</label>
-        <textarea id="dec-desc-accion" rows="3"></textarea>
-      </div>
-      <div class="fg" style="grid-column:1/-1;">
-        <label>Decisión *</label>
-        <select id="dec-decision" style="width:100%;">
-          <option value="">— Elegí —</option>
-          <option value="continuar">Continuar con el proceso (traslado de cargos + resolución)</option>
-          <option value="desestimar">Desestimar (cerrar sin sanción)</option>
-        </select>
-      </div>
+    </div>
+
+    <!-- DECISIÓN -->
+    <div class="fg" style="margin-top:10px;">
+      <label>Decisión final *</label>
+      <select id="dec-decision" style="width:100%;">
+        <option value="">— Elegí —</option>
+        <option value="continuar">Continuar con el proceso (traslado de cargos + resolución)</option>
+        <option value="desestimar">Desestimar (cerrar sin sanción)</option>
+      </select>
     </div>
     <div id="alert-dec" class="alert"></div>
     <div class="modal-actions">
@@ -7108,34 +7157,158 @@ function renderFormularioPaso(tipo, c, testigoId){
       <div class="fg"><label>Decisión</label><input type="text" value="${c.decision||''}" readonly style="background:#f1f5f9;"/></div>
     `;
   } else if(tipo === 'traslado_cargos'){
+    // Pre-llenamos desde la decisión del paso 8 (acta sesión) si existe.
+    // El usuario puede ajustar antes de imprimir.
+    const dec = (dpProcesoActual?.pasos || []).find(p => p.tipo === 'acta_sesion')?.contenido || {};
+    const valArtF  = c.art_falta  ?? dec.art_falta  ?? '';
+    const valIncF  = c.inc_falta  ?? dec.inc_falta  ?? '';
+    const valArtR  = c.art_rebajo ?? dec.art_rebajo ?? '';
+    const valArtA  = c.art_accion ?? dec.art_accion ?? '';
     form.innerHTML = `
       ${f('fecha_notif','Fecha notificación', c.fecha_notif, 'date')}
       ${f('hora_notif','Hora notificación', c.hora_notif, 'time')}
       ${f('encargado_nombre','Encargado legal a notificar', c.encargado_nombre)}
       ${f('encargado_cedula','Cédula del encargado', c.encargado_cedula)}
-      ${f('art_falta','Artículo de la falta', c.art_falta)}
-      ${f('inc_falta','Inciso', c.inc_falta)}
+      <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;margin:8px 0;">
+        <strong style="font-size:12px;color:#78350f;">⚖️ Falta imputada (REAC)</strong>
+        <div class="fg" style="margin-top:6px;"><label>Artículo</label>
+          <select id="dpp-art_falta" onchange="cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta')">
+            <option value="">— Elegí —</option>
+            <option value="140" ${String(valArtF)==='140'?'selected':''}>Art. 140 — Falta grave (20 pts)</option>
+            <option value="141" ${String(valArtF)==='141'?'selected':''}>Art. 141 — Falta muy grave (35 pts)</option>
+            <option value="142" ${String(valArtF)==='142'?'selected':''}>Art. 142 — Falta gravísima (50 pts)</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:6px;"><label>Inciso</label>
+          <select id="dpp-inc_falta" data-pre="${valIncF||''}" onchange="autorrellenarDescREAC('dpp-art_falta','dpp-inc_falta','dpp-desc_falta')">
+            <option value="">— Primero elegí artículo —</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:6px;"><label>Descripción</label>
+          <textarea id="dpp-desc_falta" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea>
+        </div>
+      </div>
       ${t('hecho_imputado','Hecho imputado', c.hecho_imputado, 5)}
       ${f('fecha_hecho','Fecha del hecho', c.fecha_hecho, 'date')}
-      ${f('art_rebajo','Artículo rebajo de puntos', c.art_rebajo)}
-      ${f('art_accion','Artículo acción correctiva', c.art_accion)}
+      <div class="fg"><label>Artículo rebajo de puntos</label>
+        <select id="dpp-art_rebajo">
+          <option value="">— Sin especificar —</option>
+          <option value="166" ${String(valArtR)==='166'?'selected':''}>Art. 166 — Rebajo de puntos</option>
+        </select>
+      </div>
+      <div class="fg"><label>Artículo acción correctiva</label>
+        <select id="dpp-art_accion">
+          <option value="">— Sin especificar —</option>
+          <option value="150" ${String(valArtA)==='150'?'selected':''}>Art. 150 — Acción por falta grave</option>
+          <option value="151" ${String(valArtA)==='151'?'selected':''}>Art. 151 — Acción por falta muy grave</option>
+          <option value="152" ${String(valArtA)==='152'?'selected':''}>Art. 152 — Acción por falta gravísima</option>
+        </select>
+      </div>
     `;
+    // Después del render, cargar los incisos del artículo si está pre-seleccionado
+    if(valArtF){
+      setTimeout(async () => {
+        await cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta');
+        const sel = document.getElementById('dpp-inc_falta');
+        if(sel && valIncF){
+          sel.value = valIncF;
+          await autorrellenarDescREAC('dpp-art_falta','dpp-inc_falta','dpp-desc_falta');
+        }
+      }, 50);
+    }
   } else if(tipo === 'resolucion_final'){
+    // Pre-llenamos desde la decisión del paso 8
+    const dec = (dpProcesoActual?.pasos || []).find(p => p.tipo === 'acta_sesion')?.contenido || {};
+    const valArtF = c.art_falta  ?? dec.art_falta  ?? '';
+    const valIncF = c.inc_falta  ?? dec.inc_falta  ?? '';
+    const valArtR = c.art_rebajo ?? dec.art_rebajo ?? '';
+    const valIncR = c.inc_rebajo ?? dec.inc_rebajo ?? '';
+    const valArtA = c.art_accion ?? dec.art_accion ?? '';
+    const valIncA = c.inc_accion ?? dec.inc_accion ?? '';
+    const valDescA = c.desc_accion ?? dec.desc_accion ?? '';
     form.innerHTML = `
       ${f('fecha_resol','Fecha de resolución', c.fecha_resol, 'date')}
       ${f('hora_resol','Hora', c.hora_resol, 'time')}
       ${t('hecho_probado','Hecho probado (lo que se comprobó)', c.hecho_probado, 4)}
-      ${f('art_falta','Artículo falta', c.art_falta)}
-      ${f('inc_falta','Inciso falta', c.inc_falta)}
-      ${f('art_rebajo','Artículo rebajo', c.art_rebajo)}
-      ${f('inc_rebajo','Inciso rebajo', c.inc_rebajo)}
+      <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;margin:8px 0;">
+        <strong style="font-size:12px;color:#78350f;">⚖️ Falta tipificada</strong>
+        <div class="fg" style="margin-top:6px;"><label>Artículo</label>
+          <select id="dpp-art_falta" onchange="cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta')">
+            <option value="">— Elegí —</option>
+            <option value="140" ${String(valArtF)==='140'?'selected':''}>Art. 140 — Falta grave</option>
+            <option value="141" ${String(valArtF)==='141'?'selected':''}>Art. 141 — Falta muy grave</option>
+            <option value="142" ${String(valArtF)==='142'?'selected':''}>Art. 142 — Falta gravísima</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:6px;"><label>Inciso</label>
+          <select id="dpp-inc_falta" onchange="autorrellenarDescREAC('dpp-art_falta','dpp-inc_falta','dpp-desc_falta')">
+            <option value="">— Primero elegí artículo —</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:6px;"><label>Descripción</label>
+          <textarea id="dpp-desc_falta" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea>
+        </div>
+      </div>
+      <div style="background:#fee2e2;border-left:3px solid #dc2626;padding:8px 12px;border-radius:6px;margin:8px 0;">
+        <strong style="font-size:12px;color:#991b1b;">📉 Rebajo de puntos</strong>
+        <div class="fg" style="margin-top:6px;"><label>Artículo</label>
+          <select id="dpp-art_rebajo" onchange="cargarIncisosREAC('rebajo_puntos','dpp-art_rebajo','dpp-inc_rebajo','dpp-desc_rebajo')">
+            <option value="">— Elegí —</option>
+            <option value="166" ${String(valArtR)==='166'?'selected':''}>Art. 166 — Rebajo de puntos</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:6px;"><label>Inciso</label>
+          <select id="dpp-inc_rebajo" onchange="autorrellenarDescREAC('dpp-art_rebajo','dpp-inc_rebajo','dpp-desc_rebajo')">
+            <option value="">— Primero elegí artículo —</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:6px;"><label>Descripción</label>
+          <textarea id="dpp-desc_rebajo" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea>
+        </div>
+      </div>
       ${f('puntos_rebajados','Puntos rebajados', c.puntos_rebajados, 'number')}
       ${f('semestre','Semestre', c.semestre)}
-      ${f('art_accion','Artículo acción', c.art_accion)}
-      ${f('inc_accion','Inciso acción', c.inc_accion)}
-      ${t('desc_accion','Descripción acción correctiva', c.desc_accion, 4)}
+      <div style="background:#dbeafe;border-left:3px solid #2563eb;padding:8px 12px;border-radius:6px;margin:8px 0;">
+        <strong style="font-size:12px;color:#1e3a8a;">🛠️ Acción correctiva</strong>
+        <div class="fg" style="margin-top:6px;"><label>Artículo</label>
+          <select id="dpp-art_accion" onchange="cargarIncisosREAC('accion_correctiva','dpp-art_accion','dpp-inc_accion','dpp-desc_accion')">
+            <option value="">— Elegí —</option>
+            <option value="150" ${String(valArtA)==='150'?'selected':''}>Art. 150 — Por falta grave</option>
+            <option value="151" ${String(valArtA)==='151'?'selected':''}>Art. 151 — Por falta muy grave</option>
+            <option value="152" ${String(valArtA)==='152'?'selected':''}>Art. 152 — Por falta gravísima</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:6px;"><label>Inciso</label>
+          <select id="dpp-inc_accion" onchange="autorrellenarDescREAC('dpp-art_accion','dpp-inc_accion','dpp-desc_accion')">
+            <option value="">— Primero elegí artículo —</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:6px;"><label>Descripción de la acción correctiva</label>
+          <textarea id="dpp-desc_accion" rows="3">${valDescA||''}</textarea>
+          <small style="color:var(--muted);font-size:11px;">Se autorellena al elegir inciso. Podés editarla.</small>
+        </div>
+      </div>
       ${f('fecha_inicio_accion','Fecha de inicio acción', c.fecha_inicio_accion, 'date')}
     `;
+    // Pre-cargar incisos para cada select donde haya artículo seleccionado
+    setTimeout(async () => {
+      if(valArtF){
+        await cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta');
+        if(valIncF){ document.getElementById('dpp-inc_falta').value = valIncF; await autorrellenarDescREAC('dpp-art_falta','dpp-inc_falta','dpp-desc_falta'); }
+      }
+      if(valArtR){
+        await cargarIncisosREAC('rebajo_puntos','dpp-art_rebajo','dpp-inc_rebajo','dpp-desc_rebajo');
+        if(valIncR){ document.getElementById('dpp-inc_rebajo').value = valIncR; await autorrellenarDescREAC('dpp-art_rebajo','dpp-inc_rebajo','dpp-desc_rebajo'); }
+      }
+      if(valArtA){
+        await cargarIncisosREAC('accion_correctiva','dpp-art_accion','dpp-inc_accion','dpp-desc_accion');
+        if(valIncA){
+          document.getElementById('dpp-inc_accion').value = valIncA;
+          // No sobrescribir desc_accion si el usuario ya tiene una personalizada
+          if(!valDescA) await autorrellenarDescREAC('dpp-art_accion','dpp-inc_accion','dpp-desc_accion');
+        }
+      }
+    }, 50);
   } else if(tipo === 'desestima'){
     form.innerHTML = `
       ${f('fecha_desest','Fecha de desestima', c.fecha_desest, 'date')}
@@ -7386,9 +7559,17 @@ function imprimirPasoDPDirecto(tipo, orden){
   } else if(tipo === 'acta_sesion'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>En presencia del(la) profesor(a) guía <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong>, y de la orientadora <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, se procede a la investigación correspondiente del(la) estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
-      <p><strong>Tipificación de la falta:</strong><br/>Artículo: ${c.art_falta||'____'} &nbsp; Inciso: ${c.inc_falta||'____'}</p>
-      <p><strong>Rebajo de puntos:</strong><br/>Artículo: ${c.art_rebajo||'____'} &nbsp; Inciso: ${c.inc_rebajo||'____'}</p>
-      <p><strong>Posible acción correctiva:</strong><br/>Artículo: ${c.art_accion||'____'} &nbsp; Inciso: ${c.inc_accion||'____'}</p>
+      <p><strong>Tipificación de la falta:</strong><br/>
+        Artículo: ${c.art_falta||'____'} &nbsp; Inciso: ${c.inc_falta||'____'}
+        ${c.desc_falta ? `<div style="border:1px solid #ddd;padding:8px;margin-top:4px;background:#fffbeb;font-size:12px;">${c.desc_falta}</div>` : ''}
+      </p>
+      <p><strong>Rebajo de puntos:</strong><br/>
+        Artículo: ${c.art_rebajo||'____'} &nbsp; Inciso: ${c.inc_rebajo||'____'}
+        ${c.desc_rebajo ? `<div style="border:1px solid #ddd;padding:8px;margin-top:4px;background:#fef2f2;font-size:12px;">${c.desc_rebajo}</div>` : ''}
+      </p>
+      <p><strong>Posible acción correctiva:</strong><br/>
+        Artículo: ${c.art_accion||'____'} &nbsp; Inciso: ${c.inc_accion||'____'}
+      </p>
       <p><strong>Descripción de la acción correctiva:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:80px;">${c.desc_accion||''}</div>
       <p><strong>Decisión:</strong> ${c.decision || dp.decision_sesion || '____'}</p>
@@ -7400,6 +7581,7 @@ function imprimirPasoDPDirecto(tipo, orden){
       <p>De conformidad con el artículo 144, inciso d) del REAC, se concede un plazo de <strong>tres días hábiles</strong> para ejercer el derecho de defensa.</p>
       <p>Se notifica a <strong>${c.encargado_nombre||'____'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, encargado(a) del estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p><strong>Falta:</strong> artículo ${c.art_falta||'____'}, inciso ${c.inc_falta||'____'}</p>
+      ${c.desc_falta ? `<div style="border:1px solid #ddd;padding:8px;background:#fffbeb;font-size:12px;font-style:italic;">${c.desc_falta}</div>` : ''}
       <p><strong>Hecho imputado:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:100px;white-space:pre-wrap;">${c.hecho_imputado||''}</div>
       <p>Fecha del hecho: <strong>${c.fecha_hecho||'____'}</strong></p>
@@ -7416,9 +7598,12 @@ function imprimirPasoDPDirecto(tipo, orden){
       <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.hecho_probado||''}</div>
       <p><strong>III. TIPIFICACIÓN DE LA FALTA</strong></p>
       <p>El(la) estudiante incumplió el artículo <strong>${c.art_falta||'____'}</strong>, inciso <strong>${c.inc_falta||'____'}</strong> del REAC.</p>
+      ${c.desc_falta ? `<div style="border:1px solid #ddd;padding:8px;background:#fffbeb;font-size:12px;font-style:italic;margin-bottom:8px;">"${c.desc_falta}"</div>` : ''}
       <p><strong>IV. POR TANTO</strong></p>
       <ul>
-        <li><strong>Rebajo de nota de conducta:</strong> según artículo ${c.art_rebajo||'____'}, inciso ${c.inc_rebajo||'____'}, rebajo de <strong>${c.puntos_rebajados||'____'} puntos</strong> en el ${c.semestre||'____'} semestre.</li>
+        <li><strong>Rebajo de nota de conducta:</strong> según artículo ${c.art_rebajo||'____'}, inciso ${c.inc_rebajo||'____'}, rebajo de <strong>${c.puntos_rebajados||'____'} puntos</strong> en el ${c.semestre||'____'} semestre.
+          ${c.desc_rebajo ? `<div style="font-size:11px;font-style:italic;color:#555;margin-top:2px;">${c.desc_rebajo}</div>` : ''}
+        </li>
         <li><strong>Acción correctiva:</strong> artículo ${c.art_accion||'____'}, inciso ${c.inc_accion||'____'}.</li>
       </ul>
       <p>Descripción de la acción:</p>
@@ -7528,26 +7713,87 @@ async function verificarPasoDP(pasoId){
 }
 
 // ── DECISIÓN DEL ACTA SESIÓN ──────────────────────────────────────────
+// Caché en memoria del catálogo REAC (para no pedirlo cada vez)
+let REAC_CACHE = null;
+async function cargarREAC(){
+  if (REAC_CACHE) return REAC_CACHE;
+  try {
+    REAC_CACHE = await api('/api/debidos-procesos/catalogo/reac') || [];
+  } catch { REAC_CACHE = []; }
+  return REAC_CACHE;
+}
+
+// Cuando se elige un artículo en un select, llena el select de incisos
+// con todos los incisos de ese artículo y limpia la descripción.
+async function cargarIncisosREAC(categoria, idArt, idInc, idDesc){
+  const catalogo = await cargarREAC();
+  const articulo = parseInt(document.getElementById(idArt).value, 10);
+  const selInc = document.getElementById(idInc);
+  const txtDesc = document.getElementById(idDesc);
+  if(!articulo){
+    selInc.innerHTML = '<option value="">— Primero elegí artículo —</option>';
+    if(txtDesc) txtDesc.value = '';
+    return;
+  }
+  const filtrados = catalogo.filter(c => c.categoria === categoria && c.articulo === articulo);
+  selInc.innerHTML = '<option value="">— Elegí inciso —</option>' +
+    filtrados.map(c => `<option value="${c.inciso}">${c.inciso}) ${c.descripcion.substring(0, 80)}${c.descripcion.length > 80 ? '...' : ''}</option>`).join('');
+  if(txtDesc) txtDesc.value = '';
+}
+
+// Cuando se elige un inciso, llena el textarea de descripción
+async function autorrellenarDescREAC(idArt, idInc, idDesc){
+  const catalogo = await cargarREAC();
+  const articulo = parseInt(document.getElementById(idArt).value, 10);
+  const inciso = document.getElementById(idInc).value;
+  const txtDesc = document.getElementById(idDesc);
+  if(!txtDesc) return;
+  if(!inciso){ txtDesc.value = ''; return; }
+  const match = catalogo.find(c => c.articulo === articulo && c.inciso === inciso);
+  txtDesc.value = match ? match.descripcion : '';
+}
+
 function abrirDecisionDP(){
-  ['dec-art-falta','dec-inc-falta','dec-art-rebajo','dec-inc-rebajo','dec-art-accion','dec-inc-accion','dec-desc-accion'].forEach(id=>{
-    const el = document.getElementById(id); if(el) el.value = '';
+  ['dec-art-falta','dec-inc-falta','dec-art-rebajo','dec-inc-rebajo','dec-art-accion','dec-inc-accion','dec-desc-falta','dec-desc-rebajo','dec-desc-accion'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){
+      if(el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
+    }
+  });
+  // Resetear selects de incisos (que dependen del artículo)
+  ['dec-inc-falta','dec-inc-rebajo','dec-inc-accion'].forEach(id=>{
+    document.getElementById(id).innerHTML = '<option value="">— Primero elegí artículo —</option>';
   });
   document.getElementById('dec-decision').value = '';
   document.getElementById('alert-dec').className = 'alert';
+  // Pre-cargar el catálogo (sin esperar — la primera vez tarda un poco más)
+  cargarREAC();
   document.getElementById('modal-dp-decision').classList.add('show');
 }
 
 async function guardarDecisionDP(){
   const decision = document.getElementById('dec-decision').value;
   if(!decision){ sa('alert-dec','Elegí una decisión.','danger'); return; }
+  // Si decidió continuar, la falta y al menos el rebajo o la acción deben estar
+  if(decision === 'continuar'){
+    const artF = document.getElementById('dec-art-falta').value;
+    const incF = document.getElementById('dec-inc-falta').value;
+    if(!artF || !incF){
+      sa('alert-dec','Para continuar el proceso, indicá artículo e inciso de la falta.','danger');
+      return;
+    }
+  }
   const contenido = {
-    art_falta:  document.getElementById('dec-art-falta').value.trim(),
-    inc_falta:  document.getElementById('dec-inc-falta').value.trim(),
-    art_rebajo: document.getElementById('dec-art-rebajo').value.trim(),
-    inc_rebajo: document.getElementById('dec-inc-rebajo').value.trim(),
-    art_accion: document.getElementById('dec-art-accion').value.trim(),
-    inc_accion: document.getElementById('dec-inc-accion').value.trim(),
-    desc_accion: document.getElementById('dec-desc-accion').value.trim(),
+    art_falta:    document.getElementById('dec-art-falta').value,
+    inc_falta:    document.getElementById('dec-inc-falta').value,
+    desc_falta:   document.getElementById('dec-desc-falta').value.trim(),
+    art_rebajo:   document.getElementById('dec-art-rebajo').value,
+    inc_rebajo:   document.getElementById('dec-inc-rebajo').value,
+    desc_rebajo:  document.getElementById('dec-desc-rebajo').value.trim(),
+    art_accion:   document.getElementById('dec-art-accion').value,
+    inc_accion:   document.getElementById('dec-inc-accion').value,
+    desc_accion:  document.getElementById('dec-desc-accion').value.trim(),
   };
   try {
     await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/decidir-sesion`,'POST', { decision, contenido });
