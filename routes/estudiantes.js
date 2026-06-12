@@ -634,13 +634,16 @@ router.post("/:id/escape", requireAuth, async (req, res) => {
       await pool.query(
         "UPDATE estudiantes SET escapado=false, boleta_escape_id=NULL WHERE id=$1", [estId]
       );
-      // Resetear escapado en la sesión activa también
+      // Resetear escapado en la sesión activa también.
+      // asignacion_id viene en req.body; tiene que declararse acá porque la
+      // variable asigId del bloque if anterior está fuera de alcance.
+      const asigId = asignacion_id ? parseInt(asignacion_id) : null;
       if (asigId) {
         const _crN2 = new Date(new Date().toLocaleString('en-US', {timeZone:'America/Costa_Rica'}));
         const hoy2 = _crN2.getFullYear()+'-'+String(_crN2.getMonth()+1).padStart(2,'0')+'-'+String(_crN2.getDate()).padStart(2,'0');
         const sesHoyR2 = await pool.query(
           "SELECT id FROM sesiones_asistencia WHERE asignacion_id=$1 AND fecha=$2",
-          [parseInt(asigId), hoy2]
+          [asigId, hoy2]
         );
         if (sesHoyR2.rows.length) {
           await pool.query(
