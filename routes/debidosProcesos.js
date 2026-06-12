@@ -255,11 +255,26 @@ router.get("/:id", requireAuth, async (req, res) => {
     ORDER BY a.fecha DESC
   `, [req.params.id]);
 
+  // Encargados del estudiante (para autorrellenar la portada y otros pasos).
+  // El principal queda primero — es el que aparece en la portada por defecto.
+  let encargados = [];
+  try {
+    const encR = await pool.query(`
+      SELECT nombre_completo, cedula, telefono, parentesco, es_principal
+      FROM encargados WHERE estudiante_id = $1
+      ORDER BY es_principal DESC NULLS LAST, id
+    `, [dp.estudiante_id]);
+    encargados = encR.rows;
+  } catch (e) {
+    console.error("Cargar encargados DP:", e.message);
+  }
+
   res.json({
     proceso: dp,
     pasos: pasosR.rows,
     testigos: testR.rows,
-    aprobaciones: aprobR.rows
+    aprobaciones: aprobR.rows,
+    encargados
   });
 });
 

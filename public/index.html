@@ -7382,21 +7382,17 @@ function imprimirPortadaDP(){
   const numFmt = `LCF-EXP.EST-${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
   // Buscar encargado legal desde la acta de apertura (donde se anotó) o desde
   // los pasos posteriores (cita encargado, etc.). Si no hay, queda en blanco.
+  // Datos del encargado legal: SIEMPRE se toman del estudiante registrado.
+  // Antes se buscaba en los pasos, pero ahí el campo "informante" es el que
+  // DENUNCIÓ el caso (puede ser un profesor o cualquier persona), NO el
+  // encargado del estudiante. La portada va siempre con el encargado real.
   let encNombre = '', encCedula = '', encTelef = '';
-  const pasos = dpProcesoActual.pasos || [];
-  // Recorrer pasos buscando el primer encargado registrado
-  for (const p of pasos) {
-    const c = p.contenido || {};
-    if (!encNombre && (c.encargado_nombre || c.informante)) {
-      encNombre = c.encargado_nombre || c.informante || '';
-    }
-    if (!encCedula && (c.encargado_cedula || c.informante_cedula)) {
-      encCedula = c.encargado_cedula || c.informante_cedula || '';
-    }
-    if (!encTelef && c.encargado_telefono) {
-      encTelef = c.encargado_telefono;
-    }
-    if (encNombre && encCedula) break;
+  const encs = dpProcesoActual.encargados || [];
+  if (encs.length) {
+    // El primero ya viene ordenado por es_principal DESC
+    encNombre = encs[0].nombre_completo || '';
+    encCedula = encs[0].cedula || '';
+    encTelef  = encs[0].telefono || '';
   }
   // Fecha de apertura: la del proceso
   const fechaApertura = dp.created_at
