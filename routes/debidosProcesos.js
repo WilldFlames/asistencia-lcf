@@ -50,14 +50,30 @@ async function getGuiaDeSeccion(seccionId) {
   return r.rows[0]?.profesor_id || null;
 }
 
-// Helper: obtiene el orientador de una sección
+// Helper: obtiene el orientador de una sección.
+// Si por algún motivo hay filas con orientador_id NULL, las saltamos y
+// agarramos la primera fila con un orientador real. Log explícito si no
+// hay resultados o si hay error en la query — eso aparece en Railway logs.
 async function getOrientadorDeSeccion(seccionId) {
   if (!seccionId) return null;
-  const r = await pool.query(
-    "SELECT orientador_id FROM seccion_orientador WHERE seccion_id=$1 LIMIT 1",
-    [seccionId]
-  );
-  return r.rows[0]?.orientador_id || null;
+  try {
+    const r = await pool.query(
+      `SELECT orientador_id
+       FROM seccion_orientador
+       WHERE seccion_id = $1 AND orientador_id IS NOT NULL
+       ORDER BY id
+       LIMIT 1`,
+      [seccionId]
+    );
+    if (!r.rows.length) {
+      console.log(`[DP] getOrientadorDeSeccion(${seccionId}): sin orientador asignado`);
+      return null;
+    }
+    return r.rows[0].orientador_id;
+  } catch (e) {
+    console.error(`[DP] getOrientadorDeSeccion(${seccionId}) ERROR:`, e.message);
+    return null;
+  }
 }
 
 // Helper: crear una notificación
@@ -333,9 +349,10 @@ router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
       await notificar(guiaId, "debido_proceso",
         `📋 Se inició un debido proceso (N°${consec.numero}-${anio}) que te toca continuar como guía de la sección.`);
     }
-    // Notificar al orientador asignado de la sección
-    if (orientadorId && orientadorId !== u.id) {
-      await notificar(orientadorId, "debido_proceso",
+    // Notificar al orientador asignado de la sección.
+    // ⚠️ La variable correcta es orientId (línea 296), no orientadorId.
+    if (orientId && orientId !== u.id) {
+      await notificar(orientId, "debido_proceso",
         `📋 Se inició un debido proceso (N°${consec.numero}-${anio}) en la sección que orientás. Lo vas a revisar cuando se complete el acta sesión.`);
     }
 
