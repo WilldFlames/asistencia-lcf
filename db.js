@@ -257,6 +257,11 @@ async function initDB() {
     // Regla MEP: 2 tardías = 1 ausencia (se aplica en reportes y cálculos derivados).
     await client.query(`ALTER TABLE asistencia ADD COLUMN IF NOT EXISTS lecciones_tardias INTEGER DEFAULT NULL`);
 
+    // boletas_conducta.usuario_apoyo_id: cuando la boleta no se atribuye a una
+    // materia (asignacion_id NULL), permite asociarla a un orientador, auxiliar
+    // o administrativo. El frontend muestra estos como "personal de apoyo".
+    await client.query(`ALTER TABLE boletas_conducta ADD COLUMN IF NOT EXISTS usuario_apoyo_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+
     // ── CARTAS DE AUSENTISMO ─────────────────────────────────────────────────
     // Registro histórico de las cartas que entrega el profesorado al encargado.
     // Snapshot de los datos en el momento de emisión (cantidad de ausencias y %)

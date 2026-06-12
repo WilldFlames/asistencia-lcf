@@ -930,8 +930,8 @@ tr:hover td{background:#f8fafc;}
             </select>
           </div>
           <div class="fg">
-            <label>Materia (opcional)</label>
-            <select id="cond-asignacion"><option value="">— Sin materia específica —</option></select>
+            <label>Asignar a (opcional)</label>
+            <select id="cond-asignacion"><option value="">— Sin asignar —</option></select>
           </div>
           <div class="fg">
             <label>Fecha *</label>
@@ -5890,12 +5890,41 @@ async function verConductaEstudiante(){
   const nombre = sel.options[sel.selectedIndex].text;
   document.getElementById("cond-titulo").textContent = `Conducta — ${nombre}`;
   document.getElementById("cond-fecha").value = fechaHoyCR();
-  // Cargar asignaciones de la sección para el selector de materia
-  const asigs = await api(`/api/conducta/mis-asignaciones/${sid}`);
-  if(asigs){
-    document.getElementById("cond-asignacion").innerHTML=
-      '<option value="">— Sin materia específica —</option>'+
-      asigs.map(a=>`<option value="${a.id}">${a.materia_nombre} — ${a.prof_ap1} ${a.prof_nombre}</option>`).join("");
+  // Cargar opciones para "Asignar a": asignaciones materia+profe + personal de apoyo.
+  // El value de las asignaciones se prefija con "a:" y el de apoyo con "u:" para
+  // diferenciarlos al guardar.
+  const opts = await api(`/api/conducta/mis-asignaciones/${sid}`);
+  if(opts){
+    // Soporte hacia atrás: el endpoint viejo devolvía un array directo
+    const asignaciones = Array.isArray(opts) ? opts : (opts.asignaciones || []);
+    const apoyo        = Array.isArray(opts) ? []   : (opts.apoyo || []);
+    const rolLabel = { orientador: 'Orientador(a)', auxiliar: 'Auxiliar', administrativo: 'Administrativo(a)' };
+
+    let html = '<option value="">— Sin asignar —</option>';
+    if(asignaciones.length){
+      html += '<optgroup label="📚 Materias de la sección">';
+      html += asignaciones.map(a => {
+        const nombre = `${a.prof_ap1||''} ${a.prof_ap2||''} ${a.prof_nombre||''}`.replace(/\s+/g,' ').trim();
+        return `<option value="a:${a.id}">${a.materia_nombre} — ${nombre}</option>`;
+      }).join('');
+      html += '</optgroup>';
+    }
+    if(apoyo.length){
+      // Agrupar por rol para que se vea ordenado
+      const porRol = {};
+      apoyo.forEach(p => { (porRol[p.rol] = porRol[p.rol] || []).push(p); });
+      ['orientador','auxiliar','administrativo'].forEach(rol => {
+        const gente = porRol[rol] || [];
+        if(!gente.length) return;
+        html += `<optgroup label="🧑‍🏫 ${rolLabel[rol]||rol}">`;
+        html += gente.map(p => {
+          const nombre = `${p.primer_apellido||''} ${p.segundo_apellido||''} ${p.nombre||''}`.replace(/\s+/g,' ').trim();
+          return `<option value="u:${p.id}">${nombre}</option>`;
+        }).join('');
+        html += '</optgroup>';
+      });
+    }
+    document.getElementById("cond-asignacion").innerHTML = html;
   }
   filtrarInfracciones();
   document.getElementById("conducta-view-lista").style.display="none";
@@ -5914,15 +5943,26 @@ function filtrarInfracciones(){
 
 async function registrarBoleta(){
   const infId   = document.getElementById("cond-infraccion").value;
-  const asigId  = document.getElementById("cond-asignacion").value;
+  const rawSel  = document.getElementById("cond-asignacion").value;
   const fecha   = document.getElementById("cond-fecha").value;
   const obs     = document.getElementById("cond-obs").value.trim();
   if(!infId || !fecha){ sa("alert-cond","Seleccioná una infracción y la fecha.","danger"); return; }
+
+  // El valor del select viene prefijado: "a:N" = asignación, "u:N" = usuario apoyo.
+  // Si no tiene prefijo (compat hacia atrás) lo tratamos como asignación.
+  let asignacion_id = null, usuario_apoyo_id = null;
+  if(rawSel){
+    if(rawSel.startsWith('a:'))      asignacion_id    = +rawSel.slice(2);
+    else if(rawSel.startsWith('u:')) usuario_apoyo_id = +rawSel.slice(2);
+    else                             asignacion_id    = +rawSel;
+  }
+
   try{
     await api("/api/conducta","POST",{
       estudiante_id: +condEstudianteActual,
       infraccion_id: +infId,
-      asignacion_id: asigId ? +asigId : null,
+      asignacion_id,
+      usuario_apoyo_id,
       fecha, observacion: obs
     });
     document.getElementById("cond-obs").value = "";
@@ -5951,14 +5991,27 @@ async function cargarBoletasLista(){
 
   const tipBadge={muy_leve:"b-prof",leve:"b-guia",grave:"b-aux",muy_grave:"b-orient",gravisima:"b-admin"};
   const tipLabel={muy_leve:"Muy Leve",leve:"Leve",grave:"Grave",muy_grave:"Muy Grave",gravisima:"Gravísima"};
+  const rolLabel={orientador:"Orientador(a)",auxiliar:"Auxiliar",administrativo:"Administrativo(a)"};
 
-  div.innerHTML = d.boletas.map(b=>`
+  div.innerHTML = d.boletas.map(b=>{
+    // Construir etiqueta de "a quién está asignada la boleta"
+    let asignadoA = "";
+    if(b.materia_nombre){
+      const profNom = `${b.prof_ap1||''} ${b.prof_ap2||''} ${b.prof_nombre||''}`.replace(/\s+/g,' ').trim();
+      asignadoA = `📚 ${b.materia_nombre} — ${profNom}`;
+    } else if(b.apoyo_nombre){
+      const apoNom = `${b.apoyo_ap1||''} ${b.apoyo_ap2||''} ${b.apoyo_nombre||''}`.replace(/\s+/g,' ').trim();
+      const rolTxt = rolLabel[b.apoyo_rol] || b.apoyo_rol || '';
+      asignadoA = `🧑‍🏫 ${rolTxt}: ${apoNom}`;
+    }
+    const regNom = `${b.reg_ap1||''} ${b.reg_ap2||''} ${b.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+    return `
     <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#fafafa;">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <span class="badge ${tipBadge[b.infraccion_tipo]}">${tipLabel[b.infraccion_tipo]}</span>
           <span style="font-weight:bold;color:var(--rojo)">-${b.puntos} pts</span>
-          ${b.materia_nombre?`<span style="font-size:12px;color:var(--muted)">${b.materia_nombre} — ${b.prof_ap1} ${b.prof_nombre}</span>`:""}
+          ${asignadoA?`<span style="font-size:12px;color:var(--muted)">${asignadoA}</span>`:""}
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:12px;color:var(--muted)">${fmtF(b.fecha)}</span>
@@ -5967,8 +6020,9 @@ async function cargarBoletasLista(){
       </div>
       <div style="font-size:13px;">${b.infraccion_desc}</div>
       ${b.observacion?`<div style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic;">📝 ${b.observacion}</div>`:""}
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Registrado por: ${b.reg_ap1} ${b.reg_nombre}</div>
-    </div>`).join("");
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Registrado por: ${regNom}</div>
+    </div>`;
+  }).join("");
 }
 
 async function eliminarBoleta(id){
