@@ -2648,23 +2648,6 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- Modal Eliminar Consecutivo -->
-<div class="modal-overlay" id="modal-eliminar-consec">
-  <div class="modal" style="max-width:440px;">
-    <h3 style="color:var(--rojo);">🗑️ Eliminar Consecutivo</h3>
-    <input type="hidden" id="del-consec-id"/>
-    <p id="del-consec-info" style="font-size:13px;margin-bottom:10px;"></p>
-    <div class="fg">
-      <label>Justificación <span style="color:var(--rojo)">*</span></label>
-      <textarea id="del-consec-just" rows="2" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;" placeholder="Indique que fue por error y el motivo..."></textarea>
-    </div>
-    <div id="alert-del-consec" class="alert"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-eliminar-consec')">Cancelar</button>
-      <button class="btn btn-danger" onclick="confirmarEliminarConsec()">🗑️ Eliminar</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal Importar Excel -->
 <div class="modal-overlay" id="modal-importar-excel">
   <div class="modal" style="max-width:560px;">
@@ -2855,79 +2838,6 @@ tr:hover td{background:#f8fafc;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-archivar')">Cancelar</button>
       <button class="btn btn-orange" onclick="confirmarArchivar()">📦 Archivar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Matrícula -->
-<div class="modal-overlay" id="modal-matricula">
-  <div class="modal" style="max-width:680px;">
-    <h3>📋 Confirmar Matrícula</h3>
-    <input type="hidden" id="mat-est-id"/>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;" id="mat-est-nombre"></p>
-    <div class="form-grid">
-      <div class="fg">
-        <label>Año de matrícula *</label>
-        <input type="number" id="mat-anio" min="2025" max="2030" value="2027"/>
-      </div>
-      <div class="fg">
-        <label>N° de Boleta (consecutivo del sobre) *</label>
-        <input type="text" id="mat-boleta" placeholder="Ej: 001, 0245..."/>
-      </div>
-      <div class="fg">
-        <label>Sección asignada para ese año</label>
-        <select id="mat-seccion"><option value="">— Sin sección aún —</option></select>
-      </div>
-      <div class="fg">
-        <label>Observaciones</label>
-        <input type="text" id="mat-obs" placeholder="Ej: Pendiente documentos, etc."/>
-      </div>
-    </div>
-
-    <!-- Encargados con edición inline -->
-    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div style="font-weight:bold;font-size:13px;color:var(--azul);">
-          👨‍👩‍👧 Encargados
-          <small style="color:var(--muted);font-weight:normal;"> — actualizalos si hubo cambios antes de confirmar</small>
-        </div>
-        <button class="btn btn-outline btn-xs" onclick="abrirNuevoEncMatricula()">➕ Agregar</button>
-      </div>
-      <div id="mat-encargados-lista">
-        <div style="color:var(--muted);font-size:13px;">Cargando...</div>
-      </div>
-
-      <!-- Formulario inline de encargado dentro de matrícula -->
-      <div id="mat-enc-form" style="display:none;border:1px solid var(--azul2);border-radius:8px;padding:12px;margin-top:10px;background:#f0f7ff;">
-        <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:8px;" id="mat-enc-form-titulo">➕ Agregar Encargado</div>
-        <input type="hidden" id="mat-enc-id"/>
-        <div class="form-grid">
-          <div class="fg"><label>Cédula</label><input type="text" id="mat-enc-cedula" placeholder="Número de cédula"/></div>
-          <div class="fg"><label>Parentesco</label><input type="text" id="mat-enc-parentesco" placeholder="Madre, Padre..."/></div>
-          <div class="fg"><label>Nombre *</label><input type="text" id="mat-enc-nombre"/></div>
-          <div class="fg"><label>Primer Apellido *</label><input type="text" id="mat-enc-ap1"/></div>
-          <div class="fg"><label>Segundo Apellido</label><input type="text" id="mat-enc-ap2"/></div>
-          <div class="fg"><label>Principal</label>
-            <select id="mat-enc-principal"><option value="true">Sí</option><option value="false">No</option></select>
-          </div>
-          <div class="fg"><label>Teléfono Casa</label><input type="text" id="mat-enc-tel"/></div>
-          <div class="fg"><label>Celular</label><input type="text" id="mat-enc-cel"/></div>
-          <div class="fg"><label>Teléfono Trabajo</label><input type="text" id="mat-enc-tel-trabajo"/></div>
-          <div class="fg"><label>Lugar de Trabajo</label><input type="text" id="mat-enc-lugar"/></div>
-          <div class="fg"><label>Correo</label><input type="email" id="mat-enc-email"/></div>
-          <div class="fg" style="grid-column:1/-1"><label>Dirección</label><input type="text" id="mat-enc-dir"/></div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn btn-success btn-sm" onclick="guardarEncMatricula()">💾 Guardar Encargado</button>
-          <button class="btn btn-outline btn-sm" onclick="document.getElementById('mat-enc-form').style.display='none'">Cancelar</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="alert-mat" class="alert"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-matricula')">Cancelar</button>
-      <button class="btn btn-success" onclick="confirmarMatricula()">✅ Confirmar Matrícula</button>
     </div>
   </div>
 </div>
@@ -3210,9 +3120,10 @@ function goTo(page){
     // Mostrar botón Nuevo solo para admin/auxiliar
     const btnNuevo=document.getElementById("btn-nuevo-est");
     if(btnNuevo) btnNuevo.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
-    // Botón importar Excel: solo administrativo
+    // Botón importar Excel: solo admin y auxiliar
+    // (los mismos roles que pueden crear estudiantes uno por uno).
     const btnImportarExcel=document.getElementById("btn-importar-excel");
-    if(btnImportarExcel) btnImportarExcel.style.display=(ME.rol==="administrativo"||ME.rol==="admin")?"":"none";
+    if(btnImportarExcel) btnImportarExcel.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
     // Imprimir disponible para todos los que ven la pantalla
     const btnImprimir=document.getElementById("btn-imprimir-lista");
     if(btnImprimir) btnImprimir.style.display="";
@@ -6222,6 +6133,171 @@ ${encabezadoMEP("INFORME DE RENDIMIENTO ACADÉMICO — "+periodo)}
 // EXPORTAR LISTA A EXCEL
 // Respeta filtros activos (sección + búsqueda)
 // ════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+//  IMPORTAR ESTUDIANTES DESDE EXCEL
+// ════════════════════════════════════════════════════════════════════
+// Flujo: abrir modal → seleccionar archivo → previsualizar (validar) →
+// confirmar (enviar al backend). El backend hace el INSERT en bloque y
+// devuelve cuántos se importaron, omitidos y reactivados.
+let _excelPreviewData = null;
+
+function abrirImportarExcel(){
+  if(typeof XLSX === 'undefined'){
+    alert("La librería de Excel no se cargó. Recargá la página e intentá de nuevo.");
+    return;
+  }
+  // Reset
+  const fi = document.getElementById("excel-file");
+  if(fi) fi.value = "";
+  const prev = document.getElementById("excel-preview");
+  if(prev) prev.style.display = "none";
+  const btn = document.getElementById("btn-confirmar-excel");
+  if(btn) btn.disabled = true;
+  document.getElementById("alert-excel").className = "alert";
+  _excelPreviewData = null;
+  document.getElementById("modal-importar-excel").classList.add("show");
+}
+
+async function previsualizarExcel(){
+  const fi = document.getElementById("excel-file");
+  if(!fi || !fi.files || !fi.files.length){ return; }
+  const archivo = fi.files[0];
+  document.getElementById("alert-excel").className = "alert";
+
+  try {
+    // Leer el archivo
+    const buf = await archivo.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const hoja = wb.Sheets[wb.SheetNames[0]];
+    if(!hoja){ throw new Error("El archivo no tiene ninguna hoja"); }
+    const filas = XLSX.utils.sheet_to_json(hoja, { defval: "" });
+    if(!filas.length){ throw new Error("La hoja está vacía"); }
+
+    // Cargar secciones para mapear nombre → id
+    const secciones = await api("/api/admin/secciones") || [];
+    const secMap = {};
+    secciones.forEach(s => {
+      // indexar por nombre exacto y normalizado (lowercase + sin espacios)
+      secMap[s.nombre] = s.id;
+      secMap[String(s.nombre).toLowerCase().replace(/\s+/g,'')] = s.id;
+    });
+
+    // Normalizar las columnas: aceptar variantes en mayúsculas/minúsculas/acentos
+    function normalKey(k){
+      return String(k||'').toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+        .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+    }
+
+    const procesadas = [];
+    const errores = [];
+    filas.forEach((fila, idx) => {
+      const f = {};
+      for(const k in fila){ f[normalKey(k)] = String(fila[k] ?? '').trim(); }
+
+      const cedula = (f.cedula || '').replace(/-/g, '').trim();
+      const nombre = f.nombre || '';
+      const primer_apellido = f.primer_apellido || f.primerapellido || '';
+      const segundo_apellido = f.segundo_apellido || f.segundoapellido || '';
+      const seccion_nombre = f.seccion || f.seccion_nombre || '';
+      const fecha_nacimiento = f.fecha_nacimiento || f.fechanacimiento || f.nacimiento || '';
+
+      if(!cedula || !nombre || !primer_apellido){
+        errores.push(`Fila ${idx+2}: faltan cédula, nombre o primer apellido`);
+        return;
+      }
+
+      // Resolver sección
+      let seccion_id = null;
+      if(seccion_nombre){
+        seccion_id = secMap[seccion_nombre] ?? secMap[String(seccion_nombre).toLowerCase().replace(/\s+/g,'')] ?? null;
+        if(!seccion_id){
+          errores.push(`Fila ${idx+2}: sección "${seccion_nombre}" no existe en el sistema`);
+          return;
+        }
+      }
+
+      // Normalizar fecha de nacimiento si viene como número (Excel serial)
+      let fechaFinal = fecha_nacimiento || null;
+      if(fechaFinal && /^\d{5}$/.test(fechaFinal)){
+        const dias = parseInt(fechaFinal);
+        const base = new Date(Date.UTC(1899, 11, 30));
+        base.setUTCDate(base.getUTCDate() + dias);
+        fechaFinal = base.toISOString().slice(0,10);
+      }
+
+      procesadas.push({ cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento: fechaFinal || null, seccion_id });
+    });
+
+    if(!procesadas.length){
+      sa("alert-excel", "Ninguna fila válida. Errores:\n• " + errores.join("\n• "), "danger");
+      _excelPreviewData = null;
+      return;
+    }
+
+    _excelPreviewData = procesadas;
+
+    // Render preview
+    document.getElementById("excel-info").textContent =
+      `Listos para importar: ${procesadas.length} · Con errores: ${errores.length}`;
+    const tbody = document.getElementById("excel-tbody");
+    tbody.innerHTML = procesadas.slice(0, 50).map(e => `<tr>
+      <td>${e.cedula}</td>
+      <td>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</td>
+      <td>${e.seccion_id ? (secciones.find(s=>s.id===e.seccion_id)?.nombre||'—') : '—'}</td>
+      <td>${e.fecha_nacimiento||'—'}</td>
+    </tr>`).join('') + (procesadas.length > 50 ? `<tr><td colspan="4" style="text-align:center;color:var(--muted);">... y ${procesadas.length-50} más</td></tr>` : '');
+    document.getElementById("excel-preview").style.display = "";
+    document.getElementById("btn-confirmar-excel").disabled = false;
+
+    if(errores.length){
+      sa("alert-excel", `Hay ${errores.length} filas con error que se omitirán:\n• ${errores.slice(0,5).join("\n• ")}${errores.length>5?`\n... y ${errores.length-5} más`:''}`, "warning");
+    }
+  } catch(err) {
+    sa("alert-excel", "Error leyendo el archivo: " + err.message, "danger");
+    _excelPreviewData = null;
+  }
+}
+
+async function confirmarImportarExcel(){
+  if(!_excelPreviewData || !_excelPreviewData.length){
+    sa("alert-excel", "Primero seleccioná un archivo válido.", "danger"); return;
+  }
+  const btn = document.getElementById("btn-confirmar-excel");
+  const txt = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = "⏳ Importando...";
+  try {
+    const r = await api("/api/estudiantes/importar", "POST", _excelPreviewData);
+    cerrarModal("modal-importar-excel");
+    sa("alert-est",
+      `✅ Importación completada. Nuevos: ${r.insertados||0} · Reactivados: ${r.reactivados||0} · Omitidos (ya existían): ${r.omitidos||0}`,
+      "success");
+    if(typeof cargarEstudiantes === 'function') await cargarEstudiantes();
+  } catch(e) {
+    sa("alert-excel", e.message, "danger");
+  } finally {
+    btn.disabled = false; btn.innerHTML = txt;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  ARCHIVAR AÑO (mover estudiantes activos al expediente histórico)
+// ════════════════════════════════════════════════════════════════════
+async function abrirArchivarAnio(){
+  const anioActual = new Date().getFullYear();
+  const anio = prompt(`¿Qué año académico querés archivar?\n\nSe creará una copia de cada estudiante activo (con su sección y encargados actuales) en el expediente histórico.\n\nIngresá el año:`, String(anioActual));
+  if(anio === null) return;
+  const anioNum = parseInt(anio, 10);
+  if(!anioNum || anioNum < 2020 || anioNum > 2100){
+    alert("Ingresá un año válido."); return;
+  }
+  if(!confirm(`Vas a archivar TODO el año ${anioNum}.\n\nCada estudiante activo va a tener un snapshot en el expediente histórico (no se elimina nadie). ¿Continuar?`)) return;
+  try {
+    const r = await api("/api/expediente/archivar-anio", "POST", { anio: anioNum });
+    alert(`✅ Año ${anioNum} archivado.\n\nArchivados: ${r.archivados}\nOmitidos: ${r.omitidos}`);
+  } catch(e){ alert("Error: " + e.message); }
+}
+
 async function exportarEstudiantesExcel(){
   if(typeof XLSX === 'undefined'){
     alert("La librería de Excel no se cargó. Recargá la página e intentá de nuevo.");
