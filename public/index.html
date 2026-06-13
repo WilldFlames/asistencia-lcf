@@ -2863,29 +2863,6 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
-<!-- Modal Justificar -->
-<div class="modal-overlay" id="modal-jus">
-  <div class="modal" style="max-width:400px;">
-    <h3>📝 Justificar</h3>
-    <input type="hidden" id="jus-id"/>
-    <div id="jus-info" style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px 12px;margin-bottom:10px;font-size:13px;"></div>
-    <div class="fg"><label>Estado</label>
-      <select id="jus-estado"><option value="true">✅ Justificada</option><option value="false">❌ No justificada</option></select>
-    </div>
-    <div class="fg" style="margin-top:8px;"><label>Lecciones justificadas</label>
-      <select id="jus-lecciones">
-        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-      </select>
-    </div>
-    <div class="fg" style="margin-top:8px;"><label>Motivo</label><textarea id="jus-motivo"></textarea></div>
-    <div id="alert-jus" class="alert"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-jus')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarJus()">Guardar</button>
-    </div>
-  </div>
-</div>
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL: NUEVA MEDIDA                                       -->
 <!-- ══════════════════════════════════════════════════════════ -->
@@ -5151,6 +5128,22 @@ function setE(id, estado){
     renderTablaAsist();
   }
 }
+
+// Atajo: marca a TODOS los estudiantes de la lista con el mismo estado.
+// Usado por los botones "✅ Todos P" y "❌ Todos A" arriba de la tabla.
+// Si se marca todos como A, se inicializa el contador de lecciones ausentes.
+function marcarTodos(estado){
+  if(!registrosAsist.length) return;
+  if(!['P','A','T'].includes(estado)) return;
+  if(!confirm(`¿Marcar a TODOS los estudiantes como ${estado==='P'?'Presentes':estado==='A'?'Ausentes':'Tardíos'}?`)) return;
+  const totalLecc = parseInt(document.getElementById("asis-lecciones")?.value) || 4;
+  registrosAsist.forEach(r => {
+    r.estado = estado;
+    if(estado === 'T' && !r.lecciones_tardias)  r.lecciones_tardias  = 1;
+    if(estado === 'A' && !r.lecciones_ausentes) r.lecciones_ausentes = totalLecc;
+  });
+  renderTablaAsist();
+}
 function setLeccAus(id, val){
   const r=registrosAsist.find(e=>e.id===id);
   if(r) r.lecciones_ausentes=parseInt(val);
@@ -6283,19 +6276,25 @@ async function confirmarImportarExcel(){
 // ════════════════════════════════════════════════════════════════════
 //  ARCHIVAR AÑO (mover estudiantes activos al expediente histórico)
 // ════════════════════════════════════════════════════════════════════
-async function abrirArchivarAnio(){
+function abrirArchivarAnio(){
   const anioActual = new Date().getFullYear();
-  const anio = prompt(`¿Qué año académico querés archivar?\n\nSe creará una copia de cada estudiante activo (con su sección y encargados actuales) en el expediente histórico.\n\nIngresá el año:`, String(anioActual));
-  if(anio === null) return;
-  const anioNum = parseInt(anio, 10);
+  const inp = document.getElementById("arch-anio");
+  if(inp) inp.value = anioActual;
+  document.getElementById("alert-arch").className = "alert";
+  document.getElementById("modal-archivar").classList.add("show");
+}
+
+async function confirmarArchivar(){
+  const anioNum = parseInt(document.getElementById("arch-anio")?.value, 10);
   if(!anioNum || anioNum < 2020 || anioNum > 2100){
-    alert("Ingresá un año válido."); return;
+    sa("alert-arch", "Ingresá un año válido.", "danger"); return;
   }
   if(!confirm(`Vas a archivar TODO el año ${anioNum}.\n\nCada estudiante activo va a tener un snapshot en el expediente histórico (no se elimina nadie). ¿Continuar?`)) return;
   try {
     const r = await api("/api/expediente/archivar-anio", "POST", { anio: anioNum });
-    alert(`✅ Año ${anioNum} archivado.\n\nArchivados: ${r.archivados}\nOmitidos: ${r.omitidos}`);
-  } catch(e){ alert("Error: " + e.message); }
+    cerrarModal("modal-archivar");
+    sa("alert-exp", `✅ Año ${anioNum} archivado. Archivados: ${r.archivados} · Omitidos: ${r.omitidos}`, "success");
+  } catch(e){ sa("alert-arch", "Error: " + e.message, "danger"); }
 }
 
 async function exportarEstudiantesExcel(){
@@ -9643,45 +9642,6 @@ async function escanearComedor(){
   input?.focus();
 }
 
-
-async function iniciarConducta(){
-  const rows=await api("/api/conducta")||[];
-  renderInformesConducca(rows);
-}
-
-function renderInformesConducca(rows){
-  const tbody=document.getElementById("conducta-tbody");
-  if(!tbody) return;
-  if(!rows.length){tbody.innerHTML=`<tr><td colspan="5" class="empty">Sin informes.</td></tr>`;return;}
-  tbody.innerHTML=rows.map(r=>`<tr>
-    <td>${r.fecha?.slice(0,10)||'—'}</td>
-    <td><strong>${r.est_ap1||''} ${r.est_nombre||''}</strong></td>
-    <td>${r.seccion_nombre||'—'}</td>
-    <td style="font-size:12px;">${(r.descripcion||'').slice(0,60)}${r.descripcion?.length>60?'...':''}</td>
-    <td><button class="btn btn-outline btn-xs" onclick="verConducta(${r.id})">👁️</button></td>
-  </tr>`).join("");
-}
-
-async function guardarConducta(){
-  const eid=document.getElementById("conducta-estudiante")?.value;
-  const desc=document.getElementById("conducta-descripcion")?.value?.trim();
-  const fecha=document.getElementById("conducta-fecha")?.value||fechaHoyCR();
-  if(!eid||!desc){sa("alert-conducta","Estudiante y descripción son requeridos.","danger");return;}
-  try{
-    await api("/api/conducta","POST",{estudiante_id:+eid,descripcion:desc,fecha});
-    sa("alert-conducta","✅ Registro guardado.","success");
-    document.getElementById("conducta-descripcion").value="";
-    iniciarConducta();
-  }catch(e){sa("alert-conducta",e.message,"danger");}
-}
-
-async function verConducta(id){
-  try{
-    const r=await api(`/api/conducta/${id}`);
-    if(!r) return;
-    alert(`📋 Conducta\nFecha: ${r.fecha?.slice(0,10)}\nEstudiante: ${r.est_ap1||''} ${r.est_nombre||''}\nSección: ${r.seccion_nombre||'—'}\n\n${r.descripcion}`);
-  }catch{}
-}
 
 // ════════════════════════════════════
 //  EXPEDIENTE
