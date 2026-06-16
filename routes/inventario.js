@@ -64,7 +64,32 @@ router.get("/productos", requireAuth, async (req, res) => {
 router.get("/productos/:id", requireAuth, async (req, res) => {
   const r = await pool.query("SELECT * FROM inv_productos WHERE id=$1", [req.params.id]);
   if (!r.rows.length) return res.status(404).json({ error: "Producto no encontrado" });
-  res.json(r.rows[0]);
+  // Adjuntar seriales (disponibles + entregados) para mostrar en el modal de edición
+  const sR = await pool.query(`
+    SELECT s.id, s.serial, s.estado, s.notas, s.created_at,
+           sal.fecha AS salida_fecha, sal.persona_nombre AS salida_persona
+    FROM inv_seriales s
+    LEFT JOIN inv_salidas sal ON sal.id = s.salida_id
+    WHERE s.producto_id = $1
+    ORDER BY s.estado, s.serial
+  `, [req.params.id]);
+  res.json({ ...r.rows[0], seriales: sR.rows });
+});
+
+// Listar SOLO los seriales disponibles de un producto (para el select en salidas)
+router.get("/productos/:id/seriales-disponibles", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT id, serial, notas
+      FROM inv_seriales
+      WHERE producto_id = $1 AND estado = 'disponible'
+      ORDER BY serial
+    `, [req.params.id]);
+    res.json(r.rows);
+  } catch (e) {
+    if (e.code === '42P01') return res.json([]);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.get("/productos/codigo/:codigo", requireAuth, async (req, res) => {
@@ -74,17 +99,38 @@ router.get("/productos/codigo/:codigo", requireAuth, async (req, res) => {
 });
 
 router.post("/productos", canInventario, async (req, res) => {
-  const { codigo, nombre, descripcion, categoria, unidad, stock_actual, stock_minimo } = req.body;
+  const { codigo, nombre, descripcion, categoria, unidad, stock_actual, stock_minimo, seriales } = req.body;
   if (!codigo || !nombre) return res.status(400).json({ error: "Código y nombre son requeridos" });
+  // Validar seriales: si los hay, deben coincidir con el stock inicial
+  const serialList = Array.isArray(seriales) ? seriales.map(s => String(s||'').trim()).filter(Boolean) : [];
+  if (serialList.length > 0 && serialList.length !== (stock_actual||0)) {
+    return res.status(400).json({ error: `Si registrás seriales, la cantidad (${serialList.length}) debe coincidir con las unidades a registrar (${stock_actual||0}).` });
+  }
+  // Verificar duplicados en la lista enviada
+  const dupes = serialList.filter((s, i) => serialList.indexOf(s) !== i);
+  if (dupes.length) return res.status(400).json({ error: `Seriales duplicados en la lista: ${[...new Set(dupes)].join(', ')}` });
+
+  const client = await pool.connect();
   try {
-    const r = await pool.query(`
+    await client.query("BEGIN");
+    const r = await client.query(`
       INSERT INTO inv_productos (codigo, nombre, descripcion, categoria, unidad, stock_actual, stock_minimo)
       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
     `, [codigo.trim().toUpperCase(), nombre.trim(), descripcion||"", categoria||"Mobiliario", unidad||"Unidad", stock_actual||0, stock_minimo||0]);
-    res.json({ id: r.rows[0].id, ok: true });
+    const productoId = r.rows[0].id;
+    // Insertar seriales asociados
+    for (const s of serialList) {
+      await client.query(`INSERT INTO inv_seriales (producto_id, serial, estado) VALUES ($1, $2, 'disponible')`,
+        [productoId, s]);
+    }
+    await client.query("COMMIT");
+    res.json({ id: productoId, ok: true, seriales_creados: serialList.length });
   } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: "El código ya existe" });
+    await client.query("ROLLBACK");
+    if (e.code === '23505') return res.status(409).json({ error: "El código ya existe (o serial duplicado)" });
     res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -133,9 +179,16 @@ router.get("/entradas", requireAuth, async (req, res) => {
 
 router.post("/entradas", canInventario, async (req, res) => {
   const u = req.session.usuario;
-  const { producto_id, cantidad, proveedor, observaciones, fecha } = req.body;
+  const { producto_id, cantidad, proveedor, observaciones, fecha, seriales } = req.body;
   if (!producto_id || !cantidad) return res.status(400).json({ error: "Producto y cantidad requeridos" });
   if (cantidad < 1) return res.status(400).json({ error: "La cantidad debe ser mayor a 0" });
+  // Validar seriales si vienen
+  const serialList = Array.isArray(seriales) ? seriales.map(s => String(s||'').trim()).filter(Boolean) : [];
+  if (serialList.length > 0 && serialList.length !== cantidad) {
+    return res.status(400).json({ error: `Si registrás seriales, la cantidad (${serialList.length}) debe coincidir con las unidades que entran (${cantidad}).` });
+  }
+  const dupes = serialList.filter((s, i) => serialList.indexOf(s) !== i);
+  if (dupes.length) return res.status(400).json({ error: `Seriales duplicados: ${[...new Set(dupes)].join(', ')}` });
 
   const client = await pool.connect();
   try {
@@ -144,11 +197,20 @@ router.post("/entradas", canInventario, async (req, res) => {
       INSERT INTO inv_entradas (producto_id, cantidad, proveedor, observaciones, fecha, registrado_por)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
     `, [producto_id, cantidad, proveedor||"", observaciones||"", fecha || new Date().toISOString().slice(0,10), u.id]);
+    const entradaId = r.rows[0].id;
     await client.query("UPDATE inv_productos SET stock_actual = stock_actual + $1 WHERE id = $2", [cantidad, producto_id]);
+    // Insertar seriales nuevos
+    for (const s of serialList) {
+      await client.query(
+        `INSERT INTO inv_seriales (producto_id, serial, estado, entrada_id) VALUES ($1, $2, 'disponible', $3)`,
+        [producto_id, s, entradaId]
+      );
+    }
     await client.query("COMMIT");
-    res.json({ id: r.rows[0].id, ok: true });
+    res.json({ id: entradaId, ok: true, seriales_creados: serialList.length });
   } catch (e) {
     await client.query("ROLLBACK");
+    if (e.code === '23505') return res.status(409).json({ error: "Hay seriales duplicados con otros existentes." });
     res.status(500).json({ error: e.message });
   } finally {
     client.release();
@@ -173,12 +235,14 @@ router.get("/salidas", requireAuth, async (req, res) => {
       LIMIT 100
     `);
 
-    // Detalle de cada salida
+    // Detalle de cada salida (incluye serial si lo tuvo)
     const detalleStmt = `
-      SELECT sd.cantidad, p.codigo, p.nombre, p.unidad
+      SELECT sd.cantidad, p.codigo, p.nombre, p.unidad, ser.serial
       FROM inv_salidas_detalle sd
       JOIN inv_productos p ON p.id = sd.producto_id
+      LEFT JOIN inv_seriales ser ON ser.id = sd.serial_id
       WHERE sd.salida_id = $1
+      ORDER BY p.nombre, ser.serial
     `;
     const resultado = [];
     for (const s of r.rows) {
@@ -244,7 +308,22 @@ router.post("/salidas", canInventario, async (req, res) => {
       const p = pR.rows[0];
       if (p.stock_actual < it.cantidad)
         throw { status:400, error:`Stock insuficiente para "${p.nombre}". Disponible: ${p.stock_actual} ${p.unidad}` };
-      validados.push({ id: p.id, cantidadSalida: it.cantidad });
+
+      // Validar seriales si vienen en este item
+      const serialIds = Array.isArray(it.serial_ids) ? it.serial_ids.map(x => +x).filter(Boolean) : [];
+      if (serialIds.length > 0) {
+        if (serialIds.length !== it.cantidad)
+          throw { status:400, error:`En "${p.nombre}" debés seleccionar ${it.cantidad} serial(es), no ${serialIds.length}.` };
+        // Verificar que todos los seriales sean del producto y estén disponibles
+        const sR = await client.query(
+          `SELECT id, serial FROM inv_seriales WHERE id = ANY($1::int[]) AND producto_id = $2 AND estado = 'disponible'`,
+          [serialIds, p.id]
+        );
+        if (sR.rows.length !== serialIds.length) {
+          throw { status:400, error:`Algunos seriales de "${p.nombre}" ya no están disponibles. Recargá la página.` };
+        }
+      }
+      validados.push({ id: p.id, cantidadSalida: it.cantidad, serialIds });
     }
 
     const ahora = new Date();
@@ -258,10 +337,27 @@ router.post("/salidas", canInventario, async (req, res) => {
     `, [retiraId, retiraNombre, retiraCedula, departamento||"", motivo||"", fechaFinal, horaFinal, u.id]);
     const salidaId = sR.rows[0].id;
 
-    // Detalle + descuento de stock
+    // Detalle + descuento de stock + marcar seriales como entregados
     for (const v of validados) {
-      await client.query(`INSERT INTO inv_salidas_detalle (salida_id, producto_id, cantidad) VALUES ($1, $2, $3)`,
-        [salidaId, v.id, v.cantidadSalida]);
+      if (v.serialIds.length > 0) {
+        // Una fila de detalle por cada serial entregado (cantidad=1)
+        for (const sid of v.serialIds) {
+          await client.query(
+            `INSERT INTO inv_salidas_detalle (salida_id, producto_id, cantidad, serial_id) VALUES ($1, $2, 1, $3)`,
+            [salidaId, v.id, sid]
+          );
+          await client.query(
+            `UPDATE inv_seriales SET estado='entregado', salida_id=$1 WHERE id=$2`,
+            [salidaId, sid]
+          );
+        }
+      } else {
+        // Sin seriales: una sola fila con la cantidad total
+        await client.query(
+          `INSERT INTO inv_salidas_detalle (salida_id, producto_id, cantidad) VALUES ($1, $2, $3)`,
+          [salidaId, v.id, v.cantidadSalida]
+        );
+      }
       await client.query("UPDATE inv_productos SET stock_actual = stock_actual - $1 WHERE id = $2",
         [v.cantidadSalida, v.id]);
     }

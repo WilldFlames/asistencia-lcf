@@ -2157,9 +2157,19 @@ tr:hover td{background:#f8fafc;}
           </div>
           <div class="fg" style="width:110px;margin:0;">
             <label>Cantidad a sacar</label>
-            <input type="number" id="inv-sal-cantidad" min="1" value="1"/>
+            <input type="number" id="inv-sal-cantidad" min="1" value="1" onchange="invSalAjustarSelectSeriales()"/>
           </div>
           <button class="btn btn-primary" onclick="invSalAgregarItem()">+ Agregar</button>
+        </div>
+        <!-- Bloque que aparece solo si el producto seleccionado tiene seriales disponibles -->
+        <div id="inv-sal-bloque-seriales" style="display:none;margin-top:10px;background:#f0f9ff;border-left:3px solid #0891b2;padding:10px 12px;border-radius:6px;">
+          <label style="display:block;font-weight:bold;font-size:12px;color:#0c4a6e;margin-bottom:6px;">
+            🔢 Este producto tiene número(s) de serie. Elegí cuál(es) entregar:
+          </label>
+          <select id="inv-sal-seriales" multiple size="5" onchange="invSalAjustarSelectSeriales()" style="width:100%;font-family:monospace;font-size:12px;"></select>
+          <small style="color:var(--muted);font-size:11px;display:block;margin-top:4px;">
+            Mantené Ctrl/Cmd para seleccionar varios. <span id="inv-sal-serial-count" style="font-weight:bold;"></span>
+          </small>
         </div>
       </div>
       <div id="inv-sal-items" style="margin-bottom:10px;">
@@ -2218,6 +2228,19 @@ tr:hover td{background:#f8fafc;}
         <div class="fg" style="grid-column:1/-1;">
           <label>Observaciones (opcional)</label>
           <textarea id="inv-ent-obs" rows="2"></textarea>
+        </div>
+        <div class="fg" style="grid-column:1/-1;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+            <input type="checkbox" id="inv-ent-tieneserial" onchange="invEntToggleSerial()"/>
+            <strong>¿Las unidades nuevas tienen número de serie?</strong>
+          </label>
+        </div>
+        <div id="inv-ent-bloque-seriales" class="fg" style="grid-column:1/-1;display:none;background:#f0f9ff;border-left:3px solid #0891b2;padding:10px 12px;border-radius:6px;">
+          <label>Números de serie (uno por línea)</label>
+          <textarea id="inv-ent-seriales" rows="4" placeholder="Ej:&#10;HP-ABC123&#10;HP-ABC124" style="font-family:monospace;font-size:12px;"></textarea>
+          <small style="color:var(--muted);font-size:11px;display:block;margin-top:4px;">
+            La cantidad de seriales debe coincidir con la cantidad que entra. <span id="inv-ent-serial-count" style="font-weight:bold;"></span>
+          </small>
         </div>
       </div>
       <div style="margin-top:12px;text-align:right;">
@@ -2293,6 +2316,20 @@ tr:hover td{background:#f8fafc;}
       <div class="fg" style="grid-column:1/-1;">
         <label>Stock mínimo (alerta cuando baja de este nivel)</label>
         <input type="number" id="inv-prod-min" min="0" value="0"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:10px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+          <input type="checkbox" id="inv-prod-tieneserial" onchange="invProdToggleSerial()"/>
+          <strong>¿Tiene número(s) de serie?</strong>
+          <span style="color:var(--muted);font-size:11px;">(opcional — útil para equipos como impresoras, computadoras, etc.)</span>
+        </label>
+      </div>
+      <div id="inv-prod-bloque-seriales" class="fg" style="grid-column:1/-1;display:none;background:#f0f9ff;border-left:3px solid #0891b2;padding:10px 12px;border-radius:6px;">
+        <label>Números de serie (uno por línea)</label>
+        <textarea id="inv-prod-seriales" rows="4" placeholder="Ej:&#10;HP-ABC123&#10;HP-ABC124&#10;HP-ABC125" style="font-family:monospace;font-size:12px;"></textarea>
+        <small style="color:var(--muted);font-size:11px;display:block;margin-top:4px;">
+          La cantidad de seriales debe coincidir con "Unidades a registrar". <span id="inv-prod-serial-count" style="font-weight:bold;"></span>
+        </small>
       </div>
     </div>
     <div class="modal-actions">
@@ -8430,11 +8467,18 @@ function invSalCatCambio(){
   document.getElementById('inv-sal-stock-info').textContent = '';
 }
 
-function invSalProdCambio(){
+async function invSalProdCambio(){
   const sel = document.getElementById('inv-sal-prod');
   const opt = sel.options[sel.selectedIndex];
   const info = document.getElementById('inv-sal-stock-info');
-  if(!sel.value || !opt){ info.textContent = ''; return; }
+  const bloqueSer = document.getElementById('inv-sal-bloque-seriales');
+  const selSer = document.getElementById('inv-sal-seriales');
+  if(!sel.value || !opt){
+    info.textContent = '';
+    bloqueSer.style.display = 'none';
+    selSer.innerHTML = '';
+    return;
+  }
   const stock = parseInt(opt.dataset.stock, 10);
   const unidad = opt.dataset.unidad || '';
   info.innerHTML = `<strong>Disponible:</strong> ${stock} ${unidad}`;
@@ -8442,6 +8486,46 @@ function invSalProdCambio(){
   const inpCant = document.getElementById('inv-sal-cantidad');
   inpCant.max = stock;
   if(parseInt(inpCant.value, 10) > stock) inpCant.value = stock;
+
+  // Consultar si este producto tiene seriales disponibles.
+  // Si los tiene → mostrar bloque para que la junta elija cuál(es) entregar.
+  // Si no → ocultar bloque (producto sin serie, funciona como antes).
+  try {
+    const prod = invProductos.find(p => p.codigo === sel.value);
+    if(!prod){ bloqueSer.style.display = 'none'; selSer.innerHTML = ''; return; }
+    const seriales = await api(`/api/inventario/productos/${prod.id}/seriales-disponibles`) || [];
+    if(!seriales.length){
+      bloqueSer.style.display = 'none';
+      selSer.innerHTML = '';
+    } else {
+      bloqueSer.style.display = '';
+      selSer.innerHTML = seriales.map(s =>
+        `<option value="${s.id}">${s.serial}${s.notas ? ' — ' + s.notas : ''}</option>`
+      ).join('');
+      invSalAjustarSelectSeriales();
+    }
+  } catch(e) {
+    bloqueSer.style.display = 'none';
+    selSer.innerHTML = '';
+  }
+}
+
+// Actualiza el contador del select multiple y valida que la cantidad
+// seleccionada coincida con la cantidad a sacar.
+function invSalAjustarSelectSeriales(){
+  const bloque = document.getElementById('inv-sal-bloque-seriales');
+  if(!bloque || bloque.style.display === 'none') return;
+  const selSer = document.getElementById('inv-sal-seriales');
+  const counter = document.getElementById('inv-sal-serial-count');
+  const cantidad = parseInt(document.getElementById('inv-sal-cantidad').value, 10) || 0;
+  const seleccionados = selSer.selectedOptions.length;
+  if(seleccionados === cantidad){
+    counter.style.color = '#16a34a';
+    counter.textContent = `✓ Elegidos: ${seleccionados} de ${cantidad}`;
+  } else {
+    counter.style.color = '#dc2626';
+    counter.textContent = `Elegidos: ${seleccionados} de ${cantidad} — falta(n) ${cantidad-seleccionados>0?cantidad-seleccionados:0}`;
+  }
 }
 
 function invSalAgregarItem(){
@@ -8454,8 +8538,27 @@ function invSalAgregarItem(){
   const prod = invProductos.find(p => p.codigo === codigo);
   if(!prod){ sa('alert-inv-sal','Producto no encontrado.','danger'); return; }
 
-  // Si ya está en el carrito, sumamos
+  // Si el producto tiene bloque de seriales visible, validar que se eligieron exactamente "cantidad" seriales
+  const bloqueSer = document.getElementById('inv-sal-bloque-seriales');
+  const selSer = document.getElementById('inv-sal-seriales');
+  let serialIds = [];
+  let serialLabels = [];
+  if(bloqueSer && bloqueSer.style.display !== 'none'){
+    const seleccionados = [...selSer.selectedOptions];
+    if(seleccionados.length !== cantidad){
+      sa('alert-inv-sal',`Tenés que elegir exactamente ${cantidad} número(s) de serie (elegidos: ${seleccionados.length}).`,'danger');
+      return;
+    }
+    serialIds = seleccionados.map(o => +o.value);
+    serialLabels = seleccionados.map(o => o.textContent);
+  }
+
+  // Si ya está en el carrito, sumamos (pero NO si tiene seriales — c/serial es único)
   const existente = invSalItems.find(i => i.codigo === codigo);
+  if(existente && (existente.serial_ids?.length || serialIds.length)){
+    sa('alert-inv-sal','Este producto ya está en el carrito con número(s) de serie. Quitalo primero si querés reemplazarlo.','danger');
+    return;
+  }
   const nuevaCantidad = existente ? existente.cantidad + cantidad : cantidad;
   if(nuevaCantidad > prod.stock_actual){
     sa('alert-inv-sal',`Stock insuficiente. Disponible: ${prod.stock_actual} ${prod.unidad}`,'danger');
@@ -8464,7 +8567,11 @@ function invSalAgregarItem(){
   if(existente){
     existente.cantidad = nuevaCantidad;
   } else {
-    invSalItems.push({ codigo, nombre: prod.nombre, unidad: prod.unidad, stock: prod.stock_actual, cantidad });
+    invSalItems.push({
+      codigo, nombre: prod.nombre, unidad: prod.unidad,
+      stock: prod.stock_actual, cantidad,
+      serial_ids: serialIds, serial_labels: serialLabels,
+    });
   }
 
   // Refrescar selects para reflejar el nuevo "disponible" descontado del carrito.
@@ -8485,13 +8592,19 @@ function invSalRenderItems(){
     return;
   }
   wrap.innerHTML = `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-    ${invSalItems.map((it, i) => `<div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;font-size:13px;">
-      <div><strong>${it.codigo}</strong> · ${it.nombre}</div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span><strong>${it.cantidad}</strong> ${it.unidad}</span>
-        <button class="btn btn-danger btn-xs" onclick="invSalQuitarItem(${i})">✕</button>
-      </div>
-    </div>`).join('')}
+    ${invSalItems.map((it, i) => {
+      const tieneSer = it.serial_labels && it.serial_labels.length;
+      return `<div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><strong>${it.codigo}</strong> · ${it.nombre}</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span><strong>${it.cantidad}</strong> ${it.unidad}</span>
+            <button class="btn btn-danger btn-xs" onclick="invSalQuitarItem(${i})">✕</button>
+          </div>
+        </div>
+        ${tieneSer ? `<div style="margin-top:4px;font-size:11px;color:#0c4a6e;font-family:monospace;">🔢 ${it.serial_labels.join(' · ')}</div>` : ''}
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
@@ -8513,7 +8626,11 @@ async function invSalGuardar(){
     usuario_retira: usuarioRetira,
     departamento: document.getElementById('inv-sal-depto').value.trim(),
     motivo: document.getElementById('inv-sal-motivo').value.trim(),
-    items: invSalItems.map(i => ({ codigo: i.codigo, cantidad: i.cantidad })),
+    items: invSalItems.map(i => ({
+      codigo: i.codigo,
+      cantidad: i.cantidad,
+      serial_ids: i.serial_ids || [],
+    })),
   };
   try {
     const r = await api('/api/inventario/salidas','POST', payload);
@@ -8545,7 +8662,7 @@ async function invCargarHistorial(){
         ${s.departamento ? `<div style="font-size:12px;color:var(--muted);">Depto: ${s.departamento}</div>` : ''}
         ${s.motivo ? `<div style="font-size:12px;color:#374151;margin-top:4px;font-style:italic;">"${s.motivo}"</div>` : ''}
         <div style="margin-top:6px;font-size:12px;background:#f8fafc;padding:6px 10px;border-radius:5px;">
-          ${s.detalle.map(d => `<div>${d.cantidad}× <strong>${d.codigo}</strong> — ${d.nombre} (${d.unidad})</div>`).join('')}
+          ${s.detalle.map(d => `<div>${d.cantidad}× <strong>${d.codigo}</strong> — ${d.nombre} (${d.unidad})${d.serial ? ` <span style="color:#0c4a6e;font-family:monospace;">🔢 ${d.serial}</span>` : ''}</div>`).join('')}
         </div>
         ${reg ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;">Registró: ${reg}</div>` : ''}
       </div>`;
@@ -8584,6 +8701,30 @@ async function invProdCargar(){
   } catch(e){ console.error('Productos inv:', e); }
 }
 
+// Helper: parsea seriales del textarea (uno por línea, sin vacíos)
+function _invParseSeriales(textarea){
+  return (textarea.value||'').split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+// Mostrar/ocultar bloque de seriales en modal de producto
+function invProdToggleSerial(){
+  const cb = document.getElementById('inv-prod-tieneserial');
+  document.getElementById('inv-prod-bloque-seriales').style.display = cb.checked ? '' : 'none';
+  invProdActualizarContadorSerial();
+}
+
+// Mostrar la cuenta de "X de Y" para que el usuario sepa cuántos faltan
+function invProdActualizarContadorSerial(){
+  const txt = document.getElementById('inv-prod-seriales');
+  const stockEl = document.getElementById('inv-prod-stock');
+  const counter = document.getElementById('inv-prod-serial-count');
+  if(!txt || !stockEl || !counter) return;
+  const stock = parseInt(stockEl.value, 10) || 0;
+  const cant = _invParseSeriales(txt).length;
+  counter.textContent = `Llevás ${cant} de ${stock}.`;
+  counter.style.color = (cant === stock && stock > 0) ? '#16a34a' : (cant > stock ? '#dc2626' : 'var(--muted)');
+}
+
 function invProdNuevo(){
   document.getElementById('inv-prod-modal-titulo').textContent = '+ Nuevo Producto';
   document.getElementById('inv-prod-id').value = '';
@@ -8595,6 +8736,11 @@ function invProdNuevo(){
   document.getElementById('inv-prod-unidad').value = 'Unidad';
   document.getElementById('inv-prod-stock').value = 0;
   document.getElementById('inv-prod-min').value = 0;
+  document.getElementById('inv-prod-tieneserial').checked = false;
+  document.getElementById('inv-prod-seriales').value = '';
+  document.getElementById('inv-prod-bloque-seriales').style.display = 'none';
+  document.getElementById('inv-prod-stock').oninput = invProdActualizarContadorSerial;
+  document.getElementById('inv-prod-seriales').oninput = invProdActualizarContadorSerial;
   document.getElementById('alert-inv-prod').className = 'alert';
   document.getElementById('modal-inv-prod').classList.add('show');
 }
@@ -8621,6 +8767,33 @@ async function invProdEditar(id){
     document.getElementById('inv-prod-unidad').value = p.unidad||'Unidad';
     document.getElementById('inv-prod-stock').value = p.stock_actual;
     document.getElementById('inv-prod-min').value = p.stock_minimo||0;
+    // Mostrar seriales existentes (si los tiene)
+    const seriales = p.seriales || [];
+    const cbSerial = document.getElementById('inv-prod-tieneserial');
+    const txtSerial = document.getElementById('inv-prod-seriales');
+    if(seriales.length){
+      // Listar todos los seriales con su estado (los entregados se ven distintos)
+      const disponibles = seriales.filter(s => s.estado === 'disponible');
+      const entregados = seriales.filter(s => s.estado === 'entregado');
+      let info = `<div style="background:#f0f9ff;border-left:3px solid #0891b2;padding:10px 12px;border-radius:6px;font-size:12px;margin-top:6px;">
+        <strong>📋 Seriales registrados (no editables al editar):</strong>
+        <div style="margin-top:6px;max-height:120px;overflow-y:auto;">
+          ${disponibles.map(s => `<div>✅ ${s.serial} <span style="color:var(--muted);">— disponible</span></div>`).join('')}
+          ${entregados.map(s => `<div>📤 ${s.serial} <span style="color:var(--muted);">— entregado${s.salida_persona?` a ${s.salida_persona}`:''}</span></div>`).join('')}
+        </div>
+      </div>`;
+      // Reemplazamos el bloque del textarea por la lista informativa
+      const bloque = document.getElementById('inv-prod-bloque-seriales');
+      bloque.innerHTML = info;
+      bloque.style.display = '';
+      cbSerial.checked = true;
+      cbSerial.disabled = true;
+    } else {
+      cbSerial.checked = false;
+      cbSerial.disabled = true; // no se pueden agregar seriales al editar; usá Entrada para sumar
+      // Restaurar contenido original del bloque por si fue reemplazado
+      document.getElementById('inv-prod-bloque-seriales').style.display = 'none';
+    }
     document.getElementById('alert-inv-prod').className = 'alert';
     document.getElementById('modal-inv-prod').classList.add('show');
   } catch(e){ alert(e.message); }
@@ -8628,15 +8801,26 @@ async function invProdEditar(id){
 
 async function invProdGuardar(){
   const id = document.getElementById('inv-prod-id').value;
+  const stockActual = parseInt(document.getElementById('inv-prod-stock').value, 10) || 0;
   const data = {
     codigo: document.getElementById('inv-prod-codigo').value.trim().toUpperCase(),
     nombre: document.getElementById('inv-prod-nombre').value.trim(),
     descripcion: document.getElementById('inv-prod-desc').value.trim(),
     categoria: document.getElementById('inv-prod-categoria').value.trim() || 'Mobiliario',
     unidad: document.getElementById('inv-prod-unidad').value.trim() || 'Unidad',
-    stock_actual: parseInt(document.getElementById('inv-prod-stock').value, 10) || 0,
+    stock_actual: stockActual,
     stock_minimo: parseInt(document.getElementById('inv-prod-min').value, 10) || 0,
   };
+  // Si tiene seriales marcados y es creación (no edit), los enviamos
+  const cbSerial = document.getElementById('inv-prod-tieneserial');
+  if(!id && cbSerial && cbSerial.checked){
+    const seriales = _invParseSeriales(document.getElementById('inv-prod-seriales'));
+    if(seriales.length !== stockActual){
+      sa('alert-inv-prod', `La cantidad de seriales (${seriales.length}) debe coincidir con "Unidades a registrar" (${stockActual}).`, 'danger');
+      return;
+    }
+    data.seriales = seriales;
+  }
   if(!data.codigo || !data.nombre){ sa('alert-inv-prod','Código y nombre son requeridos.','danger'); return; }
   try {
     if(id){
@@ -8669,6 +8853,12 @@ async function invEntCargar(){
     prods.map(p => `<option value="${p.id}">${p.codigo} — ${p.nombre} (${p.stock_actual} ${p.unidad})</option>`).join('');
   // Fecha por defecto hoy
   document.getElementById('inv-ent-fecha').value = new Date().toISOString().slice(0,10);
+  // Reset campos de seriales
+  document.getElementById('inv-ent-tieneserial').checked = false;
+  document.getElementById('inv-ent-seriales').value = '';
+  document.getElementById('inv-ent-bloque-seriales').style.display = 'none';
+  document.getElementById('inv-ent-cantidad').oninput = invEntActualizarContadorSerial;
+  document.getElementById('inv-ent-seriales').oninput = invEntActualizarContadorSerial;
   // Cargar últimas entradas
   try {
     const rows = await api('/api/inventario/entradas') || [];
@@ -8688,10 +8878,34 @@ async function invEntCargar(){
   } catch(e){ console.error('Entradas inv:', e); }
 }
 
+// Mostrar/ocultar el bloque de seriales en entradas
+function invEntToggleSerial(){
+  const cb = document.getElementById('inv-ent-tieneserial');
+  const bloque = document.getElementById('inv-ent-bloque-seriales');
+  bloque.style.display = cb.checked ? '' : 'none';
+  if(!cb.checked){
+    document.getElementById('inv-ent-seriales').value = '';
+  }
+  invEntActualizarContadorSerial();
+}
+
+// Contador "X de Y" para entradas
+function invEntActualizarContadorSerial(){
+  const txt = document.getElementById('inv-ent-seriales');
+  const cantEl = document.getElementById('inv-ent-cantidad');
+  const counter = document.getElementById('inv-ent-serial-count');
+  if(!txt || !cantEl || !counter) return;
+  const cantidad = parseInt(cantEl.value, 10) || 0;
+  const seriales = _invParseSeriales(txt).length;
+  counter.textContent = `Llevás ${seriales} de ${cantidad}.`;
+  counter.style.color = (seriales === cantidad && cantidad > 0) ? '#16a34a' : (seriales > cantidad ? '#dc2626' : 'var(--muted)');
+}
+
 async function invEntGuardar(){
+  const cantidad = parseInt(document.getElementById('inv-ent-cantidad').value, 10);
   const data = {
     producto_id: parseInt(document.getElementById('inv-ent-prod').value, 10),
-    cantidad: parseInt(document.getElementById('inv-ent-cantidad').value, 10),
+    cantidad,
     proveedor: document.getElementById('inv-ent-proveedor').value.trim(),
     observaciones: document.getElementById('inv-ent-obs').value.trim(),
     fecha: document.getElementById('inv-ent-fecha').value,
@@ -8699,12 +8913,26 @@ async function invEntGuardar(){
   if(!data.producto_id || !data.cantidad || data.cantidad < 1){
     sa('alert-inv-ent','Producto y cantidad válida son requeridos.','danger'); return;
   }
+  // Si marcó seriales, validamos y los enviamos
+  const cbSerial = document.getElementById('inv-ent-tieneserial');
+  if(cbSerial && cbSerial.checked){
+    const seriales = _invParseSeriales(document.getElementById('inv-ent-seriales'));
+    if(seriales.length !== cantidad){
+      sa('alert-inv-ent', `La cantidad de seriales (${seriales.length}) debe coincidir con las unidades que entran (${cantidad}).`, 'danger');
+      return;
+    }
+    data.seriales = seriales;
+  }
   try {
-    await api('/api/inventario/entradas','POST', data);
-    sa('alert-inv-ent',`✅ Entrada registrada: +${data.cantidad} unidades.`,'success');
+    const r = await api('/api/inventario/entradas','POST', data);
+    const extra = r.seriales_creados ? ` (${r.seriales_creados} con serial)` : '';
+    sa('alert-inv-ent',`✅ Entrada registrada: +${data.cantidad} unidades${extra}.`,'success');
     document.getElementById('inv-ent-cantidad').value = 1;
     document.getElementById('inv-ent-proveedor').value = '';
     document.getElementById('inv-ent-obs').value = '';
+    document.getElementById('inv-ent-tieneserial').checked = false;
+    document.getElementById('inv-ent-seriales').value = '';
+    document.getElementById('inv-ent-bloque-seriales').style.display = 'none';
     await invEntCargar();
     await invCargarProductosCache();
   } catch(e){ sa('alert-inv-ent', e.message, 'danger'); }

@@ -1042,6 +1042,31 @@ async function initDB() {
       `);
       console.log("✅ Inventario: tabla inv_salidas_detalle lista");
 
+      // Migración aditiva: columna serial_id en detalle de salidas (opcional).
+      // Cuando una salida lleva un serial específico, queda enlazado para ver
+      // en el historial qué serie físicamente se entregó.
+      await client.query(`ALTER TABLE inv_salidas_detalle ADD COLUMN IF NOT EXISTS serial_id INTEGER`);
+
+      // ── inv_seriales: registro individual de cada unidad serializada ──
+      // Un producto puede tener 0..N seriales. El campo es opcional —
+      // productos como "lapiceros" no necesitan, pero "impresoras" sí.
+      // estado: 'disponible' (en bodega) / 'entregado' (salió, link a salida).
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS inv_seriales (
+          id           SERIAL PRIMARY KEY,
+          producto_id  INTEGER NOT NULL REFERENCES inv_productos(id) ON DELETE CASCADE,
+          serial       TEXT NOT NULL,
+          notas        TEXT DEFAULT '',
+          estado       TEXT NOT NULL DEFAULT 'disponible' CHECK(estado IN ('disponible','entregado')),
+          entrada_id   INTEGER REFERENCES inv_entradas(id) ON DELETE SET NULL,
+          salida_id    INTEGER REFERENCES inv_salidas(id) ON DELETE SET NULL,
+          created_at   TIMESTAMP DEFAULT NOW(),
+          UNIQUE(producto_id, serial)
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_inv_seriales_prod ON inv_seriales(producto_id, estado)`);
+      console.log("✅ Inventario: tabla inv_seriales lista");
+
       await client.query(`
         CREATE TABLE IF NOT EXISTS inv_config (
           clave TEXT PRIMARY KEY,
