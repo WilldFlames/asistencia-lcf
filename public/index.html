@@ -3495,8 +3495,8 @@ async function iniciarApp(){
   }
 
   // ── INVENTARIO ──────────────────────────────────────────────────
-  // Solo la Junta Administrativa ve este módulo. Nadie más.
-  if(ME.rol === "junta"){
+  // Solo Junta Administrativa y Administrador del sistema.
+  if(ME.rol === "junta" || ME.rol === "admin"){
     document.getElementById("nav-inventario").style.display="";
   }
 
