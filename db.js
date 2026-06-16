@@ -313,7 +313,7 @@ async function initDB() {
     // Ampliar constraint de rol para incluir todos los roles
     try {
       await client.query(`ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check`);
-      await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo'))`);
+      await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo','junta'))`);
     } catch(e) { /* ya existe con los valores correctos */ }
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS num_boleta TEXT DEFAULT ''`);
     // ── PREMATRÍCULA ─────────────────────────────────────────────────────
@@ -975,6 +975,93 @@ async function initDB() {
     } catch (errCAT) {
       console.error("⚠️ Error sembrando catálogo REAC:", errCAT.message);
       // No re-lanzo: el sistema sigue funcionando aunque no haya catálogo
+    }
+
+
+    // ── MÓDULO DE INVENTARIO ──────────────────────────────────────────────
+    // Sistema de control de inventarios para la Junta Administrativa.
+    // - inv_productos: catálogo (código único, stock actual, stock mínimo)
+    // - inv_entradas: registros de ingreso (suma al stock)
+    // - inv_salidas: encabezado con persona que retira (referencia a usuarios)
+    // - inv_salidas_detalle: cada producto retirado en esa salida
+    // - inv_config: configuración (nombre de encargado, etc)
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS inv_productos (
+          id            SERIAL PRIMARY KEY,
+          codigo        TEXT UNIQUE NOT NULL,
+          nombre        TEXT NOT NULL,
+          descripcion   TEXT DEFAULT '',
+          categoria     TEXT DEFAULT 'General',
+          unidad        TEXT DEFAULT 'Unidad',
+          stock_actual  INTEGER NOT NULL DEFAULT 0,
+          stock_minimo  INTEGER NOT NULL DEFAULT 0,
+          activo        BOOLEAN DEFAULT true,
+          created_at    TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log("✅ Inventario: tabla inv_productos lista");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS inv_entradas (
+          id            SERIAL PRIMARY KEY,
+          producto_id   INTEGER NOT NULL REFERENCES inv_productos(id),
+          cantidad      INTEGER NOT NULL CHECK(cantidad > 0),
+          proveedor     TEXT DEFAULT '',
+          observaciones TEXT DEFAULT '',
+          registrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          fecha         DATE DEFAULT CURRENT_DATE,
+          created_at    TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log("✅ Inventario: tabla inv_entradas lista");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS inv_salidas (
+          id              SERIAL PRIMARY KEY,
+          usuario_retira  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          persona_nombre  TEXT NOT NULL,
+          persona_cedula  TEXT DEFAULT '',
+          departamento    TEXT DEFAULT '',
+          motivo          TEXT DEFAULT '',
+          fecha           DATE NOT NULL,
+          hora            TEXT NOT NULL,
+          registrado_por  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          created_at      TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log("✅ Inventario: tabla inv_salidas lista");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS inv_salidas_detalle (
+          id          SERIAL PRIMARY KEY,
+          salida_id   INTEGER NOT NULL REFERENCES inv_salidas(id) ON DELETE CASCADE,
+          producto_id INTEGER NOT NULL REFERENCES inv_productos(id),
+          cantidad    INTEGER NOT NULL CHECK(cantidad > 0)
+        )
+      `);
+      console.log("✅ Inventario: tabla inv_salidas_detalle lista");
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS inv_config (
+          clave TEXT PRIMARY KEY,
+          valor TEXT NOT NULL
+        )
+      `);
+      // Sembrar config inicial si no existe
+      await client.query(`
+        INSERT INTO inv_config (clave, valor)
+        VALUES ('encargado_entradas', 'Encargado de Bodega')
+        ON CONFLICT (clave) DO NOTHING
+      `);
+      console.log("✅ Inventario: tabla inv_config lista");
+
+      console.log("✅ Tablas de Inventario listas");
+    } catch (errINV) {
+      console.error("❌❌❌ ERROR CREANDO TABLAS INVENTARIO ❌❌❌");
+      console.error("   Código:", errINV.code);
+      console.error("   Mensaje:", errINV.message);
+      throw errINV;
     }
 
 

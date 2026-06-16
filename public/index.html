@@ -377,6 +377,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="hibrida" id="nav-hibrida" onclick="goTo('hibrida')" style="display:none"><span class="icon">🏠</span><span>Ed. Híbrida</span></button>
   <button class="nav-btn" data-page="debidos" id="nav-debidos" onclick="goTo('debidos')" style="display:none"><span class="icon">⚖️</span><span>Debidos Procesos</span></button>
   <button class="nav-btn" data-page="protocolos" id="nav-protocolos" onclick="goTo('protocolos')" style="display:none"><span class="icon">🛡️</span><span>Protocolos</span></button>
+  <button class="nav-btn" data-page="inventario" id="nav-inventario" onclick="goTo('inventario')" style="display:none"><span class="icon">📦</span><span>Inventario</span></button>
 </nav>
 
 <div class="main-content">
@@ -2055,6 +2056,226 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     PÁGINA: INVENTARIO
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-inventario">
+  <h2>📦 Inventario</h2>
+
+  <!-- Tabs internas del módulo -->
+  <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);flex-wrap:wrap;" id="inv-tabs">
+    <button class="inv-tab" data-tab="dashboard" onclick="invTab('dashboard')" style="padding:8px 16px;background:var(--azul);color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:bold;">🏠 Dashboard</button>
+    <button class="inv-tab" data-tab="salidas-nueva" onclick="invTab('salidas-nueva')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📤 Registrar Salida</button>
+    <button class="inv-tab" data-tab="historial" onclick="invTab('historial')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📜 Historial</button>
+    <button class="inv-tab inv-junta-only" data-tab="productos" onclick="invTab('productos')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;display:none;">📋 Productos</button>
+    <button class="inv-tab inv-junta-only" data-tab="entradas" onclick="invTab('entradas')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;display:none;">📥 Registrar Entrada</button>
+    <button class="inv-tab inv-junta-only" data-tab="config" onclick="invTab('config')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;display:none;">⚙️ Config</button>
+  </div>
+
+  <!-- Sub-página: Dashboard -->
+  <div id="inv-page-dashboard" class="inv-page">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+        <div id="inv-stat-total" style="font-size:28px;font-weight:bold;color:#0f172a;">—</div>
+        <div style="font-size:11px;color:var(--muted);">Productos</div>
+      </div>
+      <div style="background:#fff;border:1px solid #fde047;border-left:4px solid #ca8a04;border-radius:8px;padding:14px;text-align:center;">
+        <div id="inv-stat-bajo" style="font-size:28px;font-weight:bold;color:#ca8a04;">—</div>
+        <div style="font-size:11px;color:var(--muted);">Bajo stock mínimo</div>
+      </div>
+      <div style="background:#fff;border:1px solid #fca5a5;border-left:4px solid #dc2626;border-radius:8px;padding:14px;text-align:center;">
+        <div id="inv-stat-sin" style="font-size:28px;font-weight:bold;color:#dc2626;">—</div>
+        <div style="font-size:11px;color:var(--muted);">Sin stock</div>
+      </div>
+      <div style="background:#fff;border:1px solid #86efac;border-left:4px solid #16a34a;border-radius:8px;padding:14px;text-align:center;">
+        <div id="inv-stat-entradas-hoy" style="font-size:28px;font-weight:bold;color:#16a34a;">—</div>
+        <div style="font-size:11px;color:var(--muted);">Entradas hoy</div>
+      </div>
+      <div style="background:#fff;border:1px solid #93c5fd;border-left:4px solid var(--azul);border-radius:8px;padding:14px;text-align:center;">
+        <div id="inv-stat-salidas-hoy" style="font-size:28px;font-weight:bold;color:var(--azul);">—</div>
+        <div style="font-size:11px;color:var(--muted);">Salidas hoy</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+      <h3 style="margin-top:0;color:#dc2626;">⚠️ Alertas de stock bajo</h3>
+      <div id="inv-alertas"><div style="color:var(--muted);font-size:13px;padding:6px;">Cargando...</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;">
+      <h3 style="margin-top:0;">📤 Últimas salidas</h3>
+      <div id="inv-ultimas-salidas"><div style="color:var(--muted);font-size:13px;padding:6px;">Cargando...</div></div>
+    </div>
+  </div>
+
+  <!-- Sub-página: Registrar Salida -->
+  <div id="inv-page-salidas-nueva" class="inv-page" style="display:none;">
+    <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;">
+      <h3 style="margin-top:0;">📤 Registrar nueva salida</h3>
+      <div id="alert-inv-sal" class="alert"></div>
+      <div class="form-grid">
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Persona que retira <span style="color:var(--rojo)">*</span></label>
+          <select id="inv-sal-usuario" style="width:100%;" onchange="invSalUsuarioCambio()">
+            <option value="">— Buscando usuarios... —</option>
+          </select>
+          <small style="color:var(--muted);font-size:11px;">La cédula y nombre completo se rellenan automáticamente.</small>
+        </div>
+        <div class="fg">
+          <label>Cédula</label>
+          <input type="text" id="inv-sal-cedula" readonly style="background:#f8fafc;"/>
+        </div>
+        <div class="fg">
+          <label>Departamento (opcional)</label>
+          <input type="text" id="inv-sal-depto" placeholder="Ej: Conserjería, Aula 7-1..."/>
+        </div>
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Motivo (opcional)</label>
+          <input type="text" id="inv-sal-motivo" placeholder="Para qué se usa lo retirado..."/>
+        </div>
+      </div>
+
+      <h4 style="margin-top:18px;margin-bottom:8px;">🛒 Productos a retirar</h4>
+      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+          <div class="fg" style="flex:2;min-width:200px;margin:0;">
+            <label>Producto (código o nombre)</label>
+            <input type="text" id="inv-sal-buscar" placeholder="Buscá por código o nombre..." oninput="invSalBuscar()" autocomplete="off"/>
+            <div id="inv-sal-resultados" style="position:relative;"></div>
+          </div>
+          <div class="fg" style="width:100px;margin:0;">
+            <label>Cantidad</label>
+            <input type="number" id="inv-sal-cantidad" min="1" value="1"/>
+          </div>
+          <input type="hidden" id="inv-sal-prod-id"/>
+          <input type="hidden" id="inv-sal-prod-codigo"/>
+          <button class="btn btn-primary" onclick="invSalAgregarItem()">+ Agregar</button>
+        </div>
+      </div>
+      <div id="inv-sal-items" style="margin-bottom:10px;">
+        <div style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Sin productos agregados aún.</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-outline" onclick="invSalLimpiar()">Limpiar</button>
+        <button class="btn btn-success" onclick="invSalGuardar()">💾 Registrar Salida</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-página: Historial de salidas -->
+  <div id="inv-page-historial" class="inv-page" style="display:none;">
+    <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;">
+      <h3 style="margin-top:0;">📜 Historial de salidas</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;" id="inv-hist-info"></p>
+      <div id="inv-historial-lista"></div>
+    </div>
+  </div>
+
+  <!-- Sub-página: Productos (solo junta/admin) -->
+  <div id="inv-page-productos" class="inv-page" style="display:none;">
+    <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <h3 style="margin:0;">📋 Catálogo de productos</h3>
+        <button class="btn btn-primary btn-sm" onclick="invProdNuevo()">+ Nuevo Producto</button>
+      </div>
+      <div style="margin-bottom:10px;"><input type="text" id="inv-prod-buscar" placeholder="🔍 Buscar..." oninput="invProdCargar()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;"/></div>
+      <div id="inv-prod-lista"></div>
+    </div>
+  </div>
+
+  <!-- Sub-página: Registrar Entrada (solo junta/admin) -->
+  <div id="inv-page-entradas" class="inv-page" style="display:none;">
+    <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;">
+      <h3 style="margin-top:0;">📥 Registrar entrada de stock</h3>
+      <div id="alert-inv-ent" class="alert"></div>
+      <div class="form-grid">
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Producto <span style="color:var(--rojo)">*</span></label>
+          <select id="inv-ent-prod" style="width:100%;"></select>
+        </div>
+        <div class="fg">
+          <label>Cantidad <span style="color:var(--rojo)">*</span></label>
+          <input type="number" id="inv-ent-cantidad" min="1" value="1"/>
+        </div>
+        <div class="fg">
+          <label>Fecha</label>
+          <input type="date" id="inv-ent-fecha"/>
+        </div>
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Proveedor (opcional)</label>
+          <input type="text" id="inv-ent-proveedor"/>
+        </div>
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Observaciones (opcional)</label>
+          <textarea id="inv-ent-obs" rows="2"></textarea>
+        </div>
+      </div>
+      <div style="margin-top:12px;text-align:right;">
+        <button class="btn btn-success" onclick="invEntGuardar()">💾 Registrar Entrada</button>
+      </div>
+      <hr style="margin:18px 0;border:0;border-top:1px solid var(--border);"/>
+      <h4>Últimas entradas</h4>
+      <div id="inv-ent-lista"></div>
+    </div>
+  </div>
+
+  <!-- Sub-página: Config (solo junta/admin) -->
+  <div id="inv-page-config" class="inv-page" style="display:none;">
+    <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;max-width:520px;">
+      <h3 style="margin-top:0;">⚙️ Configuración del inventario</h3>
+      <div id="alert-inv-cfg" class="alert"></div>
+      <div class="fg">
+        <label>Nombre del encargado de bodega (para entradas)</label>
+        <input type="text" id="inv-cfg-encargado"/>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary" onclick="invCfgGuardar()">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Producto (nuevo/editar) -->
+<div class="modal-overlay" id="modal-inv-prod">
+  <div class="modal" style="max-width:540px;">
+    <h3 id="inv-prod-modal-titulo">+ Nuevo Producto</h3>
+    <input type="hidden" id="inv-prod-id"/>
+    <div id="alert-inv-prod" class="alert"></div>
+    <div class="form-grid">
+      <div class="fg">
+        <label>Código <span style="color:var(--rojo)">*</span></label>
+        <input type="text" id="inv-prod-codigo" placeholder="Ej: A001" style="text-transform:uppercase;"/>
+      </div>
+      <div class="fg">
+        <label>Categoría</label>
+        <input type="text" id="inv-prod-categoria" placeholder="Ej: Aseo, Oficina..."/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Nombre <span style="color:var(--rojo)">*</span></label>
+        <input type="text" id="inv-prod-nombre"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Descripción</label>
+        <textarea id="inv-prod-desc" rows="2"></textarea>
+      </div>
+      <div class="fg">
+        <label>Unidad</label>
+        <input type="text" id="inv-prod-unidad" placeholder="Unidad, Kg, Litro..." value="Unidad"/>
+      </div>
+      <div class="fg">
+        <label>Stock inicial</label>
+        <input type="number" id="inv-prod-stock" min="0" value="0"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Stock mínimo (alerta cuando baja de este nivel)</label>
+        <input type="number" id="inv-prod-min" min="0" value="0"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-inv-prod')">Cancelar</button>
+      <button class="btn btn-primary" onclick="invProdGuardar()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Nuevo Protocolo -->
 <div class="modal-overlay" id="modal-nuevo-prot">
   <div class="modal" style="max-width:740px;">
@@ -2269,6 +2490,7 @@ tr:hover td{background:#f8fafc;}
           <option value="secretaria">Secretaria</option>
           <option value="administrativo">Administrativo</option>
           <option value="auxiliar">Auxiliar Administrativo</option>
+          <option value="junta">Junta Administrativa</option>
           <option value="admin">Administrador</option>
         </select>
       </div>
@@ -3006,7 +3228,7 @@ function detectarPeriodo(fechaStr) {
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
 const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
-const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo"};
+const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa"};
 const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof",cocinera:"b-orient",secretaria:"b-aux",administrativo:"b-prof"};
 
 // ════════════════════════════════════
@@ -3127,6 +3349,7 @@ function goTo(page){
   if(page==="hibrida")     iniciarMedidas('educacion_hibrida');
   if(page==="debidos")     iniciarDebidosProcesos();
   if(page==="protocolos")  iniciarProtocolos();
+  if(page==="inventario")  iniciarInventario();
   if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
   if(page==="archivo")      iniciarArchivo();
@@ -3269,6 +3492,38 @@ async function iniciarApp(){
   const rolesProtocolos = ["admin","auxiliar","administrativo","secretaria","profesor","profesor_guia","orientador"];
   if(rolesProtocolos.includes(ME.rol)){
     document.getElementById("nav-protocolos").style.display="";
+  }
+
+  // ── INVENTARIO ──────────────────────────────────────────────────
+  // Solo la Junta Administrativa ve este módulo. Nadie más.
+  if(ME.rol === "junta"){
+    document.getElementById("nav-inventario").style.display="";
+  }
+
+  // ── RESTRICCIONES PARA JUNTA ────────────────────────────────────
+  // El rol 'junta' SOLO ve Inventario. Cualquier otro nav que se haya
+  // habilitado arriba se oculta. Mantiene el botón Logout y nada más.
+  if(ME.rol === "junta"){
+    ['nav-asistencia','nav-calificaciones','nav-promedio','nav-conducta',
+     'nav-consulta','nav-mensajes','nav-estudiantes','nav-reportes','nav-cartas',
+     'nav-expediente','nav-comedor','nav-consecutivos','nav-constancia',
+     'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
+     'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos',
+     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = "none";
+    });
+    // También ocultar las secciones del menú lateral
+    ['sec-docente','sec-gestion','sec-admin'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = "none";
+    });
+    // Ocultar también el botón Dashboard del nav superior y la página
+    const navDash = document.querySelector('[data-page="dashboard"]');
+    if(navDash) navDash.style.display = "none";
+    // Saltar dashboard: ir directo a Inventario después de un tick
+    setTimeout(() => goTo('inventario'), 50);
   }
 
   // ── ADMIN ────────────────────────────────────────────────────
@@ -7975,6 +8230,423 @@ async function eliminarDP(id, numero, anio){
     await cargarDPPendientes();
   } catch(e){ alert('Error: ' + e.message); }
 }
+
+// ════════════════════════════════════════════════════════════════════
+//  INVENTARIO
+// ════════════════════════════════════════════════════════════════════
+const INV_ROLES_JUNTA = ['admin','junta'];
+let invUsuarios = [];     // cache de usuarios que pueden retirar
+let invProductos = [];    // cache de productos para búsqueda local
+let invSalItems = [];     // items del carrito de salida en proceso
+
+async function iniciarInventario(){
+  // Solo la junta entra aquí — mostrar todas las tabs y empezar en dashboard.
+  document.querySelectorAll('.inv-junta-only').forEach(el => { el.style.display = ''; });
+  // Cargar usuarios (para el select de "quién retira") y productos en background
+  invCargarUsuarios();
+  invCargarProductosCache();
+  invTab('dashboard');
+}
+
+function invTab(tab){
+  // Aplicar estilo activo a la tab
+  document.querySelectorAll('.inv-tab').forEach(b => {
+    if(b.dataset.tab === tab){
+      b.style.background = 'var(--azul)';
+      b.style.color = '#fff';
+      b.style.fontWeight = 'bold';
+    } else {
+      b.style.background = 'transparent';
+      b.style.color = 'var(--muted)';
+      b.style.fontWeight = 'normal';
+    }
+  });
+  // Mostrar la sub-página correspondiente
+  document.querySelectorAll('.inv-page').forEach(p => p.style.display = 'none');
+  const target = document.getElementById('inv-page-' + tab);
+  if(target) target.style.display = '';
+
+  // Cargar datos según tab
+  if(tab === 'dashboard')       invCargarDashboard();
+  if(tab === 'historial')       invCargarHistorial();
+  if(tab === 'productos')       invProdCargar();
+  if(tab === 'entradas')        invEntCargar();
+  if(tab === 'config')          invCfgCargar();
+  if(tab === 'salidas-nueva')   invSalReset();
+}
+
+// ── DASHBOARD ───────────────────────────────────────────────────────
+async function invCargarDashboard(){
+  try {
+    const d = await api('/api/inventario/dashboard');
+    document.getElementById('inv-stat-total').textContent = d.total_productos;
+    document.getElementById('inv-stat-bajo').textContent = d.bajo_stock;
+    document.getElementById('inv-stat-sin').textContent = d.sin_stock;
+    document.getElementById('inv-stat-entradas-hoy').textContent = d.entradas_hoy;
+    document.getElementById('inv-stat-salidas-hoy').textContent = d.salidas_hoy;
+
+    const alWrap = document.getElementById('inv-alertas');
+    if(!d.alertas.length){
+      alWrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:6px;">✅ Sin alertas. Stock OK.</div>';
+    } else {
+      alWrap.innerHTML = d.alertas.map(p => `<div style="padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px;display:flex;justify-content:space-between;">
+        <span><strong>${p.codigo}</strong> · ${p.nombre}</span>
+        <span style="color:#dc2626;font-weight:bold;">${p.stock_actual} / mín. ${p.stock_minimo} ${p.unidad}</span>
+      </div>`).join('');
+    }
+
+    const ulWrap = document.getElementById('inv-ultimas-salidas');
+    if(!d.ultimas_salidas.length){
+      ulWrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:6px;">Sin salidas registradas aún.</div>';
+    } else {
+      ulWrap.innerHTML = d.ultimas_salidas.map(s => `<div style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:13px;">
+        <div><strong>${s.persona_nombre}</strong> · ${s.fecha} ${s.hora||''}</div>
+        <div style="color:var(--muted);font-size:12px;margin-top:2px;">${s.detalle.map(d=>`${d.cantidad}× ${d.nombre}`).join(' · ')}</div>
+      </div>`).join('');
+    }
+  } catch(e){ console.error('Dashboard inventario:', e); }
+}
+
+// ── USUARIOS Y PRODUCTOS (cache) ─────────────────────────────────────
+async function invCargarUsuarios(){
+  try {
+    invUsuarios = await api('/api/inventario/usuarios-retiro') || [];
+    const sel = document.getElementById('inv-sal-usuario');
+    if(sel){
+      const opciones = invUsuarios.map(u => {
+        const nombre = `${u.primer_apellido||''} ${u.segundo_apellido||''} ${u.nombre||''}`.replace(/\s+/g,' ').trim();
+        return `<option value="${u.id}">${nombre} (${u.cedula||'sin céd.'})</option>`;
+      }).join('');
+      sel.innerHTML = '<option value="">— Seleccioná un usuario —</option>' + opciones;
+    }
+  } catch(e){ console.error('Usuarios inventario:', e); }
+}
+
+async function invCargarProductosCache(){
+  try {
+    invProductos = await api('/api/inventario/productos') || [];
+  } catch(e){ invProductos = []; }
+}
+
+// ── REGISTRAR SALIDA ─────────────────────────────────────────────────
+function invSalReset(){
+  invSalItems = [];
+  invSalRenderItems();
+  document.getElementById('inv-sal-usuario').value = '';
+  document.getElementById('inv-sal-cedula').value = '';
+  document.getElementById('inv-sal-depto').value = '';
+  document.getElementById('inv-sal-motivo').value = '';
+  document.getElementById('inv-sal-buscar').value = '';
+  document.getElementById('inv-sal-resultados').innerHTML = '';
+  document.getElementById('alert-inv-sal').className = 'alert';
+}
+
+function invSalUsuarioCambio(){
+  const uid = parseInt(document.getElementById('inv-sal-usuario').value, 10);
+  const u = invUsuarios.find(x => x.id === uid);
+  document.getElementById('inv-sal-cedula').value = u ? (u.cedula||'') : '';
+}
+
+function invSalBuscar(){
+  const q = document.getElementById('inv-sal-buscar').value.trim().toLowerCase();
+  const wrap = document.getElementById('inv-sal-resultados');
+  if(!q || q.length < 2){ wrap.innerHTML = ''; return; }
+  const matches = invProductos.filter(p =>
+    p.codigo.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q)
+  ).slice(0, 8);
+  if(!matches.length){
+    wrap.innerHTML = '<div style="position:absolute;top:2px;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;color:var(--muted);">Sin resultados</div>';
+    return;
+  }
+  wrap.innerHTML = `<div style="position:absolute;top:2px;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:6px;max-height:220px;overflow-y:auto;z-index:10;">
+    ${matches.map(p => `<div style="padding:7px 10px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:13px;" onclick='invSalSeleccionar(${p.id}, "${p.codigo}", "${p.nombre.replace(/"/g,'&quot;')}", ${p.stock_actual}, "${p.unidad}")'>
+      <strong>${p.codigo}</strong> · ${p.nombre}
+      <span style="color:var(--muted);font-size:11px;float:right;">Stock: ${p.stock_actual} ${p.unidad}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+function invSalSeleccionar(id, codigo, nombre, stock, unidad){
+  document.getElementById('inv-sal-prod-id').value = id;
+  document.getElementById('inv-sal-prod-codigo').value = codigo;
+  document.getElementById('inv-sal-buscar').value = `${codigo} — ${nombre}`;
+  document.getElementById('inv-sal-buscar').dataset.stock = stock;
+  document.getElementById('inv-sal-buscar').dataset.unidad = unidad;
+  document.getElementById('inv-sal-resultados').innerHTML = '';
+  document.getElementById('inv-sal-cantidad').focus();
+}
+
+function invSalAgregarItem(){
+  const codigo = document.getElementById('inv-sal-prod-codigo').value;
+  const cantidad = parseInt(document.getElementById('inv-sal-cantidad').value, 10);
+  if(!codigo){ sa('alert-inv-sal','Seleccioná un producto de la lista.','danger'); return; }
+  if(!cantidad || cantidad < 1){ sa('alert-inv-sal','Ingresá una cantidad válida.','danger'); return; }
+
+  const prod = invProductos.find(p => p.codigo === codigo);
+  if(!prod){ sa('alert-inv-sal','Producto no encontrado.','danger'); return; }
+
+  // Si ya está en el carrito, sumamos
+  const existente = invSalItems.find(i => i.codigo === codigo);
+  const nuevaCantidad = existente ? existente.cantidad + cantidad : cantidad;
+  if(nuevaCantidad > prod.stock_actual){
+    sa('alert-inv-sal',`Stock insuficiente. Disponible: ${prod.stock_actual} ${prod.unidad}`,'danger');
+    return;
+  }
+  if(existente){
+    existente.cantidad = nuevaCantidad;
+  } else {
+    invSalItems.push({ codigo, nombre: prod.nombre, unidad: prod.unidad, stock: prod.stock_actual, cantidad });
+  }
+
+  // Limpiar inputs
+  document.getElementById('inv-sal-buscar').value = '';
+  document.getElementById('inv-sal-prod-codigo').value = '';
+  document.getElementById('inv-sal-prod-id').value = '';
+  document.getElementById('inv-sal-cantidad').value = '1';
+  invSalRenderItems();
+  document.getElementById('alert-inv-sal').className = 'alert';
+}
+
+function invSalRenderItems(){
+  const wrap = document.getElementById('inv-sal-items');
+  if(!invSalItems.length){
+    wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:12px;">Sin productos agregados aún.</div>';
+    return;
+  }
+  wrap.innerHTML = `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+    ${invSalItems.map((it, i) => `<div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+      <div><strong>${it.codigo}</strong> · ${it.nombre}</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span><strong>${it.cantidad}</strong> ${it.unidad}</span>
+        <button class="btn btn-danger btn-xs" onclick="invSalQuitarItem(${i})">✕</button>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function invSalQuitarItem(i){
+  invSalItems.splice(i, 1);
+  invSalRenderItems();
+}
+
+function invSalLimpiar(){
+  if(invSalItems.length && !confirm('¿Limpiar el formulario? Se perderán los productos agregados.')) return;
+  invSalReset();
+}
+
+async function invSalGuardar(){
+  const usuarioRetira = parseInt(document.getElementById('inv-sal-usuario').value, 10);
+  if(!usuarioRetira){ sa('alert-inv-sal','Seleccioná la persona que retira.','danger'); return; }
+  if(!invSalItems.length){ sa('alert-inv-sal','Agregá al menos un producto.','danger'); return; }
+  const payload = {
+    usuario_retira: usuarioRetira,
+    departamento: document.getElementById('inv-sal-depto').value.trim(),
+    motivo: document.getElementById('inv-sal-motivo').value.trim(),
+    items: invSalItems.map(i => ({ codigo: i.codigo, cantidad: i.cantidad })),
+  };
+  try {
+    const r = await api('/api/inventario/salidas','POST', payload);
+    sa('alert-inv-sal',`✅ Salida registrada con ${r.productos} producto(s).`,'success');
+    invSalItems = [];
+    invSalReset();
+    await invCargarProductosCache(); // refrescar stock
+  } catch(e){ sa('alert-inv-sal', e.message, 'danger'); }
+}
+
+// ── HISTORIAL ────────────────────────────────────────────────────────
+async function invCargarHistorial(){
+  document.getElementById('inv-hist-info').textContent = 'Mostrando todas las salidas del sistema.';
+  try {
+    const rows = await api('/api/inventario/salidas') || [];
+    const wrap = document.getElementById('inv-historial-lista');
+    if(!rows.length){
+      wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px;text-align:center;">Sin salidas registradas.</div>';
+      return;
+    }
+    wrap.innerHTML = rows.map(s => {
+      const reg = `${s.reg_ap1||''} ${s.reg_ap2||''} ${s.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+      return `<div style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;">
+          <strong>${s.persona_nombre}</strong>
+          <span style="font-size:12px;color:var(--muted);">${s.fecha} · ${s.hora||''}</span>
+        </div>
+        ${s.persona_cedula ? `<div style="font-size:12px;color:var(--muted);">Cédula: ${s.persona_cedula}</div>` : ''}
+        ${s.departamento ? `<div style="font-size:12px;color:var(--muted);">Depto: ${s.departamento}</div>` : ''}
+        ${s.motivo ? `<div style="font-size:12px;color:#374151;margin-top:4px;font-style:italic;">"${s.motivo}"</div>` : ''}
+        <div style="margin-top:6px;font-size:12px;background:#f8fafc;padding:6px 10px;border-radius:5px;">
+          ${s.detalle.map(d => `<div>${d.cantidad}× <strong>${d.codigo}</strong> — ${d.nombre} (${d.unidad})</div>`).join('')}
+        </div>
+        ${reg ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;">Registró: ${reg}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e){ console.error('Historial inv:', e); }
+}
+
+// ── PRODUCTOS ────────────────────────────────────────────────────────
+async function invProdCargar(){
+  const q = document.getElementById('inv-prod-buscar').value.trim();
+  const url = q ? `/api/inventario/productos?q=${encodeURIComponent(q)}` : '/api/inventario/productos';
+  try {
+    const rows = await api(url) || [];
+    const wrap = document.getElementById('inv-prod-lista');
+    if(!rows.length){
+      wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px;text-align:center;">Sin productos.</div>';
+      return;
+    }
+    wrap.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th></th></tr></thead>
+      <tbody>${rows.map(p => {
+        const bajo = p.stock_minimo > 0 && p.stock_actual <= p.stock_minimo;
+        return `<tr style="${bajo?'background:#fef3c7;':''}">
+          <td><strong>${p.codigo}</strong></td>
+          <td>${p.nombre}</td>
+          <td>${p.categoria||'—'}</td>
+          <td>${p.stock_actual} ${p.unidad}</td>
+          <td>${p.stock_minimo||'—'}</td>
+          <td>
+            <button class="btn btn-outline btn-xs" onclick="invProdEditar(${p.id})">✏️</button>
+            <button class="btn btn-danger btn-xs" onclick="invProdEliminar(${p.id}, '${p.nombre.replace(/'/g,'\\\'')}')">🗑️</button>
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+  } catch(e){ console.error('Productos inv:', e); }
+}
+
+function invProdNuevo(){
+  document.getElementById('inv-prod-modal-titulo').textContent = '+ Nuevo Producto';
+  document.getElementById('inv-prod-id').value = '';
+  document.getElementById('inv-prod-codigo').value = '';
+  document.getElementById('inv-prod-codigo').readOnly = false;
+  document.getElementById('inv-prod-categoria').value = 'General';
+  document.getElementById('inv-prod-nombre').value = '';
+  document.getElementById('inv-prod-desc').value = '';
+  document.getElementById('inv-prod-unidad').value = 'Unidad';
+  document.getElementById('inv-prod-stock').value = 0;
+  document.getElementById('inv-prod-min').value = 0;
+  document.getElementById('alert-inv-prod').className = 'alert';
+  document.getElementById('modal-inv-prod').classList.add('show');
+}
+
+async function invProdEditar(id){
+  try {
+    const p = await api(`/api/inventario/productos/${id}`);
+    document.getElementById('inv-prod-modal-titulo').textContent = '✏️ Editar Producto';
+    document.getElementById('inv-prod-id').value = p.id;
+    document.getElementById('inv-prod-codigo').value = p.codigo;
+    document.getElementById('inv-prod-codigo').readOnly = true; // código no editable
+    document.getElementById('inv-prod-categoria').value = p.categoria||'';
+    document.getElementById('inv-prod-nombre').value = p.nombre||'';
+    document.getElementById('inv-prod-desc').value = p.descripcion||'';
+    document.getElementById('inv-prod-unidad').value = p.unidad||'Unidad';
+    document.getElementById('inv-prod-stock').value = p.stock_actual;
+    document.getElementById('inv-prod-min').value = p.stock_minimo||0;
+    document.getElementById('alert-inv-prod').className = 'alert';
+    document.getElementById('modal-inv-prod').classList.add('show');
+  } catch(e){ alert(e.message); }
+}
+
+async function invProdGuardar(){
+  const id = document.getElementById('inv-prod-id').value;
+  const data = {
+    codigo: document.getElementById('inv-prod-codigo').value.trim().toUpperCase(),
+    nombre: document.getElementById('inv-prod-nombre').value.trim(),
+    descripcion: document.getElementById('inv-prod-desc').value.trim(),
+    categoria: document.getElementById('inv-prod-categoria').value.trim() || 'General',
+    unidad: document.getElementById('inv-prod-unidad').value.trim() || 'Unidad',
+    stock_actual: parseInt(document.getElementById('inv-prod-stock').value, 10) || 0,
+    stock_minimo: parseInt(document.getElementById('inv-prod-min').value, 10) || 0,
+  };
+  if(!data.codigo || !data.nombre){ sa('alert-inv-prod','Código y nombre son requeridos.','danger'); return; }
+  try {
+    if(id){
+      await api(`/api/inventario/productos/${id}`,'PUT', data);
+    } else {
+      await api('/api/inventario/productos','POST', data);
+    }
+    cerrarModal('modal-inv-prod');
+    await invProdCargar();
+    await invCargarProductosCache();
+  } catch(e){ sa('alert-inv-prod', e.message, 'danger'); }
+}
+
+async function invProdEliminar(id, nombre){
+  if(!confirm(`¿Eliminar el producto "${nombre}"?\n\nSi tiene movimientos registrados, se desactivará en lugar de borrarse.`)) return;
+  try {
+    const r = await api(`/api/inventario/productos/${id}`,'DELETE');
+    if(r.mensaje) alert(r.mensaje);
+    await invProdCargar();
+    await invCargarProductosCache();
+  } catch(e){ alert(e.message); }
+}
+
+// ── ENTRADAS ────────────────────────────────────────────────────────
+async function invEntCargar(){
+  // Llenar select de productos
+  const prods = await api('/api/inventario/productos') || [];
+  const sel = document.getElementById('inv-ent-prod');
+  sel.innerHTML = '<option value="">— Seleccioná —</option>' +
+    prods.map(p => `<option value="${p.id}">${p.codigo} — ${p.nombre} (${p.stock_actual} ${p.unidad})</option>`).join('');
+  // Fecha por defecto hoy
+  document.getElementById('inv-ent-fecha').value = new Date().toISOString().slice(0,10);
+  // Cargar últimas entradas
+  try {
+    const rows = await api('/api/inventario/entradas') || [];
+    const wrap = document.getElementById('inv-ent-lista');
+    if(!rows.length){
+      wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px;">Sin entradas registradas.</div>';
+      return;
+    }
+    wrap.innerHTML = rows.slice(0, 30).map(e => {
+      const reg = `${e.reg_ap1||''} ${e.reg_ap2||''} ${e.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+      return `<div style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:13px;">
+        <strong>${e.codigo}</strong> · ${e.producto_nombre} — <strong style="color:#16a34a;">+${e.cantidad} ${e.unidad}</strong>
+        <span style="float:right;color:var(--muted);font-size:11px;">${(e.fecha||'').slice(0,10)} · ${reg}</span>
+        ${e.proveedor ? `<div style="font-size:11px;color:var(--muted);">Proveedor: ${e.proveedor}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e){ console.error('Entradas inv:', e); }
+}
+
+async function invEntGuardar(){
+  const data = {
+    producto_id: parseInt(document.getElementById('inv-ent-prod').value, 10),
+    cantidad: parseInt(document.getElementById('inv-ent-cantidad').value, 10),
+    proveedor: document.getElementById('inv-ent-proveedor').value.trim(),
+    observaciones: document.getElementById('inv-ent-obs').value.trim(),
+    fecha: document.getElementById('inv-ent-fecha').value,
+  };
+  if(!data.producto_id || !data.cantidad || data.cantidad < 1){
+    sa('alert-inv-ent','Producto y cantidad válida son requeridos.','danger'); return;
+  }
+  try {
+    await api('/api/inventario/entradas','POST', data);
+    sa('alert-inv-ent',`✅ Entrada registrada: +${data.cantidad} unidades.`,'success');
+    document.getElementById('inv-ent-cantidad').value = 1;
+    document.getElementById('inv-ent-proveedor').value = '';
+    document.getElementById('inv-ent-obs').value = '';
+    await invEntCargar();
+    await invCargarProductosCache();
+  } catch(e){ sa('alert-inv-ent', e.message, 'danger'); }
+}
+
+// ── CONFIG ──────────────────────────────────────────────────────────
+async function invCfgCargar(){
+  try {
+    const c = await api('/api/inventario/config') || {};
+    document.getElementById('inv-cfg-encargado').value = c.encargado_entradas || '';
+  } catch(e){ console.error('Config inv:', e); }
+}
+
+async function invCfgGuardar(){
+  const valor = document.getElementById('inv-cfg-encargado').value.trim();
+  if(!valor){ sa('alert-inv-cfg','El nombre del encargado es requerido.','danger'); return; }
+  try {
+    await api('/api/inventario/config/encargado_entradas','PUT', { valor });
+    sa('alert-inv-cfg','✅ Configuración guardada.','success');
+  } catch(e){ sa('alert-inv-cfg', e.message, 'danger'); }
+}
+
 
 // ════════════════════════════════════════════════════════════════════
 //  PROTOCOLOS (Pautas MEP)
