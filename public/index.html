@@ -8634,10 +8634,14 @@ async function invSalGuardar(){
   };
   try {
     const r = await api('/api/inventario/salidas','POST', payload);
-    sa('alert-inv-sal',`✅ Salida registrada con ${r.productos} producto(s).`,'success');
+    sa('alert-inv-sal',`✅ Salida registrada con ${r.productos} producto(s). N° SAL-${String(r.id).padStart(5,'0')}`,'success');
     invSalItems = [];
     await invCargarProductosCache(); // refrescar stock ANTES del reset
     invSalReset();
+    // Ofrecer imprimir comprobante inmediatamente
+    if(confirm('¿Imprimir la boleta de salida ahora para que el solicitante firme?')){
+      invImprimirSalida(r.id);
+    }
   } catch(e){ sa('alert-inv-sal', e.message, 'danger'); }
 }
 
@@ -8653,10 +8657,18 @@ async function invCargarHistorial(){
     }
     wrap.innerHTML = rows.map(s => {
       const reg = `${s.reg_ap1||''} ${s.reg_ap2||''} ${s.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+      // Botón eliminar solo para junta y admin (canInventario en backend lo valida también)
+      const puedeEliminar = ['junta','admin'].includes(ME.rol);
       return `<div style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;">
-          <strong>${s.persona_nombre}</strong>
-          <span style="font-size:12px;color:var(--muted);">${s.fecha} · ${s.hora||''}</span>
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;align-items:start;gap:8px;">
+          <div>
+            <strong>${s.persona_nombre}</strong>
+            <span style="font-size:12px;color:var(--muted);margin-left:6px;">${s.fecha} · ${s.hora||''}</span>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-outline btn-xs" onclick="invImprimirSalida(${s.id})" title="Imprimir comprobante">🖨️</button>
+            ${puedeEliminar ? `<button class="btn btn-danger btn-xs" onclick="invEliminarSalida(${s.id})" title="Eliminar">🗑️</button>` : ''}
+          </div>
         </div>
         ${s.persona_cedula ? `<div style="font-size:12px;color:var(--muted);">Cédula: ${s.persona_cedula}</div>` : ''}
         ${s.departamento ? `<div style="font-size:12px;color:var(--muted);">Depto: ${s.departamento}</div>` : ''}
@@ -8668,6 +8680,201 @@ async function invCargarHistorial(){
       </div>`;
     }).join('');
   } catch(e){ console.error('Historial inv:', e); }
+}
+
+// ── ELIMINAR SALIDA ──────────────────────────────────────────────────
+async function invEliminarSalida(id){
+  const justificacion = prompt(
+    `¿Eliminar esta salida?\n\nSe va a:\n  • Devolver el stock al producto\n  • Liberar los seriales (si los tenía)\n  • Borrar el registro permanentemente\n\nIngresá la justificación (obligatoria):`
+  );
+  if(justificacion === null) return; // canceló
+  if(!justificacion.trim()){ alert('La justificación es obligatoria.'); return; }
+  try {
+    const r = await api(`/api/inventario/salidas/${id}`, 'DELETE', { justificacion: justificacion.trim() });
+    alert(`✅ Salida eliminada. Stock devuelto a ${r.productos_devueltos} producto(s).`);
+    await invCargarProductosCache();
+    await invCargarHistorial();
+  } catch(e){ alert('Error: ' + e.message); }
+}
+
+// ── IMPRIMIR COMPROBANTE DE SALIDA ───────────────────────────────────
+// Genera un documento oficial en ventana nueva, listo para imprimir o
+// guardar como PDF (Ctrl+P → Guardar como PDF). Incluye encabezado del
+// centro, datos del solicitante, lista de productos con seriales,
+// y líneas de firma para quien retira y quien entrega.
+async function invImprimirSalida(id){
+  try {
+    const s = await api(`/api/inventario/salidas/${id}`);
+    if(!s){ alert('Salida no encontrada.'); return; }
+
+    // Obtener config del centro (mismos datos que usan otros documentos del sistema).
+    // Si falla por permisos o si no está configurado, usamos valores por defecto.
+    let cfg = {};
+    try { cfg = await api('/api/protocolos/config-centro') || {}; } catch(_){ cfg = {}; }
+    const nombreCentro    = cfg.nombre_centro    || 'Liceo de Calle Fallas';
+    const codCentro       = cfg.codigo_centro    || '';
+    const circuito        = cfg.circuito         || '';
+    const direccion       = cfg.direccion        || '';
+    const telefono        = cfg.telefono         || '';
+    const email           = cfg.email            || '';
+
+    const reg = `${s.reg_ap1||''} ${s.reg_ap2||''} ${s.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+    const retiraRol = s.retira_rol ? (RLBL[s.retira_rol] || s.retira_rol) : '';
+    const tituloRol = retiraRol ? ` — ${retiraRol}` : '';
+
+    // Formatear fecha legible
+    let fechaTxt = s.fecha || '';
+    try {
+      const [a,m,d] = (s.fecha||'').slice(0,10).split('-');
+      const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
+      if(a && m && d) fechaTxt = `${parseInt(d,10)} de ${meses[parseInt(m,10)-1]} de ${a}`;
+    } catch(_){}
+
+    // Construir tabla de productos
+    const filasProd = s.detalle.map((d, i) => `
+      <tr>
+        <td style="text-align:center;">${i+1}</td>
+        <td><strong>${d.codigo}</strong></td>
+        <td>${d.nombre}${d.descripcion ? `<br/><small style="color:#666;">${d.descripcion}</small>` : ''}</td>
+        <td>${d.categoria||''}</td>
+        <td style="text-align:center;">${d.cantidad}</td>
+        <td>${d.unidad||''}</td>
+        <td style="font-family:monospace;font-size:11px;">${d.serial||'—'}</td>
+      </tr>
+    `).join('');
+    const totalUnidades = s.detalle.reduce((a,d)=>a + (d.cantidad||0), 0);
+    const totalItems = s.detalle.length;
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Boleta de Salida de Inventario N° ${s.id}</title>
+<style>
+  @page { size: letter; margin: 1.5cm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; line-height: 1.45; margin: 0; }
+  .hdr { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 14px; }
+  .hdr h1 { font-size: 14pt; margin: 0 0 4px 0; }
+  .hdr h2 { font-size: 12pt; margin: 0 0 4px 0; font-weight: normal; }
+  .hdr .meta { font-size: 10pt; color: #444; }
+  .titulo { text-align: center; font-size: 13pt; font-weight: bold; text-transform: uppercase; margin: 16px 0 4px 0; letter-spacing: 1px; }
+  .num { text-align: center; font-size: 11pt; margin-bottom: 14px; }
+  .num strong { color: #b91c1c; }
+  .seccion { border: 1px solid #000; padding: 8px 12px; margin-bottom: 10px; }
+  .seccion h3 { font-size: 11pt; margin: 0 0 6px 0; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .row > div { flex: 1; min-width: 180px; }
+  .lbl { font-weight: bold; font-size: 10pt; color: #444; text-transform: uppercase; }
+  .val { font-size: 12pt; min-height: 16pt; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  table th, table td { border: 1px solid #000; padding: 5px 7px; font-size: 11pt; vertical-align: top; }
+  table th { background: #e5e7eb; text-align: left; font-size: 10pt; }
+  .totales { text-align: right; font-size: 11pt; margin-top: 4px; }
+  .acta { margin: 14px 0 18px 0; padding: 10px; border: 1px dashed #666; font-size: 11pt; text-align: justify; line-height: 1.6; }
+  .firmas { display: flex; justify-content: space-between; gap: 40px; margin-top: 50px; }
+  .firma { flex: 1; text-align: center; }
+  .firma .linea { border-top: 1px solid #000; padding-top: 4px; font-size: 10pt; }
+  .firma .nombre { font-weight: bold; font-size: 11pt; }
+  .firma .desc { font-size: 9pt; color: #444; }
+  .pie { margin-top: 28px; padding-top: 8px; border-top: 1px solid #999; font-size: 9pt; color: #555; text-align: center; }
+  .btn-print { position: fixed; top: 10px; right: 10px; padding: 10px 18px; background: #1e3a8a; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13pt; }
+  @media print { .btn-print { display: none; } }
+</style>
+</head>
+<body>
+
+<button class="btn-print" onclick="window.print()">🖨️ Imprimir</button>
+
+<!-- ENCABEZADO INSTITUCIONAL -->
+<div class="hdr">
+  <h1>MINISTERIO DE EDUCACIÓN PÚBLICA</h1>
+  <h2>${nombreCentro}</h2>
+  <div class="meta">
+    ${codCentro ? `Código: ${codCentro} · ` : ''}${circuito ? `Circuito: ${circuito}` : ''}<br/>
+    ${direccion ? direccion + ' · ' : ''}${telefono ? 'Tel.: ' + telefono : ''}${email ? ' · ' + email : ''}
+  </div>
+</div>
+
+<!-- TÍTULO Y NÚMERO -->
+<div class="titulo">Boleta de Salida de Inventario</div>
+<div class="num">N° de boleta: <strong>SAL-${String(s.id).padStart(5,'0')}-${(s.fecha||'').slice(0,4)}</strong></div>
+
+<!-- DATOS DEL SOLICITANTE -->
+<div class="seccion">
+  <h3>Datos del solicitante</h3>
+  <div class="row">
+    <div><div class="lbl">Nombre completo</div><div class="val">${s.persona_nombre}${tituloRol}</div></div>
+    <div><div class="lbl">Cédula</div><div class="val">${s.persona_cedula||'—'}</div></div>
+  </div>
+  <div class="row" style="margin-top:6px;">
+    <div><div class="lbl">Departamento</div><div class="val">${s.departamento||'No especificado'}</div></div>
+    <div><div class="lbl">Fecha de retiro</div><div class="val">${fechaTxt}${s.hora ? ' — ' + s.hora : ''}</div></div>
+  </div>
+  ${s.motivo ? `<div style="margin-top:6px;"><div class="lbl">Motivo / uso destinado</div><div class="val">${s.motivo}</div></div>` : ''}
+</div>
+
+<!-- MATERIAL ENTREGADO -->
+<div class="seccion">
+  <h3>Material entregado</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">N°</th>
+        <th style="width:70px;">Código</th>
+        <th>Descripción del bien</th>
+        <th style="width:120px;">Categoría</th>
+        <th style="width:50px;">Cant.</th>
+        <th style="width:70px;">Unidad</th>
+        <th style="width:120px;">N° de serie</th>
+      </tr>
+    </thead>
+    <tbody>${filasProd}</tbody>
+  </table>
+  <div class="totales">Total: <strong>${totalItems}</strong> tipo(s) de producto · <strong>${totalUnidades}</strong> unidad(es)</div>
+</div>
+
+<!-- ACTA DE ENTREGA -->
+<div class="acta">
+  Yo, <strong>${s.persona_nombre}</strong>${s.persona_cedula ? `, portador(a) de la cédula de identidad N° <strong>${s.persona_cedula}</strong>` : ''},
+  declaro haber recibido conforme el material descrito en la presente boleta, perteneciente al inventario del ${nombreCentro}.
+  Me comprometo a darle el uso institucional debido y a devolverlo en las mismas condiciones en que se me entregó, salvo el desgaste propio del uso ordinario.
+  En constancia de lo anterior, firmo el presente documento en la fecha indicada.
+</div>
+
+<!-- FIRMAS -->
+<div class="firmas">
+  <div class="firma">
+    <div class="linea">
+      <div class="nombre">${s.persona_nombre}</div>
+      <div class="desc">Cédula: ${s.persona_cedula||'__________________'}</div>
+      <div class="desc">Recibe conforme</div>
+    </div>
+  </div>
+  <div class="firma">
+    <div class="linea">
+      <div class="nombre">${reg || '__________________________'}</div>
+      <div class="desc">Junta Administrativa / Encargado de Bodega</div>
+      <div class="desc">Entrega y registra</div>
+    </div>
+  </div>
+</div>
+
+<!-- PIE -->
+<div class="pie">
+  Documento generado electrónicamente el ${new Date().toLocaleString('es-CR')} desde el sistema de inventario del ${nombreCentro}.<br/>
+  Boleta N° SAL-${String(s.id).padStart(5,'0')}-${(s.fecha||'').slice(0,4)} — Conserve este documento como respaldo de la entrega.
+</div>
+
+</body>
+</html>`;
+
+    const w = window.open('', '_blank');
+    if(!w){ alert('Tu navegador bloqueó la ventana. Permití las ventanas emergentes y volvé a intentar.'); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  } catch(e){ alert('Error generando comprobante: ' + e.message); }
 }
 
 // ── PRODUCTOS ────────────────────────────────────────────────────────

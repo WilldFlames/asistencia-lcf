@@ -375,6 +375,100 @@ router.post("/salidas", canInventario, async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════════
+//  GET una salida individual (para imprimir el comprobante)
+// ════════════════════════════════════════════════════════════════════
+router.get("/salidas/:id", requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT s.*,
+             ur.primer_apellido AS retira_ap1, ur.segundo_apellido AS retira_ap2,
+             ur.nombre AS retira_nombre, ur.cedula AS retira_cedula, ur.rol AS retira_rol,
+             ureg.primer_apellido AS reg_ap1, ureg.segundo_apellido AS reg_ap2,
+             ureg.nombre AS reg_nombre, ureg.rol AS reg_rol
+      FROM inv_salidas s
+      LEFT JOIN usuarios ur   ON ur.id = s.usuario_retira
+      LEFT JOIN usuarios ureg ON ureg.id = s.registrado_por
+      WHERE s.id = $1
+    `, [req.params.id]);
+    if (!r.rows.length) return res.status(404).json({ error: "Salida no encontrada" });
+
+    const det = await pool.query(`
+      SELECT sd.cantidad, p.codigo, p.nombre, p.unidad, p.categoria, p.descripcion, ser.serial
+      FROM inv_salidas_detalle sd
+      JOIN inv_productos p ON p.id = sd.producto_id
+      LEFT JOIN inv_seriales ser ON ser.id = sd.serial_id
+      WHERE sd.salida_id = $1
+      ORDER BY p.nombre, ser.serial
+    `, [req.params.id]);
+
+    res.json({ ...r.rows[0], detalle: det.rows });
+  } catch (e) {
+    console.error("GET salida individual:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════
+//  ELIMINAR SALIDA — Solo junta/admin, con justificación obligatoria
+// ════════════════════════════════════════════════════════════════════
+// Al eliminar:
+//   1. Devolvemos el stock al producto (suma la cantidad de cada item)
+//   2. Liberamos los seriales asociados (estado='disponible', salida_id=NULL)
+//   3. Borramos el detalle y el encabezado (CASCADE)
+// Todo en una transacción: si falla algo, nada queda inconsistente.
+router.delete("/salidas/:id", canInventario, async (req, res) => {
+  const { justificacion } = req.body;
+  if (!justificacion || !justificacion.trim()) {
+    return res.status(400).json({ error: "La justificación es obligatoria para eliminar una salida." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Validar que existe
+    const s = await client.query("SELECT id FROM inv_salidas WHERE id=$1", [req.params.id]);
+    if (!s.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Salida no encontrada" });
+    }
+
+    // Devolver stock por cada item del detalle
+    const det = await client.query(
+      "SELECT producto_id, cantidad FROM inv_salidas_detalle WHERE salida_id=$1",
+      [req.params.id]
+    );
+    for (const d of det.rows) {
+      await client.query(
+        "UPDATE inv_productos SET stock_actual = stock_actual + $1 WHERE id = $2",
+        [d.cantidad, d.producto_id]
+      );
+    }
+
+    // Liberar seriales que estaban en esta salida (volvemos a 'disponible')
+    await client.query(
+      `UPDATE inv_seriales SET estado='disponible', salida_id=NULL WHERE salida_id=$1`,
+      [req.params.id]
+    );
+
+    // Borrar la salida (CASCADE borra el detalle automáticamente)
+    await client.query("DELETE FROM inv_salidas WHERE id=$1", [req.params.id]);
+
+    // Log para auditoría (en consola del servidor — útil si después se necesita rastrear)
+    const u = req.session.usuario;
+    console.log(`[INV] Salida ${req.params.id} ELIMINADA por usuario ${u.id} (${u.rol}). Justificación: "${justificacion.trim()}"`);
+
+    await client.query("COMMIT");
+    res.json({ ok: true, productos_devueltos: det.rows.length });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("DELETE salida:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════
 //  DASHBOARD
 // ════════════════════════════════════════════════════════════════════
 router.get("/dashboard", requireAuth, async (req, res) => {
