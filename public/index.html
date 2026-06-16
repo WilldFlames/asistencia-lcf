@@ -2246,7 +2246,20 @@ tr:hover td{background:#f8fafc;}
       </div>
       <div class="fg">
         <label>Categoría</label>
-        <input type="text" id="inv-prod-categoria" placeholder="Ej: Aseo, Oficina..."/>
+        <select id="inv-prod-categoria">
+          <option value="Mobiliario">Mobiliario</option>
+          <option value="Equipo de Cómputo">Equipo de Cómputo</option>
+          <option value="Equipo Tecnológico y Audiovisual">Equipo Tecnológico y Audiovisual</option>
+          <option value="Equipo de Oficina">Equipo de Oficina</option>
+          <option value="Equipo Educativo">Equipo Educativo</option>
+          <option value="Herramientas y Mantenimiento">Herramientas y Mantenimiento</option>
+          <option value="Electrodomésticos">Electrodomésticos</option>
+          <option value="Vehículos y Transporte">Vehículos y Transporte</option>
+          <option value="Seguridad">Seguridad</option>
+          <option value="Material Deportivo">Material Deportivo</option>
+          <option value="Material Bibliográfico">Material Bibliográfico</option>
+          <option value="Otros Activos">Otros Activos</option>
+        </select>
       </div>
       <div class="fg" style="grid-column:1/-1;">
         <label>Nombre <span style="color:var(--rojo)">*</span></label>
@@ -2261,7 +2274,7 @@ tr:hover td{background:#f8fafc;}
         <input type="text" id="inv-prod-unidad" placeholder="Unidad, Kg, Litro..." value="Unidad"/>
       </div>
       <div class="fg">
-        <label>Stock inicial</label>
+        <label>Unidades a registrar</label>
         <input type="number" id="inv-prod-stock" min="0" value="0"/>
       </div>
       <div class="fg" style="grid-column:1/-1;">
@@ -8518,7 +8531,7 @@ function invProdNuevo(){
   document.getElementById('inv-prod-id').value = '';
   document.getElementById('inv-prod-codigo').value = '';
   document.getElementById('inv-prod-codigo').readOnly = false;
-  document.getElementById('inv-prod-categoria').value = 'General';
+  document.getElementById('inv-prod-categoria').value = 'Mobiliario';
   document.getElementById('inv-prod-nombre').value = '';
   document.getElementById('inv-prod-desc').value = '';
   document.getElementById('inv-prod-unidad').value = 'Unidad';
@@ -8535,7 +8548,16 @@ async function invProdEditar(id){
     document.getElementById('inv-prod-id').value = p.id;
     document.getElementById('inv-prod-codigo').value = p.codigo;
     document.getElementById('inv-prod-codigo').readOnly = true; // código no editable
-    document.getElementById('inv-prod-categoria').value = p.categoria||'';
+    // Si la categoría no está en la lista (producto viejo con "General", etc),
+    // la agregamos como opción para no perderla.
+    const selCat = document.getElementById('inv-prod-categoria');
+    const cat = p.categoria || 'Mobiliario';
+    if (![...selCat.options].some(o => o.value === cat)) {
+      const opt = document.createElement('option');
+      opt.value = cat; opt.textContent = cat + ' (legado)';
+      selCat.appendChild(opt);
+    }
+    selCat.value = cat;
     document.getElementById('inv-prod-nombre').value = p.nombre||'';
     document.getElementById('inv-prod-desc').value = p.descripcion||'';
     document.getElementById('inv-prod-unidad').value = p.unidad||'Unidad';
@@ -8552,7 +8574,7 @@ async function invProdGuardar(){
     codigo: document.getElementById('inv-prod-codigo').value.trim().toUpperCase(),
     nombre: document.getElementById('inv-prod-nombre').value.trim(),
     descripcion: document.getElementById('inv-prod-desc').value.trim(),
-    categoria: document.getElementById('inv-prod-categoria').value.trim() || 'General',
+    categoria: document.getElementById('inv-prod-categoria').value.trim() || 'Mobiliario',
     unidad: document.getElementById('inv-prod-unidad').value.trim() || 'Unidad',
     stock_actual: parseInt(document.getElementById('inv-prod-stock').value, 10) || 0,
     stock_minimo: parseInt(document.getElementById('inv-prod-min').value, 10) || 0,

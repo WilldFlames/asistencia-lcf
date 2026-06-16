@@ -80,7 +80,7 @@ router.post("/productos", canInventario, async (req, res) => {
     const r = await pool.query(`
       INSERT INTO inv_productos (codigo, nombre, descripcion, categoria, unidad, stock_actual, stock_minimo)
       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
-    `, [codigo.trim().toUpperCase(), nombre.trim(), descripcion||"", categoria||"General", unidad||"Unidad", stock_actual||0, stock_minimo||0]);
+    `, [codigo.trim().toUpperCase(), nombre.trim(), descripcion||"", categoria||"Mobiliario", unidad||"Unidad", stock_actual||0, stock_minimo||0]);
     res.json({ id: r.rows[0].id, ok: true });
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: "El código ya existe" });
@@ -94,7 +94,7 @@ router.put("/productos/:id", canInventario, async (req, res) => {
     UPDATE inv_productos
     SET nombre=$1, descripcion=$2, categoria=$3, unidad=$4, stock_minimo=$5
     WHERE id=$6
-  `, [nombre, descripcion||"", categoria||"General", unidad||"Unidad", stock_minimo||0, req.params.id]);
+  `, [nombre, descripcion||"", categoria||"Mobiliario", unidad||"Unidad", stock_minimo||0, req.params.id]);
   res.json({ ok: true });
 });
 
