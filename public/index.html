@@ -2125,7 +2125,13 @@ tr:hover td{background:#f8fafc;}
         </div>
         <div class="fg">
           <label>Departamento (opcional)</label>
-          <input type="text" id="inv-sal-depto" placeholder="Ej: Conserjería, Aula 7-1..."/>
+          <select id="inv-sal-depto">
+            <option value="">— Sin especificar —</option>
+            <option value="Administrativo">Administrativo</option>
+            <option value="Docencia">Docencia</option>
+            <option value="Conserjería">Conserjería</option>
+            <option value="Seguridad">Seguridad</option>
+          </select>
         </div>
         <div class="fg" style="grid-column:1/-1;">
           <label>Motivo (opcional)</label>
@@ -2136,17 +2142,23 @@ tr:hover td{background:#f8fafc;}
       <h4 style="margin-top:18px;margin-bottom:8px;">🛒 Productos a retirar</h4>
       <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
-          <div class="fg" style="flex:2;min-width:200px;margin:0;">
-            <label>Producto (código o nombre)</label>
-            <input type="text" id="inv-sal-buscar" placeholder="Buscá por código o nombre..." oninput="invSalBuscar()" autocomplete="off"/>
-            <div id="inv-sal-resultados" style="position:relative;"></div>
+          <div class="fg" style="flex:1;min-width:170px;margin:0;">
+            <label>Categoría</label>
+            <select id="inv-sal-cat" onchange="invSalCatCambio()">
+              <option value="">— Elegí —</option>
+            </select>
           </div>
-          <div class="fg" style="width:100px;margin:0;">
-            <label>Cantidad</label>
+          <div class="fg" style="flex:2;min-width:220px;margin:0;">
+            <label>Producto</label>
+            <select id="inv-sal-prod" onchange="invSalProdCambio()" disabled>
+              <option value="">— Primero elegí categoría —</option>
+            </select>
+            <small id="inv-sal-stock-info" style="color:var(--muted);font-size:11px;display:block;margin-top:2px;"></small>
+          </div>
+          <div class="fg" style="width:110px;margin:0;">
+            <label>Cantidad a sacar</label>
             <input type="number" id="inv-sal-cantidad" min="1" value="1"/>
           </div>
-          <input type="hidden" id="inv-sal-prod-id"/>
-          <input type="hidden" id="inv-sal-prod-codigo"/>
           <button class="btn btn-primary" onclick="invSalAgregarItem()">+ Agregar</button>
         </div>
       </div>
@@ -2258,6 +2270,7 @@ tr:hover td{background:#f8fafc;}
           <option value="Seguridad">Seguridad</option>
           <option value="Material Deportivo">Material Deportivo</option>
           <option value="Material Bibliográfico">Material Bibliográfico</option>
+          <option value="Material de Limpieza">Material de Limpieza</option>
           <option value="Otros Activos">Otros Activos</option>
         </select>
       </div>
@@ -8342,15 +8355,24 @@ async function invCargarProductosCache(){
 }
 
 // ── REGISTRAR SALIDA ─────────────────────────────────────────────────
-function invSalReset(){
+async function invSalReset(){
   invSalItems = [];
   invSalRenderItems();
   document.getElementById('inv-sal-usuario').value = '';
   document.getElementById('inv-sal-cedula').value = '';
   document.getElementById('inv-sal-depto').value = '';
   document.getElementById('inv-sal-motivo').value = '';
-  document.getElementById('inv-sal-buscar').value = '';
-  document.getElementById('inv-sal-resultados').innerHTML = '';
+  // Asegurarse de que el cache de productos esté listo antes de poblar categorías
+  if(!invProductos.length){ await invCargarProductosCache(); }
+  invSalCargarCategorias();
+  const selProd = document.getElementById('inv-sal-prod');
+  if(selProd){
+    selProd.innerHTML = '<option value="">— Primero elegí categoría —</option>';
+    selProd.disabled = true;
+  }
+  const info = document.getElementById('inv-sal-stock-info');
+  if(info) info.textContent = '';
+  document.getElementById('inv-sal-cantidad').value = 1;
   document.getElementById('alert-inv-sal').className = 'alert';
 }
 
@@ -8360,39 +8382,73 @@ function invSalUsuarioCambio(){
   document.getElementById('inv-sal-cedula').value = u ? (u.cedula||'') : '';
 }
 
-function invSalBuscar(){
-  const q = document.getElementById('inv-sal-buscar').value.trim().toLowerCase();
-  const wrap = document.getElementById('inv-sal-resultados');
-  if(!q || q.length < 2){ wrap.innerHTML = ''; return; }
-  const matches = invProductos.filter(p =>
-    p.codigo.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q)
-  ).slice(0, 8);
-  if(!matches.length){
-    wrap.innerHTML = '<div style="position:absolute;top:2px;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;color:var(--muted);">Sin resultados</div>';
+// Llena el select de categorías con las que tienen al menos un producto activo
+function invSalCargarCategorias(){
+  const sel = document.getElementById('inv-sal-cat');
+  if(!sel) return;
+  // Categorías únicas a partir del cache de productos (con stock disponible)
+  const cats = [...new Set(invProductos.filter(p => p.stock_actual > 0).map(p => p.categoria||'Otros Activos'))].sort();
+  if(!cats.length){
+    sel.innerHTML = '<option value="">— Sin productos disponibles —</option>';
     return;
   }
-  wrap.innerHTML = `<div style="position:absolute;top:2px;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:6px;max-height:220px;overflow-y:auto;z-index:10;">
-    ${matches.map(p => `<div style="padding:7px 10px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:13px;" onclick='invSalSeleccionar(${p.id}, "${p.codigo}", "${p.nombre.replace(/"/g,'&quot;')}", ${p.stock_actual}, "${p.unidad}")'>
-      <strong>${p.codigo}</strong> · ${p.nombre}
-      <span style="color:var(--muted);font-size:11px;float:right;">Stock: ${p.stock_actual} ${p.unidad}</span>
-    </div>`).join('')}
-  </div>`;
+  sel.innerHTML = '<option value="">— Elegí —</option>' +
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
 }
 
-function invSalSeleccionar(id, codigo, nombre, stock, unidad){
-  document.getElementById('inv-sal-prod-id').value = id;
-  document.getElementById('inv-sal-prod-codigo').value = codigo;
-  document.getElementById('inv-sal-buscar').value = `${codigo} — ${nombre}`;
-  document.getElementById('inv-sal-buscar').dataset.stock = stock;
-  document.getElementById('inv-sal-buscar').dataset.unidad = unidad;
-  document.getElementById('inv-sal-resultados').innerHTML = '';
-  document.getElementById('inv-sal-cantidad').focus();
+// Al cambiar la categoría, filtramos productos de esa categoría que aún
+// tienen stock disponible (excluye productos ya agregados al carrito si
+// se llevan todo el stock).
+function invSalCatCambio(){
+  const cat = document.getElementById('inv-sal-cat').value;
+  const selProd = document.getElementById('inv-sal-prod');
+  if(!cat){
+    selProd.innerHTML = '<option value="">— Primero elegí categoría —</option>';
+    selProd.disabled = true;
+    document.getElementById('inv-sal-stock-info').textContent = '';
+    return;
+  }
+  // Productos de esa categoría con stock disponible (descontando lo ya en el carrito)
+  const items = invProductos
+    .filter(p => (p.categoria||'Otros Activos') === cat)
+    .map(p => {
+      const yaEnCarrito = invSalItems.find(i => i.codigo === p.codigo);
+      const disponible = p.stock_actual - (yaEnCarrito ? yaEnCarrito.cantidad : 0);
+      return { ...p, disponible };
+    })
+    .filter(p => p.disponible > 0)
+    .sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+  if(!items.length){
+    selProd.innerHTML = '<option value="">— Sin productos disponibles en esta categoría —</option>';
+    selProd.disabled = true;
+  } else {
+    selProd.innerHTML = '<option value="">— Elegí producto —</option>' +
+      items.map(p => `<option value="${p.codigo}" data-unidad="${p.unidad}" data-stock="${p.disponible}">${p.codigo} — ${p.nombre} (${p.disponible} ${p.unidad})</option>`).join('');
+    selProd.disabled = false;
+  }
+  document.getElementById('inv-sal-stock-info').textContent = '';
+}
+
+function invSalProdCambio(){
+  const sel = document.getElementById('inv-sal-prod');
+  const opt = sel.options[sel.selectedIndex];
+  const info = document.getElementById('inv-sal-stock-info');
+  if(!sel.value || !opt){ info.textContent = ''; return; }
+  const stock = parseInt(opt.dataset.stock, 10);
+  const unidad = opt.dataset.unidad || '';
+  info.innerHTML = `<strong>Disponible:</strong> ${stock} ${unidad}`;
+  // Ajustar el max del input cantidad
+  const inpCant = document.getElementById('inv-sal-cantidad');
+  inpCant.max = stock;
+  if(parseInt(inpCant.value, 10) > stock) inpCant.value = stock;
 }
 
 function invSalAgregarItem(){
-  const codigo = document.getElementById('inv-sal-prod-codigo').value;
+  const selProd = document.getElementById('inv-sal-prod');
+  const codigo = selProd.value;
   const cantidad = parseInt(document.getElementById('inv-sal-cantidad').value, 10);
-  if(!codigo){ sa('alert-inv-sal','Seleccioná un producto de la lista.','danger'); return; }
+  if(!codigo){ sa('alert-inv-sal','Seleccioná un producto.','danger'); return; }
   if(!cantidad || cantidad < 1){ sa('alert-inv-sal','Ingresá una cantidad válida.','danger'); return; }
 
   const prod = invProductos.find(p => p.codigo === codigo);
@@ -8411,11 +8467,13 @@ function invSalAgregarItem(){
     invSalItems.push({ codigo, nombre: prod.nombre, unidad: prod.unidad, stock: prod.stock_actual, cantidad });
   }
 
-  // Limpiar inputs
-  document.getElementById('inv-sal-buscar').value = '';
-  document.getElementById('inv-sal-prod-codigo').value = '';
-  document.getElementById('inv-sal-prod-id').value = '';
-  document.getElementById('inv-sal-cantidad').value = '1';
+  // Refrescar selects para reflejar el nuevo "disponible" descontado del carrito.
+  // Conservamos la categoría seleccionada para que pueda agregar otro producto de la misma.
+  const catActual = document.getElementById('inv-sal-cat').value;
+  invSalCargarCategorias();
+  document.getElementById('inv-sal-cat').value = catActual;
+  invSalCatCambio();
+  document.getElementById('inv-sal-cantidad').value = 1;
   invSalRenderItems();
   document.getElementById('alert-inv-sal').className = 'alert';
 }
@@ -8461,8 +8519,8 @@ async function invSalGuardar(){
     const r = await api('/api/inventario/salidas','POST', payload);
     sa('alert-inv-sal',`✅ Salida registrada con ${r.productos} producto(s).`,'success');
     invSalItems = [];
+    await invCargarProductosCache(); // refrescar stock ANTES del reset
     invSalReset();
-    await invCargarProductosCache(); // refrescar stock
   } catch(e){ sa('alert-inv-sal', e.message, 'danger'); }
 }
 
