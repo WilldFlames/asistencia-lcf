@@ -193,10 +193,19 @@ router.post("/entradas", canInventario, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // Fecha en zona Costa Rica si el cliente no la envió.
+    let fechaFinal = fecha;
+    if (!fechaFinal) {
+      const ahoraCR = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Costa_Rica' }));
+      const yyyy = ahoraCR.getFullYear();
+      const mm = String(ahoraCR.getMonth() + 1).padStart(2, '0');
+      const dd = String(ahoraCR.getDate()).padStart(2, '0');
+      fechaFinal = `${yyyy}-${mm}-${dd}`;
+    }
     const r = await client.query(`
       INSERT INTO inv_entradas (producto_id, cantidad, proveedor, observaciones, fecha, registrado_por)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
-    `, [producto_id, cantidad, proveedor||"", observaciones||"", fecha || new Date().toISOString().slice(0,10), u.id]);
+    `, [producto_id, cantidad, proveedor||"", observaciones||"", fechaFinal, u.id]);
     const entradaId = r.rows[0].id;
     await client.query("UPDATE inv_productos SET stock_actual = stock_actual + $1 WHERE id = $2", [cantidad, producto_id]);
     // Insertar seriales nuevos
@@ -326,9 +335,18 @@ router.post("/salidas", canInventario, async (req, res) => {
       validados.push({ id: p.id, cantidadSalida: it.cantidad, serialIds });
     }
 
-    const ahora = new Date();
-    const fechaFinal = fecha || ahora.toISOString().slice(0,10);
-    const horaFinal  = hora  || ahora.toLocaleTimeString("es-CR", { hour:"2-digit", minute:"2-digit" });
+    // Fecha y hora SIEMPRE en zona horaria de Costa Rica.
+    // El servidor corre en UTC, así que sin esto las salidas registradas
+    // a las 10pm aparecerían marcadas a las 4am del día siguiente.
+    const ahoraCR = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Costa_Rica' }));
+    const yyyy = ahoraCR.getFullYear();
+    const mm = String(ahoraCR.getMonth() + 1).padStart(2, '0');
+    const dd = String(ahoraCR.getDate()).padStart(2, '0');
+    const hh = String(ahoraCR.getHours()).padStart(2, '0');
+    const min = String(ahoraCR.getMinutes()).padStart(2, '0');
+    // Si el cliente envió fecha/hora explícitas las respetamos; si no, las de CR.
+    const fechaFinal = fecha || `${yyyy}-${mm}-${dd}`;
+    const horaFinal  = hora  || `${hh}:${min}`;
 
     // Encabezado
     const sR = await client.query(`

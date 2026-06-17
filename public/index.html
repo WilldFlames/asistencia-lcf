@@ -2141,6 +2141,13 @@ tr:hover td{background:#f8fafc;}
 
       <h4 style="margin-top:18px;margin-bottom:8px;">🛒 Productos a retirar</h4>
       <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">
+        <!-- Búsqueda rápida por código o nombre — alternativa al uso de los selectores -->
+        <div class="fg" style="margin:0 0 10px 0;position:relative;">
+          <label>🔍 Buscar por código o nombre <small style="color:var(--muted);font-weight:normal;">(opcional, también podés usar los menús de abajo)</small></label>
+          <input type="text" id="inv-sal-buscar" placeholder="Ej: A001 o 'Impresora HP'..." autocomplete="off"
+                 oninput="invSalBuscar()" onkeydown="invSalBuscarKey(event)"/>
+          <div id="inv-sal-resultados" style="position:absolute;top:100%;left:0;right:0;z-index:20;"></div>
+        </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
           <div class="fg" style="flex:1;min-width:170px;margin:0;">
             <label>Categoría</label>
@@ -8363,7 +8370,7 @@ async function invCargarDashboard(){
       ulWrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:6px;">Sin salidas registradas aún.</div>';
     } else {
       ulWrap.innerHTML = d.ultimas_salidas.map(s => `<div style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:13px;">
-        <div><strong>${s.persona_nombre}</strong> · ${s.fecha} ${s.hora||''}</div>
+        <div><strong>${s.persona_nombre}</strong> · ${fmtF(s.fecha)} ${s.hora||''}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:2px;">${s.detalle.map(d=>`${d.cantidad}× ${d.nombre}`).join(' · ')}</div>
       </div>`).join('');
     }
@@ -8399,6 +8406,10 @@ async function invSalReset(){
   document.getElementById('inv-sal-cedula').value = '';
   document.getElementById('inv-sal-depto').value = '';
   document.getElementById('inv-sal-motivo').value = '';
+  const buscar = document.getElementById('inv-sal-buscar');
+  if(buscar) buscar.value = '';
+  const resultados = document.getElementById('inv-sal-resultados');
+  if(resultados) resultados.innerHTML = '';
   // Asegurarse de que el cache de productos esté listo antes de poblar categorías
   if(!invProductos.length){ await invCargarProductosCache(); }
   invSalCargarCategorias();
@@ -8436,6 +8447,107 @@ function invSalCargarCategorias(){
 // Al cambiar la categoría, filtramos productos de esa categoría que aún
 // tienen stock disponible (excluye productos ya agregados al carrito si
 // se llevan todo el stock).
+// ── BÚSQUEDA RÁPIDA POR CÓDIGO O NOMBRE ──────────────────────────────
+// Permite digitar el código exacto y autoseleccionar el producto, o
+// buscar por nombre y elegir de un dropdown de resultados.
+let _invSalBuscarIdx = -1; // índice del item seleccionado con flechas
+
+function invSalBuscar(){
+  const q = document.getElementById('inv-sal-buscar').value.trim().toLowerCase();
+  const wrap = document.getElementById('inv-sal-resultados');
+  _invSalBuscarIdx = -1;
+  if(!q){ wrap.innerHTML = ''; return; }
+
+  // Si coincide EXACTAMENTE con un código, seleccionar de una
+  const exacto = invProductos.find(p => p.codigo.toLowerCase() === q && p.stock_actual > 0);
+  if(exacto){
+    invSalSeleccionarBusqueda(exacto.codigo);
+    wrap.innerHTML = `<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:6px 10px;font-size:12px;color:#166534;">
+      ✓ Producto seleccionado: <strong>${exacto.codigo}</strong> — ${exacto.nombre}
+    </div>`;
+    setTimeout(() => { wrap.innerHTML = ''; }, 1500);
+    return;
+  }
+
+  // Si no hay match exacto, mostrar lista filtrada (máx 8)
+  const matches = invProductos.filter(p =>
+    p.stock_actual > 0 &&
+    (p.codigo.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q))
+  ).slice(0, 8);
+
+  if(!matches.length){
+    wrap.innerHTML = `<div style="background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;color:var(--muted);box-shadow:0 2px 6px rgba(0,0,0,.08);">Sin resultados</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `<div style="background:#fff;border:1px solid var(--border);border-radius:6px;max-height:240px;overflow-y:auto;box-shadow:0 2px 6px rgba(0,0,0,.08);">
+    ${matches.map((p, i) => `<div class="inv-sal-result-item" data-codigo="${p.codigo}" data-idx="${i}"
+      style="padding:7px 10px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:13px;"
+      onclick="invSalSeleccionarBusqueda('${p.codigo}')"
+      onmouseenter="this.style.background='#f0f9ff';" onmouseleave="this.style.background='#fff';">
+      <strong>${p.codigo}</strong> · ${p.nombre}
+      <span style="float:right;color:var(--muted);font-size:11px;">${p.stock_actual} ${p.unidad}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+// Permite navegar con teclado (flechas + Enter)
+function invSalBuscarKey(ev){
+  const wrap = document.getElementById('inv-sal-resultados');
+  const items = wrap.querySelectorAll('.inv-sal-result-item');
+  if(!items.length){
+    // Si Enter sin lista visible y hay texto exacto, intentar match directo
+    if(ev.key === 'Enter'){
+      ev.preventDefault();
+      invSalBuscar();
+    }
+    return;
+  }
+  if(ev.key === 'ArrowDown'){
+    ev.preventDefault();
+    _invSalBuscarIdx = Math.min(items.length - 1, _invSalBuscarIdx + 1);
+  } else if(ev.key === 'ArrowUp'){
+    ev.preventDefault();
+    _invSalBuscarIdx = Math.max(0, _invSalBuscarIdx - 1);
+  } else if(ev.key === 'Enter'){
+    ev.preventDefault();
+    const idx = _invSalBuscarIdx >= 0 ? _invSalBuscarIdx : 0;
+    if(items[idx]) invSalSeleccionarBusqueda(items[idx].dataset.codigo);
+    return;
+  } else if(ev.key === 'Escape'){
+    wrap.innerHTML = '';
+    document.getElementById('inv-sal-buscar').value = '';
+    return;
+  } else { return; }
+  // Resaltar el item activo
+  items.forEach((el, i) => {
+    el.style.background = i === _invSalBuscarIdx ? '#dbeafe' : '#fff';
+  });
+}
+
+// Cuando se elige un producto desde la búsqueda, sincronizar los selects
+// de categoría y producto para que el flujo siga siendo el mismo.
+async function invSalSeleccionarBusqueda(codigo){
+  const prod = invProductos.find(p => p.codigo === codigo);
+  if(!prod){ return; }
+  const cat = prod.categoria || 'Otros Activos';
+  // Setear categoría y disparar onchange para llenar productos
+  const selCat = document.getElementById('inv-sal-cat');
+  selCat.value = cat;
+  invSalCatCambio();
+  // Setear producto
+  const selProd = document.getElementById('inv-sal-prod');
+  selProd.value = codigo;
+  await invSalProdCambio();
+  // Mostrar feedback y limpiar buscador
+  const wrap = document.getElementById('inv-sal-resultados');
+  if(wrap) wrap.innerHTML = '';
+  document.getElementById('inv-sal-buscar').value = '';
+  // Foco en cantidad para escribir rápido
+  document.getElementById('inv-sal-cantidad').focus();
+  document.getElementById('inv-sal-cantidad').select();
+}
+
 function invSalCatCambio(){
   const cat = document.getElementById('inv-sal-cat').value;
   const selProd = document.getElementById('inv-sal-prod');
@@ -8663,7 +8775,7 @@ async function invCargarHistorial(){
         <div style="display:flex;justify-content:space-between;flex-wrap:wrap;align-items:start;gap:8px;">
           <div>
             <strong>${s.persona_nombre}</strong>
-            <span style="font-size:12px;color:var(--muted);margin-left:6px;">${s.fecha} · ${s.hora||''}</span>
+            <span style="font-size:12px;color:var(--muted);margin-left:6px;">${fmtF(s.fecha)} · ${s.hora||''}</span>
           </div>
           <div style="display:flex;gap:4px;">
             <button class="btn btn-outline btn-xs" onclick="invImprimirSalida(${s.id})" title="Imprimir comprobante">🖨️</button>
@@ -9078,7 +9190,7 @@ async function invEntCargar(){
       const reg = `${e.reg_ap1||''} ${e.reg_ap2||''} ${e.reg_nombre||''}`.replace(/\s+/g,' ').trim();
       return `<div style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:13px;">
         <strong>${e.codigo}</strong> · ${e.producto_nombre} — <strong style="color:#16a34a;">+${e.cantidad} ${e.unidad}</strong>
-        <span style="float:right;color:var(--muted);font-size:11px;">${(e.fecha||'').slice(0,10)} · ${reg}</span>
+        <span style="float:right;color:var(--muted);font-size:11px;">${fmtF(e.fecha)} · ${reg}</span>
         ${e.proveedor ? `<div style="font-size:11px;color:var(--muted);">Proveedor: ${e.proveedor}</div>` : ''}
       </div>`;
     }).join('');
