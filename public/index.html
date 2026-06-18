@@ -1840,6 +1840,30 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- Modal: Detalle de un debido proceso (lista de pasos) -->
+<!-- ─────────── MODAL: ASIGNAR / QUITAR GUÍA SUSTITUTO ──────────── -->
+<div class="modal-overlay" id="modal-dp-sustituto">
+  <div class="modal" style="max-width:520px;">
+    <h3>🔄 Guía Sustituto del Expediente</h3>
+    <div id="dpsust-info" style="font-size:12.5px;color:var(--muted);margin-bottom:10px;"></div>
+    <div id="alert-dpsust" class="alert"></div>
+    <div class="fg">
+      <label>Profesor sustituto</label>
+      <select id="dpsust-prof" style="width:100%;">
+        <option value="">— Cargando profesores... —</option>
+      </select>
+      <small style="color:var(--muted);font-size:11px;">Eligí "Sin sustituto" para que el guía original vuelva a tomar el caso.</small>
+    </div>
+    <div class="fg" style="margin-top:8px;">
+      <label>Motivo (opcional pero recomendado)</label>
+      <textarea id="dpsust-motivo" rows="2" placeholder="Ej: Profesor original con incapacidad médica del 15 al 30 de junio."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-dp-sustituto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarSustituto()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-dp-detalle">
   <div class="modal" style="max-width:920px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
@@ -1852,6 +1876,7 @@ tr:hover td{background:#f8fafc;}
     <div id="alert-dpd" class="alert" style="margin-top:10px;"></div>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
       <button class="btn btn-outline" onclick="imprimirPortadaDP()" style="border-color:#6366f1;color:#6366f1;">📄 Imprimir Portada del Expediente</button>
+      <button class="btn btn-outline" id="btn-dp-sustituto" onclick="abrirAsignarSustituto()" style="display:none;border-color:#ea580c;color:#ea580c;">🔄 Guía Sustituto</button>
     </div>
     <div id="dpd-pasos-lista" style="margin-top:14px;max-height:65vh;overflow:auto;"></div>
     <div class="modal-actions">
@@ -7248,7 +7273,9 @@ async function cargarDPLista(estado){
             ${badge}
           </div>
           <div style="font-size:11px;color:var(--muted);">
-            <strong>Guía:</strong> ${p.guia_ap1||'—'} ${p.guia_ap2||''} ${p.guia_nombre||''} · <strong>Inició:</strong> ${p.ini_ap1||'—'} ${p.ini_ap2||''} ${p.ini_nombre||''}
+            ${p.sust_nombre
+              ? `<strong>🔄 Sustituto:</strong> <span style="color:#ea580c;">${p.sust_ap1||''} ${p.sust_ap2||''} ${p.sust_nombre}</span> <small>(reemplaza a ${p.guia_ap1||''} ${p.guia_nombre||''})</small>`
+              : `<strong>Guía:</strong> ${p.guia_ap1||'—'} ${p.guia_ap2||''} ${p.guia_nombre||''}`} · <strong>Inició:</strong> ${p.ini_ap1||'—'} ${p.ini_ap2||''} ${p.ini_nombre||''}
           </div>
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
             <span style="color:var(--muted);">Progreso:</span>
@@ -7362,10 +7389,34 @@ async function abrirDPDetalle(procesoId){
     const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
     const nombre = `${dp.est_ap1} ${dp.est_ap2||''}, ${dp.est_nombre}`;
     document.getElementById('dpd-titulo').textContent = `⚖️ Debido Proceso ${nro}`;
+
+    // Datos del guía actual: si hay sustituto activo, ese tiene el control.
+    const guiaOriginal = `${dp.guia_ap1||''} ${dp.guia_ap2||''} ${dp.guia_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+    const sustituto = `${dp.sust_ap1||''} ${dp.sust_ap2||''} ${dp.sust_nombre||''}`.replace(/\s+/g,' ').trim();
+    const orient = `${dp.orient_ap1||''} ${dp.orient_ap2||''} ${dp.orient_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+    let lineaGuia = `Guía: ${guiaOriginal}`;
+    if(sustituto){
+      lineaGuia = `🔄 Sustituto activo: <strong style="color:#ea580c;">${sustituto}</strong> <small>(reemplaza a ${guiaOriginal})</small>`;
+    }
     document.getElementById('dpd-subtitulo').innerHTML = `
       <strong>${nombre}</strong> · ${dp.cedula} · ${dp.seccion_nombre||'—'}<br/>
-      Guía: ${dp.guia_ap1||'—'} ${dp.guia_ap2||''} ${dp.guia_nombre||''} · Orientador: ${dp.orient_ap1||'—'} ${dp.orient_ap2||''} ${dp.orient_nombre||''}
+      ${lineaGuia} · Orientador: ${orient}
     `;
+
+    // Botón "Guía Sustituto" solo para admin/administrativo y si el proceso está en curso
+    const btnSust = document.getElementById('btn-dp-sustituto');
+    if(btnSust){
+      const puedeAsignar = ['admin','administrativo'].includes(ME.rol) && dp.estado === 'en_curso';
+      btnSust.style.display = puedeAsignar ? '' : 'none';
+      // Cambiar texto/color según haya o no sustituto
+      if(sustituto){
+        btnSust.innerHTML = '🔄 Cambiar / Quitar Sustituto';
+        btnSust.style.background = '#fff7ed';
+      } else {
+        btnSust.innerHTML = '🔄 Asignar Sustituto';
+        btnSust.style.background = '';
+      }
+    }
 
     // Badge de plazo
     const creado = new Date(dp.created_at);
@@ -7396,10 +7447,75 @@ async function abrirDPDetalle(procesoId){
   }
 }
 
+// ════════════════════════════════════════════════════════════════════
+//  GUÍA SUSTITUTO (admin / administrativo)
+// ════════════════════════════════════════════════════════════════════
+async function abrirAsignarSustituto(){
+  if(!dpProcesoActual){ return; }
+  const dp = dpProcesoActual.proceso;
+  const guiaOriginal = `${dp.guia_ap1||''} ${dp.guia_ap2||''} ${dp.guia_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+  const sustActual = `${dp.sust_ap1||''} ${dp.sust_ap2||''} ${dp.sust_nombre||''}`.replace(/\s+/g,' ').trim();
+
+  document.getElementById('dpsust-info').innerHTML = `
+    Expediente: <strong>N°${String(dp.numero).padStart(3,'0')}-${dp.anio}</strong><br/>
+    Guía original: <strong>${guiaOriginal}</strong>
+    ${sustActual ? `<br/>Sustituto actual: <strong style="color:#ea580c;">${sustActual}</strong>` : ''}
+  `;
+
+  // Cargar lista de profesores activos (excluyendo el guía original)
+  const sel = document.getElementById('dpsust-prof');
+  sel.innerHTML = '<option value="">— Cargando... —</option>';
+  try {
+    const profs = await api('/api/admin/profesores') || [];
+    // Filtrar: solo profesores (excluir orientadores) y que NO sea el guía original
+    const opciones = profs
+      .filter(p => ['profesor','profesor_guia'].includes(p.rol) && p.id !== dp.guia_a_cargo)
+      .map(p => {
+        const nombre = `${p.primer_apellido||''} ${p.segundo_apellido||''} ${p.nombre||''}`.replace(/\s+/g,' ').trim();
+        const sel = p.id === dp.guia_sustituto_id ? ' selected' : '';
+        return `<option value="${p.id}"${sel}>${nombre}</option>`;
+      }).join('');
+    sel.innerHTML = '<option value="">— Sin sustituto (el guía original retoma el caso) —</option>' + opciones;
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error cargando profesores</option>';
+  }
+
+  document.getElementById('dpsust-motivo').value = '';
+  document.getElementById('alert-dpsust').className = 'alert';
+  document.getElementById('modal-dp-sustituto').classList.add('show');
+}
+
+async function guardarSustituto(){
+  if(!dpProcesoActual) return;
+  const dp = dpProcesoActual.proceso;
+  const sustituto_id = document.getElementById('dpsust-prof').value;
+  const motivo = document.getElementById('dpsust-motivo').value.trim();
+
+  // Si va a quitar, pedir confirmación
+  if(!sustituto_id && dp.guia_sustituto_id){
+    if(!confirm('¿Quitar el sustituto y devolver el caso al guía original?')) return;
+  }
+
+  try {
+    await api(`/api/debidos-procesos/${dp.id}/sustituto`, 'PUT', {
+      sustituto_id: sustituto_id ? +sustituto_id : null,
+      motivo,
+    });
+    cerrarModal('modal-dp-sustituto');
+    // Recargar el detalle del expediente para refrescar el subtítulo y permisos
+    await abrirDPDetalle(dp.id);
+    sa('alert-dpd', sustituto_id ? '✅ Sustituto asignado.' : '✅ Sustituto removido. El guía original recupera el caso.', 'success');
+  } catch(e) {
+    sa('alert-dpsust', e.message, 'danger');
+  }
+}
+
 function renderDPPasos(d){
   const wrap = document.getElementById('dpd-pasos-lista');
   const dp = d.proceso;
-  const esGuia = (dp.guia_a_cargo === ME.id) || ['admin','administrativo','auxiliar'].includes(ME.rol);
+  // "Guía efectivo": si hay sustituto activo, ese tiene el control; si no, el original.
+  const guiaEfectivoId = dp.guia_sustituto_id || dp.guia_a_cargo;
+  const esGuia = (guiaEfectivoId === ME.id) || ['admin','administrativo','auxiliar'].includes(ME.rol);
   const esOrientador = (dp.orientador_id === ME.id) || ['admin','administrativo'].includes(ME.rol);
 
   // Mapeo paso → registro existente

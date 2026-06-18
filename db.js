@@ -632,6 +632,12 @@ async function initDB() {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dp_est ON debidos_procesos(estudiante_id)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dp_estado ON debidos_procesos(estado)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dp_guia ON debidos_procesos(guia_a_cargo)`);
+
+      // Migración aditiva: guía sustituto. Cuando está presente, reemplaza al
+      // guía original en todas las validaciones de permisos del proceso.
+      // Si se pone NULL, el guía original vuelve a tomar el caso.
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS guia_sustituto_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+
       console.log("✅ DP: tabla debidos_procesos lista");
 
       await client.query(`

@@ -76,6 +76,14 @@ async function getOrientadorDeSeccion(seccionId) {
   }
 }
 
+// Helper: devuelve el ID del guía que tiene el control real del proceso.
+// Si hay un sustituto asignado, manda el sustituto. Si no, el guía original.
+// Usado en todas las validaciones de permiso del expediente.
+function guiaEfectivo(dp) {
+  if (!dp) return null;
+  return dp.guia_sustituto_id || dp.guia_a_cargo || null;
+}
+
 // Helper: crear una notificación
 async function notificar(usuarioId, tipo, mensaje) {
   if (!usuarioId) return;
@@ -135,12 +143,14 @@ router.get("/", requireAuth, async (req, res) => {
     // Filtros por rol
     const esStaff = ["admin","auxiliar","administrativo","secretaria"].includes(u.rol);
     if (!esStaff) {
-      // Profesor/guía/orientador: solo ven sus propios procesos relacionados
+      // Profesor/guía/orientador: solo ven sus propios procesos relacionados.
+      // También aparece para el guía sustituto si lo hay.
       params.push(u.id);
       const iU = params.length;
       where.push(`(
         dp.iniciado_por = $${iU}
         OR dp.guia_a_cargo = $${iU}
+        OR dp.guia_sustituto_id = $${iU}
         OR dp.orientador_id = $${iU}
         OR EXISTS (SELECT 1 FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.asignado_a = $${iU})
       )`);
@@ -148,9 +158,11 @@ router.get("/", requireAuth, async (req, res) => {
 
     const sql = `
       SELECT dp.id, dp.numero, dp.anio, dp.estado, dp.decision_sesion, dp.created_at, dp.updated_at,
+             dp.guia_a_cargo, dp.guia_sustituto_id,
              e.id AS est_id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
              s.id AS seccion_id, s.nombre AS seccion_nombre,
              g.primer_apellido AS guia_ap1, g.segundo_apellido AS guia_ap2, g.nombre AS guia_nombre,
+             gs.primer_apellido AS sust_ap1, gs.segundo_apellido AS sust_ap2, gs.nombre AS sust_nombre,
              o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2, o.nombre AS orient_nombre,
              ini.primer_apellido AS ini_ap1, ini.segundo_apellido AS ini_ap2, ini.nombre AS ini_nombre,
              (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.completado=true)::int AS pasos_completados,
@@ -159,6 +171,7 @@ router.get("/", requireAuth, async (req, res) => {
       JOIN estudiantes e ON e.id = dp.estudiante_id
       LEFT JOIN secciones s ON s.id = e.seccion_id
       LEFT JOIN usuarios g ON g.id = dp.guia_a_cargo
+      LEFT JOIN usuarios gs ON gs.id = dp.guia_sustituto_id
       LEFT JOIN usuarios o ON o.id = dp.orientador_id
       LEFT JOIN usuarios ini ON ini.id = dp.iniciado_por
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
@@ -224,12 +237,14 @@ router.get("/:id", requireAuth, async (req, res) => {
     SELECT dp.*, e.cedula, e.nombre AS est_nombre, e.primer_apellido AS est_ap1, e.segundo_apellido AS est_ap2,
            e.seccion_id, s.nombre AS seccion_nombre,
            g.nombre AS guia_nombre, g.primer_apellido AS guia_ap1, g.segundo_apellido AS guia_ap2, g.cedula AS guia_cedula,
+           gs.nombre AS sust_nombre, gs.primer_apellido AS sust_ap1, gs.segundo_apellido AS sust_ap2, gs.cedula AS sust_cedula,
            o.nombre AS orient_nombre, o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2, o.cedula AS orient_cedula,
            ini.nombre AS ini_nombre, ini.primer_apellido AS ini_ap1, ini.segundo_apellido AS ini_ap2
     FROM debidos_procesos dp
     JOIN estudiantes e ON e.id = dp.estudiante_id
     LEFT JOIN secciones s ON s.id = e.seccion_id
     LEFT JOIN usuarios g ON g.id = dp.guia_a_cargo
+    LEFT JOIN usuarios gs ON gs.id = dp.guia_sustituto_id
     LEFT JOIN usuarios o ON o.id = dp.orientador_id
     LEFT JOIN usuarios ini ON ini.id = dp.iniciado_por
     WHERE dp.id = $1
@@ -386,7 +401,7 @@ router.post("/:id/pasos", requireAuth, async (req, res) => {
   }
 
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-  const esGuiaProceso = dp.guia_a_cargo === u.id;
+  const esGuiaProceso = guiaEfectivo(dp) === u.id;
   const esIniciador = dp.iniciado_por === u.id && tipo === "acta_apertura";
 
   // Para pasos asignados a otro profe (declaración de testigo en otra sección)
@@ -454,7 +469,7 @@ router.post("/:id/testigos", requireAuth, async (req, res) => {
   const dp = dpR.rows[0];
 
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-  if (!esStaff && dp.guia_a_cargo !== u.id) {
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
     return res.status(403).json({ error: "Solo el guía del proceso puede agregar testigos." });
   }
 
@@ -521,7 +536,7 @@ router.delete("/:id/testigos/:testigo_id", requireAuth, async (req, res) => {
   const dp = dpR.rows[0];
 
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-  if (!esStaff && dp.guia_a_cargo !== u.id) {
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
     return res.status(403).json({ error: "Sin permisos" });
   }
 
@@ -542,7 +557,7 @@ router.post("/:id/pasos/:paso_id/verificar", requireAuth, async (req, res) => {
   if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
   const dp = dpR.rows[0];
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-  if (!esStaff && dp.guia_a_cargo !== u.id) {
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
     return res.status(403).json({ error: "Solo el guía a cargo puede verificar." });
   }
   await pool.query(
@@ -565,7 +580,7 @@ router.post("/:id/decidir-sesion", requireAuth, async (req, res) => {
   const dp = dpR.rows[0];
 
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-  if (!esStaff && dp.guia_a_cargo !== u.id) {
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
     return res.status(403).json({ error: "Solo el guía a cargo puede registrar esta decisión." });
   }
   if (dp.estado !== "en_curso") {
@@ -673,7 +688,7 @@ router.post("/:id/cerrar", requireAuth, async (req, res) => {
   const dp = dpR.rows[0];
 
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-  if (!esStaff && dp.guia_a_cargo !== u.id) {
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
     return res.status(403).json({ error: "Sin permisos" });
   }
 
@@ -687,11 +702,12 @@ router.post("/:id/cerrar", requireAuth, async (req, res) => {
   }
   await pool.query("UPDATE debidos_procesos SET estado=$1, updated_at=NOW() WHERE id=$2", [nuevoEstado, req.params.id]);
 
-  // Notificaciones: iniciador, orientador y guía (todos los involucrados)
+  // Notificaciones: iniciador, orientador, guía original y sustituto si lo hay.
   const etiqueta = nuevoEstado === "resuelto" ? "✅ resuelto" : "❌ desestimado";
   const destinatarios = new Set();
   if (dp.iniciado_por && dp.iniciado_por !== u.id) destinatarios.add(dp.iniciado_por);
   if (dp.guia_a_cargo && dp.guia_a_cargo !== u.id) destinatarios.add(dp.guia_a_cargo);
+  if (dp.guia_sustituto_id && dp.guia_sustituto_id !== u.id) destinatarios.add(dp.guia_sustituto_id);
   if (dp.orientador_id && dp.orientador_id !== u.id) destinatarios.add(dp.orientador_id);
   for (const uid of destinatarios) {
     await notificar(uid, "debido_proceso",
@@ -737,6 +753,79 @@ router.delete("/:id", requireAuth, async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+// ── ASIGNAR GUÍA SUSTITUTO ─────────────────────────────────────────────
+// Solo admin y administrativo. Cuando se asigna, todas las validaciones
+// del proceso usan al sustituto en lugar del guía original. Si se pasa
+// sustituto_id=null, se quita y el guía original vuelve a tomar el caso.
+router.put("/:id/sustituto", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  if (!["admin","administrativo"].includes(u.rol)) {
+    return res.status(403).json({ error: "Solo admin y administrativo pueden asignar sustitutos." });
+  }
+  const { sustituto_id, motivo } = req.body;
+
+  // Verificar que el proceso existe y no esté cerrado
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+  if (dp.estado !== "en_curso") {
+    return res.status(400).json({ error: "Solo se puede modificar el guía de un proceso EN CURSO." });
+  }
+
+  // Si manda un sustituto, validar que sea un profesor activo y distinto del guía original
+  let nuevoSustituto = null;
+  if (sustituto_id) {
+    const susR = await pool.query(
+      "SELECT id, nombre, primer_apellido, segundo_apellido, rol, activo FROM usuarios WHERE id=$1",
+      [sustituto_id]
+    );
+    if (!susR.rows.length) return res.status(404).json({ error: "Profesor sustituto no encontrado" });
+    const sus = susR.rows[0];
+    if (!sus.activo) return res.status(400).json({ error: "El profesor sustituto está inactivo." });
+    if (!["profesor","profesor_guia"].includes(sus.rol)) {
+      return res.status(400).json({ error: "El sustituto debe ser un profesor activo del sistema." });
+    }
+    if (sus.id === dp.guia_a_cargo) {
+      return res.status(400).json({ error: "El sustituto no puede ser la misma persona que el guía original." });
+    }
+    nuevoSustituto = sus;
+  }
+
+  await pool.query(
+    "UPDATE debidos_procesos SET guia_sustituto_id=$1, updated_at=NOW() WHERE id=$2",
+    [nuevoSustituto ? nuevoSustituto.id : null, req.params.id]
+  );
+
+  // Log para auditoría
+  if (nuevoSustituto) {
+    const nombreSus = `${nuevoSustituto.primer_apellido||''} ${nuevoSustituto.segundo_apellido||''} ${nuevoSustituto.nombre||''}`.replace(/\s+/g,' ').trim();
+    console.log(`[DP] Sustituto asignado a expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}): ${nombreSus} (${nuevoSustituto.id}). Por usuario ${u.id} (${u.rol}). Motivo: "${(motivo||'').trim()}"`);
+
+    // Notificar al sustituto
+    await notificar(nuevoSustituto.id, "debido_proceso",
+      `📋 Se te asignó como guía sustituto del debido proceso N°${dp.numero}-${dp.anio}. ${motivo ? 'Motivo: '+motivo : ''}`);
+    // Notificar al guía original (para que sepa que ya no tiene el caso)
+    if (dp.guia_a_cargo && dp.guia_a_cargo !== u.id) {
+      await notificar(dp.guia_a_cargo, "debido_proceso",
+        `📋 El debido proceso N°${dp.numero}-${dp.anio} fue reasignado temporalmente a otro profesor. Vas a recuperar el caso cuando se quite el sustituto.`);
+    }
+  } else {
+    console.log(`[DP] Sustituto REMOVIDO de expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}). Por usuario ${u.id} (${u.rol}). Motivo: "${(motivo||'').trim()}"`);
+    // Notificar al guía original que recupera el caso
+    if (dp.guia_a_cargo && dp.guia_a_cargo !== u.id) {
+      await notificar(dp.guia_a_cargo, "debido_proceso",
+        `📋 Volvés a tener el debido proceso N°${dp.numero}-${dp.anio} a cargo (sustituto removido).`);
+    }
+    // Notificar al sustituto saliente
+    if (dp.guia_sustituto_id && dp.guia_sustituto_id !== u.id) {
+      await notificar(dp.guia_sustituto_id, "debido_proceso",
+        `📋 Ya no estás como sustituto del debido proceso N°${dp.numero}-${dp.anio}.`);
+    }
+  }
+
+  res.json({ ok: true, sustituto: nuevoSustituto });
 });
 
 module.exports = router;
