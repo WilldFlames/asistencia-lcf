@@ -824,6 +824,24 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- MODAL: Crear / editar evaluación -->
+<!-- ─────────── MODAL: HISTORIAL PREVIO DEL ESTUDIANTE ──────────── -->
+<!-- Muestra las notas que el estudiante tenía en OTRA asignación de la misma
+     materia/periodo. Útil cuando un estudiante cambia de sección o subgrupo
+     en medio del período y el profe nuevo necesita ver lo que ya se calificó. -->
+<div class="modal-overlay" id="modal-historial-previo">
+  <div class="modal" style="max-width:780px;">
+    <h3 id="histprev-titulo">📋 Historial previo del estudiante</h3>
+    <div id="histprev-info" style="font-size:12.5px;color:var(--muted);margin-bottom:10px;"></div>
+    <div id="alert-histprev" class="alert"></div>
+    <div id="histprev-contenido" style="max-height:60vh;overflow:auto;">
+      <div style="padding:20px;text-align:center;color:var(--muted);">Cargando...</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-historial-previo')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-evaluacion">
   <div class="modal" style="max-width:640px;">
     <h3 id="ev-titulo-mod">Nueva evaluación</h3>
@@ -14194,6 +14212,103 @@ async function iniciarCalificar(){
   }
 }
 
+// ════════════════════════════════════════════════════════════════════
+//  HISTORIAL PREVIO (cuando un estudiante cambió de sección/subgrupo)
+// ════════════════════════════════════════════════════════════════════
+// Muestra evaluaciones que el estudiante tenía calificadas en OTRA asignación
+// de la misma materia + periodo. Útil cuando el profe nuevo necesita ver
+// y/o copiar las notas que ya se le habían puesto.
+async function verHistorialPrevio(estudianteId, nombreEst){
+  if(!evalAsigActual){
+    alert('No hay asignación activa.');
+    return;
+  }
+  document.getElementById('histprev-titulo').textContent = `📋 Historial previo — ${nombreEst}`;
+  document.getElementById('histprev-info').innerHTML = `
+    Buscando notas previas del estudiante en <strong>${evalAsigActual.materia_nombre}</strong>
+    durante <strong>${document.getElementById("calif-periodo").value}</strong>
+    en OTRAS asignaciones (cambios de sección o subgrupo).
+  `;
+  document.getElementById('alert-histprev').className = 'alert';
+  document.getElementById('histprev-contenido').innerHTML =
+    '<div style="padding:20px;text-align:center;color:var(--muted);">Buscando...</div>';
+  document.getElementById('modal-historial-previo').classList.add('show');
+
+  try {
+    const rows = await api(`/api/calificaciones/historial-previo?asignacion_id=${evalAsigActual.asignacion_id}&estudiante_id=${estudianteId}`) || [];
+    const wrap = document.getElementById('histprev-contenido');
+    if(!rows.length){
+      wrap.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">
+        ✅ Este estudiante no tiene notas previas en otra asignación de esta materia/período.<br/>
+        <small>Solo aparece historial cuando el estudiante estuvo en otra sección o subgrupo y ya tenía calificaciones registradas.</small>
+      </div>`;
+      return;
+    }
+
+    const tipoIcono = { examen:'📝', tarea:'📄', cotidiano:'📋', proyecto:'📦' };
+    const tipoLbl = { examen:'Examen', tarea:'Tarea', cotidiano:'Cotidiano', proyecto:'Proyecto' };
+    wrap.innerHTML = `
+      <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:10px 14px;margin-bottom:10px;border-radius:6px;font-size:13px;">
+        Encontradas <strong>${rows.length}</strong> evaluación(es) con notas previas. Podés copiar las que quieras a tu asignación actual.
+        <br/><small style="color:var(--muted);">La copia crea una evaluación nueva en tu lista con los mismos datos y solo la nota de este estudiante.</small>
+      </div>
+      <div class="table-wrap">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#f1f5f9;">
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Evaluación</th>
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Sección anterior</th>
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Profesor anterior</th>
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Fecha</th>
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Nota</th>
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => {
+              const nota = (r.nota_obtenida != null && r.nota_maxima)
+                ? `${Number(r.nota_obtenida).toFixed(1)} / ${Number(r.nota_maxima).toFixed(1)}`
+                : '—';
+              const sub = r.subgrupo_origen ? ` <span class="badge b-guia" style="font-size:10px;">G ${r.subgrupo_origen}</span>` : '';
+              return `<tr>
+                <td style="padding:6px 8px;border:1px solid var(--border);">
+                  ${tipoIcono[r.tipo]||''} ${tipoLbl[r.tipo]||r.tipo}: <strong>${r.nombre}</strong>
+                  ${r.descripcion ? `<br/><small style="color:var(--muted);">${r.descripcion}</small>` : ''}
+                </td>
+                <td style="padding:6px 8px;border:1px solid var(--border);">${r.seccion_origen}${sub}</td>
+                <td style="padding:6px 8px;border:1px solid var(--border);">${r.profesor_origen}</td>
+                <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">${fmtF(r.fecha)}</td>
+                <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;font-weight:bold;color:var(--azul);">${nota}</td>
+                <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">
+                  <button class="btn btn-primary btn-xs" onclick="copiarEvaluacionPrevia(${r.evaluacion_id}, ${estudianteId}, '${(r.nombre||'').replace(/'/g,"\\'")}')">📥 Copiar</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e){
+    document.getElementById('histprev-contenido').innerHTML =
+      `<div style="padding:20px;text-align:center;color:var(--rojo);">Error: ${e.message}</div>`;
+  }
+}
+
+// Copia una evaluación de OTRA asignación a la actual. Crea una nueva
+// evaluación en la asignación actual y trae la nota del estudiante.
+async function copiarEvaluacionPrevia(evaluacionOrigen, estudianteId, nombreEval){
+  if(!confirm(`¿Copiar la evaluación "${nombreEval}" a tu asignación actual?\n\nSe va a:\n  • Crear una nueva evaluación llamada "${nombreEval} (copia)"\n  • Copiar SOLO la nota de este estudiante\n  • Los demás estudiantes quedarán sin nota (podés calificarlos después)\n\n¿Continuar?`)) return;
+  try {
+    const r = await api('/api/calificaciones/copiar-evaluacion','POST',{
+      asignacion_destino_id: evalAsigActual.asignacion_id,
+      evaluacion_origen_id: evaluacionOrigen,
+      estudiante_id: estudianteId,
+    });
+    sa('alert-histprev', `✅ Copiado como "${r.nombre}". Andá a "Volver a evaluaciones" para verlo.`, 'success');
+  } catch(e){
+    sa('alert-histprev', e.message, 'danger');
+  }
+}
+
 function renderGrillaNotas(notasArr){
   const thead = document.getElementById("calif-thead");
   const tbody = document.getElementById("calif-tbody-notas");
@@ -14219,8 +14334,13 @@ function renderGrillaNotas(notasArr){
       const nota100 = tieneNota ? (Number(v)*100)/ptotal : null;
       // Porcentaje obtenido = (puntos/total) × valor porcentual del examen
       const porcentajeObtenido = (tieneNota && valorPorc > 0) ? (Number(v)/ptotal) * valorPorc : null;
+      const nombreSafe = `${e.primer_apellido||''} ${e.nombre||''}`.replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
-        <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong> <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span></td>
+        <td>
+          <strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
+          <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span>
+          <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
+        </td>
         <td style="text-align:center;">
           <input type="number" class="calif-input-examen" data-estudiante="${e.id}"
                  min="0" max="${ptotal}" step="0.5"
@@ -14270,8 +14390,13 @@ function renderGrillaNotas(notasArr){
         </td>`;
       }).join("");
       const notaCalc = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
+      const nombreSafe2 = `${e.primer_apellido||''} ${e.nombre||''}`.replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
-        <td style="position:sticky;left:0;background:#fff;"><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong> <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span></td>
+        <td style="position:sticky;left:0;background:#fff;">
+          <strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
+          <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span>
+          <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe2}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
+        </td>
         ${cols}
         <td style="text-align:center;font-weight:bold;" id="suma-${e.id}">${todasLlenas?suma:'—'}</td>
         <td style="text-align:center;font-weight:bold;color:var(--azul);" id="nota-${e.id}">${notaCalc}</td>

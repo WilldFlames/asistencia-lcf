@@ -1098,4 +1098,222 @@ router.post("/simplificado", requireAuth, async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════════════
+//  HISTORIAL PREVIO DEL ESTUDIANTE (cambios de sección/subgrupo)
+// ════════════════════════════════════════════════════════════════════
+// Si un estudiante cambia de sección/subgrupo en medio del período, las
+// notas que tenía con OTRO profesor (o el mismo profe con otra asignación)
+// no se borran — siguen en la BD vinculadas a la evaluación original.
+// Estos endpoints permiten:
+//   - GET /historial-previo: ver qué evaluaciones tiene el estudiante en
+//     OTRA asignación de la misma materia/periodo (no la actual)
+//   - POST /copiar-evaluacion: el profe nuevo trae una evaluación a su
+//     asignación creando una copia con los mismos datos.
+
+// GET /historial-previo?asignacion_id=X&estudiante_id=Y
+// Devuelve evaluaciones de OTRAS asignaciones (misma materia + periodo) con
+// la nota que el estudiante tenía. El profe ve qué se le calificó antes.
+router.get("/historial-previo", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const { asignacion_id, estudiante_id } = req.query;
+  if (!asignacion_id || !estudiante_id) {
+    return res.status(400).json({ error: "asignacion_id y estudiante_id son requeridos." });
+  }
+  try {
+    // Datos de la asignación actual (para filtrar materia + periodo)
+    const aR = await pool.query(`
+      SELECT a.materia_id, a.periodo, a.profesor_id
+      FROM asignaciones a WHERE a.id = $1
+    `, [asignacion_id]);
+    if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
+    const a = aR.rows[0];
+
+    // Permisos: solo el profe a cargo o admin/staff
+    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+    if (!esStaff && a.profesor_id !== u.id) {
+      return res.status(403).json({ error: "Sin permisos." });
+    }
+
+    // Buscar evaluaciones de OTRAS asignaciones (misma materia + periodo) donde
+    // el estudiante tenga nota registrada. Incluye datos del profe y sección
+    // anteriores para que el profe nuevo pueda contextualizar.
+    const r = await pool.query(`
+      SELECT
+        e.id AS evaluacion_id, e.tipo, e.nombre, e.descripcion, e.fecha, e.fecha_asignacion,
+        e.puntaje_total, e.valor_porcentual, e.subgrupo,
+        prof.primer_apellido AS prof_ap1, prof.segundo_apellido AS prof_ap2, prof.nombre AS prof_nombre,
+        sec.nombre AS seccion_nombre,
+        -- Para EXÁMENES: nota directa
+        ne.puntos_obtenidos AS examen_puntos,
+        -- Para tarea/cotidiano/proyecto: sumamos notas de indicadores y total posible
+        (SELECT COALESCE(SUM(ni.puntaje),0) FROM notas_indicador ni
+          WHERE ni.evaluacion_id = e.id AND ni.estudiante_id = $2) AS ind_obtenido,
+        (SELECT COALESCE(SUM(i.puntaje_maximo),0) FROM indicadores i
+          WHERE i.evaluacion_id = e.id) AS ind_maximo,
+        (SELECT COUNT(*) FROM notas_indicador ni
+          WHERE ni.evaluacion_id = e.id AND ni.estudiante_id = $2 AND ni.puntaje IS NOT NULL) AS ind_calificados
+      FROM evaluaciones e
+      JOIN usuarios prof ON prof.id = e.profesor_id
+      JOIN secciones sec ON sec.id = e.seccion_id
+      LEFT JOIN notas_examen ne ON ne.evaluacion_id = e.id AND ne.estudiante_id = $2
+      WHERE e.materia_id = $3
+        AND e.periodo = $4
+        AND (
+          -- Solo evaluaciones donde el estudiante TIENE nota registrada
+          ne.puntos_obtenidos IS NOT NULL
+          OR EXISTS(SELECT 1 FROM notas_indicador ni
+                    WHERE ni.evaluacion_id = e.id AND ni.estudiante_id = $2 AND ni.puntaje IS NOT NULL)
+        )
+        -- Y NO sean evaluaciones de la asignación actual
+        AND NOT (e.profesor_id = (SELECT profesor_id FROM asignaciones WHERE id = $1)
+                 AND e.seccion_id = (SELECT seccion_id FROM asignaciones WHERE id = $1)
+                 AND COALESCE(e.subgrupo,'') = COALESCE((SELECT subgrupo FROM asignaciones WHERE id = $1),''))
+      ORDER BY e.fecha DESC, e.tipo
+    `, [asignacion_id, estudiante_id, a.materia_id, a.periodo]);
+
+    res.json(r.rows.map(row => {
+      const profe = `${row.prof_ap1||''} ${row.prof_ap2||''} ${row.prof_nombre||''}`.replace(/\s+/g,' ').trim();
+      // Calcular nota normalizada (sobre el puntaje total)
+      let nota_obtenida = null, nota_maxima = null;
+      if (row.tipo === 'examen') {
+        nota_obtenida = row.examen_puntos;
+        nota_maxima = row.puntaje_total;
+      } else {
+        nota_obtenida = row.ind_obtenido;
+        nota_maxima = row.ind_maximo;
+      }
+      return {
+        evaluacion_id: row.evaluacion_id,
+        tipo: row.tipo,
+        nombre: row.nombre,
+        descripcion: row.descripcion,
+        fecha: row.fecha,
+        fecha_asignacion: row.fecha_asignacion,
+        puntaje_total: row.puntaje_total,
+        valor_porcentual: row.valor_porcentual,
+        subgrupo_origen: row.subgrupo,
+        seccion_origen: row.seccion_nombre,
+        profesor_origen: profe,
+        nota_obtenida,
+        nota_maxima,
+        indicadores_calificados: parseInt(row.ind_calificados) || 0,
+      };
+    }));
+  } catch (e) {
+    console.error("GET /historial-previo:", e);
+    if (e.code === '42P01') return res.json([]);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /copiar-evaluacion
+// Body: { asignacion_destino_id, evaluacion_origen_id, estudiante_id }
+// Crea una nueva evaluación en la asignación destino (clonando tipo/nombre/
+// puntaje/indicadores) y copia las notas SOLO del estudiante indicado.
+router.post("/copiar-evaluacion", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const { asignacion_destino_id, evaluacion_origen_id, estudiante_id } = req.body;
+  if (!asignacion_destino_id || !evaluacion_origen_id || !estudiante_id) {
+    return res.status(400).json({ error: "Faltan datos." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Verificar asignación destino y permisos
+    const aR = await client.query(
+      `SELECT profesor_id, seccion_id, materia_id, subgrupo, periodo
+       FROM asignaciones WHERE id = $1`,
+      [asignacion_destino_id]
+    );
+    if (!aR.rows.length) throw { status:404, error:"Asignación destino no encontrada" };
+    const asig = aR.rows[0];
+    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+    if (!esStaff && asig.profesor_id !== u.id) {
+      throw { status:403, error:"Solo el profesor a cargo puede copiar evaluaciones a su asignación." };
+    }
+
+    // Cargar evaluación origen
+    const eR = await client.query(
+      `SELECT * FROM evaluaciones WHERE id = $1`, [evaluacion_origen_id]
+    );
+    if (!eR.rows.length) throw { status:404, error:"Evaluación origen no encontrada" };
+    const orig = eR.rows[0];
+
+    // Validar que sean misma materia + periodo (sanity check)
+    if (orig.materia_id !== asig.materia_id || orig.periodo !== asig.periodo) {
+      throw { status:400, error:"La evaluación origen no es de la misma materia/período." };
+    }
+
+    // Crear nueva evaluación con los mismos datos pero apuntando a la asig destino
+    const nombreNuevo = orig.nombre + " (copia)";
+    const newR = await client.query(`
+      INSERT INTO evaluaciones
+        (profesor_id, seccion_id, materia_id, subgrupo, periodo, tipo, nombre, descripcion,
+         fecha, fecha_asignacion, puntaje_total, valor_porcentual)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      RETURNING id
+    `, [
+      asig.profesor_id, asig.seccion_id, asig.materia_id, asig.subgrupo || null, asig.periodo,
+      orig.tipo, nombreNuevo, orig.descripcion, orig.fecha, orig.fecha_asignacion,
+      orig.puntaje_total, orig.valor_porcentual
+    ]);
+    const nuevaEvalId = newR.rows[0].id;
+
+    // Para exámenes: copiar la nota directa
+    if (orig.tipo === 'examen') {
+      const neR = await client.query(
+        `SELECT puntos_obtenidos FROM notas_examen
+         WHERE evaluacion_id = $1 AND estudiante_id = $2`,
+        [evaluacion_origen_id, estudiante_id]
+      );
+      if (neR.rows.length && neR.rows[0].puntos_obtenidos != null) {
+        await client.query(
+          `INSERT INTO notas_examen (evaluacion_id, estudiante_id, puntos_obtenidos)
+           VALUES ($1, $2, $3)`,
+          [nuevaEvalId, estudiante_id, neR.rows[0].puntos_obtenidos]
+        );
+      }
+    } else {
+      // Para tarea/cotidiano/proyecto: clonar indicadores y traer notas
+      const indsR = await client.query(
+        `SELECT id, orden, descripcion, puntaje_maximo FROM indicadores
+         WHERE evaluacion_id = $1 ORDER BY orden`,
+        [evaluacion_origen_id]
+      );
+      for (const ind of indsR.rows) {
+        const newIndR = await client.query(`
+          INSERT INTO indicadores (evaluacion_id, orden, descripcion, puntaje_maximo)
+          VALUES ($1, $2, $3, $4) RETURNING id
+        `, [nuevaEvalId, ind.orden, ind.descripcion, ind.puntaje_maximo]);
+        const newIndId = newIndR.rows[0].id;
+        // Traer la nota del estudiante para ese indicador
+        const niR = await client.query(
+          `SELECT puntaje FROM notas_indicador
+           WHERE evaluacion_id = $1 AND indicador_id = $2 AND estudiante_id = $3`,
+          [evaluacion_origen_id, ind.id, estudiante_id]
+        );
+        if (niR.rows.length && niR.rows[0].puntaje != null) {
+          await client.query(
+            `INSERT INTO notas_indicador (evaluacion_id, indicador_id, estudiante_id, puntaje)
+             VALUES ($1, $2, $3, $4)`,
+            [nuevaEvalId, newIndId, estudiante_id, niR.rows[0].puntaje]
+          );
+        }
+      }
+    }
+
+    await client.query("COMMIT");
+    console.log(`[CALIF] Evaluación ${evaluacion_origen_id} copiada como ${nuevaEvalId} para estudiante ${estudiante_id} por usuario ${u.id} (${u.rol}).`);
+    res.json({ ok: true, nueva_evaluacion_id: nuevaEvalId, nombre: nombreNuevo });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.status && e.error) return res.status(e.status).json({ error: e.error });
+    console.error("POST /copiar-evaluacion:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
