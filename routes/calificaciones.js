@@ -1206,113 +1206,212 @@ router.get("/historial-previo", requireAuth, async (req, res) => {
   }
 });
 
-// POST /copiar-evaluacion
-// Body: { asignacion_destino_id, evaluacion_origen_id, estudiante_id }
-// Crea una nueva evaluación en la asignación destino (clonando tipo/nombre/
-// puntaje/indicadores) y copia las notas SOLO del estudiante indicado.
-router.post("/copiar-evaluacion", requireAuth, async (req, res) => {
+// POST /jalar-nota
+// Body: { evaluacion_destino_id, evaluacion_origen_id, estudiante_id }
+// Copia la nota de UN estudiante desde la evaluacion_origen a la evaluacion_destino
+// (que YA existe en la asignación del profe nuevo). NO crea nada nuevo —
+// solo escribe en notas_examen o notas_indicador.
+router.post("/jalar-nota", requireAuth, async (req, res) => {
   const u = req.session.usuario;
-  const { asignacion_destino_id, evaluacion_origen_id, estudiante_id } = req.body;
-  if (!asignacion_destino_id || !evaluacion_origen_id || !estudiante_id) {
+  const { evaluacion_destino_id, evaluacion_origen_id, estudiante_id } = req.body;
+  if (!evaluacion_destino_id || !evaluacion_origen_id || !estudiante_id) {
     return res.status(400).json({ error: "Faltan datos." });
   }
+  if (Number(evaluacion_destino_id) === Number(evaluacion_origen_id)) {
+    return res.status(400).json({ error: "Origen y destino son la misma evaluación." });
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // Verificar asignación destino y permisos
-    const aR = await client.query(
-      `SELECT profesor_id, seccion_id, materia_id, subgrupo, periodo
-       FROM asignaciones WHERE id = $1`,
-      [asignacion_destino_id]
-    );
-    if (!aR.rows.length) throw { status:404, error:"Asignación destino no encontrada" };
-    const asig = aR.rows[0];
+    // Cargar ambas evaluaciones
+    const dR = await client.query(`SELECT * FROM evaluaciones WHERE id = $1`, [evaluacion_destino_id]);
+    const oR = await client.query(`SELECT * FROM evaluaciones WHERE id = $1`, [evaluacion_origen_id]);
+    if (!dR.rows.length) throw { status:404, error:"Evaluación destino no encontrada" };
+    if (!oR.rows.length) throw { status:404, error:"Evaluación origen no encontrada" };
+    const dest = dR.rows[0];
+    const orig = oR.rows[0];
+
+    // Validar permisos sobre la destino
     const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-    if (!esStaff && asig.profesor_id !== u.id) {
-      throw { status:403, error:"Solo el profesor a cargo puede copiar evaluaciones a su asignación." };
+    if (!esStaff && dest.profesor_id !== u.id) {
+      throw { status:403, error:"Solo el profesor a cargo puede jalar notas a su evaluación." };
     }
 
-    // Cargar evaluación origen
-    const eR = await client.query(
-      `SELECT * FROM evaluaciones WHERE id = $1`, [evaluacion_origen_id]
-    );
-    if (!eR.rows.length) throw { status:404, error:"Evaluación origen no encontrada" };
-    const orig = eR.rows[0];
-
-    // Validar que sean misma materia + periodo (sanity check)
-    if (orig.materia_id !== asig.materia_id || orig.periodo !== asig.periodo) {
-      throw { status:400, error:"La evaluación origen no es de la misma materia/período." };
+    // Validar coherencia
+    if (orig.tipo !== dest.tipo) {
+      throw { status:400, error:`Las evaluaciones son de distinto tipo (${orig.tipo} → ${dest.tipo}).` };
+    }
+    if (orig.materia_id !== dest.materia_id || orig.periodo !== dest.periodo) {
+      throw { status:400, error:"Las evaluaciones no son de la misma materia/período." };
     }
 
-    // Crear nueva evaluación con los mismos datos pero apuntando a la asig destino
-    const nombreNuevo = orig.nombre + " (copia)";
-    const newR = await client.query(`
-      INSERT INTO evaluaciones
-        (profesor_id, seccion_id, materia_id, subgrupo, periodo, tipo, nombre, descripcion,
-         fecha, fecha_asignacion, puntaje_total, valor_porcentual)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      RETURNING id
-    `, [
-      asig.profesor_id, asig.seccion_id, asig.materia_id, asig.subgrupo || null, asig.periodo,
-      orig.tipo, nombreNuevo, orig.descripcion, orig.fecha, orig.fecha_asignacion,
-      orig.puntaje_total, orig.valor_porcentual
-    ]);
-    const nuevaEvalId = newR.rows[0].id;
-
-    // Para exámenes: copiar la nota directa
-    if (orig.tipo === 'examen') {
+    if (dest.tipo === 'examen') {
+      // EXAMEN: copiar puntos_obtenidos.
+      // Si los puntajes totales son distintos, escalamos proporcionalmente
+      // para no inflar/desinflar la nota.
       const neR = await client.query(
         `SELECT puntos_obtenidos FROM notas_examen
          WHERE evaluacion_id = $1 AND estudiante_id = $2`,
         [evaluacion_origen_id, estudiante_id]
       );
-      if (neR.rows.length && neR.rows[0].puntos_obtenidos != null) {
-        await client.query(
-          `INSERT INTO notas_examen (evaluacion_id, estudiante_id, puntos_obtenidos)
-           VALUES ($1, $2, $3)`,
-          [nuevaEvalId, estudiante_id, neR.rows[0].puntos_obtenidos]
-        );
+      if (!neR.rows.length || neR.rows[0].puntos_obtenidos == null) {
+        throw { status:400, error:"El estudiante no tiene nota en la evaluación origen." };
       }
-    } else {
-      // Para tarea/cotidiano/proyecto: clonar indicadores y traer notas
-      const indsR = await client.query(
-        `SELECT id, orden, descripcion, puntaje_maximo FROM indicadores
-         WHERE evaluacion_id = $1 ORDER BY orden`,
-        [evaluacion_origen_id]
-      );
-      for (const ind of indsR.rows) {
-        const newIndR = await client.query(`
-          INSERT INTO indicadores (evaluacion_id, orden, descripcion, puntaje_maximo)
-          VALUES ($1, $2, $3, $4) RETURNING id
-        `, [nuevaEvalId, ind.orden, ind.descripcion, ind.puntaje_maximo]);
-        const newIndId = newIndR.rows[0].id;
-        // Traer la nota del estudiante para ese indicador
-        const niR = await client.query(
-          `SELECT puntaje FROM notas_indicador
-           WHERE evaluacion_id = $1 AND indicador_id = $2 AND estudiante_id = $3`,
-          [evaluacion_origen_id, ind.id, estudiante_id]
-        );
-        if (niR.rows.length && niR.rows[0].puntaje != null) {
-          await client.query(
-            `INSERT INTO notas_indicador (evaluacion_id, indicador_id, estudiante_id, puntaje)
-             VALUES ($1, $2, $3, $4)`,
-            [nuevaEvalId, newIndId, estudiante_id, niR.rows[0].puntaje]
-          );
-        }
+      let puntosFinal = Number(neR.rows[0].puntos_obtenidos);
+      const ptDest = Number(dest.puntaje_total) || 0;
+      const ptOrig = Number(orig.puntaje_total) || 0;
+      // Escalar si puntajes totales difieren
+      let escalado = false;
+      if (ptDest > 0 && ptOrig > 0 && ptDest !== ptOrig) {
+        puntosFinal = (puntosFinal / ptOrig) * ptDest;
+        escalado = true;
       }
+      // Upsert
+      await client.query(`
+        INSERT INTO notas_examen (evaluacion_id, estudiante_id, puntos_obtenidos, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (evaluacion_id, estudiante_id) DO UPDATE
+          SET puntos_obtenidos = EXCLUDED.puntos_obtenidos, updated_at = NOW()
+      `, [evaluacion_destino_id, estudiante_id, puntosFinal]);
+
+      await client.query("COMMIT");
+      console.log(`[CALIF] Nota EXAMEN jalada: eval ${evaluacion_origen_id} → ${evaluacion_destino_id}, estudiante ${estudiante_id}, por ${u.id} (${u.rol}). ${escalado ? `Escalado de ${ptOrig} → ${ptDest}` : 'Sin escalado.'}`);
+      return res.json({
+        ok: true,
+        puntos_aplicados: Number(puntosFinal.toFixed(2)),
+        escalado,
+        puntaje_total_destino: ptDest,
+        puntaje_total_origen: ptOrig,
+      });
+    }
+
+    // TAREA / COTIDIANO / PROYECTO: jalar notas por indicador.
+    // Hacemos match por ORDEN (1° con 1°, 2° con 2°...) porque los nombres
+    // de indicadores pueden ser distintos entre profes.
+    const indsOrigR = await client.query(
+      `SELECT id, orden, puntaje_maximo FROM indicadores WHERE evaluacion_id = $1 ORDER BY orden`,
+      [evaluacion_origen_id]
+    );
+    const indsDestR = await client.query(
+      `SELECT id, orden, puntaje_maximo FROM indicadores WHERE evaluacion_id = $1 ORDER BY orden`,
+      [evaluacion_destino_id]
+    );
+    if (!indsDestR.rows.length) {
+      throw { status:400, error:"La evaluación destino no tiene indicadores. Agregalos primero." };
+    }
+    if (!indsOrigR.rows.length) {
+      throw { status:400, error:"La evaluación origen no tiene indicadores con datos." };
+    }
+
+    // Traer las notas del estudiante en origen, indexadas por id de indicador
+    const notasOrigR = await client.query(
+      `SELECT indicador_id, puntaje FROM notas_indicador
+       WHERE evaluacion_id = $1 AND estudiante_id = $2 AND puntaje IS NOT NULL`,
+      [evaluacion_origen_id, estudiante_id]
+    );
+    if (!notasOrigR.rows.length) {
+      throw { status:400, error:"El estudiante no tiene notas en los indicadores de la evaluación origen." };
+    }
+    const notasOrigMap = new Map(notasOrigR.rows.map(r => [r.indicador_id, r.puntaje]));
+
+    // Match por orden: para cada indicador del destino, buscamos el origen con la misma posición
+    const indsOrigPorOrden = new Map(indsOrigR.rows.map(i => [i.orden, i]));
+
+    let aplicados = 0, omitidos = 0, escalados = 0;
+    const detalles = [];
+
+    for (const indDest of indsDestR.rows) {
+      const indOrig = indsOrigPorOrden.get(indDest.orden);
+      if (!indOrig) {
+        omitidos++;
+        detalles.push(`Indicador ${indDest.orden}: sin equivalente en origen.`);
+        continue;
+      }
+      const puntajeOrig = notasOrigMap.get(indOrig.id);
+      if (puntajeOrig == null) {
+        omitidos++;
+        detalles.push(`Indicador ${indDest.orden}: sin nota en origen.`);
+        continue;
+      }
+      let puntajeFinal = Number(puntajeOrig);
+      // Escalar si los máximos difieren
+      if (indDest.puntaje_maximo !== indOrig.puntaje_maximo) {
+        puntajeFinal = (puntajeFinal / indOrig.puntaje_maximo) * indDest.puntaje_maximo;
+        escalados++;
+        detalles.push(`Indicador ${indDest.orden}: escalado de ${puntajeOrig}/${indOrig.puntaje_maximo} → ${puntajeFinal.toFixed(1)}/${indDest.puntaje_maximo}`);
+      } else {
+        detalles.push(`Indicador ${indDest.orden}: ${puntajeFinal}/${indDest.puntaje_maximo}`);
+      }
+      // Redondear al entero porque puntaje en BD es INTEGER
+      puntajeFinal = Math.round(puntajeFinal);
+      // Asegurar que no sobrepasa el máximo (por redondeo)
+      puntajeFinal = Math.min(puntajeFinal, indDest.puntaje_maximo);
+
+      // Upsert
+      await client.query(`
+        INSERT INTO notas_indicador (evaluacion_id, indicador_id, estudiante_id, puntaje, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (evaluacion_id, indicador_id, estudiante_id) DO UPDATE
+          SET puntaje = EXCLUDED.puntaje, updated_at = NOW()
+      `, [evaluacion_destino_id, indDest.id, estudiante_id, puntajeFinal]);
+      aplicados++;
     }
 
     await client.query("COMMIT");
-    console.log(`[CALIF] Evaluación ${evaluacion_origen_id} copiada como ${nuevaEvalId} para estudiante ${estudiante_id} por usuario ${u.id} (${u.rol}).`);
-    res.json({ ok: true, nueva_evaluacion_id: nuevaEvalId, nombre: nombreNuevo });
+    console.log(`[CALIF] Notas INDICADORES jaladas: eval ${evaluacion_origen_id} → ${evaluacion_destino_id}, estudiante ${estudiante_id}, por ${u.id} (${u.rol}). Aplicados:${aplicados} Omitidos:${omitidos} Escalados:${escalados}`);
+    res.json({
+      ok: true,
+      tipo: 'indicadores',
+      aplicados, omitidos, escalados,
+      cantidad_indicadores_origen: indsOrigR.rows.length,
+      cantidad_indicadores_destino: indsDestR.rows.length,
+      detalles,
+    });
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.status && e.error) return res.status(e.status).json({ error: e.error });
-    console.error("POST /copiar-evaluacion:", e);
+    console.error("POST /jalar-nota:", e);
     res.status(500).json({ error: e.message });
   } finally {
     client.release();
+  }
+});
+
+// GET /mis-evaluaciones-misma-materia?asignacion_id=X
+// Devuelve las evaluaciones que el profe ya tiene en su asignación (mismas
+// materia + período). Sirve para el dropdown del modal "historial previo":
+// el profe elige a cuál de SUS evaluaciones jalar la nota.
+router.get("/mis-evaluaciones-misma-materia", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const { asignacion_id } = req.query;
+  if (!asignacion_id) return res.status(400).json({ error: "asignacion_id requerido" });
+  try {
+    const aR = await pool.query(
+      `SELECT profesor_id, seccion_id, materia_id, subgrupo, periodo
+       FROM asignaciones WHERE id = $1`, [asignacion_id]
+    );
+    if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
+    const a = aR.rows[0];
+    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+    if (!esStaff && a.profesor_id !== u.id) return res.status(403).json({ error: "Sin permisos." });
+
+    const r = await pool.query(`
+      SELECT id, tipo, nombre, fecha, puntaje_total,
+        (SELECT COUNT(*) FROM indicadores i WHERE i.evaluacion_id = e.id) AS cant_indicadores
+      FROM evaluaciones e
+      WHERE e.profesor_id = $1
+        AND e.seccion_id = $2
+        AND e.materia_id = $3
+        AND COALESCE(e.subgrupo,'') = COALESCE($4,'')
+        AND e.periodo = $5
+      ORDER BY e.tipo, e.fecha
+    `, [a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.periodo]);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET mis-evaluaciones-misma-materia:", e);
+    res.status(500).json({ error: e.message });
   }
 });
 

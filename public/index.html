@@ -14235,9 +14235,16 @@ async function verHistorialPrevio(estudianteId, nombreEst){
   document.getElementById('modal-historial-previo').classList.add('show');
 
   try {
-    const rows = await api(`/api/calificaciones/historial-previo?asignacion_id=${evalAsigActual.asignacion_id}&estudiante_id=${estudianteId}`) || [];
+    // Cargar en paralelo: notas previas + evaluaciones del profe actual
+    const [rows, misEvals] = await Promise.all([
+      api(`/api/calificaciones/historial-previo?asignacion_id=${evalAsigActual.asignacion_id}&estudiante_id=${estudianteId}`),
+      api(`/api/calificaciones/mis-evaluaciones-misma-materia?asignacion_id=${evalAsigActual.asignacion_id}`),
+    ]);
+    const rowsArr = rows || [];
+    const misEvalsArr = misEvals || [];
     const wrap = document.getElementById('histprev-contenido');
-    if(!rows.length){
+
+    if(!rowsArr.length){
       wrap.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">
         ✅ Este estudiante no tiene notas previas en otra asignación de esta materia/período.<br/>
         <small>Solo aparece historial cuando el estudiante estuvo en otra sección o subgrupo y ya tenía calificaciones registradas.</small>
@@ -14247,40 +14254,57 @@ async function verHistorialPrevio(estudianteId, nombreEst){
 
     const tipoIcono = { examen:'📝', tarea:'📄', cotidiano:'📋', proyecto:'📦' };
     const tipoLbl = { examen:'Examen', tarea:'Tarea', cotidiano:'Cotidiano', proyecto:'Proyecto' };
+
     wrap.innerHTML = `
       <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:10px 14px;margin-bottom:10px;border-radius:6px;font-size:13px;">
-        Encontradas <strong>${rows.length}</strong> evaluación(es) con notas previas. Podés copiar las que quieras a tu asignación actual.
-        <br/><small style="color:var(--muted);">La copia crea una evaluación nueva en tu lista con los mismos datos y solo la nota de este estudiante.</small>
+        Encontradas <strong>${rowsArr.length}</strong> evaluación(es) con notas previas.<br/>
+        <small style="color:var(--muted);">Elegí a cuál de TUS evaluaciones querés jalar la nota. Solo se modifica la nota del estudiante seleccionado, no de los demás.</small>
       </div>
+      ${misEvalsArr.length === 0 ? `
+        <div style="background:#fff7ed;border-left:4px solid #ea580c;padding:10px 14px;margin-bottom:10px;border-radius:6px;font-size:13px;">
+          ⚠️ No tenés evaluaciones creadas todavía en esta asignación. Primero creá las evaluaciones donde querés jalar las notas.
+        </div>
+      ` : ''}
       <div class="table-wrap">
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead>
             <tr style="background:#f1f5f9;">
-              <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Evaluación</th>
-              <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Sección anterior</th>
-              <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Profesor anterior</th>
-              <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Fecha</th>
-              <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Nota</th>
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Evaluación previa</th>
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Nota previa</th>
+              <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Jalar a TU evaluación</th>
               <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Acción</th>
             </tr>
           </thead>
           <tbody>
-            ${rows.map(r => {
+            ${rowsArr.map((r, idx) => {
               const nota = (r.nota_obtenida != null && r.nota_maxima)
                 ? `${Number(r.nota_obtenida).toFixed(1)} / ${Number(r.nota_maxima).toFixed(1)}`
                 : '—';
               const sub = r.subgrupo_origen ? ` <span class="badge b-guia" style="font-size:10px;">G ${r.subgrupo_origen}</span>` : '';
+              // Filtrar mis evaluaciones del mismo TIPO que la previa
+              const candidatas = misEvalsArr.filter(m => m.tipo === r.tipo);
+              const selectId = `histprev-dest-${idx}`;
               return `<tr>
                 <td style="padding:6px 8px;border:1px solid var(--border);">
-                  ${tipoIcono[r.tipo]||''} ${tipoLbl[r.tipo]||r.tipo}: <strong>${r.nombre}</strong>
-                  ${r.descripcion ? `<br/><small style="color:var(--muted);">${r.descripcion}</small>` : ''}
+                  ${tipoIcono[r.tipo]||''} <strong>${r.nombre}</strong>
+                  <br/><small style="color:var(--muted);">${tipoLbl[r.tipo]||r.tipo} · ${r.seccion_origen}${sub} · ${r.profesor_origen} · ${fmtF(r.fecha)}</small>
                 </td>
-                <td style="padding:6px 8px;border:1px solid var(--border);">${r.seccion_origen}${sub}</td>
-                <td style="padding:6px 8px;border:1px solid var(--border);">${r.profesor_origen}</td>
-                <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">${fmtF(r.fecha)}</td>
                 <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;font-weight:bold;color:var(--azul);">${nota}</td>
+                <td style="padding:6px 8px;border:1px solid var(--border);">
+                  ${candidatas.length === 0
+                    ? `<small style="color:#dc2626;">⚠️ No tenés evaluaciones de tipo ${tipoLbl[r.tipo]||r.tipo} en esta asignación</small>`
+                    : `<select id="${selectId}" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+                        <option value="">— Elegí evaluación destino —</option>
+                        ${candidatas.map(c => {
+                          const indInfo = c.tipo === 'examen' ? `/${c.puntaje_total}` : `${c.cant_indicadores} ind.`;
+                          return `<option value="${c.id}">${tipoIcono[c.tipo]||''} ${c.nombre} (${indInfo} · ${fmtF(c.fecha)})</option>`;
+                        }).join('')}
+                      </select>`}
+                </td>
                 <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">
-                  <button class="btn btn-primary btn-xs" onclick="copiarEvaluacionPrevia(${r.evaluacion_id}, ${estudianteId}, '${(r.nombre||'').replace(/'/g,"\\'")}')">📥 Copiar</button>
+                  ${candidatas.length === 0
+                    ? '—'
+                    : `<button class="btn btn-primary btn-xs" onclick="jalarNotaAEval(${r.evaluacion_id}, ${estudianteId}, '${selectId}', '${(r.nombre||'').replace(/'/g,"\\'")}')">📥 Jalar nota</button>`}
                 </td>
               </tr>`;
             }).join('')}
@@ -14293,17 +14317,40 @@ async function verHistorialPrevio(estudianteId, nombreEst){
   }
 }
 
-// Copia una evaluación de OTRA asignación a la actual. Crea una nueva
-// evaluación en la asignación actual y trae la nota del estudiante.
-async function copiarEvaluacionPrevia(evaluacionOrigen, estudianteId, nombreEval){
-  if(!confirm(`¿Copiar la evaluación "${nombreEval}" a tu asignación actual?\n\nSe va a:\n  • Crear una nueva evaluación llamada "${nombreEval} (copia)"\n  • Copiar SOLO la nota de este estudiante\n  • Los demás estudiantes quedarán sin nota (podés calificarlos después)\n\n¿Continuar?`)) return;
+// Jala la nota del estudiante desde la evaluación previa a la evaluación
+// destino seleccionada en el dropdown. NO crea evaluaciones nuevas.
+async function jalarNotaAEval(evalOrigen, estudianteId, selectId, nombreEvalOrigen){
+  const sel = document.getElementById(selectId);
+  if(!sel){ return; }
+  const evalDestino = sel.value;
+  if(!evalDestino){
+    sa('alert-histprev','Elegí primero una evaluación destino.','danger');
+    return;
+  }
+  const nombreDest = sel.options[sel.selectedIndex].text;
+  if(!confirm(`¿Jalar la nota de "${nombreEvalOrigen}" hacia tu evaluación "${nombreDest}"?\n\nSe va a sobrescribir la nota actual del estudiante en esa evaluación (si tenía alguna).`)) return;
   try {
-    const r = await api('/api/calificaciones/copiar-evaluacion','POST',{
-      asignacion_destino_id: evalAsigActual.asignacion_id,
-      evaluacion_origen_id: evaluacionOrigen,
+    const r = await api('/api/calificaciones/jalar-nota','POST',{
+      evaluacion_destino_id: +evalDestino,
+      evaluacion_origen_id: evalOrigen,
       estudiante_id: estudianteId,
     });
-    sa('alert-histprev', `✅ Copiado como "${r.nombre}". Andá a "Volver a evaluaciones" para verlo.`, 'success');
+    let mensaje = '';
+    if(r.tipo === 'indicadores'){
+      mensaje = `✅ Notas jaladas: ${r.aplicados} de ${r.cantidad_indicadores_destino} indicador(es)`;
+      if(r.omitidos) mensaje += ` · ${r.omitidos} omitido(s)`;
+      if(r.escalados) mensaje += ` · ${r.escalados} escalado(s)`;
+      mensaje += '.';
+    } else {
+      mensaje = `✅ Puntos aplicados: ${r.puntos_aplicados}/${r.puntaje_total_destino}`;
+      if(r.escalado) mensaje += ` (escalado proporcional de ${r.puntaje_total_origen} → ${r.puntaje_total_destino})`;
+      mensaje += '.';
+    }
+    sa('alert-histprev', mensaje, 'success');
+    // Refrescar la grilla de notas si estamos viendo la evaluación destino
+    if(typeof evalActual !== 'undefined' && evalActual && evalActual.id === +evalDestino){
+      if(typeof iniciarCalificar === 'function') await iniciarCalificar();
+    }
   } catch(e){
     sa('alert-histprev', e.message, 'danger');
   }
