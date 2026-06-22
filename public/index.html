@@ -4431,12 +4431,52 @@ function renderAsignaciones(){
     <td>${a.materia_nombre}${a.subgrupo?` <span class="badge b-guia">Grupo ${a.subgrupo}</span>`:""}</td>
     <td>${a.lecciones_semana}</td>
     <td>
-      <button class="btn btn-outline btn-xs" onclick="editarAsig(${a.id})">✏️</button>
-      <button class="btn btn-danger btn-xs" onclick="eliminarAsig(${a.id})">🗑️</button>
+      <button class="btn btn-outline btn-xs" onclick="editarAsig(${a.id})" title="Editar">✏️</button>
+      <button class="btn btn-outline btn-xs" onclick="diagnosticarAsig(${a.id})" title="Diagnosticar (ver por qué no funciona)">🔍</button>
+      <button class="btn btn-danger btn-xs" onclick="eliminarAsig(${a.id})" title="Eliminar">🗑️</button>
     </td>
   </tr>`).join("");
 }
 function filtrarAsignacionesPorProfesor(){ renderAsignaciones(); }
+
+// Llama al endpoint de diagnóstico y muestra el resultado en un alert.
+// Útil cuando una asignación funciona raro (no carga estudiantes, no guarda
+// asistencia, etc.) — muestra subgrupos, lecciones_semana, periodo, etc.
+async function diagnosticarAsig(id){
+  try {
+    const d = await api(`/api/asistencia/diagnostico/${id}`);
+    const a = d.asignacion, e = d.estudiantes, s = d.sesiones_asistencia;
+    const subs = e.subgrupos_existentes.map(x => `  - "${x.subgrupo}": ${x.cant} estudiante(s)`).join('\n');
+    const msg = [
+      `🔍 DIAGNÓSTICO DE ASIGNACIÓN #${a.id}`,
+      ``,
+      `📚 ${a.materia} ${a.modo_simplificado ? '(🎓 simplificada)' : ''}`,
+      `🏫 Sección: ${a.seccion} (nivel ${a.nivel})`,
+      `👨‍🏫 Profesor: ${a.profesor} ${!a.prof_activo ? '⚠️ INACTIVO' : ''}`,
+      `📅 Período: ${a.periodo || '(sin definir)'}`,
+      `🕐 Lecciones/semana: ${a.lecciones_semana}`,
+      `🔢 Subgrupo de la asignación: ${a.subgrupo || '(ninguno)'}`,
+      ``,
+      `👥 ESTUDIANTES:`,
+      `  Total en sección: ${e.total_seccion}`,
+      `  Con subgrupo asignado: ${e.con_subgrupo}`,
+      `  Sin subgrupo: ${e.sin_subgrupo}`,
+      `  Visibles para ESTA asignación: ${e.visibles_para_esta_asignacion}`,
+      ``,
+      `Subgrupos existentes en la sección:`,
+      subs || '  (sin subgrupos)',
+      ``,
+      `📋 SESIONES de asistencia registradas: ${s.total}`,
+      s.primera_fecha ? `  Primera: ${s.primera_fecha.slice(0,10)} · Última: ${s.ultima_fecha.slice(0,10)}` : '',
+      ``,
+      `🩺 DIAGNÓSTICO:`,
+      ...d.problemas.map(p => '  ' + p),
+    ].filter(Boolean).join('\n');
+    alert(msg);
+  } catch(e){
+    alert('Error en diagnóstico: ' + e.message);
+  }
+}
 function abrirModalAsignacion(){document.getElementById("modal-asignacion").classList.add("show");}
 async function guardarAsignacion(){
   const pid=document.getElementById("ma-profesor").value;
@@ -5175,6 +5215,10 @@ async function cargarListaDia(){
   }else{info.style.display="none";}
   registrosAsist=d.estudiantes.map(e=>({...e}));
   renderTablaAsist();
+  // Si el backend devolvió un diagnóstico (lista vacía + razón), mostrarlo al profe.
+  if(d._diagnostico && registrosAsist.length === 0){
+    sa("alert-asis", "⚠️ " + d._diagnostico + " Avisá al admin para que revise la asignación.", "warning");
+  }
 }
 
 function renderTablaAsist(){

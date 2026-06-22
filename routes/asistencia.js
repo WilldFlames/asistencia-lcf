@@ -85,6 +85,30 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   estQuery += ` ORDER BY e.cedula) sub ORDER BY sub.primer_apellido, sub.segundo_apellido, sub.nombre`;
   const estR = await pool.query(estQuery, estParams);
 
+  // Diagnóstico: si la asignación tiene subgrupo pero ningún estudiante tiene
+  // ese subgrupo asignado, devolvemos un mensaje claro en lugar de una lista
+  // vacía silenciosa (que es lo que rompe la pantalla de la profe).
+  if (estR.rows.length === 0) {
+    // ¿Hay estudiantes en la sección sin filtrar por subgrupo?
+    const totalSec = await pool.query(
+      `SELECT COUNT(*)::int AS c FROM estudiantes
+       WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL)`,
+      [seccion_id]
+    );
+    let mensaje = "Sin estudiantes en esta asignación.";
+    if (totalSec.rows[0].c > 0 && subgrupo && subgrupo.trim() !== '') {
+      mensaje = `La asignación está configurada con subgrupo "${subgrupo.trim().toUpperCase()}" pero ningún estudiante de la sección tiene ese subgrupo. El admin debe revisar los subgrupos de los estudiantes o quitar el subgrupo de la asignación.`;
+    } else if (totalSec.rows[0].c === 0) {
+      mensaje = "La sección no tiene estudiantes activos.";
+    }
+    return res.json({
+      sesion: sesR.rows[0] || null,
+      estudiantes: [],
+      _diagnostico: mensaje,
+      _info: { total_seccion: totalSec.rows[0].c, subgrupo_asignacion: subgrupo || null }
+    });
+  }
+
   if (!sesR.rows.length) {
     // Sesión nueva → todos presentes y escapado=false por defecto
     return res.json({
@@ -294,6 +318,110 @@ router.put("/justificar/:asistencia_id", requireDocente, async (req, res) => {
 router.delete("/sesion/:sesion_id", requireDocente, async (req, res) => {
   await pool.query("DELETE FROM sesiones_asistencia WHERE id=$1", [req.params.sesion_id]);
   res.json({ ok:true });
+});
+
+// ── DIAGNÓSTICO DE UNA ASIGNACIÓN ─────────────────────────────────────────────
+// Para que el admin pueda verificar qué pasa cuando una asignación no funciona
+// bien (por ej: subgrupo mal, sin estudiantes, lecciones=0, etc).
+router.get("/diagnostico/:asignacion_id", async (req, res) => {
+  try {
+    const u = req.session.usuario;
+    if (!u) return res.status(401).json({ error: "Sin sesión" });
+    if (!["admin","administrativo","auxiliar"].includes(u.rol)) {
+      return res.status(403).json({ error: "Solo admin/administrativo/auxiliar." });
+    }
+    const aR = await pool.query(`
+      SELECT a.*, s.nombre AS seccion_nombre, s.nivel AS seccion_nivel,
+             m.nombre AS materia_nombre, m.modo_simplificado,
+             u.primer_apellido, u.segundo_apellido, u.nombre AS prof_nombre, u.activo AS prof_activo
+      FROM asignaciones a
+      JOIN secciones s ON s.id = a.seccion_id
+      JOIN materias m  ON m.id = a.materia_id
+      JOIN usuarios u  ON u.id = a.profesor_id
+      WHERE a.id = $1
+    `, [req.params.asignacion_id]);
+    if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
+    const a = aR.rows[0];
+
+    // Estudiantes de la sección (sin filtro de subgrupo)
+    const estTotalR = await pool.query(`
+      SELECT COUNT(*)::int AS total,
+             COUNT(*) FILTER (WHERE COALESCE(subgrupo,'') = '')::int AS sin_subgrupo,
+             COUNT(*) FILTER (WHERE subgrupo IS NOT NULL AND subgrupo <> '')::int AS con_subgrupo
+      FROM estudiantes
+      WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL)
+    `, [a.seccion_id]);
+
+    // Subgrupos distintos en la sección
+    const subsR = await pool.query(`
+      SELECT COALESCE(UPPER(subgrupo),'(vacío)') AS subgrupo, COUNT(*)::int AS cant
+      FROM estudiantes
+      WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL)
+      GROUP BY UPPER(subgrupo)
+      ORDER BY subgrupo
+    `, [a.seccion_id]);
+
+    // ¿Cuántos estudiantes calzan con el subgrupo de la asignación?
+    let estudiantes_visibles = estTotalR.rows[0].total;
+    if (a.subgrupo && a.subgrupo.trim() !== '') {
+      const mR = await pool.query(`
+        SELECT COUNT(*)::int AS c FROM estudiantes
+        WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL)
+          AND UPPER(COALESCE(subgrupo,'')) = $2
+      `, [a.seccion_id, a.subgrupo.trim().toUpperCase()]);
+      estudiantes_visibles = mR.rows[0].c;
+    }
+
+    // Sesiones de asistencia ya creadas
+    const sesR = await pool.query(`
+      SELECT COUNT(*)::int AS c, MIN(fecha) AS primera, MAX(fecha) AS ultima
+      FROM sesiones_asistencia WHERE asignacion_id=$1
+    `, [a.asignacion_id || req.params.asignacion_id]);
+
+    // Diagnóstico final: posibles problemas
+    const problemas = [];
+    if (!a.prof_activo) problemas.push("⚠️ El profesor asignado está INACTIVO.");
+    if (!a.lecciones_semana || a.lecciones_semana < 1) problemas.push(`⚠️ lecciones_semana = ${a.lecciones_semana || 'NULL'}. Debe ser al menos 1.`);
+    if (estudiantes_visibles === 0) {
+      if (a.subgrupo && estTotalR.rows[0].total > 0) {
+        problemas.push(`⚠️ La asignación tiene subgrupo "${a.subgrupo}" pero ningún estudiante de la sección tiene ese subgrupo. Esto rompe la asistencia para la profe.`);
+      } else if (estTotalR.rows[0].total === 0) {
+        problemas.push("⚠️ La sección no tiene estudiantes activos.");
+      }
+    }
+    if (!a.periodo) problemas.push("⚠️ La asignación no tiene período. Debería ser 'I Período' o 'II Período'.");
+
+    res.json({
+      asignacion: {
+        id: a.id,
+        profesor: `${a.primer_apellido||''} ${a.segundo_apellido||''} ${a.prof_nombre||''}`.replace(/\s+/g,' ').trim(),
+        prof_activo: a.prof_activo,
+        seccion: a.seccion_nombre,
+        nivel: a.seccion_nivel,
+        materia: a.materia_nombre,
+        modo_simplificado: a.modo_simplificado,
+        subgrupo: a.subgrupo || null,
+        periodo: a.periodo,
+        lecciones_semana: a.lecciones_semana,
+      },
+      estudiantes: {
+        total_seccion: estTotalR.rows[0].total,
+        con_subgrupo: estTotalR.rows[0].con_subgrupo,
+        sin_subgrupo: estTotalR.rows[0].sin_subgrupo,
+        visibles_para_esta_asignacion: estudiantes_visibles,
+        subgrupos_existentes: subsR.rows,
+      },
+      sesiones_asistencia: {
+        total: sesR.rows[0].c,
+        primera_fecha: sesR.rows[0].primera,
+        ultima_fecha: sesR.rows[0].ultima,
+      },
+      problemas: problemas.length ? problemas : ["✅ Sin problemas detectados."],
+    });
+  } catch (e) {
+    console.error("diagnostico asignacion:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;
