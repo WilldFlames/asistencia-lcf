@@ -701,7 +701,7 @@ tr:hover td{background:#f8fafc;}
       <div>
         <button class="btn btn-outline btn-sm" onclick="goTo('calificaciones')">← Volver</button>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <div id="eval-botones-normal" style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-success btn-sm" id="btn-nuevo-examen" onclick="nuevaEvaluacion('examen')">📝 Nuevo examen</button>
         <button class="btn btn-primary btn-sm" id="btn-nueva-tarea" onclick="nuevaEvaluacion('tarea')">📄 Nueva tarea</button>
         <button class="btn btn-orange btn-sm" id="btn-nuevo-cotid" onclick="nuevaEvaluacion('cotidiano')">📋 Nuevo cotidiano</button>
@@ -713,8 +713,20 @@ tr:hover td{background:#f8fafc;}
     <div id="alert-eval" class="alert"></div>
   </div>
 
-  <div id="eval-cards-wrap">
-    <div class="empty" style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>
+  <!-- Modo normal: lista de evaluaciones individuales -->
+  <div id="eval-normal-wrap">
+    <div id="eval-cards-wrap">
+      <div class="empty" style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>
+    </div>
+  </div>
+
+  <!-- Modo simplificado: grilla por estudiante (Ética y Valores, etc) -->
+  <div id="eval-simplificado-wrap" style="display:none;">
+    <div class="card">
+      <div id="eval-simplificado-lista">
+        <div class="empty" style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4283,9 +4295,43 @@ async function cargarMateriasList(){
   const rows=await api("/api/admin/materias");
   if(!rows)return;
   const div=document.getElementById("materias-lista");
-  div.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Materia</th><th></th></tr></thead><tbody>
-    ${rows.map(m=>`<tr><td>${m.nombre}</td><td><button class="btn btn-danger btn-xs" onclick="eliminarMateria(${m.id},'${m.nombre}')">🗑️</button></td></tr>`).join("")}
-  </tbody></table></div>`;
+  div.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>Materia</th><th style="text-align:center;">Modo simplificado</th><th></th></tr></thead>
+    <tbody>
+    ${rows.map(m=>{
+      const checked = m.modo_simplificado ? 'checked' : '';
+      return `<tr>
+        <td>${m.nombre}</td>
+        <td style="text-align:center;">
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" ${checked} onchange="toggleMateriaSimplificada(${m.id}, this.checked, '${m.nombre.replace(/'/g,"\\'")}')"/>
+            <span style="color:var(--muted);">${m.modo_simplificado ? 'Sí (solo % por rubro)' : 'No (normal)'}</span>
+          </label>
+        </td>
+        <td><button class="btn btn-danger btn-xs" onclick="eliminarMateria(${m.id},'${m.nombre.replace(/'/g,"\\'")}')">🗑️</button></td>
+      </tr>`;
+    }).join("")}
+  </tbody></table></div>
+  <div style="margin-top:8px;font-size:11px;color:var(--muted);background:#f8fafc;padding:8px 12px;border-radius:6px;">
+    ℹ️ <strong>Modo simplificado</strong>: para materias como Ética y Valores o Educación para la Paz. El profe ingresa solo el % obtenido por rubro (Cotidiano, Tareas, etc) sin registrar tareas/cotidianos individuales. El sistema calcula la nota final con los pesos del REAC.
+  </div>`;
+}
+async function toggleMateriaSimplificada(id, activo, nombre){
+  const msg = activo
+    ? `¿Activar modo simplificado para "${nombre}"?\n\nEl profesor solo ingresará el % por rubro y el sistema calcula la nota final.\n\nSi ya hay calificaciones detalladas, NO se borran (solo se ocultan mientras está activo).`
+    : `¿Desactivar modo simplificado para "${nombre}"?\n\nVuelve al modo normal con tareas/cotidianos individuales.`;
+  if(!confirm(msg)) {
+    cargarMateriasList(); // restaurar checkbox visual
+    return;
+  }
+  try {
+    await api(`/api/admin/materias/${id}/simplificado`,'PUT',{ activo });
+    sa("alert-materias", `✅ "${nombre}" ${activo?'marcada como simplificada':'vuelta al modo normal'}.`, "success");
+    await cargarMateriasList();
+  } catch(e){
+    sa("alert-materias", e.message, "danger");
+    await cargarMateriasList();
+  }
 }
 async function crearMateria(){
   const nombre=document.getElementById("nueva-materia").value.trim();
@@ -13491,12 +13537,15 @@ function renderCalifAsig(){
     const avisoSemestral = esTaller
       ? '<br/><span style="font-size:11px;color:var(--azul);">📌 Materia semestral — nota única</span>'
       : '';
+    const avisoSimplificada = a.modo_simplificado
+      ? '<br/><span style="font-size:11px;color:#15803d;background:#dcfce7;padding:1px 6px;border-radius:4px;">🎓 Modo simplificado (solo % por rubro)</span>'
+      : '';
     const botonEval = sinRegla
       ? ''
       : `<button class="btn btn-primary btn-xs" onclick="abrirEvaluaciones(${a.asignacion_id})">📝 Evaluaciones</button>`;
     return `<tr ${sinRegla?'style="background:#fef3c7;"':''}>
       <td><strong>${a.seccion_nombre}</strong></td>
-      <td>${a.materia_nombre}${avisoSemestral}</td>
+      <td>${a.materia_nombre}${avisoSemestral}${avisoSimplificada}</td>
       <td>${a.subgrupo ? `<span class="badge b-guia">${a.subgrupo}</span>` : '<span style="color:var(--muted);">—</span>'}</td>
       <td style="text-align:center;">${fmt(a.porc_cotidiano)}</td>
       <td style="text-align:center;">${fmt(a.porc_tareas)}</td>
@@ -13541,13 +13590,126 @@ async function iniciarEvaluaciones(){
     `Cotid ${a.porc_cotidiano||0}% · Tareas ${a.porc_tareas||0}% · ` +
     `Pruebas ${a.porc_pruebas||0}% · Proy ${a.porc_proyectos||0}% · Asist ${a.porc_asistencia||0}%`;
 
-  // Mostrar/ocultar botones según la regla REAC
+  // MODO SIMPLIFICADO: detectado por bandera de la materia.
+  // Si está activo, mostramos solo la grilla por estudiante y ocultamos todo
+  // lo de evaluaciones individuales (botones, lista de tareas, etc.).
+  const esSimplificado = !!a.modo_simplificado;
+  const wrapNormal = document.getElementById("eval-normal-wrap");
+  const wrapSimpl = document.getElementById("eval-simplificado-wrap");
+  const botonesNormal = document.getElementById("eval-botones-normal");
+  if(wrapNormal) wrapNormal.style.display = esSimplificado ? 'none' : '';
+  if(wrapSimpl) wrapSimpl.style.display = esSimplificado ? '' : 'none';
+  if(botonesNormal) botonesNormal.style.display = esSimplificado ? 'none' : '';
+
+  if(esSimplificado){
+    await cargarSimplificado();
+    return;
+  }
+
+  // Mostrar/ocultar botones según la regla REAC (modo normal)
   document.getElementById("btn-nuevo-examen").style.display = (Number(a.porc_pruebas)>0) ? "" : "none";
   document.getElementById("btn-nueva-tarea").style.display = (Number(a.porc_tareas)>0) ? "" : "none";
   document.getElementById("btn-nuevo-cotid").style.display = (Number(a.porc_cotidiano)>0) ? "" : "none";
   document.getElementById("btn-nuevo-proy").style.display = (Number(a.porc_proyectos)>0) ? "" : "none";
 
   await cargarEvaluaciones();
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  CALIFICACIONES — MODO SIMPLIFICADO (Ética y Valores, Educación para la Paz)
+// ════════════════════════════════════════════════════════════════════
+async function cargarSimplificado(){
+  const a = evalAsigActual;
+  const periodo = document.getElementById("calif-periodo").value;
+  try {
+    const rows = await api(`/api/calificaciones/simplificado?asignacion_id=${a.asignacion_id}&periodo=${encodeURIComponent(periodo)}`) || [];
+    const wrap = document.getElementById("eval-simplificado-lista");
+    if(!rows.length){
+      wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);">Sin estudiantes en esta sección.</div>';
+      return;
+    }
+    // Cabeceras: solo los rubros que tienen peso > 0 según la regla REAC
+    const mostrarCol = {
+      cotidiano: Number(a.porc_cotidiano) > 0,
+      tareas:    Number(a.porc_tareas)    > 0,
+      pruebas:   Number(a.porc_pruebas)   > 0,
+      proyectos: Number(a.porc_proyectos) > 0,
+    };
+    const numFmt = v => v == null || v === '' ? '' : Number(v).toFixed(1);
+    wrap.innerHTML = `<div style="background:#eff6ff;border-left:4px solid var(--azul);padding:10px 14px;margin-bottom:10px;border-radius:6px;font-size:13px;">
+      🎓 <strong>Modo simplificado</strong> activado por administración. Ingresá el <strong>porcentaje obtenido</strong> (0-100) por cada rubro y estudiante. El sistema calcula la nota final aplicando los pesos del REAC.<br/>
+      <small style="color:var(--muted);">Dejá vacío si aún no calificás ese rubro. Los cambios se guardan al salir del campo.</small>
+    </div>
+    <div class="table-wrap"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#f1f5f9;">
+          <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">Estudiante</th>
+          ${mostrarCol.cotidiano ? `<th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Cotid<br/><small style="color:var(--muted);font-weight:normal;">${a.porc_cotidiano}%</small></th>` : ''}
+          ${mostrarCol.tareas    ? `<th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Tareas<br/><small style="color:var(--muted);font-weight:normal;">${a.porc_tareas}%</small></th>` : ''}
+          ${mostrarCol.pruebas   ? `<th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Pruebas<br/><small style="color:var(--muted);font-weight:normal;">${a.porc_pruebas}%</small></th>` : ''}
+          ${mostrarCol.proyectos ? `<th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Proyectos<br/><small style="color:var(--muted);font-weight:normal;">${a.porc_proyectos}%</small></th>` : ''}
+          <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(e => {
+          const nombre = `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/^,\s*/,'').trim();
+          const guardado = (e.pct_cotidiano != null || e.pct_tareas != null || e.pct_pruebas != null || e.pct_proyectos != null);
+          return `<tr data-eid="${e.estudiante_id}">
+            <td style="padding:6px 8px;border:1px solid var(--border);"><strong>${nombre}</strong><br/><small style="color:var(--muted);">${e.cedula||'—'}</small></td>
+            ${mostrarCol.cotidiano ? `<td style="padding:4px;border:1px solid var(--border);"><input type="number" min="0" max="100" step="0.1" value="${numFmt(e.pct_cotidiano)}" data-rubro="pct_cotidiano" onchange="guardarSimpl(${e.estudiante_id}, 'pct_cotidiano', this.value)" style="width:70px;text-align:center;padding:4px;border:1px solid var(--border);border-radius:4px;"/></td>` : ''}
+            ${mostrarCol.tareas    ? `<td style="padding:4px;border:1px solid var(--border);"><input type="number" min="0" max="100" step="0.1" value="${numFmt(e.pct_tareas)}"    data-rubro="pct_tareas"    onchange="guardarSimpl(${e.estudiante_id}, 'pct_tareas',    this.value)" style="width:70px;text-align:center;padding:4px;border:1px solid var(--border);border-radius:4px;"/></td>` : ''}
+            ${mostrarCol.pruebas   ? `<td style="padding:4px;border:1px solid var(--border);"><input type="number" min="0" max="100" step="0.1" value="${numFmt(e.pct_pruebas)}"   data-rubro="pct_pruebas"   onchange="guardarSimpl(${e.estudiante_id}, 'pct_pruebas',   this.value)" style="width:70px;text-align:center;padding:4px;border:1px solid var(--border);border-radius:4px;"/></td>` : ''}
+            ${mostrarCol.proyectos ? `<td style="padding:4px;border:1px solid var(--border);"><input type="number" min="0" max="100" step="0.1" value="${numFmt(e.pct_proyectos)}" data-rubro="pct_proyectos" onchange="guardarSimpl(${e.estudiante_id}, 'pct_proyectos', this.value)" style="width:70px;text-align:center;padding:4px;border:1px solid var(--border);border-radius:4px;"/></td>` : ''}
+            <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">${guardado ? '<span style="color:#16a34a;">✓ Guardado</span>' : '<span style="color:var(--muted);">Pendiente</span>'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+    <div style="margin-top:10px;font-size:12px;color:var(--muted);">
+      💡 Para ver los promedios calculados, andá a <strong>Promedios</strong> en el menú lateral después de calificar.
+    </div>`;
+  } catch(e) {
+    document.getElementById("eval-simplificado-lista").innerHTML =
+      `<div style="padding:20px;text-align:center;color:var(--rojo);">Error: ${e.message}</div>`;
+  }
+}
+
+// Guarda el porcentaje de un rubro para un estudiante. Cada vez que se cambia
+// un campo se hace un POST. El backend hace upsert (inserta o actualiza).
+async function guardarSimpl(estudianteId, rubro, valor){
+  const a = evalAsigActual;
+  const periodo = document.getElementById("calif-periodo").value;
+  // Validar 0-100 (vacío permitido)
+  if(valor !== '' && (isNaN(+valor) || +valor < 0 || +valor > 100)){
+    sa("alert-eval", `El valor debe estar entre 0 y 100 (recibido: ${valor}).`, "danger");
+    return;
+  }
+  // Construir payload: solo el rubro que cambió, los demás los toma del backend
+  // En realidad el backend pisa todo: para no perder otros rubros, los leemos primero
+  try {
+    const fila = document.querySelector(`tr[data-eid="${estudianteId}"]`);
+    const inputs = fila ? fila.querySelectorAll('input[data-rubro]') : [];
+    const payload = {
+      asignacion_id: a.asignacion_id,
+      estudiante_id: estudianteId,
+      periodo,
+      pct_cotidiano: null, pct_tareas: null, pct_pruebas: null, pct_proyectos: null,
+    };
+    inputs.forEach(inp => {
+      const r = inp.dataset.rubro;
+      const v = inp.value;
+      payload[r] = v === '' ? null : Number(v);
+    });
+    await api('/api/calificaciones/simplificado','POST', payload);
+    // Actualizar el "Estado" de la fila
+    if(fila){
+      const tdEstado = fila.lastElementChild;
+      if(tdEstado) tdEstado.innerHTML = '<span style="color:#16a34a;">✓ Guardado</span>';
+    }
+  } catch(e){
+    sa("alert-eval", `Error guardando: ${e.message}`, "danger");
+  }
 }
 
 async function cargarEvaluaciones(){
@@ -14268,8 +14430,8 @@ function imprimirEvaluacion(){
     ? `Asignada: <strong>${fechaAsig}</strong> · Entrega: <strong>${fechaEv}</strong>`
     : `Fecha: <strong>${fechaEv}</strong>`;
 
-  // Profesor (de la sesión actual)
-  const profNombre = `${ME.primer_apellido||''} ${ME.nombre||''}`.trim();
+  // Profesor (de la sesión actual) — formato: APELLIDO1 APELLIDO2, NOMBRE
+  const profNombre = `${ME.primer_apellido||''} ${ME.segundo_apellido||''}, ${ME.nombre||''}`.replace(/\s+/g,' ').replace(/^,\s*/,'').replace(/,\s*$/,'').trim();
 
   // Construir HTML imprimible
   let printArea = document.getElementById("print-boleta-area");
@@ -14722,7 +14884,8 @@ function prom_imprimirActa(){
       }).join('') + `</tbody>`;
   }
 
-  const profNombre = `${ME.primer_apellido||''} ${ME.nombre||''}`.trim();
+  // Formato: PRIMER_APELLIDO SEGUNDO_APELLIDO, NOMBRE
+  const profNombre = `${ME.primer_apellido||''} ${ME.segundo_apellido||''}, ${ME.nombre||''}`.replace(/\s+/g,' ').replace(/^,\s*/,'').replace(/,\s*$/,'').trim();
   let printArea = document.getElementById("print-boleta-area");
   if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
@@ -14833,7 +14996,9 @@ function prom_imprimirBoletas(){
       if(Number(reg.porc_asistencia) > 0){
         const A = e.asistencia || {};
         const pct = A.pct != null ? Number(A.pct).toFixed(1) : '—';
-        const pctAus = A.pct_ausencias != null ? Number(A.pct_ausencias).toFixed(1) : '—';
+        // El backend devuelve "porcentaje_ausencias" — antes acá decía "pct_ausencias"
+        // y por eso siempre salía "—% aus." en las boletas impresas.
+        const pctAus = A.porcentaje_ausencias != null ? Number(A.porcentaje_ausencias).toFixed(1) : '—';
         rows += `<tr>
           <td style="border:1px solid #cbd5e1;padding:3px 7px;font-size:11px;"><strong>Asistencia</strong> <span style="color:#64748b;font-size:10px;">(${pctAus}% aus.)</span></td>
           <td style="border:1px solid #cbd5e1;padding:3px 7px;text-align:center;font-size:11px;color:#555;">${reg.porc_asistencia}%</td>
@@ -14859,7 +15024,7 @@ function prom_imprimirBoletas(){
         <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a3a5c;padding-bottom:5px;margin-bottom:6px;">
           <div>
             <div style="font-size:13px;font-weight:bold;color:#1a3a5c;">${nombreCompleto}</div>
-            <div style="font-size:10px;color:#555;">Cédula: ${e.cedula||'—'} · ${a.seccion_nombre}${a.subgrupo?' · '+a.subgrupo:''}</div>
+            <div style="font-size:10px;color:#555;">Cédula: ${e.cedula||'—'} · ${a.seccion_nombre||'—'}${a.subgrupo?' · '+a.subgrupo:''}</div>
             <div style="font-size:10px;color:#555;">${a.materia_nombre} · ${vista==='anual'?'Promedio Anual':vista} · ${fechaEmision}</div>
           </div>
           <div style="text-align:right;min-width:120px;">
@@ -14876,14 +15041,13 @@ function prom_imprimirBoletas(){
       </div>`;
   };
 
-  // Construir HTML: pares de estudiantes (2 por página)
+  // Flujo continuo: el navegador acomoda tantas boletas por página como quepan.
+  // Cada boleta tiene page-break-inside:avoid para que no se corte a la mitad,
+  // pero NO forzamos saltos cada N — eso desperdiciaba media página cuando la
+  // boleta era corta. El resultado: 3-4 boletas por hoja en lugar de 1-2.
   let bloque = '';
   for(let i=0; i<est.length; i++){
     bloque += renderBoleta(est[i], i);
-    // Cada 2 estudiantes, salto de página explícito (excepto al final)
-    if((i+1) % 2 === 0 && i < est.length - 1){
-      bloque += '<div style="page-break-after:always;break-after:page;"></div>';
-    }
   }
 
   let printArea = document.getElementById("print-boleta-area");

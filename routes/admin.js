@@ -81,6 +81,15 @@ router.delete("/materias/:id", onlyAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Marca/desmarca una materia como "modo simplificado" (solo el % por rubro,
+// sin tareas/cotidianos individuales). Usado en materias como Ética y Valores
+// o Educación para la Paz que no llevan registros detallados.
+router.put("/materias/:id/simplificado", onlyAdmin, async (req, res) => {
+  const { activo } = req.body;
+  await pool.query("UPDATE materias SET modo_simplificado=$1 WHERE id=$2", [!!activo, req.params.id]);
+  res.json({ ok: true, modo_simplificado: !!activo });
+});
+
 // ── SECCIONES ─────────────────────────────────────────────────
 router.get("/secciones", async (req, res) => {
   const r = await pool.query(`

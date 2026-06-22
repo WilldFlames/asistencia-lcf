@@ -23,6 +23,7 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
         s.nivel           AS seccion_nivel,
         a.materia_id,
         m.nombre          AS materia_nombre,
+        m.modo_simplificado,
         a.subgrupo,
         a.periodo         AS asig_periodo,
         regla.id           AS regla_id,
@@ -87,7 +88,7 @@ router.get("/reglas", requireAuth, async (req, res) => {
 // o null si no existe.
 async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo) {
   const r = await pool.query(`
-    SELECT a.id, m.nombre AS materia_nombre, s.nivel AS seccion_nivel,
+    SELECT a.id, m.nombre AS materia_nombre, m.modo_simplificado, s.nivel AS seccion_nivel,
            mre.regla_id, reg.codigo AS regla_codigo, reg.cantidad_pruebas, reg.cantidad_proyectos, reg.proyecto_o_prueba
     FROM asignaciones a
     JOIN materias m ON m.id = a.materia_id
@@ -541,6 +542,104 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
   `, [seccion_id, sub]);
   const estudiantes = estudiantesR.rows;
 
+  // 3b. RAMA SIMPLIFICADA: para materias como Ética y Valores el profe
+  // ingresa el % obtenido por rubro directamente. No usamos evaluaciones
+  // individuales. Calculamos: pct_rubro × peso_rubro = puntos del rubro.
+  if (asig.modo_simplificado) {
+    const pesos = {
+      cotidiano:  Number(regla.porc_cotidiano)  || 0,
+      tareas:     Number(regla.porc_tareas)     || 0,
+      pruebas:    Number(regla.porc_pruebas)    || 0,
+      proyectos:  Number(regla.porc_proyectos)  || 0,
+      asistencia: Number(regla.porc_asistencia) || 0,
+    };
+
+    // Cargar porcentajes guardados
+    const csR = await pool.query(`
+      SELECT estudiante_id, pct_cotidiano, pct_tareas, pct_pruebas, pct_proyectos
+      FROM calificaciones_simplificadas
+      WHERE asignacion_id = $1 AND periodo = $2
+    `, [asig.id, periodo]);
+    const porEst = new Map(csR.rows.map(r => [r.estudiante_id, r]));
+
+    // Calcular asistencia (igual que el modo normal)
+    const totLeccR = await pool.query(`
+      SELECT COALESCE(SUM(COALESCE(s.lecciones_realizadas, s.lecciones_planeadas, 4)),0)::int AS total
+      FROM sesiones_asistencia s
+      WHERE s.asignacion_id IN (
+        SELECT id FROM asignaciones
+        WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3
+          AND (($4::text IS NULL AND subgrupo IS NULL) OR subgrupo=$4) AND periodo=$5
+      )
+    `, [profesor_id, seccion_id, materia_id, sub, periodo]);
+    const totalLeccionesGlobal = totLeccR.rows[0].total || 0;
+
+    const ausR = await pool.query(`
+      SELECT a.estudiante_id, COALESCE(SUM(a.lecciones_ausentes),0)::int AS aus
+      FROM asistencia a
+      JOIN sesiones_asistencia s ON s.id = a.sesion_id
+      WHERE a.estado='A' AND a.justificada=false
+        AND s.asignacion_id IN (
+          SELECT id FROM asignaciones
+          WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3
+            AND (($4::text IS NULL AND subgrupo IS NULL) OR subgrupo=$4) AND periodo=$5
+        )
+      GROUP BY a.estudiante_id
+    `, [profesor_id, seccion_id, materia_id, sub, periodo]);
+    const ausPorEst = new Map(ausR.rows.map(r => [r.estudiante_id, r.aus]));
+
+    const resultado = estudiantes.map(e => {
+      const cs = porEst.get(e.id) || {};
+      const pCot = cs.pct_cotidiano != null ? Number(cs.pct_cotidiano) : null;
+      const pTar = cs.pct_tareas    != null ? Number(cs.pct_tareas)    : null;
+      const pPru = cs.pct_pruebas   != null ? Number(cs.pct_pruebas)   : null;
+      const pPro = cs.pct_proyectos != null ? Number(cs.pct_proyectos) : null;
+
+      // Puntos del rubro = (% obtenido / 100) × peso del rubro
+      const ptosCot = pCot != null ? (pCot / 100) * pesos.cotidiano : 0;
+      const ptosTar = pTar != null ? (pTar / 100) * pesos.tareas    : 0;
+      const ptosPru = pPru != null ? (pPru / 100) * pesos.pruebas   : 0;
+      const ptosPro = pPro != null ? (pPro / 100) * pesos.proyectos : 0;
+
+      // Asistencia (idéntica al modo normal: tabla MEP de puntos)
+      const ausentes = ausPorEst.get(e.id) || 0;
+      const porcAusencias = totalLeccionesGlobal > 0 ? (ausentes / totalLeccionesGlobal) * 100 : 0;
+      let ptosAsist = pesos.asistencia;
+      if (porcAusencias > 0) {
+        const tablaMep = [
+          { hasta: 5,  ptos: 5 },{ hasta:10, ptos: 4 },{ hasta:15, ptos: 3 },
+          { hasta:20,  ptos: 2 },{ hasta:25, ptos: 1 },{ hasta:100,ptos: 0 }
+        ];
+        const fila = tablaMep.find(f => porcAusencias <= f.hasta) || tablaMep[tablaMep.length-1];
+        ptosAsist = (fila.ptos / 5) * pesos.asistencia;
+      }
+
+      const total = (ptosCot + ptosTar + ptosPru + ptosPro + (pesos.asistencia > 0 ? ptosAsist : 0));
+
+      return {
+        estudiante_id: e.id, cedula: e.cedula, nombre: e.nombre,
+        primer_apellido: e.primer_apellido, segundo_apellido: e.segundo_apellido,
+        rubros: {
+          cotidiano: { pct: pCot, peso: pesos.cotidiano, nota_100: pCot },
+          tarea:     { pct: pTar, peso: pesos.tareas,    nota_100: pTar },
+          examen:    { pct: pPru, peso: pesos.pruebas,   nota_100: pPru },
+          proyecto:  { pct: pPro, peso: pesos.proyectos, nota_100: pPro },
+        },
+        asistencia: {
+          total_lecciones: totalLeccionesGlobal,
+          lecciones_ausentes_injust: ausentes,
+          porcentaje_ausencias: porcAusencias,
+          pct: pesos.asistencia > 0 ? ptosAsist : 0,
+          peso: pesos.asistencia,
+        },
+        total: Number(total.toFixed(2)),
+        modo_simplificado: true,
+      };
+    });
+
+    return { regla, estudiantes: resultado, modo_simplificado: true };
+  }
+
   // 4. Cargar todas las evaluaciones del período para esta asignación, con sus notas
   const evalsR = await pool.query(`
     SELECT e.id, e.tipo, e.puntaje_total
@@ -899,6 +998,104 @@ router.get("/periodos/cerrados", requireAuth, async (req, res) => {
     ORDER BY pc.cerrado_en DESC
   `, [u.id]);
   res.json(r.rows);
+});
+
+// ════════════════════════════════════════════════════════════════════
+//  MODO SIMPLIFICADO — porcentajes directos por rubro
+// ════════════════════════════════════════════════════════════════════
+// Usado por materias marcadas como "modo_simplificado=true". El profe ingresa
+// el % obtenido por rubro (no tareas/cotidianos individuales) y el sistema
+// aplica los pesos del REAC para calcular la nota final.
+
+// GET: trae los porcentajes guardados para una asignación + periodo.
+// Devuelve un array con una fila por estudiante de la sección.
+router.get("/simplificado", requireAuth, async (req, res) => {
+  const { asignacion_id, periodo } = req.query;
+  if (!asignacion_id || !periodo) return res.status(400).json({ error: "Faltan parámetros." });
+  try {
+    // Verificar permisos: solo el profesor de la asignación o admin/staff
+    const u = req.session.usuario;
+    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+    const asigR = await pool.query("SELECT profesor_id, seccion_id FROM asignaciones WHERE id=$1", [asignacion_id]);
+    if (!asigR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
+    const asig = asigR.rows[0];
+    if (!esStaff && asig.profesor_id !== u.id) return res.status(403).json({ error: "Sin permisos." });
+
+    // Traer todos los estudiantes activos de la sección + sus calificaciones (si hay)
+    const r = await pool.query(`
+      SELECT e.id AS estudiante_id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+             cs.pct_cotidiano, cs.pct_tareas, cs.pct_pruebas, cs.pct_proyectos, cs.observaciones,
+             cs.updated_at
+      FROM estudiantes e
+      LEFT JOIN calificaciones_simplificadas cs
+        ON cs.estudiante_id = e.id AND cs.asignacion_id = $1 AND cs.periodo = $2
+      WHERE e.seccion_id = $3 AND e.activo = true
+      ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
+    `, [asignacion_id, periodo, asig.seccion_id]);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET /simplificado:", e);
+    if (e.code === '42P01') return res.json([]);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST: guarda los porcentajes de un estudiante. Si ya existía la fila, la
+// actualiza. Valida que la materia esté en modo simplificado.
+router.post("/simplificado", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const { asignacion_id, estudiante_id, periodo, pct_cotidiano, pct_tareas, pct_pruebas, pct_proyectos, observaciones } = req.body;
+  if (!asignacion_id || !estudiante_id || !periodo) {
+    return res.status(400).json({ error: "asignacion_id, estudiante_id y periodo son requeridos." });
+  }
+
+  try {
+    // Verificar permisos y que la materia esté simplificada
+    const aR = await pool.query(`
+      SELECT a.profesor_id, m.modo_simplificado
+      FROM asignaciones a JOIN materias m ON m.id = a.materia_id
+      WHERE a.id = $1`, [asignacion_id]);
+    if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
+    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+    if (!esStaff && aR.rows[0].profesor_id !== u.id) {
+      return res.status(403).json({ error: "Solo el profesor a cargo puede calificar." });
+    }
+    if (!aR.rows[0].modo_simplificado) {
+      return res.status(400).json({ error: "Esta materia no está en modo simplificado." });
+    }
+
+    // Validar rango 0-100 (NULL si vacío)
+    const limpiar = v => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = Number(v);
+      if (isNaN(n) || n < 0 || n > 100) throw { status:400, error:`Valor inválido: ${v}. Debe estar entre 0 y 100.` };
+      return n;
+    };
+    const pCot = limpiar(pct_cotidiano);
+    const pTar = limpiar(pct_tareas);
+    const pPru = limpiar(pct_pruebas);
+    const pPro = limpiar(pct_proyectos);
+
+    // Upsert: si existe la fila, actualiza; si no, inserta
+    await pool.query(`
+      INSERT INTO calificaciones_simplificadas
+        (asignacion_id, estudiante_id, periodo, pct_cotidiano, pct_tareas, pct_pruebas, pct_proyectos, observaciones, registrado_por, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, NOW())
+      ON CONFLICT (asignacion_id, estudiante_id, periodo) DO UPDATE
+        SET pct_cotidiano=EXCLUDED.pct_cotidiano,
+            pct_tareas=EXCLUDED.pct_tareas,
+            pct_pruebas=EXCLUDED.pct_pruebas,
+            pct_proyectos=EXCLUDED.pct_proyectos,
+            observaciones=EXCLUDED.observaciones,
+            registrado_por=EXCLUDED.registrado_por,
+            updated_at=NOW()
+    `, [asignacion_id, estudiante_id, periodo, pCot, pTar, pPru, pPro, observaciones||"", u.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.status && e.error) return res.status(e.status).json({ error: e.error });
+    console.error("POST /simplificado:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;

@@ -262,6 +262,34 @@ async function initDB() {
     // o administrativo. El frontend muestra estos como "personal de apoyo".
     await client.query(`ALTER TABLE boletas_conducta ADD COLUMN IF NOT EXISTS usuario_apoyo_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
 
+    // ── MATERIAS EN "MODO SIMPLIFICADO" ──────────────────────────────────────
+    // Algunas materias (Ética y Valores, Educación para la Paz, etc.) no
+    // requieren registrar tareas/cotidianos individuales. El admin las marca
+    // como simplificadas y el profe solo ingresa el % obtenido por rubro
+    // directamente para cada estudiante. El sistema calcula el total con los
+    // pesos del REAC.
+    await client.query(`ALTER TABLE materias ADD COLUMN IF NOT EXISTS modo_simplificado BOOLEAN DEFAULT false`);
+
+    // Tabla donde se guardan los porcentajes por rubro de estudiantes en
+    // materias simplificadas. Una fila por (estudiante, asignación, periodo).
+    // Valores 0-100. NULL si el profe aún no calificó ese rubro.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS calificaciones_simplificadas (
+        id              SERIAL PRIMARY KEY,
+        asignacion_id   INTEGER NOT NULL REFERENCES asignaciones(id) ON DELETE CASCADE,
+        estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        periodo         TEXT NOT NULL,
+        pct_cotidiano   NUMERIC(5,2),
+        pct_tareas      NUMERIC(5,2),
+        pct_pruebas     NUMERIC(5,2),
+        pct_proyectos   NUMERIC(5,2),
+        observaciones   TEXT DEFAULT '',
+        registrado_por  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        updated_at      TIMESTAMP DEFAULT NOW(),
+        UNIQUE(asignacion_id, estudiante_id, periodo)
+      )
+    `);
+
     // ── CARTAS DE AUSENTISMO ─────────────────────────────────────────────────
     // Registro histórico de las cartas que entrega el profesorado al encargado.
     // Snapshot de los datos en el momento de emisión (cantidad de ausencias y %)
