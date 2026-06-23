@@ -534,7 +534,85 @@ router.post("/:id/archivar", canManage, async (req, res) => {
   res.json({ ok:true });
 });
 
-// ── ASIGNAR SECCIÓN (matrícula) ──────────────────────────────────────
+// ── REACTIVAR ESTUDIANTE ARCHIVADO ────────────────────────────────────
+// Saca al estudiante del archivo. Requiere justificación y opcionalmente
+// una sección de destino. Si no se indica sección, queda sin sección
+// (el admin/auxiliar la asignará después).
+router.post("/:id/reactivar", canManage, async (req, res) => {
+  const { justificacion, seccion_id } = req.body || {};
+  if (!justificacion || !justificacion.trim())
+    return res.status(400).json({ error:"La justificación es obligatoria para reactivar." });
+
+  const u = req.session.usuario;
+
+  const estR = await pool.query(`
+    SELECT e.*, s.nombre AS seccion_nombre
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE e.id = $1 AND e.archivado = true
+  `, [req.params.id]);
+
+  if (!estR.rows.length)
+    return res.status(404).json({ error:"Estudiante no encontrado en archivo." });
+
+  const est = estR.rows[0];
+  const nombreEst = `${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}`.replace(/\s+/g,' ').trim();
+
+  // Validar sección si se indicó
+  let secNueva = null;
+  if (seccion_id) {
+    const sR = await pool.query("SELECT id, nombre FROM secciones WHERE id=$1", [seccion_id]);
+    if (!sR.rows.length) return res.status(400).json({ error:"Sección destino inválida." });
+    secNueva = sR.rows[0];
+  }
+
+  await pool.query(`
+    UPDATE estudiantes SET
+      archivado=false,
+      fecha_archivo=NULL,
+      motivo_archivo=NULL,
+      justificacion_archivo=NULL,
+      seccion_id=$1,
+      activo=true
+    WHERE id=$2
+  `, [secNueva ? secNueva.id : null, req.params.id]);
+
+  // Notificar a admins
+  const admins = await pool.query("SELECT id FROM usuarios WHERE rol='admin' AND activo=true");
+  const nombreUsuario = `${u.primer_apellido||''} ${u.nombre||''}`.trim();
+  const msg = `El estudiante ${nombreEst} fue REACTIVADO del archivo${secNueva?' y asignado a la sección '+secNueva.nombre:' (sin sección asignada)'}. Por: ${nombreUsuario}.`;
+  for (const a of admins.rows) {
+    if (a.id !== u.id) {
+      await pool.query(
+        "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
+        [a.id, msg, "reactivacion_estudiante"]
+      );
+    }
+  }
+
+  // Si tiene sección, notificar a los profesores de esa sección
+  if (secNueva) {
+    const profR = await pool.query(`
+      SELECT DISTINCT a.profesor_id FROM asignaciones a WHERE a.seccion_id=$1
+    `, [secNueva.id]);
+    for (const p of profR.rows) {
+      if (p.profesor_id !== u.id) {
+        await pool.query(
+          "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
+          [p.profesor_id, msg, "reactivacion_estudiante"]
+        );
+      }
+    }
+  }
+
+  // Historial
+  await logHistorial(req.params.id, 'reactivado',
+    'Archivado',
+    secNueva ? `Reactivado en ${secNueva.nombre}` : 'Reactivado (sin sección)',
+    justificacion.trim(), u.id);
+
+  res.json({ ok:true, seccion: secNueva });
+});
 router.put("/:id/asignar-seccion", canManage, async (req, res) => {
   const { seccion_id } = req.body;
   if(!seccion_id) return res.status(400).json({ error:"Sección requerida." });

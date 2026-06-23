@@ -88,6 +88,23 @@ router.post("/", requireRol("profesor_guia","orientador","auxiliar"), async (req
     INSERT INTO informes (remitente_id,destinatario_id,estudiante_id,conducta,participacion,trabajos,nota_estimada,recomendaciones,observaciones)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id
   `, [remitente_id,destinatario_id,estudiante_id,conducta||"",participacion||"",trabajos||"",nota_estimada||"",recomendaciones||"",observaciones||""]);
+
+  // Notificar al destinatario que recibió un informe nuevo.
+  // Sin esto, los profes no se enteraban hasta entrar manualmente a "Mensajes".
+  try {
+    const estR = await pool.query(
+      "SELECT nombre, primer_apellido, segundo_apellido FROM estudiantes WHERE id=$1",
+      [estudiante_id]
+    );
+    const nombreEst = estR.rows[0]
+      ? `${estR.rows[0].primer_apellido||''} ${estR.rows[0].segundo_apellido||''}, ${estR.rows[0].nombre||''}`.replace(/\s+/g,' ').trim()
+      : 'un estudiante';
+    await pool.query(
+      "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1, 'informe', $2)",
+      [destinatario_id, `📋 Nuevo informe sobre ${nombreEst}. Revisalo en Mensajes.`]
+    );
+  } catch(e){ console.error("Notif informe:", e.message); }
+
   res.json({ ok:true, id:r.rows[0].id });
 });
 
@@ -131,6 +148,15 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
   const profsR = await pool.query(profsQuery, profsParams);
   if (!profsR.rows.length) return res.status(400).json({ error:"No hay profesores asignados a esta sección" });
 
+  // Obtener nombre del estudiante una sola vez para las notificaciones
+  const estDataR = await pool.query(
+    "SELECT nombre, primer_apellido, segundo_apellido FROM estudiantes WHERE id=$1",
+    [estudiante_id]
+  );
+  const nombreEst = estDataR.rows[0]
+    ? `${estDataR.rows[0].primer_apellido||''} ${estDataR.rows[0].segundo_apellido||''}, ${estDataR.rows[0].nombre||''}`.replace(/\s+/g,' ').trim()
+    : 'un estudiante';
+
   const insertados = [];
   for (const p of profsR.rows) {
     const r = await pool.query(`
@@ -138,6 +164,13 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id
     `, [remitente_id,p.profesor_id,estudiante_id,conducta||"",participacion||"",trabajos||"",nota_estimada||"",recomendaciones||"",observaciones||""]);
     insertados.push(r.rows[0].id);
+    // Notificar a cada profesor destinatario
+    try {
+      await pool.query(
+        "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1, 'informe', $2)",
+        [p.profesor_id, `📋 Nuevo informe sobre ${nombreEst}. Revisalo en Mensajes.`]
+      );
+    } catch(e){ console.error("Notif informe masivo:", e.message); }
   }
   res.json({ ok:true, enviados:insertados.length });
 });

@@ -3074,6 +3074,32 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- Modal Archivar Estudiante -->
+<!-- Modal: Reactivar un estudiante archivado -->
+<div class="modal-overlay" id="modal-reactivar-est">
+  <div class="modal" style="max-width:500px;">
+    <h3 style="color:#16a34a;">↩️ Reactivar Estudiante</h3>
+    <p id="react-nombre" style="font-weight:bold;margin:8px 0 12px;font-size:14px;"></p>
+    <input type="hidden" id="react-est-id"/>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">El estudiante saldrá del archivo y volverá a estar activo. Si lo asignás a una sección ahora, los profesores serán notificados.</p>
+    <div id="alert-reactivar" class="alert"></div>
+    <div class="fg">
+      <label>Asignar a sección (opcional)</label>
+      <select id="react-seccion">
+        <option value="">— Sin sección (asignar después) —</option>
+      </select>
+      <small style="color:var(--muted);font-size:11px;">Si dejás vacío, el admin/auxiliar deberá matricularlo después.</small>
+    </div>
+    <div class="fg" style="margin-top:8px;">
+      <label>Justificación <span style="color:var(--rojo);">*</span></label>
+      <textarea id="react-justif" rows="3" placeholder="Ej: El estudiante volvió al centro tras haber estado en otra institución."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-reactivar-est')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarReactivar()">↩️ Reactivar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-archivar-est">
   <div class="modal" style="max-width:500px;">
     <h3 style="color:var(--naranja);">📁 Archivar Estudiante</h3>
@@ -11495,15 +11521,58 @@ function renderArchivo(){
   const tbody=document.getElementById("archivo-tbody");
   const lista=q?archivoData.filter(e=>`${e.primer_apellido} ${e.segundo_apellido||''} ${e.nombre}`.toLowerCase().includes(q)||(e.cedula||"").includes(q)):archivoData;
   if(!lista.length){if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay estudiantes archivados.</td></tr>`;return;}
-  if(tbody) tbody.innerHTML=lista.map((e,i)=>`<tr>
+  if(tbody) tbody.innerHTML=lista.map((e,i)=>{
+    const nombreSafe = `${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}`.replace(/'/g,"\\'");
+    // Solo admin/auxiliar (canManage) ven el botón de reactivar
+    const puedeReactivar = ['admin','auxiliar'].includes(ME.rol);
+    return `<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
     <td>${e.cedula}</td>
     <td>${e.seccion_nombre||'—'}</td>
     <td>${e.fecha_archivo?fmtF(e.fecha_archivo):'—'}</td>
     <td style="font-size:12px;color:var(--muted);">${e.motivo_archivo||'—'}</td>
-    <td><button class="btn btn-outline btn-xs" onclick="verDetalleArchivado(${e.id})">👁️ Ver</button></td>
-  </tr>`).join("");
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="verDetalleArchivado(${e.id})">👁️ Ver</button>
+      ${puedeReactivar ? `<button class="btn btn-success btn-xs" onclick="abrirReactivarEst(${e.id}, '${nombreSafe}')" title="Sacar del archivo">↩️ Reactivar</button>` : ''}
+    </td>
+  </tr>`;}).join("");
+}
+
+// Modal: reactivar un estudiante archivado y opcionalmente asignarle sección
+async function abrirReactivarEst(estId, nombre){
+  // Cargar secciones para el select
+  let secciones = [];
+  try { secciones = await api('/api/admin/secciones') || []; } catch(_){}
+  const opcionesSec = '<option value="">— Sin sección (asignar después) —</option>' +
+    secciones.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+
+  document.getElementById('react-est-id').value = estId;
+  document.getElementById('react-nombre').textContent = nombre;
+  document.getElementById('react-seccion').innerHTML = opcionesSec;
+  document.getElementById('react-justif').value = '';
+  document.getElementById('alert-reactivar').className = 'alert';
+  document.getElementById('modal-reactivar-est').classList.add('show');
+}
+
+async function confirmarReactivar(){
+  const id = document.getElementById('react-est-id').value;
+  const justificacion = document.getElementById('react-justif').value.trim();
+  const seccion_id = document.getElementById('react-seccion').value || null;
+  if(!justificacion){
+    sa('alert-reactivar','La justificación es obligatoria.','danger');
+    return;
+  }
+  try {
+    const r = await api(`/api/estudiantes/${id}/reactivar`,'POST', { justificacion, seccion_id });
+    cerrarModal('modal-reactivar-est');
+    sa('alert-archivo',
+      r.seccion ? `✅ Estudiante reactivado y asignado a ${r.seccion.nombre}.` : '✅ Estudiante reactivado (sin sección asignada).',
+      'success');
+    await cargarArchivo();
+  } catch(e){
+    sa('alert-reactivar', e.message, 'danger');
+  }
 }
 
 function filtrarArchivo(){renderArchivo();}
@@ -14529,11 +14598,17 @@ function renderGrillaNotas(notasArr){
     const styleRO = readonly ? 'background:#f1f5f9;cursor:not-allowed;' : '';
     tbody.innerHTML = evalEstudiantes.map(e=>{
       const notasEst = notasMap.get(e.id) || new Map();
-      let suma = 0, todasLlenas = true;
+      let suma = 0;
+      let cantConNota = 0, cantBlancos = 0;
       const cols = evalIndicadores.map(ind=>{
         const v = notasEst.has(ind.id) ? notasEst.get(ind.id) : null;
-        if(v == null) todasLlenas = false;
-        else suma += Number(v);
+        if(v == null || v === ''){
+          cantBlancos += 1;
+          // Blanco cuenta como 0 — no sumamos nada pero el sumaMax sigue contando
+        } else {
+          suma += Number(v);
+          cantConNota += 1;
+        }
         // Input numérico directo: el profesor escribe el número
         return `<td style="text-align:center;">
           <input type="number" class="calif-input-ind"
@@ -14545,7 +14620,13 @@ function renderGrillaNotas(notasArr){
                  style="width:56px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;${styleRO}"/>
         </td>`;
       }).join("");
-      const notaCalc = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
+      // Cálculo: SIEMPRE muestra la nota tratando blanco como 0.
+      // Si hay blancos, lo indicamos con un tooltip para que el profe sepa.
+      const notaCalc = sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
+      const tituloBlancos = cantBlancos > 0
+        ? `${cantBlancos} indicador(es) en blanco se cuentan como 0`
+        : '';
+      const colorNota = cantBlancos > 0 ? '#dc2626' : 'var(--azul)';
       const nombreSafe2 = `${e.primer_apellido||''} ${e.nombre||''}`.replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
         <td style="position:sticky;left:0;background:#fff;">
@@ -14554,8 +14635,8 @@ function renderGrillaNotas(notasArr){
           <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe2}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
         </td>
         ${cols}
-        <td style="text-align:center;font-weight:bold;" id="suma-${e.id}">${todasLlenas?suma:'—'}</td>
-        <td style="text-align:center;font-weight:bold;color:var(--azul);" id="nota-${e.id}">${notaCalc}</td>
+        <td style="text-align:center;font-weight:bold;" id="suma-${e.id}">${suma}${cantBlancos>0?`<br/><small style="font-weight:normal;color:#dc2626;font-size:10px;" title="${tituloBlancos}">⚠️ ${cantBlancos} en blanco</small>`:''}</td>
+        <td style="text-align:center;font-weight:bold;color:${colorNota};" id="nota-${e.id}" title="${tituloBlancos}">${notaCalc}</td>
       </tr>`;
     }).join("");
   }
@@ -14612,22 +14693,34 @@ function actualizarNotaIndicador(input){
     input.title = "";
   }
 
-  // Recolectar todos los valores del estudiante para calcular total y nota
-  let suma = 0, todasLlenas = true;
+  // Recolectar todos los valores del estudiante. Blanco cuenta como 0
+  // en el cálculo final (igual que el cierre de periodo y la nota oficial).
+  let suma = 0;
   let sumaMax = 0;
+  let cantBlancos = 0;
   evalIndicadores.forEach(ind=>{
     sumaMax += ind.puntaje_maximo;
     const inp = document.querySelector(`input.calif-input-ind[data-estudiante="${eid}"][data-indicador="${ind.id}"]`);
-    if(!inp || inp.value === ""){ todasLlenas = false; }
-    else {
+    if(!inp || inp.value === ""){
+      cantBlancos += 1;
+    } else {
       const n = Number(inp.value);
-      if(isNaN(n)) todasLlenas = false;
+      if(isNaN(n)) cantBlancos += 1;
       else suma += n;
     }
   });
-  document.getElementById(`suma-${eid}`).textContent = todasLlenas ? suma : '—';
+  const sumaCell = document.getElementById(`suma-${eid}`);
+  if(sumaCell){
+    sumaCell.innerHTML = `${suma}` + (cantBlancos>0
+      ? `<br/><small style="font-weight:normal;color:#dc2626;font-size:10px;">⚠️ ${cantBlancos} en blanco</small>`
+      : '');
+  }
   const cell = document.getElementById(`nota-${eid}`);
-  cell.textContent = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : '—';
+  if(cell){
+    cell.textContent = sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : '—';
+    cell.style.color = cantBlancos > 0 ? '#dc2626' : 'var(--azul)';
+    cell.title = cantBlancos > 0 ? `${cantBlancos} indicador(es) en blanco se cuentan como 0` : '';
+  }
 }
 
 async function guardarNotas(){
