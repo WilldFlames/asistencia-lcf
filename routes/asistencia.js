@@ -332,7 +332,8 @@ router.get("/diagnostico/:asignacion_id", async (req, res) => {
     }
     const aR = await pool.query(`
       SELECT a.*, s.nombre AS seccion_nombre, s.nivel AS seccion_nivel,
-             m.nombre AS materia_nombre, m.modo_simplificado,
+             m.nombre AS materia_nombre,
+             (a.modo_simplificado OR COALESCE(m.modo_simplificado, false)) AS modo_simplificado,
              u.primer_apellido, u.segundo_apellido, u.nombre AS prof_nombre, u.activo AS prof_activo
       FROM asignaciones a
       JOIN secciones s ON s.id = a.seccion_id

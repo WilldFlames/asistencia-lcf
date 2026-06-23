@@ -81,13 +81,49 @@ router.delete("/materias/:id", onlyAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-// Marca/desmarca una materia como "modo simplificado" (solo el % por rubro,
-// sin tareas/cotidianos individuales). Usado en materias como Ética y Valores
-// o Educación para la Paz que no llevan registros detallados.
+// ── MODO SIMPLIFICADO ─────────────────────────────────────────────────
+// El sistema tiene DOS niveles para el modo simplificado:
+//
+//   1. Por MATERIA  (esta función): afecta a TODOS los profes que dan la
+//      materia, en CUALQUIER período. Útil para materias como Ética y
+//      Valores que siempre se llevan así.
+//
+//   2. Por ASIGNACIÓN (router de asignaciones): solo ese profe, esa sección,
+//      ESE período. Útil para casos puntuales — por ejemplo el rescate de
+//      notas del I Período cuando el sistema se implementó tarde.
+//
+// El sistema considera que una asignación está en modo simplificado si
+// CUALQUIERA de los dos está marcado.
 router.put("/materias/:id/simplificado", onlyAdmin, async (req, res) => {
   const { activo } = req.body;
   await pool.query("UPDATE materias SET modo_simplificado=$1 WHERE id=$2", [!!activo, req.params.id]);
   res.json({ ok: true, modo_simplificado: !!activo });
+});
+
+router.put("/asignaciones/:id/simplificado", onlyAdmin, async (req, res) => {
+  // Body acepta:
+  //   - activo (bool) — encender/apagar el flag general de la asignación
+  //   - periodos (array de strings) — qué periodos quedan simplificados.
+  //     Si activo=true pero periodos viene vacío, asumimos el periodo actual
+  //     (compat hacia atrás con UI vieja que solo manda activo).
+  const { activo, periodos } = req.body;
+  const periodosFinal = Array.isArray(periodos) ? periodos.filter(Boolean) : null;
+
+  // Si manda activo=false sin lista, vaciamos los periodos y apagamos el flag.
+  // Si manda lista vacía explícitamente, también apagamos.
+  let activoFinal = !!activo;
+  let lista = periodosFinal || [];
+  if (activoFinal && lista.length === 0) {
+    // Activo sin periodos → no hace nada útil. Apagamos.
+    activoFinal = false;
+  }
+  if (!activoFinal) lista = [];
+
+  await pool.query(
+    "UPDATE asignaciones SET modo_simplificado=$1, simplificado_periodos=$2 WHERE id=$3",
+    [activoFinal, lista, req.params.id]
+  );
+  res.json({ ok: true, modo_simplificado: activoFinal, simplificado_periodos: lista });
 });
 
 // ── SECCIONES ─────────────────────────────────────────────────
@@ -147,10 +183,14 @@ function periodoActualAdmin() {
 router.get("/asignaciones", onlyAdmin, async (req, res) => {
   const todas = req.query.todas === '1';
   const periodo = periodoActualAdmin();
+  // a.* ya trae a.modo_simplificado. También exponemos el de la materia
+  // para que el frontend muestre "(toda la materia simplificada)" cuando
+  // aplique y deshabilite el toggle individual.
   const sql = `
     SELECT a.*, COALESCE(a.periodo,'I Período') AS periodo,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol AS prof_rol,
-      s.nombre AS seccion_nombre, m.nombre AS materia_nombre
+      s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
+      COALESCE(m.modo_simplificado, false) AS materia_modo_simplificado
     FROM asignaciones a
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id

@@ -262,16 +262,24 @@ async function initDB() {
     // o administrativo. El frontend muestra estos como "personal de apoyo".
     await client.query(`ALTER TABLE boletas_conducta ADD COLUMN IF NOT EXISTS usuario_apoyo_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
 
-    // ── MATERIAS EN "MODO SIMPLIFICADO" ──────────────────────────────────────
-    // Algunas materias (Ética y Valores, Educación para la Paz, etc.) no
-    // requieren registrar tareas/cotidianos individuales. El admin las marca
-    // como simplificadas y el profe solo ingresa el % obtenido por rubro
-    // directamente para cada estudiante. El sistema calcula el total con los
-    // pesos del REAC.
+    // ── MODO SIMPLIFICADO (DOS NIVELES + PERIODOS) ───────────────────────────
+    // Una asignación se considera "simplificada" si:
+    //   - La materia está marcada como simplificada (afecta a TODOS los profes
+    //     que dan esa materia, en todos los periodos), O
+    //   - Esa asignación específica está marcada Y el periodo actual está en
+    //     la lista de periodos simplificados de la asignación.
+    //
+    // Caso de uso: Ética y Valores siempre va simplificada → marcamos la
+    // MATERIA. Otra materia donde el sistema arrancó tarde → marcamos la
+    // ASIGNACIÓN con ['I Período'] solamente; en II Período se usa normal.
     await client.query(`ALTER TABLE materias ADD COLUMN IF NOT EXISTS modo_simplificado BOOLEAN DEFAULT false`);
+    await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS modo_simplificado BOOLEAN DEFAULT false`);
+    // Lista de periodos donde aplica el modo simplificado de la asignación.
+    // Por defecto vacío. Valores válidos: 'I Período', 'II Período', 'III Período'.
+    await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS simplificado_periodos TEXT[] DEFAULT ARRAY[]::TEXT[]`);
 
     // Tabla donde se guardan los porcentajes por rubro de estudiantes en
-    // materias simplificadas. Una fila por (estudiante, asignación, periodo).
+    // asignaciones simplificadas. Una fila por (estudiante, asignación, periodo).
     // Valores 0-100. NULL si el profe aún no calificó ese rubro.
     await client.query(`
       CREATE TABLE IF NOT EXISTS calificaciones_simplificadas (

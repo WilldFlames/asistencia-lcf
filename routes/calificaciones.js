@@ -23,7 +23,19 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
         s.nivel           AS seccion_nivel,
         a.materia_id,
         m.nombre          AS materia_nombre,
-        m.modo_simplificado,
+        -- "simplificado" si: (a) la materia entera está marcada, O (b) la
+        -- asignación específica está marcada Y el periodo actual está
+        -- listado en simplificado_periodos.
+        (
+          COALESCE(m.modo_simplificado, false)
+          OR (
+            COALESCE(a.modo_simplificado, false)
+            AND COALESCE(a.periodo, 'I Período') = ANY(COALESCE(a.simplificado_periodos, ARRAY[]::TEXT[]))
+          )
+        ) AS modo_simplificado,
+        a.modo_simplificado AS asig_modo_simplificado,
+        COALESCE(a.simplificado_periodos, ARRAY[]::TEXT[]) AS simplificado_periodos,
+        COALESCE(m.modo_simplificado, false) AS materia_modo_simplificado,
         a.subgrupo,
         a.periodo         AS asig_periodo,
         regla.id           AS regla_id,
@@ -88,7 +100,9 @@ router.get("/reglas", requireAuth, async (req, res) => {
 // o null si no existe.
 async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo) {
   const r = await pool.query(`
-    SELECT a.id, m.nombre AS materia_nombre, m.modo_simplificado, s.nivel AS seccion_nivel,
+    SELECT a.id, m.nombre AS materia_nombre,
+           (a.modo_simplificado OR COALESCE(m.modo_simplificado, false)) AS modo_simplificado,
+           s.nivel AS seccion_nivel,
            mre.regla_id, reg.codigo AS regla_codigo, reg.cantidad_pruebas, reg.cantidad_proyectos, reg.proyecto_o_prueba
     FROM asignaciones a
     JOIN materias m ON m.id = a.materia_id
@@ -1050,10 +1064,12 @@ router.post("/simplificado", requireAuth, async (req, res) => {
   }
 
   try {
-    // Verificar permisos y que la materia esté simplificada
+    // Verificar permisos y que la asignación O su materia esté en modo simplificado
     const aR = await pool.query(`
-      SELECT a.profesor_id, m.modo_simplificado
-      FROM asignaciones a JOIN materias m ON m.id = a.materia_id
+      SELECT a.profesor_id,
+             (a.modo_simplificado OR COALESCE(m.modo_simplificado, false)) AS modo_simplificado
+      FROM asignaciones a
+      JOIN materias m ON m.id = a.materia_id
       WHERE a.id = $1`, [asignacion_id]);
     if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
     const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
@@ -1061,7 +1077,7 @@ router.post("/simplificado", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Solo el profesor a cargo puede calificar." });
     }
     if (!aR.rows[0].modo_simplificado) {
-      return res.status(400).json({ error: "Esta materia no está en modo simplificado." });
+      return res.status(400).json({ error: "Esta asignación no está en modo simplificado." });
     }
 
     // Validar rango 0-100 (NULL si vacío)

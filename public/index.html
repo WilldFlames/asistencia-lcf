@@ -457,8 +457,8 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('filtro-prof-asig').value='';filtrarAsignacionesPorProfesor()">Limpiar filtro</button>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Profesor</th><th>Rol</th><th>Sección</th><th>Materia</th><th>Lecc/sem</th><th></th></tr></thead>
-      <tbody id="asig-body"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+      <thead><tr><th>Profesor</th><th>Rol</th><th>Sección</th><th>Materia</th><th>Lecc/sem</th><th style="text-align:center;">Modo</th><th></th></tr></thead>
+      <tbody id="asig-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -807,6 +807,54 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- MODAL: Reabrir período (admin) -->
+<!-- ─── MODAL: CONFIGURAR PERÍODOS DE MODO SIMPLIFICADO POR ASIGNACIÓN ─── -->
+<!-- Solo admin. Permite marcar en qué periodos una asignación específica
+     debe usar el modo simplificado (porcentajes por rubro en vez de tareas
+     individuales). -->
+<div class="modal-overlay" id="modal-simpl-periodos">
+  <div class="modal" style="max-width:520px;">
+    <h3>🎓 Modo simplificado por períodos</h3>
+    <input type="hidden" id="msp-asig-id"/>
+    <div id="msp-nombre" style="font-size:13px;color:#0f172a;margin-bottom:12px;padding:8px 12px;background:#f1f5f9;border-radius:6px;"></div>
+    <div id="alert-msp" class="alert"></div>
+
+    <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:10px 14px;margin-bottom:12px;border-radius:6px;font-size:12.5px;">
+      Marcá los períodos en los que el profe deberá usar el <strong>modo simplificado</strong>
+      (solo el % por rubro, sin tareas/cotidianos individuales).<br/>
+      <small style="color:var(--muted);">Si no marcás ninguno, la asignación queda en modo normal.</small>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px;padding:0 4px;">
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;cursor:pointer;">
+        <input type="checkbox" id="msp-p1" style="width:16px;height:16px;cursor:pointer;"/>
+        <div>
+          <strong>I Período</strong>
+          <div style="font-size:11px;color:var(--muted);">Aplicar modo simplificado en el primer período</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;cursor:pointer;">
+        <input type="checkbox" id="msp-p2" style="width:16px;height:16px;cursor:pointer;"/>
+        <div>
+          <strong>II Período</strong>
+          <div style="font-size:11px;color:var(--muted);">Aplicar modo simplificado en el segundo período</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;cursor:pointer;">
+        <input type="checkbox" id="msp-p3" style="width:16px;height:16px;cursor:pointer;"/>
+        <div>
+          <strong>III Período</strong>
+          <div style="font-size:11px;color:var(--muted);">Aplicar modo simplificado en el tercer período</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-simpl-periodos')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarSimplPeriodos()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-reabrir-periodo">
   <div class="modal" style="max-width:480px;">
     <h3>🔓 Reabrir período cerrado</h3>
@@ -4314,42 +4362,16 @@ async function cargarMateriasList(){
   if(!rows)return;
   const div=document.getElementById("materias-lista");
   div.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>Materia</th><th style="text-align:center;">Modo simplificado</th><th></th></tr></thead>
+    <thead><tr><th>Materia</th><th></th></tr></thead>
     <tbody>
-    ${rows.map(m=>{
-      const checked = m.modo_simplificado ? 'checked' : '';
-      return `<tr>
-        <td>${m.nombre}</td>
-        <td style="text-align:center;">
-          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
-            <input type="checkbox" ${checked} onchange="toggleMateriaSimplificada(${m.id}, this.checked, '${m.nombre.replace(/'/g,"\\'")}')"/>
-            <span style="color:var(--muted);">${m.modo_simplificado ? 'Sí (solo % por rubro)' : 'No (normal)'}</span>
-          </label>
-        </td>
-        <td><button class="btn btn-danger btn-xs" onclick="eliminarMateria(${m.id},'${m.nombre.replace(/'/g,"\\'")}')">🗑️</button></td>
-      </tr>`;
-    }).join("")}
+    ${rows.map(m=>`<tr>
+      <td>${m.nombre}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="eliminarMateria(${m.id},'${m.nombre.replace(/'/g,"\\'")}')">🗑️</button></td>
+    </tr>`).join("")}
   </tbody></table></div>
   <div style="margin-top:8px;font-size:11px;color:var(--muted);background:#f8fafc;padding:8px 12px;border-radius:6px;">
-    ℹ️ <strong>Modo simplificado</strong>: para materias como Ética y Valores o Educación para la Paz. El profe ingresa solo el % obtenido por rubro (Cotidiano, Tareas, etc) sin registrar tareas/cotidianos individuales. El sistema calcula la nota final con los pesos del REAC.
+    ℹ️ El <strong>modo simplificado</strong> (solo % por rubro, sin tareas individuales) se gestiona por <strong>asignación</strong> en la pantalla de Asignaciones, no por materia.
   </div>`;
-}
-async function toggleMateriaSimplificada(id, activo, nombre){
-  const msg = activo
-    ? `¿Activar modo simplificado para "${nombre}"?\n\nEl profesor solo ingresará el % por rubro y el sistema calcula la nota final.\n\nSi ya hay calificaciones detalladas, NO se borran (solo se ocultan mientras está activo).`
-    : `¿Desactivar modo simplificado para "${nombre}"?\n\nVuelve al modo normal con tareas/cotidianos individuales.`;
-  if(!confirm(msg)) {
-    cargarMateriasList(); // restaurar checkbox visual
-    return;
-  }
-  try {
-    await api(`/api/admin/materias/${id}/simplificado`,'PUT',{ activo });
-    sa("alert-materias", `✅ "${nombre}" ${activo?'marcada como simplificada':'vuelta al modo normal'}.`, "success");
-    await cargarMateriasList();
-  } catch(e){
-    sa("alert-materias", e.message, "danger");
-    await cargarMateriasList();
-  }
 }
 async function crearMateria(){
   const nombre=document.getElementById("nueva-materia").value.trim();
@@ -4441,20 +4463,107 @@ function renderAsignaciones(){
   const filtroProf = document.getElementById("filtro-prof-asig")?.value || "";
   let rows = asigData || [];
   if(filtroProf) rows = rows.filter(a => String(a.profesor_id) === String(filtroProf));
-  if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">${filtroProf?"Este profesor no tiene asignaciones":"Sin asignaciones"}</td></tr>`;return;}
-  tbody.innerHTML=rows.map(a=>`<tr>
-    <td>${a.prof_ap1} ${a.prof_nombre}</td>
-    <td><span class="badge ${RBDG[a.prof_rol]}">${RLBL[a.prof_rol]}</span></td>
-    <td><strong>${a.seccion_nombre}</strong></td>
-    <td>${a.materia_nombre}${a.subgrupo?` <span class="badge b-guia">Grupo ${a.subgrupo}</span>`:""}</td>
-    <td>${a.lecciones_semana}</td>
-    <td>
-      <button class="btn btn-outline btn-xs" onclick="editarAsig(${a.id})" title="Editar">✏️</button>
-      <button class="btn btn-outline btn-xs" onclick="diagnosticarAsig(${a.id})" title="Diagnosticar (ver por qué no funciona)">🔍</button>
-      <button class="btn btn-danger btn-xs" onclick="eliminarAsig(${a.id})" title="Eliminar">🗑️</button>
-    </td>
-  </tr>`).join("");
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">${filtroProf?"Este profesor no tiene asignaciones":"Sin asignaciones"}</td></tr>`;return;}
+  // Solo el admin puede tocar el modo simplificado de las asignaciones.
+  const puedeToggle = ME.rol === 'admin';
+  tbody.innerHTML=rows.map(a=>{
+    const matSimpl = !!a.materia_modo_simplificado;
+    const asigSimpl = !!a.modo_simplificado;
+    const periodos = a.simplificado_periodos || [];
+    // Estado para mostrar:
+    //  - Materia entera simplificada: heredado, no editable acá
+    //  - Solo la asignación: muestra qué periodos están marcados
+    //  - Si nada: "Normal"
+    let textoEstado, colorEstado, fondoFila;
+    if(matSimpl){
+      textoEstado = '🎓 Simplificado (toda la materia)';
+      colorEstado = '#15803d';
+      fondoFila = '#f0fdf4';
+    } else if(asigSimpl && periodos.length){
+      textoEstado = `🎓 Simplificado (${periodos.join(', ')})`;
+      colorEstado = '#15803d';
+      fondoFila = '#f0fdf4';
+    } else {
+      textoEstado = 'Normal';
+      colorEstado = 'var(--muted)';
+      fondoFila = '';
+    }
+
+    let colSimpl;
+    if(!puedeToggle){
+      colSimpl = `<span style="color:${colorEstado};font-size:11px;font-weight:${(matSimpl||asigSimpl)?'bold':'normal'};">${textoEstado}</span>`;
+    } else if(matSimpl){
+      // Si la materia entera está marcada, no se puede tocar a nivel asignación
+      colSimpl = `<span style="color:${colorEstado};font-size:11px;font-weight:bold;" title="Heredado de la materia. Para cambiarlo andá a Materias.">${textoEstado}</span>`;
+    } else {
+      colSimpl = `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="color:${colorEstado};font-size:11px;font-weight:${asigSimpl?'bold':'normal'};">${textoEstado}</span>
+          <button class="btn btn-outline btn-xs" onclick="abrirModalSimplPeriodos(${a.id})" style="padding:2px 8px;font-size:10px;">⚙️ Configurar</button>
+        </div>`;
+    }
+
+    return `<tr ${fondoFila?`style="background:${fondoFila};"`:''}>
+      <td>${a.prof_ap1} ${a.prof_nombre}</td>
+      <td><span class="badge ${RBDG[a.prof_rol]}">${RLBL[a.prof_rol]}</span></td>
+      <td><strong>${a.seccion_nombre}</strong></td>
+      <td>${a.materia_nombre}${a.subgrupo?` <span class="badge b-guia">Grupo ${a.subgrupo}</span>`:""}</td>
+      <td>${a.lecciones_semana}</td>
+      <td style="text-align:center;">${colSimpl}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="editarAsig(${a.id})" title="Editar">✏️</button>
+        <button class="btn btn-outline btn-xs" onclick="diagnosticarAsig(${a.id})" title="Diagnosticar (ver por qué no funciona)">🔍</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarAsig(${a.id})" title="Eliminar">🗑️</button>
+      </td>
+    </tr>`;
+  }).join("");
 }
+
+// Modal para configurar QUÉ PERIODOS de una asignación están en modo simplificado.
+// El admin marca cualquier combinación: solo I, solo II, ambos, o ninguno.
+function abrirModalSimplPeriodos(asigId){
+  const a = (asigData || []).find(x => x.id === asigId);
+  if(!a){ alert('Asignación no encontrada en cache. Recargá.'); return; }
+  document.getElementById('msp-asig-id').value = asigId;
+  document.getElementById('msp-nombre').innerHTML =
+    `<strong>${a.materia_nombre}</strong> — ${a.seccion_nombre}${a.subgrupo?' · Grupo '+a.subgrupo:''}<br/>
+     <small style="color:var(--muted);">Profesor: ${a.prof_ap1||''} ${a.prof_nombre||''} · Período asignación: ${a.periodo||'(sin definir)'}</small>`;
+  // Marcar checkboxes según los periodos ya activos
+  const activos = new Set(a.simplificado_periodos || []);
+  ['I Período','II Período','III Período'].forEach((p, i) => {
+    const cb = document.getElementById(`msp-p${i+1}`);
+    if(cb) cb.checked = activos.has(p);
+  });
+  document.getElementById('alert-msp').className = 'alert';
+  document.getElementById('modal-simpl-periodos').classList.add('show');
+}
+
+async function guardarSimplPeriodos(){
+  const asigId = document.getElementById('msp-asig-id').value;
+  const periodos = [];
+  ['I Período','II Período','III Período'].forEach((p, i) => {
+    const cb = document.getElementById(`msp-p${i+1}`);
+    if(cb && cb.checked) periodos.push(p);
+  });
+  const activo = periodos.length > 0;
+  try {
+    await api(`/api/admin/asignaciones/${asigId}/simplificado`, 'PUT', { activo, periodos });
+    cerrarModal('modal-simpl-periodos');
+    sa('alert-asig',
+      periodos.length
+        ? `✅ Modo simplificado activado para: ${periodos.join(', ')}.`
+        : `✅ Modo simplificado desactivado.`,
+      'success');
+    asigData = await api('/api/admin/asignaciones') || [];
+    renderAsignaciones();
+  } catch(e){
+    sa('alert-msp', e.message, 'danger');
+  }
+}
+
+// Activar/desactivar el modo simplificado en UNA asignación puntual.
+// Solo el admin. El cambio NO borra calificaciones existentes — solo cambia
+// qué pantalla ve el profe (grilla de % por rubro vs evaluaciones detalladas).
 function filtrarAsignacionesPorProfesor(){ renderAsignaciones(); }
 
 // Llama al endpoint de diagnóstico y muestra el resultado en un alert.
