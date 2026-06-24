@@ -674,6 +674,19 @@ async function initDB() {
       // Si se pone NULL, el guía original vuelve a tomar el caso.
       await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS guia_sustituto_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
 
+      // ── OFENDIDO DOCENTE ────────────────────────────────────────────
+      // El denunciado siempre es estudiante, pero la víctima/ofendido a
+      // veces es un docente del centro (caso menos común). En ese caso
+      // hay que adaptar los formularios para no hablar de "representante
+      // legal" ni de "sección". Por defecto es estudiante.
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS ofendido_tipo TEXT DEFAULT 'estudiante'`);
+      // Si el ofendido es docente registrado en el sistema, lo enlazamos.
+      // Si es docente externo o no está en el sistema, igual permitimos
+      // guardar nombre+cédula sueltos en las columnas snapshot de abajo.
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS ofendido_docente_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS ofendido_docente_nombre TEXT`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS ofendido_docente_cedula TEXT`);
+
       console.log("✅ DP: tabla debidos_procesos lista");
 
       await client.query(`

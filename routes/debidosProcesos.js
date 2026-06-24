@@ -316,8 +316,41 @@ router.get("/:id", requireAuth, async (req, res) => {
 //  - orientador_id = orientador de esa sección
 router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
   const u = req.session.usuario;
-  const { estudiante_id, contenido_apertura } = req.body;
+  const {
+    estudiante_id, contenido_apertura,
+    // Datos del ofendido (víctima). Por defecto el ofendido es otro estudiante,
+    // pero a veces es un docente del centro. Solo se usa para adaptar los
+    // formularios al imprimirlos.
+    ofendido_tipo,           // 'estudiante' (default) | 'docente'
+    ofendido_docente_id,     // si está registrado como usuario
+    ofendido_docente_nombre, // nombre suelto (si no está en sistema)
+    ofendido_docente_cedula, // cédula suelta
+  } = req.body;
   if (!estudiante_id) return res.status(400).json({ error: "Falta estudiante_id" });
+
+  // Validar tipo y datos del ofendido docente
+  const tipoFinal = (ofendido_tipo === 'docente') ? 'docente' : 'estudiante';
+  let docIdFinal = null, docNombreFinal = null, docCedulaFinal = null;
+  if (tipoFinal === 'docente') {
+    if (ofendido_docente_id) {
+      // Resolver desde usuarios para hacer snapshot del nombre y cédula
+      const dR = await pool.query(
+        "SELECT id, nombre, primer_apellido, segundo_apellido, cedula FROM usuarios WHERE id=$1 AND activo=true",
+        [ofendido_docente_id]
+      );
+      if (!dR.rows.length) return res.status(400).json({ error: "Docente ofendido no encontrado o inactivo." });
+      const d = dR.rows[0];
+      docIdFinal = d.id;
+      docNombreFinal = `${d.primer_apellido||''} ${d.segundo_apellido||''}, ${d.nombre||''}`.replace(/\s+/g,' ').replace(/^,\s*/,'').trim();
+      docCedulaFinal = d.cedula;
+    } else if (ofendido_docente_nombre && ofendido_docente_nombre.trim()) {
+      // Docente externo (no está en el sistema): aceptamos nombre + cédula sueltos
+      docNombreFinal = ofendido_docente_nombre.trim();
+      docCedulaFinal = (ofendido_docente_cedula || '').trim() || null;
+    } else {
+      return res.status(400).json({ error: "Si el ofendido es docente, indicá el docente del sistema o ingresá nombre y cédula." });
+    }
+  }
 
   const estR = await pool.query("SELECT id, seccion_id FROM estudiantes WHERE id=$1 AND activo=true", [estudiante_id]);
   if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado o no activo" });
@@ -342,13 +375,15 @@ router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    // Crear el proceso
+    // Crear el proceso (incluye datos del ofendido)
     const dpR = await client.query(`
       INSERT INTO debidos_procesos
-        (consecutivo_id, numero, anio, estudiante_id, iniciado_por, guia_a_cargo, orientador_id, estado)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,'en_curso')
+        (consecutivo_id, numero, anio, estudiante_id, iniciado_por, guia_a_cargo, orientador_id, estado,
+         ofendido_tipo, ofendido_docente_id, ofendido_docente_nombre, ofendido_docente_cedula)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,'en_curso',$8,$9,$10,$11)
       RETURNING id, numero, anio
-    `, [consec.id, consec.numero, anio, estudiante_id, u.id, guiaId, orientId]);
+    `, [consec.id, consec.numero, anio, estudiante_id, u.id, guiaId, orientId,
+        tipoFinal, docIdFinal, docNombreFinal, docCedulaFinal]);
     const procesoId = dpR.rows[0].id;
 
     // Crear el Paso 1 (acta apertura) ya completado con el contenido enviado

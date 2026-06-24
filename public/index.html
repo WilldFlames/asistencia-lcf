@@ -1888,6 +1888,45 @@ tr:hover td{background:#f8fafc;}
         </div>
         <select id="ndp-estudiante-id" style="margin-top:6px;"><option value="">— Buscá primero —</option></select>
       </div>
+
+      <!-- ─── OFENDIDO/VÍCTIMA ─── -->
+      <!-- Por defecto el ofendido es otro estudiante (caso más común).
+           Si es un docente, los formularios se adaptan: quitan la línea de
+           "representante legal" y de "sección", y usan "docente" en lugar
+           de "estudiante" en los textos correspondientes. -->
+      <div class="fg" style="grid-column:1/-1;background:#f8fafc;padding:10px 12px;border-radius:6px;border:1px solid var(--border);">
+        <label style="font-weight:bold;">¿La víctima/ofendido es estudiante o docente? *</label>
+        <div style="display:flex;gap:14px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+            <input type="radio" name="ndp-ofendido-tipo" value="estudiante" checked onchange="dpToggleOfendido()"/>
+            <span>👤 Otro estudiante (lo más común)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+            <input type="radio" name="ndp-ofendido-tipo" value="docente" onchange="dpToggleOfendido()"/>
+            <span>👨‍🏫 Docente del centro</span>
+          </label>
+        </div>
+        <div id="ndp-ofendido-docente-block" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
+          <div class="fg" style="margin-bottom:6px;">
+            <label>Docente ofendido (del sistema)</label>
+            <select id="ndp-ofendido-docente-id" onchange="dpOfendidoDocenteCambio()">
+              <option value="">— Elegí o ingresá manualmente abajo —</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="fg" style="flex:2;min-width:200px;">
+              <label>O nombre del docente (manual)</label>
+              <input type="text" id="ndp-ofendido-docente-nombre" placeholder="Apellidos, Nombre"/>
+            </div>
+            <div class="fg" style="flex:1;min-width:120px;">
+              <label>Cédula</label>
+              <input type="text" id="ndp-ofendido-docente-cedula" placeholder="Cédula"/>
+            </div>
+          </div>
+          <small style="color:var(--muted);font-size:11px;">Si el docente está en el sistema elegilo del select. Si es externo o no aparece, escribí nombre y cédula manualmente.</small>
+        </div>
+      </div>
+
       <div class="fg" style="grid-column:1/-1;">
         <label>Datos del informante (quien presenta la denuncia)</label>
         <input type="text" id="ndp-informante" placeholder="Nombre completo del informante"/>
@@ -7573,13 +7612,54 @@ async function cargarDPPendientes(){
 }
 
 // ── NUEVO PROCESO ─────────────────────────────────────────────────────
-function abrirNuevoDP(){
-  ['ndp-buscar-est','ndp-informante','ndp-informante-cedula','ndp-informante-calidad','ndp-hechos','ndp-fecha-hechos'].forEach(id=>{
+async function abrirNuevoDP(){
+  ['ndp-buscar-est','ndp-informante','ndp-informante-cedula','ndp-informante-calidad','ndp-hechos','ndp-fecha-hechos',
+   'ndp-ofendido-docente-nombre','ndp-ofendido-docente-cedula'].forEach(id=>{
     const el = document.getElementById(id); if(el) el.value = '';
   });
   document.getElementById('ndp-estudiante-id').innerHTML = '<option value="">— Buscá primero —</option>';
+  // Resetear el bloque de ofendido al default (estudiante)
+  const radioEst = document.querySelector('input[name="ndp-ofendido-tipo"][value="estudiante"]');
+  if(radioEst) radioEst.checked = true;
+  dpToggleOfendido();
+  // Cargar la lista de docentes (profes activos del centro) una sola vez
+  try {
+    const profs = await api('/api/admin/profesores') || [];
+    const sel = document.getElementById('ndp-ofendido-docente-id');
+    if(sel){
+      const opciones = profs.map(p => {
+        const nom = `${p.primer_apellido||''} ${p.segundo_apellido||''}, ${p.nombre||''}`.replace(/\s+/g,' ').replace(/^,\s*/,'').trim();
+        return `<option value="${p.id}" data-cedula="${p.cedula||''}" data-nombre="${nom}">${nom} (${p.cedula||'—'})</option>`;
+      }).join('');
+      sel.innerHTML = '<option value="">— Elegí o ingresá manualmente abajo —</option>' + opciones;
+    }
+  } catch(_){}
   document.getElementById('alert-ndp').className = 'alert';
   document.getElementById('modal-nuevo-dp').classList.add('show');
+}
+
+// Mostrar/ocultar el bloque de docente ofendido según el radio elegido
+function dpToggleOfendido(){
+  const tipo = document.querySelector('input[name="ndp-ofendido-tipo"]:checked')?.value || 'estudiante';
+  const block = document.getElementById('ndp-ofendido-docente-block');
+  if(block) block.style.display = tipo === 'docente' ? '' : 'none';
+  if(tipo !== 'docente'){
+    // Limpiar al volver a "estudiante"
+    const sel = document.getElementById('ndp-ofendido-docente-id'); if(sel) sel.value = '';
+    const n = document.getElementById('ndp-ofendido-docente-nombre'); if(n) n.value = '';
+    const c = document.getElementById('ndp-ofendido-docente-cedula'); if(c) c.value = '';
+  }
+}
+
+// Al elegir un docente del sistema, prellenar nombre y cédula para que el
+// admin vea quién es (los inputs manuales actúan como override si están).
+function dpOfendidoDocenteCambio(){
+  const sel = document.getElementById('ndp-ofendido-docente-id');
+  const opt = sel.options[sel.selectedIndex];
+  if(opt && opt.value){
+    document.getElementById('ndp-ofendido-docente-nombre').value = opt.dataset.nombre || '';
+    document.getElementById('ndp-ofendido-docente-cedula').value = opt.dataset.cedula || '';
+  }
 }
 
 let _dpBuscarTimer = null;
@@ -7604,6 +7684,20 @@ async function guardarNuevoDP(){
   const hechos = document.getElementById('ndp-hechos').value.trim();
   if(!eid){ sa('alert-ndp','Buscá y seleccioná un estudiante.','danger'); return; }
   if(!hechos){ sa('alert-ndp','Escribí los hechos.','danger'); return; }
+
+  // Datos del ofendido (víctima)
+  const ofendido_tipo = document.querySelector('input[name="ndp-ofendido-tipo"]:checked')?.value || 'estudiante';
+  let ofendido_docente_id = null, ofendido_docente_nombre = null, ofendido_docente_cedula = null;
+  if(ofendido_tipo === 'docente'){
+    ofendido_docente_id     = document.getElementById('ndp-ofendido-docente-id').value || null;
+    ofendido_docente_nombre = document.getElementById('ndp-ofendido-docente-nombre').value.trim() || null;
+    ofendido_docente_cedula = document.getElementById('ndp-ofendido-docente-cedula').value.trim() || null;
+    if(!ofendido_docente_id && !ofendido_docente_nombre){
+      sa('alert-ndp','Si el ofendido es docente, elegilo del select o ingresá nombre y cédula manualmente.','danger');
+      return;
+    }
+  }
+
   const contenido = {
     informante:        document.getElementById('ndp-informante').value.trim(),
     informante_cedula: document.getElementById('ndp-informante-cedula').value.trim(),
@@ -7612,11 +7706,17 @@ async function guardarNuevoDP(){
     fecha_hechos:      document.getElementById('ndp-fecha-hechos').value,
   };
   try {
-    const r = await api('/api/debidos-procesos','POST', { estudiante_id: +eid, contenido_apertura: contenido });
+    const r = await api('/api/debidos-procesos','POST', {
+      estudiante_id: +eid,
+      contenido_apertura: contenido,
+      ofendido_tipo,
+      ofendido_docente_id: ofendido_docente_id ? +ofendido_docente_id : null,
+      ofendido_docente_nombre,
+      ofendido_docente_cedula,
+    });
     cerrarModal('modal-nuevo-dp');
     sa('alert-dp', `✅ Proceso iniciado. N°${String(r.numero).padStart(3,'0')}-${r.anio}`, 'success');
     await cargarDPLista(dpEstadoActual);
-    // Abrir directamente el detalle para que pueda continuar
     setTimeout(()=>abrirDPDetalle(r.id), 400);
   } catch(e) {
     sa('alert-ndp', e.message, 'danger');
@@ -7641,9 +7741,14 @@ async function abrirDPDetalle(procesoId){
     if(sustituto){
       lineaGuia = `🔄 Sustituto activo: <strong style="color:#ea580c;">${sustituto}</strong> <small>(reemplaza a ${guiaOriginal})</small>`;
     }
+    // Si el ofendido es un docente, lo mostramos destacado
+    let lineaOfendido = '';
+    if (dp.ofendido_tipo === 'docente' && (dp.ofendido_docente_nombre || dp.ofendido_docente_id)){
+      lineaOfendido = `<br/>👨‍🏫 <strong>Ofendido (docente):</strong> ${dp.ofendido_docente_nombre||'—'}${dp.ofendido_docente_cedula?' · '+dp.ofendido_docente_cedula:''}`;
+    }
     document.getElementById('dpd-subtitulo').innerHTML = `
       <strong>${nombre}</strong> · ${dp.cedula} · ${dp.seccion_nombre||'—'}<br/>
-      ${lineaGuia} · Orientador: ${orient}
+      ${lineaGuia} · Orientador: ${orient}${lineaOfendido}
     `;
 
     // Botón "Guía Sustituto" solo para admin/administrativo y si el proceso está en curso
@@ -8350,21 +8455,51 @@ function imprimirPasoDPDirecto(tipo, orden){
       <p>Firma del profesor guía: ____________________________</p>`;
   } else if(tipo.startsWith('decl_')){
     const calidad = c.calidad || (tipo === 'decl_ofendido' ? 'ofendido' : tipo === 'decl_ofensor' ? 'ofensor' : 'testigo');
-    const nombreDeclarante = testigo ? `${testigo.primer_apellido} ${testigo.segundo_apellido||''}, ${testigo.nombre}` : estudiante;
-    const cedulaDeclarante = testigo ? testigo.cedula : dp.cedula;
-    // El texto de la declaración puede venir vacío: se imprime con espacio
-    // amplio para que se llene a mano si así lo prefieren.
+
+    // Caso especial: si esta es la declaración del OFENDIDO y el ofendido es
+    // un DOCENTE (no un estudiante), usamos un texto adaptado:
+    //   - quitamos la mención a "representante legal" (es mayor de edad)
+    //   - quitamos la "sección" (los docentes no tienen)
+    //   - usamos "docente" en lugar de "estudiante"
+    const esOfendidoDocente = (tipo === 'decl_ofendido')
+      && dp.ofendido_tipo === 'docente';
+
+    let nombreDeclarante, cedulaDeclarante;
+    if (esOfendidoDocente){
+      // Para la declaración del docente ofendido, usamos los datos del docente
+      // guardados en el DP (no del estudiante del expediente).
+      nombreDeclarante = dp.ofendido_docente_nombre || '__________';
+      cedulaDeclarante = dp.ofendido_docente_cedula || '____';
+    } else {
+      nombreDeclarante = testigo ? `${testigo.primer_apellido} ${testigo.segundo_apellido||''}, ${testigo.nombre}` : estudiante;
+      cedulaDeclarante = testigo ? testigo.cedula : dp.cedula;
+    }
     const declTexto = (c.declaracion || '').trim();
-    body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el docente a cargo/profesor guía: <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong> y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong> comparece el estudiante: <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong> de la sección <strong>${dp.seccion_nombre||'___'}</strong>, en calidad de supuesto <strong>${calidad}</strong> a rendir libremente y sin coacción alguna, su declaración en la causa disciplinaria que está siendo investigada.</p>
-      <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
-      <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
-      <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
-      <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
-      <p style="margin-top:30px;">Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
-      <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
-      <p>Firma profesor guía: ____________________ &nbsp; Cédula: ${dp.guia_cedula||'____'}</p>
-      <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>`;
+
+    if (esOfendidoDocente){
+      // Plantilla específica para docente ofendido (mayor de edad, sin sección)
+      body = `<p><strong>Expediente:</strong> ${nro}</p>
+        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el docente a cargo/profesor guía: <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong> y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong> comparece el docente <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong> a rendir libremente y sin coacción alguna, su declaración en la causa disciplinaria que está siendo investigada.</p>
+        <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes. La persona declarante manifiesta que sus dichos corresponden fielmente a lo que recuerda y observó, y se advierte que falsear la información puede tener consecuencias en la valoración pedagógica del caso.</p>
+        <p>Esta declaración no se realiza bajo juramento en sentido judicial, por no tratarse de un proceso penal, sino de un procedimiento correctivo con fines educativos. No obstante, declaro bajo la fe de juramento que lo aquí manifestado lo hago de manera libre, espontánea, voluntaria, en pleno uso de mis facultades, y sin que medie presión, coacción, violencia, intimidación ni error alguno.</p>
+        <p>Yo, <strong>${nombreDeclarante}</strong>, portador de la cédula de identidad <strong>${cedulaDeclarante}</strong>, docente del centro educativo, manifiesto lo siguiente:</p>
+        <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
+        <p style="margin-top:30px;">Nombre del docente: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
+        <p>Firma profesor guía: ____________________ &nbsp; Cédula: ${dp.guia_cedula||'____'}</p>
+        <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>`;
+    } else {
+      // Plantilla original para estudiante (ofensor, testigo u ofendido estudiante)
+      body = `<p><strong>Expediente:</strong> ${nro}</p>
+        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el docente a cargo/profesor guía: <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong> y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong> comparece el estudiante: <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong> de la sección <strong>${dp.seccion_nombre||'___'}</strong>, en calidad de supuesto <strong>${calidad}</strong> a rendir libremente y sin coacción alguna, su declaración en la causa disciplinaria que está siendo investigada.</p>
+        <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
+        <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
+        <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
+        <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
+        <p style="margin-top:30px;">Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
+        <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
+        <p>Firma profesor guía: ____________________ &nbsp; Cédula: ${dp.guia_cedula||'____'}</p>
+        <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>`;
+    }
   } else if(tipo === 'acta_sesion'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>En presencia del(la) profesor(a) guía <strong>${guia}</strong>, cédula <strong>${dp.guia_cedula||'____'}</strong>, y de la orientadora <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, se procede a la investigación correspondiente del(la) estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
