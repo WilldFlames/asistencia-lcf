@@ -2060,9 +2060,9 @@ tr:hover td{background:#f8fafc;}
           <label>Artículo</label>
           <select id="dec-art-falta" onchange="cargarIncisosREAC('falta','dec-art-falta','dec-inc-falta','dec-desc-falta')">
             <option value="">— Elegí —</option>
-            <option value="140">Art. 140 — Falta grave (20 pts)</option>
-            <option value="141">Art. 141 — Falta muy grave (35 pts)</option>
-            <option value="142">Art. 142 — Falta gravísima (50 pts)</option>
+            <option value="155">Art. 155 — Falta grave (20 pts)</option>
+            <option value="156">Art. 156 — Falta muy grave (30 pts)</option>
+            <option value="157">Art. 157 — Falta gravísima (50 pts)</option>
           </select>
         </div>
         <div class="fg">
@@ -2086,7 +2086,7 @@ tr:hover td{background:#f8fafc;}
           <label>Artículo</label>
           <select id="dec-art-rebajo" onchange="cargarIncisosREAC('rebajo_puntos','dec-art-rebajo','dec-inc-rebajo','dec-desc-rebajo')">
             <option value="">— Elegí —</option>
-            <option value="166">Art. 166 — Rebajo de puntos</option>
+            <option value="143">Art. 143 — Rebajo de puntos</option>
           </select>
         </div>
         <div class="fg">
@@ -2110,9 +2110,9 @@ tr:hover td{background:#f8fafc;}
           <label>Artículo</label>
           <select id="dec-art-accion" onchange="cargarIncisosREAC('accion_correctiva','dec-art-accion','dec-inc-accion','dec-desc-accion')">
             <option value="">— Elegí —</option>
-            <option value="150">Art. 150 — Acción por falta grave</option>
-            <option value="151">Art. 151 — Acción por falta muy grave</option>
-            <option value="152">Art. 152 — Acción por falta gravísima</option>
+            <option value="155">Art. 155 — Acción por falta grave</option>
+            <option value="156">Art. 156 — Acción por falta muy grave</option>
+            <option value="157">Art. 157 — Acción por falta gravísima</option>
           </select>
         </div>
         <div class="fg">
@@ -8300,9 +8300,9 @@ function renderFormularioPaso(tipo, c, testigoId){
         <div class="fg" style="margin-top:6px;"><label>Artículo</label>
           <select id="dpp-art_falta" onchange="cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta')">
             <option value="">— Elegí —</option>
-            <option value="140" ${String(valArtF)==='140'?'selected':''}>Art. 140 — Falta grave (20 pts)</option>
-            <option value="141" ${String(valArtF)==='141'?'selected':''}>Art. 141 — Falta muy grave (35 pts)</option>
-            <option value="142" ${String(valArtF)==='142'?'selected':''}>Art. 142 — Falta gravísima (50 pts)</option>
+            <option value="155" ${String(valArtF)==='155'?'selected':''}>Art. 155 — Falta grave (20 pts)</option>
+            <option value="156" ${String(valArtF)==='156'?'selected':''}>Art. 156 — Falta muy grave (30 pts)</option>
+            <option value="157" ${String(valArtF)==='157'?'selected':''}>Art. 157 — Falta gravísima (50 pts)</option>
           </select>
         </div>
         <div class="fg" style="margin-top:6px;"><label>Inciso</label>
@@ -8319,15 +8319,15 @@ function renderFormularioPaso(tipo, c, testigoId){
       <div class="fg"><label>Artículo rebajo de puntos</label>
         <select id="dpp-art_rebajo">
           <option value="">— Sin especificar —</option>
-          <option value="166" ${String(valArtR)==='166'?'selected':''}>Art. 166 — Rebajo de puntos</option>
+          <option value="143" ${String(valArtR)==='143'?'selected':''}>Art. 143 — Rebajo de puntos</option>
         </select>
       </div>
       <div class="fg"><label>Artículo acción correctiva</label>
         <select id="dpp-art_accion">
           <option value="">— Sin especificar —</option>
-          <option value="150" ${String(valArtA)==='150'?'selected':''}>Art. 150 — Acción por falta grave</option>
-          <option value="151" ${String(valArtA)==='151'?'selected':''}>Art. 151 — Acción por falta muy grave</option>
-          <option value="152" ${String(valArtA)==='152'?'selected':''}>Art. 152 — Acción por falta gravísima</option>
+          <option value="155" ${String(valArtA)==='155'?'selected':''}>Art. 155 — Acción por falta grave</option>
+          <option value="156" ${String(valArtA)==='156'?'selected':''}>Art. 156 — Acción por falta muy grave</option>
+          <option value="157" ${String(valArtA)==='157'?'selected':''}>Art. 157 — Acción por falta gravísima</option>
         </select>
       </div>
     `;
@@ -8361,9 +8361,9 @@ function renderFormularioPaso(tipo, c, testigoId){
         <div class="fg" style="margin-top:6px;"><label>Artículo</label>
           <select id="dpp-art_falta" onchange="cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta')">
             <option value="">— Elegí —</option>
-            <option value="140" ${String(valArtF)==='140'?'selected':''}>Art. 140 — Falta grave</option>
-            <option value="141" ${String(valArtF)==='141'?'selected':''}>Art. 141 — Falta muy grave</option>
-            <option value="142" ${String(valArtF)==='142'?'selected':''}>Art. 142 — Falta gravísima</option>
+            <option value="155" ${String(valArtF)==='155'?'selected':''}>Art. 155 — Falta grave</option>
+            <option value="156" ${String(valArtF)==='156'?'selected':''}>Art. 156 — Falta muy grave</option>
+            <option value="157" ${String(valArtF)==='157'?'selected':''}>Art. 157 — Falta gravísima</option>
           </select>
         </div>
         <div class="fg" style="margin-top:6px;"><label>Inciso</label>
@@ -8380,7 +8380,7 @@ function renderFormularioPaso(tipo, c, testigoId){
         <div class="fg" style="margin-top:6px;"><label>Artículo</label>
           <select id="dpp-art_rebajo" onchange="cargarIncisosREAC('rebajo_puntos','dpp-art_rebajo','dpp-inc_rebajo','dpp-desc_rebajo')">
             <option value="">— Elegí —</option>
-            <option value="166" ${String(valArtR)==='166'?'selected':''}>Art. 166 — Rebajo de puntos</option>
+            <option value="143" ${String(valArtR)==='143'?'selected':''}>Art. 143 — Rebajo de puntos</option>
           </select>
         </div>
         <div class="fg" style="margin-top:6px;"><label>Inciso</label>
@@ -8399,9 +8399,9 @@ function renderFormularioPaso(tipo, c, testigoId){
         <div class="fg" style="margin-top:6px;"><label>Artículo</label>
           <select id="dpp-art_accion" onchange="cargarIncisosREAC('accion_correctiva','dpp-art_accion','dpp-inc_accion','dpp-desc_accion')">
             <option value="">— Elegí —</option>
-            <option value="150" ${String(valArtA)==='150'?'selected':''}>Art. 150 — Por falta grave</option>
-            <option value="151" ${String(valArtA)==='151'?'selected':''}>Art. 151 — Por falta muy grave</option>
-            <option value="152" ${String(valArtA)==='152'?'selected':''}>Art. 152 — Por falta gravísima</option>
+            <option value="155" ${String(valArtA)==='155'?'selected':''}>Art. 155 — Por falta grave</option>
+            <option value="156" ${String(valArtA)==='156'?'selected':''}>Art. 156 — Por falta muy grave</option>
+            <option value="157" ${String(valArtA)==='157'?'selected':''}>Art. 157 — Por falta gravísima</option>
           </select>
         </div>
         <div class="fg" style="margin-top:6px;"><label>Inciso</label>
