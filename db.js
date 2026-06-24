@@ -923,124 +923,153 @@ async function initDB() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_reac_cat ON reac_catalogo(categoria, articulo)`);
 
-      // Verificar si ya está poblado
+      // Verificar si ya está poblado.
+      // ⚠️ MIGRACIÓN REAC 2025 → 2026: los artículos cambiaron de número:
+      //   140 (graves)     → 155
+      //   141 (muy graves) → 156
+      //   142 (gravísimas) → 157
+      //   143 (rebajo puntos por gravedad)
+      // Detectamos si el catálogo está con los artículos viejos y lo migramos
+      // borrando todo lo del REAC viejo y resembrando con el nuevo.
       const existe = await client.query("SELECT COUNT(*)::int AS n FROM reac_catalogo");
-      if (existe.rows[0].n === 0) {
-        // Inserciones por bloque. Usamos ON CONFLICT DO NOTHING por idempotencia.
+      const tieneViejo = await client.query(
+        "SELECT COUNT(*)::int AS n FROM reac_catalogo WHERE articulo IN (140,141,142,150,151,152,166)"
+      );
+      const necesitaSembrar = existe.rows[0].n === 0;
+      const necesitaMigrar  = tieneViejo.rows[0].n > 0;
+      if (necesitaMigrar) {
+        // Borramos TODO el catálogo viejo. Los procesos disciplinarios ya
+        // creados guardan su texto en otra tabla, no se ven afectados.
+        await client.query("DELETE FROM reac_catalogo WHERE articulo IN (140,141,142,150,151,152,166)");
+        console.log("🔄 Catálogo REAC migrado: eliminados artículos del REAC 2025");
+      }
+      if (necesitaSembrar || necesitaMigrar) {
+        // ─── REAC 2026 ────────────────────────────────────────────────────
+        // Artículo 143: rebajos por gravedad de falta
+        //   - muy leve = 5 pts
+        //   - leve     = 10 pts
+        //   - grave    = 20 pts
+        //   - muy grave= 30 pts
+        //   - gravísima= 50 pts
+        // Solo incluimos gravedades aplicables al Debido Proceso (graves+)
 
-        // ART. 140 — FALTAS GRAVES (20 puntos)
-        const art140 = [
-          ['a','La reiteración en la comisión de faltas leves en un mismo periodo.'],
-          ['b','Daño por culpa contra el ornato, equipo, mobiliario, infraestructura del centro educativo o vehículos usados para el transporte de estudiantes.'],
-          ['c','Sustracción de bienes del centro educativo o personales.'],
-          ['d','Las frases o los hechos irrespetuosos dichos o cometidos en contra del director o la directora, los docentes y las docentes, las personas estudiantes, encargados legales de la persona estudiante y otros miembros de la comunidad educativa.'],
-          ['e','El uso reiterado del lenguaje o trato irrespetuoso con los demás miembros de la comunidad educativa.'],
+        // ART. 155 — FALTAS GRAVES (20 puntos)
+        const art155 = [
+          ['a','Daño contra los bienes del centro educativo relacionados con el ornato, equipo tecnológico, herramientas, mobiliario, infraestructura o cualquier otro activo del centro educativo. Así como daños ocasionados a los bienes del personal o demás miembros de la comunidad educativa, bienes a terceros, así como a los vehículos usados para el transporte de estudiantes, ya sea que esta acción se realice en forma individual o en grupo.'],
+          ['b','Sustracción de bienes del centro educativo o bienes personales de los miembros de la comunidad educativa.'],
+          ['c','Uso sin consentimiento de las pertenencias de personas integrantes de la comunidad educativa.'],
+          ['d','Uso del lenguaje vulgar o soez, así como el trato o los hechos irrespetuosos dichos o cometidos en contra del director o la directora, personal docente, las personas estudiantes, encargados legales de la persona estudiante y otros miembros de la comunidad educativa.'],
+          ['e','Colocar letreros, dibujos o gráficos no autorizados en la infraestructura, mobiliario u otros bienes del centro educativo.'],
           ['f','Alterar, falsificar o plagiar pruebas o cualquier otro tipo de trabajo académico con el que se deba cumplir como parte de su proceso educativo, sean estos realizados en beneficio propio o de otros estudiantes.'],
           ['g','Sustraer, reproducir, distribuir o divulgar las pruebas antes de su aplicación.'],
-          ['h','La utilización de las paredes, mesas, sillas, pupitres u otros bienes y objetos del centro educativo, para colocar letreros, dibujos o gráficos no autorizados.'],
-          ['i','Fumar o ingerir bebidas alcohólicas dentro de la institución, fuera de ella en horario lectivo, portando el uniforme o en actividades extracurriculares convocadas oficialmente.'],
-          ['j','Ingresar al centro educativo en condiciones de evidente ingesta de bebidas alcohólicas.'],
-          ['k','Otras faltas que se consideren como graves según el Reglamento Interno de la Institución.'],
+          ['h','Portar, consumir, fumar o vapear cigarrillos, sistemas electrónicos de administración de nicotina (SEAN), sistemas similares sin nicotina (SSSN) y dispositivos electrónicos que utilizan tabaco calentado y tecnologías similares.'],
+          ['i','Portar o ingerir bebidas con contenido alcohólico.'],
+          ['j','Ingresar al centro educativo en estado de ebriedad o bajo signos de ingesta de bebidas alcohólicas u otras sustancias psicoactivas.'],
+          ['k','Uso de dispositivos móviles u otros medios tecnológicos que interfieran en el proceso de aprendizaje en espacios educativos sin autorización de la persona docente.'],
+          ['l','Otras faltas que se consideren como graves según la normativa interna del centro educativo y que no se encuentren valoradas como muy leves, leves, muy graves o gravísimas en este reglamento.'],
         ];
-        for (const [inc, desc] of art140) {
+        for (const [inc, desc] of art155) {
           await client.query(
-            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, puntos, descripcion) VALUES ('falta', 140, $1, 'grave', 20, $2) ON CONFLICT DO NOTHING`,
+            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, puntos, descripcion) VALUES ('falta', 155, $1, 'grave', 20, $2) ON CONFLICT DO NOTHING`,
             [inc, desc]);
         }
 
-        // ART. 141 — FALTAS MUY GRAVES (35 puntos)
-        const art141 = [
-          ['a','La destrucción deliberada de bienes pertenecientes al centro educativo, al personal o a los demás miembros de la comunidad educativa, ya sea individual o en grupo. La destrucción de vehículos usados para el transporte de estudiantes.'],
-          ['b','La escenificación pública de conductas contrarias al Reglamento Interno, la moral pública o las buenas costumbres.'],
-          ['c','Impedir que otros miembros de la comunidad educativa participen en el normal desarrollo de las actividades regulares de la institución, así como incitar a otros a actuar con idénticos propósitos.'],
-          ['d','Consumir o portar drogas ilícitas dentro de la institución, en actividades convocadas oficialmente o en cualquier otra de las circunstancias descritas en el artículo 130 de este reglamento.'],
-          ['e','Incitación a los compañeros a que participen en acciones que perjudiquen la salud, seguridad individual o colectiva.'],
-          ['f','Portar armas o explosivos así como otros objetos potencialmente peligrosos para las personas, salvo quienes estén expresamente autorizados por la institución con fines didácticos.'],
-          ['g','Cualquier tipo de acción discriminatoria por razones de raza, credo, género, discapacidad o cualquier otra contraria a la dignidad humana.'],
-          ['h','Reiteración en la comisión de faltas graves en un mismo periodo lectivo.'],
-          ['i','Otras faltas que se consideren como muy graves según el Reglamento Interno de la Institución.'],
+        // ART. 156 — FALTAS MUY GRAVES (30 puntos)
+        const art156 = [
+          ['a','Incentivar o participar en la escenificación pública de conductas que atenten contra la dignidad, seguridad, integridad de cualquier persona.'],
+          ['b','Impedir que otros miembros de la comunidad educativa participen en el normal desarrollo de las actividades regulares del centro educativo, así como incitar a otros a que actúen con idénticos propósitos, entre los que se contempla el cierre del centro educativo.'],
+          ['c','Incitación a los compañeros a que participen en acciones que perjudiquen la salud, seguridad individual o colectiva.'],
+          ['d','Portar armas, explosivos, objetos o sustancias peligrosas que pongan en peligro la integridad y seguridad de algún miembro de la comunidad educativa. Además, el uso inadecuado de materiales diseñados para fines didácticos con otros propósitos diferentes que constituyan un riesgo.'],
+          ['e','Cualquier tipo de acción discriminatoria asociadas a género, edad, raza u origen étnico o nacional, condición socioeconómica o cualquier otra que viole la dignidad humana, incluidas aquellas realizadas mediante mecanismos o dispositivos tecnológicos.'],
+          ['f','Realizar, grabar, distribuir o ser cómplice en actos de violencia en todas sus manifestaciones incluido: el bullying o acoso, violencia psicológica y violencia material entre estudiantes dentro del centro educativo. Estas conductas incluyen, pero no se limitan a la utilización de dispositivos electrónicos para registrar y difundir actos de agresión presencial o cibernética.'],
+          ['g','Sustracción, alteración o falsificación de documentos oficiales.'],
+          ['h','Otras faltas que se consideren como muy graves según la normativa interna del centro educativo y que no se encuentren valoradas como graves en este reglamento.'],
         ];
-        for (const [inc, desc] of art141) {
+        for (const [inc, desc] of art156) {
           await client.query(
-            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, puntos, descripcion) VALUES ('falta', 141, $1, 'muy_grave', 35, $2) ON CONFLICT DO NOTHING`,
+            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, puntos, descripcion) VALUES ('falta', 156, $1, 'muy_grave', 30, $2) ON CONFLICT DO NOTHING`,
             [inc, desc]);
         }
 
-        // ART. 142 — FALTAS GRAVÍSIMAS (50 puntos)
-        const art142 = [
-          ['a','Sustracción, alteración o falsificación de documentos oficiales.'],
-          ['b','La reiteración, en un mismo curso lectivo, de la destrucción deliberada de bienes pertenecientes a la institución educativa, al personal o a los demás miembros de la comunidad educativa.'],
-          ['c','Agresión física contra cualquier miembro de la comunidad educativa, el director, el personal, las personas estudiantes o los encargados legales.'],
-          ['d','Ingestión reiterada de bebidas alcohólicas dentro de la institución, fuera de ella en horario lectivo, portando el uniforme o en actividades extracurriculares convocadas oficialmente.'],
-          ['e','Consumir o portar, de manera reiterada, drogas ilícitas dentro de la institución, en actividades convocadas oficialmente o en cualquier otra de las circunstancias descritas en el artículo 130 de este reglamento.'],
-          ['f','Distribuir, inducir o facilitar el uso de cualquier tipo de drogas ilícitas dentro de la institución, en actividades oficialmente convocadas o en cualquiera de las circunstancias señaladas en el artículo 130 de este Reglamento.'],
-          ['g','Tráfico o divulgación de material contrario a la moral pública.'],
-          ['h','Otras faltas que se consideren como gravísimas según el Reglamento Interno de la Institución.'],
+        // ART. 157 — FALTAS GRAVÍSIMAS (50 puntos)
+        const art157 = [
+          ['a','Agresión física contra cualquier miembro de la comunidad educativa, entiéndase, el o la directora, el personal, de las personas estudiantes o las personas encargadas legales de las personas estudiantes.'],
+          ['b','Tenencia, difusión, distribución o comercio de imágenes o videos con contenidos de índole sexual, acoso, violencias en línea, acciones de contenido sexual, material de naturaleza acosadora, física o haciendo uso de herramientas tecnológicas como la Inteligencia Artificial que atente o viole la dignidad, seguridad e integridad humana.'],
+          ['c','Ingestión reiterada de bebidas alcohólicas.'],
+          ['d','Consumir o portar sustancias psicoactivas dentro del centro educativo, en actividades convocadas oficialmente o en cualquier otra de las circunstancias descritas en el artículo 148 de este reglamento.'],
+          ['e','Distribuir, inducir o facilitar el uso de cualquier tipo de sustancias psicoactivas dentro del centro educativo, en actividades oficialmente convocadas o en cualesquiera de las circunstancias señaladas en el artículo 148 de este reglamento.'],
+          ['f','Infringir daño en cualquiera de las diferentes manifestaciones de violencia incluido el bullying, acoso, por medio de comportamientos o conductas repetidas y abusivas con la intención de agredir a una o varias personas estudiantes de manera presencial o utilizando las tecnologías de la Información y la Comunicación (TIC) (Ciberbullying).'],
+          ['g','Otras faltas que se consideren como gravísimas según la normativa interna del centro educativo.'],
         ];
-        for (const [inc, desc] of art142) {
+        for (const [inc, desc] of art157) {
           await client.query(
-            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, puntos, descripcion) VALUES ('falta', 142, $1, 'gravisima', 50, $2) ON CONFLICT DO NOTHING`,
+            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, puntos, descripcion) VALUES ('falta', 157, $1, 'gravisima', 50, $2) ON CONFLICT DO NOTHING`,
             [inc, desc]);
         }
 
-        // ART. 150 — ACCIONES CORRECTIVAS POR FALTAS GRAVES
-        const art150 = [
-          ['a','Traslado del alumno a otra sección.'],
-          ['b','Reparación o reposición del material o equipo que hubiera dañado.'],
-          ['c','Reparación de la ofensa verbal o moral a las personas, grupos internos o externos a la institución, mediante la oportuna retractación pública y las disculpas que correspondan.'],
-          ['d','Pérdida de la autorización para representar a la institución en cualquier delegación oficial.'],
-          ['e','Pérdida de las credenciales en el Gobierno Estudiantil, la Asamblea de Representantes, la directiva de sección y cualquier otro comité institucional.'],
-          ['f','Realización de acciones con carácter educativo y de interés institucional o comunal, verificables y proporcionales a la falta cometida.'],
-          ['g','Inasistencia al centro educativo hasta por un período máximo de quince días naturales.'],
+        // ACCIONES CORRECTIVAS POR FALTAS GRAVES (art. 155)
+        // El REAC 2026 establece las acciones directamente en el mismo
+        // artículo de la falta. Las agrupamos como categoría aparte para
+        // que aparezcan en el select correspondiente.
+        const accGraves = [
+          ['a','Traslado de la persona estudiante a otra sección, en aquellos ciclos, ofertas o modalidades que así lo permitan.'],
+          ['b','Reparación de la ofensa verbal o moral a las personas, grupos internos o externos al centro educativo, mediante la oportuna retractación pública y las disculpas que correspondan, sin perjuicio de su integridad moral o física.'],
+          ['c','Reparación o reposición del material o equipo que hubiera dañado.'],
+          ['d','Inasistencia al centro educativo por un período de quince días naturales (aplicable a faltas incisos g, h, i, j del artículo 155).'],
         ];
-        for (const [inc, desc] of art150) {
+        for (const [inc, desc] of accGraves) {
           await client.query(
-            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, descripcion) VALUES ('accion_correctiva', 150, $1, 'grave', $2) ON CONFLICT DO NOTHING`,
+            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, descripcion) VALUES ('accion_correctiva', 155, $1, 'grave', $2) ON CONFLICT DO NOTHING`,
             [inc, desc]);
         }
 
-        // ART. 151 — ACCIONES CORRECTIVAS POR FALTAS MUY GRAVES
-        const art151 = [
-          ['a','Obligación de reparar, de manera verificable, el daño material, moral o personal causado a las personas, grupos o a la Institución.'],
-          ['b','Realización de acciones con carácter educativo y de interés institucional o comunal, verificables y proporcionales a la falta cometida.'],
-          ['c','Inasistencia al centro educativo por un período comprendido entre quince y veinte días naturales.'],
+        // ACCIONES CORRECTIVAS POR FALTAS MUY GRAVES (art. 156)
+        const accMuyGraves = [
+          ['a','Inasistencia al centro educativo por un período de veinte días naturales.'],
+          ['b','Obligación de reparar, de manera verificable, el daño material, moral o personal causado a las personas, grupos o al centro educativo.'],
+          ['c','Realización de acciones con carácter educativo y de interés institucional o comunal, verificables y proporcionales a la falta cometida.'],
         ];
-        for (const [inc, desc] of art151) {
+        for (const [inc, desc] of accMuyGraves) {
           await client.query(
-            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, descripcion) VALUES ('accion_correctiva', 151, $1, 'muy_grave', $2) ON CONFLICT DO NOTHING`,
+            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, descripcion) VALUES ('accion_correctiva', 156, $1, 'muy_grave', $2) ON CONFLICT DO NOTHING`,
             [inc, desc]);
         }
 
-        // ART. 152 — ACCIONES CORRECTIVAS POR FALTAS GRAVÍSIMAS
-        const art152 = [
-          ['a','Obligación de reparar, de manera verificable, el daño material, moral o personal causado a personas, grupos o a la institución.'],
-          ['b','Realización de acciones con carácter educativo y de interés institucional o comunal, verificables y proporcionales a la falta cometida.'],
-          ['c','Inasistencia al centro educativo hasta por un período comprendido entre veinte y treinta días naturales.'],
+        // ACCIONES CORRECTIVAS POR FALTAS GRAVÍSIMAS (art. 157)
+        const accGravisimas = [
+          ['a','Inasistencia al centro educativo por un período de treinta días naturales.'],
+          ['b','Obligación de reparar, de manera verificable, el daño material, moral o personal causado a personas, grupos o al centro educativo.'],
+          ['c','Realización de acciones con carácter educativo y de interés institucional o comunal, verificables y proporcionales a la falta cometida.'],
         ];
-        for (const [inc, desc] of art152) {
+        for (const [inc, desc] of accGravisimas) {
           await client.query(
-            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, descripcion) VALUES ('accion_correctiva', 152, $1, 'gravisima', $2) ON CONFLICT DO NOTHING`,
+            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, descripcion) VALUES ('accion_correctiva', 157, $1, 'gravisima', $2) ON CONFLICT DO NOTHING`,
             [inc, desc]);
         }
 
-        // REBAJO DE PUNTOS DE CONDUCTA (asociado al tipo de falta)
-        // Aunque el artículo varía según el centro, en el REAC base los rebajos
-        // son fijos según la gravedad. Lo sembramos como entradas únicas para
-        // que el select muestre directamente el rebajo aplicable.
+        // REBAJO DE PUNTOS DE CONDUCTA — Artículo 143 REAC 2026
+        // El artículo 143 establece los rebajos según la gravedad:
+        //   - muy leve = 5 puntos    (no aplica DP)
+        //   - leve     = 10 puntos   (no aplica DP)
+        //   - grave    = 20 puntos
+        //   - muy grave= 30 puntos
+        //   - gravísima= 50 puntos
         const rebajos = [
-          ['a', 'grave',     20, 'Rebajo de hasta veinte (20) puntos de la nota de conducta por falta grave.'],
-          ['b', 'muy_grave', 35, 'Rebajo de hasta treinta y cinco (35) puntos de la nota de conducta por falta muy grave.'],
-          ['c', 'gravisima', 50, 'Rebajo de hasta cincuenta (50) puntos de la nota de conducta por falta gravísima.'],
+          ['a', 'grave',     20, 'Rebajo de veinte (20) puntos de la nota de conducta por falta grave (art. 143 REAC).'],
+          ['b', 'muy_grave', 30, 'Rebajo de treinta (30) puntos de la nota de conducta por falta muy grave (art. 143 REAC).'],
+          ['c', 'gravisima', 50, 'Rebajo de cincuenta (50) puntos de la nota de conducta por falta gravísima (art. 143 REAC).'],
         ];
         for (const [inc, grav, pts, desc] of rebajos) {
           await client.query(
-            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, puntos, descripcion) VALUES ('rebajo_puntos', 166, $1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+            `INSERT INTO reac_catalogo (categoria, articulo, inciso, gravedad, puntos, descripcion) VALUES ('rebajo_puntos', 143, $1, $2, $3, $4) ON CONFLICT DO NOTHING`,
             [inc, grav, pts, desc]);
         }
 
-        console.log("✅ Catálogo REAC sembrado");
+        console.log(necesitaMigrar
+          ? "✅ Catálogo REAC 2026 sembrado (migrado desde REAC 2025)"
+          : "✅ Catálogo REAC 2026 sembrado");
       } else {
-        console.log(`✅ Catálogo REAC ya estaba poblado (${existe.rows[0].n} incisos)`);
+        console.log(`✅ Catálogo REAC 2026 ya estaba poblado (${existe.rows[0].n} incisos)`);
       }
     } catch (errCAT) {
       console.error("⚠️ Error sembrando catálogo REAC:", errCAT.message);
