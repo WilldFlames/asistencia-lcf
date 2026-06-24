@@ -1192,8 +1192,8 @@ async function initDB() {
         nota:'1 proyecto (25%)' },
       { cod:'tecno_7_9',    desc:'Formación Tecnológica (7°-9°)',     lvl:[7,9],   pc:45, pt:10, pp:0,  ppr:40, pa:5, np:0, npr:1, op:false,
         nota:'1 proyecto (40%)' },
-      { cod:'idioma_7_9',   desc:'Inglés/Francés (7°-9°)',           lvl:[7,9],   pc:35, pt:10, pp:50, ppr:0,  pa:5, np:2, npr:0, op:false,
-        nota:'2 pruebas obligatorias (25% c/u)' },
+      { cod:'idioma_7_9',   desc:'Inglés/Francés (7°-9°)',           lvl:[7,9],   pc:45, pt:10, pp:40, ppr:0,  pa:5, np:2, npr:0, op:false,
+        nota:'2 pruebas obligatorias (20% c/u)' },
       // 10°-11°
       { cod:'acad_10_11',   desc:'Académica (10°-11°)',               lvl:[10,11], pc:35, pt:10, pp:50, ppr:0,  pa:5, np:2, npr:0, op:false,
         nota:'2 pruebas obligatorias (25% c/u)' },
