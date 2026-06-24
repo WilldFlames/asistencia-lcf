@@ -576,31 +576,30 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
     `, [asig.id, periodo]);
     const porEst = new Map(csR.rows.map(r => [r.estudiante_id, r]));
 
-    // Calcular asistencia (igual que el modo normal)
+    // Calcular asistencia (mismo patrón que el modo normal).
+    // IMPORTANTE: la tabla sesiones_asistencia solo tiene la columna `lecciones`
+    // (no lecciones_realizadas ni lecciones_planeadas). Hay que usar esa.
+    const fechasSimpl = PERIODOS_FECHAS[periodo];
+    if (!fechasSimpl) throw new Error('Período inválido.');
     const totLeccR = await pool.query(`
-      SELECT COALESCE(SUM(COALESCE(s.lecciones_realizadas, s.lecciones_planeadas, 4)),0)::int AS total
+      SELECT COALESCE(SUM(s.lecciones), 0)::int AS total
       FROM sesiones_asistencia s
-      WHERE s.asignacion_id IN (
-        SELECT id FROM asignaciones
-        WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3
-          AND (($4::text IS NULL AND subgrupo IS NULL) OR subgrupo=$4) AND periodo=$5
-      )
-    `, [profesor_id, seccion_id, materia_id, sub, periodo]);
+      WHERE s.asignacion_id = $1
+        AND s.fecha BETWEEN $2 AND $3
+    `, [asig.id, fechasSimpl.desde, fechasSimpl.hasta]);
     const totalLeccionesGlobal = totLeccR.rows[0].total || 0;
 
     const ausR = await pool.query(`
-      SELECT a.estudiante_id, COALESCE(SUM(a.lecciones_ausentes),0)::int AS aus
+      SELECT a.estudiante_id, COALESCE(SUM(a.lecciones_ausentes), 0)::int AS aus
       FROM asistencia a
       JOIN sesiones_asistencia s ON s.id = a.sesion_id
-      WHERE a.estado='A' AND a.justificada=false
-        AND s.asignacion_id IN (
-          SELECT id FROM asignaciones
-          WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3
-            AND (($4::text IS NULL AND subgrupo IS NULL) OR subgrupo=$4) AND periodo=$5
-        )
+      WHERE s.asignacion_id = $1
+        AND s.fecha BETWEEN $2 AND $3
+        AND a.estado = 'A'
+        AND a.justificada = false
       GROUP BY a.estudiante_id
-    `, [profesor_id, seccion_id, materia_id, sub, periodo]);
-    const ausPorEst = new Map(ausR.rows.map(r => [r.estudiante_id, r.aus]));
+    `, [asig.id, fechasSimpl.desde, fechasSimpl.hasta]);
+    const ausPorEst = new Map(ausR.rows.map(r => [Number(r.estudiante_id), Number(r.aus)]));
 
     const resultado = estudiantes.map(e => {
       const cs = porEst.get(e.id) || {};
