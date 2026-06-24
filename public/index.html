@@ -1852,10 +1852,12 @@ tr:hover td{background:#f8fafc;}
     </p>
 
     <!-- Sub-tabs por estado -->
-    <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);">
+    <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);flex-wrap:wrap;">
       <button id="dp-tab-curso" class="dp-tab-btn" onclick="dpCambiarTab('en_curso')" style="padding:8px 16px;background:var(--azul);color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:bold;">⏳ En Curso</button>
       <button id="dp-tab-resueltos" class="dp-tab-btn" onclick="dpCambiarTab('resuelto')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">✅ Resueltos</button>
       <button id="dp-tab-desestimados" class="dp-tab-btn" onclick="dpCambiarTab('desestimado')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">❌ Desestimados</button>
+      <button id="dp-tab-pendiente_archivo" class="dp-tab-btn" onclick="dpCambiarTab('pendiente_archivo')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📋 Pend. archivo</button>
+      <button id="dp-tab-archivados" class="dp-tab-btn" onclick="dpCambiarTab('archivado')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📦 Archivados</button>
     </div>
 
     <!-- Sección de pendientes (notificaciones del usuario actual) -->
@@ -1994,6 +1996,8 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
       <button class="btn btn-outline" onclick="imprimirPortadaDP()" style="border-color:#6366f1;color:#6366f1;">📄 Imprimir Portada del Expediente</button>
       <button class="btn btn-outline" id="btn-dp-sustituto" onclick="abrirAsignarSustituto()" style="display:none;border-color:#ea580c;color:#ea580c;">🔄 Guía Sustituto</button>
+      <button class="btn btn-outline" id="btn-dp-solicitar-archivo" onclick="abrirSolicitarArchivo()" style="display:none;border-color:#7c3aed;color:#7c3aed;">📦 Solicitar Archivo</button>
+      <button class="btn btn-outline" id="btn-dp-aprobar-archivo" onclick="abrirAprobarArchivo()" style="display:none;border-color:#16a34a;color:#16a34a;">✅ Decidir sobre Archivo</button>
     </div>
     <div id="dpd-pasos-lista" style="margin-top:14px;max-height:65vh;overflow:auto;"></div>
     <div class="modal-actions">
@@ -6198,52 +6202,156 @@ async function verTab(tipo){
   await cargarMensajes(tipo);
 }
 
-async function cargarMensajes(tipo){
-  const url=tipo==="inbox"?"/api/mensajes/inbox":tipo==="enviados"?"/api/mensajes/enviados":"/api/mensajes/todos";
-  const rows=await api(url);if(!rows)return;
-  const div=document.getElementById("mensajes-contenido");
-  if(!rows.length){div.innerHTML='<div class="empty">Sin mensajes</div>';return;}
+// Estado actual del módulo de mensajes/informes:
+//   _informesData: cache plano por id de informe (lo usaban funciones legacy)
+//   _informesAgrupados: { [estId]: { datosEst, lista: [...] } }
+//   _informesTabActual: 'inbox' | 'enviados' | 'todos'
+//   _informesEstSeleccionado: id del estudiante en vista detalle (null = lista)
+let _informesAgrupados = {};
+let _informesTabActual = 'inbox';
+let _informesEstSeleccionado = null;
 
-  // Guardar datos en memoria para evitar problemas con caracteres especiales en onclick
+async function cargarMensajes(tipo){
+  _informesTabActual = tipo;
+  _informesEstSeleccionado = null; // al cambiar tab, volver a lista
+  const url = tipo==="inbox"?"/api/mensajes/inbox":tipo==="enviados"?"/api/mensajes/enviados":"/api/mensajes/todos";
+  const rows = await api(url);
+  if(!rows) return;
+
+  // Cache plano (compat)
   window._informesData = {};
   rows.forEach(inf => { window._informesData[inf.id] = inf; });
 
-  div.innerHTML=rows.map(inf=>{
-    const nombreEst = `${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}`;
-    return `
-    <div class="informe-card ${!inf.leido&&tipo==="inbox"?"no-leido":""} ${inf.respondido?"respondido":""}">
+  // Agrupar por estudiante
+  _informesAgrupados = {};
+  rows.forEach(inf => {
+    const eid = inf.estudiante_id;
+    if(!_informesAgrupados[eid]){
+      _informesAgrupados[eid] = {
+        estudiante_id: eid,
+        nombre: `${inf.est_ap1||''} ${inf.est_ap2||''}, ${inf.est_nombre||''}`.replace(/^,\s*/,'').trim(),
+        seccion: inf.seccion_nombre || '—',
+        lista: [],
+      };
+    }
+    _informesAgrupados[eid].lista.push(inf);
+  });
+
+  renderInformesLista();
+}
+
+// Vista compacta: una fila por estudiante. Muestra contadores
+// (pendientes/respondidos) y un botón para entrar al detalle.
+function renderInformesLista(){
+  const div = document.getElementById("mensajes-contenido");
+  const grupos = Object.values(_informesAgrupados);
+  if(!grupos.length){
+    div.innerHTML = '<div class="empty">Sin informes en esta bandeja.</div>';
+    return;
+  }
+  // Ordenar por estudiante (último informe primero — el más reciente)
+  grupos.sort((a, b) => {
+    const ta = a.lista[0]?.created_at || '';
+    const tb = b.lista[0]?.created_at || '';
+    return tb.localeCompare(ta);
+  });
+
+  div.innerHTML = `
+    <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:8px 12px;margin-bottom:12px;border-radius:6px;font-size:12.5px;">
+      📚 Vista agrupada por estudiante. Hacé click en cada uno para ver y gestionar sus informes.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+    ${grupos.map(g => {
+      const pendientes = g.lista.filter(i => !i.respondido).length;
+      const respondidos = g.lista.filter(i => i.respondido).length;
+      const noLeidos = (_informesTabActual === 'inbox')
+        ? g.lista.filter(i => !i.leido).length
+        : 0;
+      const ultimo = g.lista[0];
+      const ultimoTxt = ultimo ? `Último: ${fmtTS(ultimo.created_at)}` : '';
+
+      return `<div onclick="verInformesEstudiante(${g.estudiante_id})"
+        style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;cursor:pointer;background:#fff;transition:background .15s;"
+        onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='#fff'">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div>
+            <strong>${g.nombre}</strong>
+            <span style="color:var(--muted);font-size:12px;"> · ${g.seccion}</span>
+            ${noLeidos > 0 ? `<span class="badge" style="background:#dc2626;color:#fff;font-size:10px;margin-left:6px;">${noLeidos} sin leer</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+            <span style="color:var(--muted);">${ultimoTxt}</span>
+            <span class="badge b-aux" title="Pendientes">⏳ ${pendientes}</span>
+            <span class="badge b-guia" title="Respondidos">✅ ${respondidos}</span>
+            <span style="font-weight:bold;color:var(--azul);">→</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+    </div>`;
+}
+
+// Vista detalle: todos los informes de UN estudiante
+function verInformesEstudiante(estId){
+  _informesEstSeleccionado = estId;
+  const g = _informesAgrupados[estId];
+  if(!g){ renderInformesLista(); return; }
+
+  const div = document.getElementById("mensajes-contenido");
+  const tipo = _informesTabActual;
+
+  // Ordenar la lista por más reciente arriba
+  const lista = [...g.lista].sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+
+  div.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <button class="btn btn-outline btn-sm" onclick="volverListaInformes()">← Volver a la lista</button>
+    </div>
+    <div style="background:#f1f5f9;border-radius:8px;padding:12px 16px;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:bold;color:#0f172a;">${g.nombre}</div>
+      <div style="font-size:12.5px;color:var(--muted);">Sección: ${g.seccion} · ${lista.length} informe(s) en total</div>
+      ${(tipo === 'enviados' || tipo === 'todos') && lista.some(i => i.respondido)
+        ? `<button class="btn btn-success btn-sm" style="margin-top:8px;" onclick="imprimirInformesEstudiante(${estId})">🖨️ Imprimir todos los informes respondidos</button>`
+        : ''}
+    </div>
+
+    ${lista.map(inf => `
+    <div class="informe-card ${!inf.leido && tipo==='inbox' ? 'no-leido' : ''} ${inf.respondido ? 'respondido' : ''}">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:8px;">
         <div>
-          <strong>${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}</strong>
-          <span style="color:var(--muted);font-size:12px"> · ${inf.seccion_nombre||"—"}</span>
-          ${inf.respondido?'<span class="badge b-guia" style="margin-left:6px;">✅ Respondido</span>':'<span class="badge b-aux" style="margin-left:6px;">⏳ Pendiente</span>'}
+          <strong>📋 Solicitud de informe</strong>
+          ${inf.respondido ? '<span class="badge b-guia" style="margin-left:6px;">✅ Respondido</span>' : '<span class="badge b-aux" style="margin-left:6px;">⏳ Pendiente</span>'}
         </div>
-        <span style="font-size:12px;color:var(--muted)">${fmtTS(inf.created_at)}</span>
+        <span style="font-size:12px;color:var(--muted);">${fmtTS(inf.created_at)}</span>
       </div>
-      <div style="font-size:12px;margin-bottom:8px;color:var(--muted)">
-        ${tipo==="inbox"||tipo==="todos"?`Solicitado por: <strong>${inf.remit_ap1} ${inf.remit_nombre}</strong>`:``}
-        ${tipo==="enviados"?`Enviado a: <strong>${inf.dest_ap1} ${inf.dest_nombre}</strong>`:``}
-        ${tipo==="todos"?` → <strong>${inf.dest_ap1} ${inf.dest_nombre}</strong>`:""}
+      <div style="font-size:12px;margin-bottom:8px;color:var(--muted);">
+        ${tipo==="inbox" || tipo==="todos" ? `Solicitado por: <strong>${inf.remit_ap1||''} ${inf.remit_nombre||''}</strong>` : ''}
+        ${tipo==="enviados" ? `Enviado a: <strong>${inf.dest_ap1||''} ${inf.dest_nombre||''}</strong>` : ''}
+        ${tipo==="todos" ? ` → <strong>${inf.dest_ap1||''} ${inf.dest_nombre||''}</strong>` : ''}
       </div>
-      ${inf.observaciones?`<div style="font-size:12px;background:#f8fafc;border-radius:6px;padding:8px;margin-bottom:8px;color:var(--muted)">📝 ${inf.observaciones}</div>`:""}
-      ${inf.respondido?`<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:10px;margin-top:8px;font-size:13px;">
+      ${inf.observaciones ? `<div style="font-size:12px;background:#f8fafc;border-radius:6px;padding:8px;margin-bottom:8px;color:var(--muted);">📝 ${inf.observaciones}</div>` : ''}
+      ${inf.respondido ? `<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:10px;margin-top:8px;font-size:13px;">
         <strong>✅ Respuesta (${fmtTS(inf.fecha_respuesta)}):</strong>
-        ${inf.resp_asistencia?`<div><strong>Asistencia:</strong> ${inf.resp_asistencia}</div>`:""}
-        ${inf.resp_trabajo_cotidiano?`<div><strong>Trabajo Cotidiano:</strong> ${inf.resp_trabajo_cotidiano}</div>`:""}
-        ${inf.resp_tareas?`<div><strong>Tareas:</strong> ${inf.resp_tareas}</div>`:""}
-        ${inf.resp_examenes?`<div><strong>Exámenes/Proyectos:</strong> ${inf.resp_examenes}</div>`:""}
-        ${inf.resp_comportamiento?`<div><strong>Comportamiento:</strong> ${inf.resp_comportamiento}</div>`:""}
-        ${inf.resp_observaciones?`<div><strong>Observaciones:</strong> ${inf.resp_observaciones}</div>`:""}
-      </div>`:""}
+        ${inf.resp_asistencia ? `<div><strong>Asistencia:</strong> ${inf.resp_asistencia}</div>` : ''}
+        ${inf.resp_trabajo_cotidiano ? `<div><strong>Trabajo Cotidiano:</strong> ${inf.resp_trabajo_cotidiano}</div>` : ''}
+        ${inf.resp_tareas ? `<div><strong>Tareas:</strong> ${inf.resp_tareas}</div>` : ''}
+        ${inf.resp_examenes ? `<div><strong>Exámenes/Proyectos:</strong> ${inf.resp_examenes}</div>` : ''}
+        ${inf.resp_comportamiento ? `<div><strong>Comportamiento:</strong> ${inf.resp_comportamiento}</div>` : ''}
+        ${inf.resp_observaciones ? `<div><strong>Observaciones:</strong> ${inf.resp_observaciones}</div>` : ''}
+      </div>` : ''}
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-        ${tipo==="inbox"&&!inf.respondido?`<button class="btn btn-success btn-sm" onclick="abrirResponderById(${inf.id},false)">✉️ Responder</button>`:""}
-        ${tipo==="inbox"&&inf.respondido?`<button class="btn btn-outline btn-sm" onclick="abrirResponderById(${inf.id},true)">👁️ Ver</button>`:""}
-        ${!inf.leido&&tipo==="inbox"?`<button class="btn btn-outline btn-sm" onclick="marcarLeido(${inf.id})">✔ Leído</button>`:""}
-        ${(tipo==="enviados"||tipo==="todos")&&inf.respondido?`<button class="btn btn-success btn-sm" onclick="imprimirInformesEstudiante(${inf.estudiante_id})">🖨️ Imprimir todos los informes del estudiante</button>`:""}
-        ${(tipo==="enviados"||ME.rol==="admin"||ME.rol==="auxiliar")?`<button class="btn btn-danger btn-sm" onclick="eliminarInforme(${inf.id})">🗑️ Eliminar</button>`:""}
+        ${tipo==="inbox" && !inf.respondido ? `<button class="btn btn-success btn-sm" onclick="abrirResponderById(${inf.id},false)">✉️ Responder</button>` : ''}
+        ${tipo==="inbox" && inf.respondido ? `<button class="btn btn-outline btn-sm" onclick="abrirResponderById(${inf.id},true)">👁️ Ver</button>` : ''}
+        ${!inf.leido && tipo==="inbox" ? `<button class="btn btn-outline btn-sm" onclick="marcarLeido(${inf.id})">✔ Leído</button>` : ''}
+        ${(tipo==="enviados" || ME.rol==="admin" || ME.rol==="auxiliar") ? `<button class="btn btn-danger btn-sm" onclick="eliminarInforme(${inf.id})">🗑️ Eliminar</button>` : ''}
       </div>
-    </div>`;
-  }).join("");
+    </div>`).join("")}
+  `;
+}
+
+function volverListaInformes(){
+  _informesEstSeleccionado = null;
+  renderInformesLista();
 }
 
 async function abrirModalInforme(){
@@ -7499,12 +7607,12 @@ async function iniciarDebidosProcesos(){
 
 function dpCambiarTab(estado){
   dpEstadoActual = estado;
-  // Estilo de tabs
-  ['curso','resueltos','desestimados'].forEach(t=>{
+  // Estilo de tabs — apagar todos primero
+  ['curso','resueltos','desestimados','pendiente_archivo','archivados'].forEach(t=>{
     const b = document.getElementById(`dp-tab-${t}`);
     if(b){ b.style.background = 'transparent'; b.style.color='var(--muted)'; b.style.fontWeight='normal'; }
   });
-  const map = { en_curso:'curso', resuelto:'resueltos', desestimado:'desestimados' };
+  const map = { en_curso:'curso', resuelto:'resueltos', desestimado:'desestimados', pendiente_archivo:'pendiente_archivo', archivado:'archivados' };
   const activo = document.getElementById(`dp-tab-${map[estado]}`);
   if(activo){ activo.style.background='var(--azul)'; activo.style.color='#fff'; activo.style.fontWeight='bold'; }
   cargarDPLista(estado);
@@ -7533,6 +7641,10 @@ async function cargarDPLista(estado){
           else badge = `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">⏳ Día ${diffDias} de 15</span>`;
         } else if(estado === 'resuelto'){
           badge = '<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">✅ Resuelto</span>';
+        } else if(estado === 'pendiente_archivo'){
+          badge = '<span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">📋 Pend. archivo</span>';
+        } else if(estado === 'archivado'){
+          badge = '<span style="background:#475569;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">📦 Archivado</span>';
         } else {
           badge = '<span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">❌ Desestimado</span>';
         }
@@ -7766,6 +7878,28 @@ async function abrirDPDetalle(procesoId){
       }
     }
 
+    // Botones de archivo
+    // - "Solicitar Archivo": visible si el proceso está en_curso/resuelto/desestimado
+    //   y el usuario es guía efectivo, iniciador o staff admin
+    const btnSolicArchivo = document.getElementById('btn-dp-solicitar-archivo');
+    if(btnSolicArchivo){
+      const guiaEfId = dp.guia_sustituto_id || dp.guia_a_cargo;
+      const esGuiaOIniciador = guiaEfId === ME.id || dp.iniciado_por === ME.id;
+      const esStaff = ['admin','administrativo'].includes(ME.rol);
+      const enEstadoArchivable = ['en_curso','resuelto','desestimado'].includes(dp.estado);
+      btnSolicArchivo.style.display = (enEstadoArchivable && (esGuiaOIniciador || esStaff)) ? '' : 'none';
+    }
+
+    // - "Decidir sobre Archivo": visible solo si está pendiente_archivo y el
+    //   usuario es el orientador asignado o admin/administrativo
+    const btnAprobArchivo = document.getElementById('btn-dp-aprobar-archivo');
+    if(btnAprobArchivo){
+      const esOrientador = dp.orientador_id === ME.id;
+      const esStaff = ['admin','administrativo'].includes(ME.rol);
+      const puedeDecidir = dp.estado === 'pendiente_archivo' && (esOrientador || esStaff);
+      btnAprobArchivo.style.display = puedeDecidir ? '' : 'none';
+    }
+
     // Badge de plazo
     const creado = new Date(dp.created_at);
     const diffDias = Math.floor((new Date() - creado) / (1000*60*60*24));
@@ -7781,6 +7915,12 @@ async function abrirDPDetalle(procesoId){
         badge.style.background = '#dbeafe'; badge.style.color = '#1e40af';
         badge.textContent = `⏳ Día ${diffDias} de 15`;
       }
+    } else if (dp.estado === 'pendiente_archivo') {
+      badge.style.background = '#7c3aed'; badge.style.color = '#fff';
+      badge.textContent = '📋 Pendiente archivo';
+    } else if (dp.estado === 'archivado') {
+      badge.style.background = '#475569'; badge.style.color = '#fff';
+      badge.textContent = '📦 Archivado';
     } else {
       badge.style.background = dp.estado === 'resuelto' ? '#16a34a' : '#6b7280';
       badge.style.color = '#fff';
@@ -7855,6 +7995,74 @@ async function guardarSustituto(){
     sa('alert-dpd', sustituto_id ? '✅ Sustituto asignado.' : '✅ Sustituto removido. El guía original recupera el caso.', 'success');
   } catch(e) {
     sa('alert-dpsust', e.message, 'danger');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  ARCHIVAR DEBIDO PROCESO (flujo solicitud → aprobación del orientador)
+// ════════════════════════════════════════════════════════════════════
+async function abrirSolicitarArchivo(){
+  if(!dpProcesoActual) return;
+  const dp = dpProcesoActual.proceso;
+  const motivo = prompt(
+    `📦 Solicitar archivar el debido proceso N°${String(dp.numero).padStart(3,'0')}-${dp.anio}\n\n`
+    + `Estudiante: ${dp.est_ap1||''} ${dp.est_ap2||''}, ${dp.est_nombre||''}\n\n`
+    + `El proceso pasará a "Pendiente de archivo" y el orientador deberá aprobar el archivo definitivo.\n\n`
+    + `Motivo (obligatorio):`
+  );
+  if(motivo === null) return;
+  if(!motivo.trim()){ alert('El motivo es obligatorio.'); return; }
+  try {
+    await api(`/api/debidos-procesos/${dp.id}/solicitar-archivo`, 'POST', { motivo: motivo.trim() });
+    cerrarModal('modal-dp-detalle');
+    sa('alert-dp', `✅ Archivo solicitado. El orientador debe aprobar antes de archivarse definitivamente.`, 'success');
+    await cargarDPLista(dpEstadoActual);
+  } catch(e){ alert('Error: ' + e.message); }
+}
+
+async function abrirAprobarArchivo(){
+  if(!dpProcesoActual) return;
+  const dp = dpProcesoActual.proceso;
+
+  // Buscar el nombre del solicitante (en el cache lo tenemos por id)
+  const solicitanteId = dp.archivo_solicitado_por;
+  const motivoSolic = dp.archivo_motivo || '(sin motivo registrado)';
+  const fechaSolic = dp.archivo_solicitado_en ? new Date(dp.archivo_solicitado_en).toLocaleString('es-CR') : '—';
+
+  const accion = confirm(
+    `📦 Decidir sobre el archivo del expediente N°${String(dp.numero).padStart(3,'0')}-${dp.anio}\n\n`
+    + `Estudiante: ${dp.est_ap1||''} ${dp.est_ap2||''}, ${dp.est_nombre||''}\n\n`
+    + `Solicitud de archivo:\n`
+    + `  Fecha: ${fechaSolic}\n`
+    + `  Motivo: "${motivoSolic}"\n\n`
+    + `Aceptar  = APROBAR el archivo (el proceso se mueve a "Archivados")\n`
+    + `Cancelar = elegir si rechazar o cancelar la decisión`
+  );
+
+  if (accion) {
+    // Aprobar
+    const decision = prompt('Comentario opcional sobre la decisión (puede quedar vacío):') || '';
+    try {
+      await api(`/api/debidos-procesos/${dp.id}/aprobar-archivo`, 'POST', { aprobar: true, decision });
+      cerrarModal('modal-dp-detalle');
+      sa('alert-dp', '✅ Archivo aprobado. El expediente se movió a "Archivados".', 'success');
+      await cargarDPLista(dpEstadoActual);
+    } catch(e){ alert('Error: ' + e.message); }
+  } else {
+    // Preguntar si quiere rechazar o cancelar
+    const rechazar = confirm(
+      'Elegiste no aprobar. ¿Querés RECHAZAR el archivo?\n\n'
+      + 'Aceptar  = RECHAZAR (el proceso vuelve a su estado anterior)\n'
+      + 'Cancelar = no hacer nada por ahora'
+    );
+    if(!rechazar) return;
+    const decision = prompt('Motivo del rechazo (recomendado):') || '';
+    try {
+      await api(`/api/debidos-procesos/${dp.id}/aprobar-archivo`, 'POST', { aprobar: false, decision });
+      cerrarModal('modal-dp-detalle');
+      sa('alert-dp', '❌ Archivo rechazado. El proceso vuelve a su estado anterior.', 'success');
+      await cargarDPLista(dpEstadoActual);
+    } catch(e){ alert('Error: ' + e.message); }
   }
 }
 

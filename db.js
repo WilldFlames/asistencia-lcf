@@ -687,6 +687,21 @@ async function initDB() {
       await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS ofendido_docente_nombre TEXT`);
       await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS ofendido_docente_cedula TEXT`);
 
+      // ── ARCHIVAR PROCESO ────────────────────────────────────────────
+      // Un proceso CERRADO (resuelto/desestimado) puede ser archivado para
+      // sacarlo de la vista activa. Flujo:
+      //   1) Profe/admin solicita archivo → estado='pendiente_archivo'
+      //   2) Orientador aprueba → estado='archivado'
+      //      O rechaza → vuelve al estado anterior
+      // El motivo más común: el denunciante cambió de decisión.
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS estado_previo_archivo TEXT`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS archivo_solicitado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS archivo_solicitado_en TIMESTAMP`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS archivo_motivo TEXT`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS archivo_aprobado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS archivo_aprobado_en TIMESTAMP`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS archivo_decision_orientador TEXT`);
+
       console.log("✅ DP: tabla debidos_procesos lista");
 
       await client.query(`

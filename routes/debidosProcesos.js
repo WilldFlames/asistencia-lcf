@@ -863,4 +863,139 @@ router.put("/:id/sustituto", requireAuth, async (req, res) => {
   res.json({ ok: true, sustituto: nuevoSustituto });
 });
 
+// ════════════════════════════════════════════════════════════════════
+//  ARCHIVAR PROCESO (con aprobación del orientador)
+// ════════════════════════════════════════════════════════════════════
+// Flujo:
+//   - POST /:id/solicitar-archivo: cualquier rol con acceso al proceso lo
+//     solicita. Pasa a estado 'pendiente_archivo'. Se notifica al orientador.
+//   - POST /:id/aprobar-archivo: solo el orientador (o admin/administrativo)
+//     aprueba o rechaza. Si aprueba, el estado pasa a 'archivado'. Si
+//     rechaza, vuelve al estado anterior.
+
+router.post("/:id/solicitar-archivo", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const { motivo } = req.body;
+  if (!motivo || !motivo.trim()) {
+    return res.status(400).json({ error: "El motivo es obligatorio para solicitar el archivo." });
+  }
+  try {
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+
+    // Permisos: guía efectivo (sustituto o titular), iniciador, admin, administrativo
+    const esStaff = ["admin","administrativo"].includes(u.rol);
+    const esGuia = guiaEfectivo(dp) === u.id;
+    const esIniciador = dp.iniciado_por === u.id;
+    if (!esStaff && !esGuia && !esIniciador) {
+      return res.status(403).json({ error: "Sin permisos para solicitar archivo de este proceso." });
+    }
+
+    // Solo procesos cerrados (resuelto/desestimado) o en_curso pueden archivarse
+    if (!['en_curso', 'resuelto', 'desestimado'].includes(dp.estado)) {
+      return res.status(400).json({ error: `El proceso ya está en estado '${dp.estado}'.` });
+    }
+
+    await pool.query(`
+      UPDATE debidos_procesos
+      SET estado='pendiente_archivo',
+          estado_previo_archivo=$1,
+          archivo_solicitado_por=$2,
+          archivo_solicitado_en=NOW(),
+          archivo_motivo=$3,
+          updated_at=NOW()
+      WHERE id=$4
+    `, [dp.estado, u.id, motivo.trim(), req.params.id]);
+
+    // Notificar al orientador para aprobar
+    if (dp.orientador_id && dp.orientador_id !== u.id) {
+      await notificar(dp.orientador_id, "debido_proceso",
+        `📦 Se solicita ARCHIVAR el debido proceso N°${dp.numero}-${dp.anio}. Necesita tu aprobación. Motivo: "${motivo.trim()}"`);
+    }
+    // También al guía si no es el solicitante
+    const gid = guiaEfectivo(dp);
+    if (gid && gid !== u.id) {
+      await notificar(gid, "debido_proceso",
+        `📦 Se solicitó archivar el debido proceso N°${dp.numero}-${dp.anio}. Esperando aprobación del orientador.`);
+    }
+
+    console.log(`[DP] Solicitud de archivo en expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}) por usuario ${u.id} (${u.rol}). Motivo: "${motivo.trim()}"`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("solicitar-archivo:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/:id/aprobar-archivo", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const { aprobar, decision } = req.body; // aprobar: bool, decision: texto opcional
+  try {
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+
+    // Solo orientador asignado, admin o administrativo pueden aprobar/rechazar
+    const esOrientadorAsignado = dp.orientador_id === u.id;
+    const esStaff = ["admin","administrativo"].includes(u.rol);
+    if (!esOrientadorAsignado && !esStaff) {
+      return res.status(403).json({ error: "Solo el orientador asignado, admin o administrativo pueden aprobar/rechazar." });
+    }
+
+    if (dp.estado !== 'pendiente_archivo') {
+      return res.status(400).json({ error: "El proceso no está pendiente de archivo." });
+    }
+
+    if (aprobar) {
+      // Aprobar → estado 'archivado'
+      await pool.query(`
+        UPDATE debidos_procesos
+        SET estado='archivado',
+            archivo_aprobado_por=$1,
+            archivo_aprobado_en=NOW(),
+            archivo_decision_orientador=$2,
+            updated_at=NOW()
+        WHERE id=$3
+      `, [u.id, (decision||'').trim() || null, req.params.id]);
+
+      // Notificar al solicitante y al guía
+      const destinatarios = new Set();
+      if (dp.archivo_solicitado_por && dp.archivo_solicitado_por !== u.id) destinatarios.add(dp.archivo_solicitado_por);
+      const gid = guiaEfectivo(dp);
+      if (gid && gid !== u.id) destinatarios.add(gid);
+      if (dp.iniciado_por && dp.iniciado_por !== u.id) destinatarios.add(dp.iniciado_por);
+      for (const uid of destinatarios) {
+        await notificar(uid, "debido_proceso",
+          `📦✅ El orientador APROBÓ archivar el debido proceso N°${dp.numero}-${dp.anio}.`);
+      }
+      console.log(`[DP] Archivo APROBADO de expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}) por usuario ${u.id} (${u.rol}).`);
+    } else {
+      // Rechazar → vuelve al estado anterior
+      const estadoVuelta = dp.estado_previo_archivo || 'en_curso';
+      await pool.query(`
+        UPDATE debidos_procesos
+        SET estado=$1,
+            archivo_aprobado_por=$2,
+            archivo_aprobado_en=NOW(),
+            archivo_decision_orientador=$3,
+            estado_previo_archivo=NULL,
+            updated_at=NOW()
+        WHERE id=$4
+      `, [estadoVuelta, u.id, (decision||'').trim() || 'Rechazado por el orientador', req.params.id]);
+
+      // Notificar al solicitante
+      if (dp.archivo_solicitado_por && dp.archivo_solicitado_por !== u.id) {
+        await notificar(dp.archivo_solicitado_por, "debido_proceso",
+          `📦❌ El orientador RECHAZÓ archivar el debido proceso N°${dp.numero}-${dp.anio}.${decision ? ' Motivo: '+decision : ''}`);
+      }
+      console.log(`[DP] Archivo RECHAZADO de expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}) por usuario ${u.id} (${u.rol}). Vuelve a estado: ${estadoVuelta}`);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("aprobar-archivo:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
