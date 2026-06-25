@@ -895,6 +895,66 @@ async function initDB() {
       throw errPR;
     }
 
+    // ── MINUTAS ─────────────────────────────────────────────────────────
+    // Hoja para Minutas LCF: registro de reuniones internas (consejo de
+    // profesores, reuniones de comité, reuniones de orientación, etc).
+    // Cualquier persona del personal puede crear una minuta. Lleva
+    // consecutivo MIN-NNN-AAAA usando el mismo sistema de consecutivos.
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS minutas (
+          id               SERIAL PRIMARY KEY,
+          consecutivo_id   INTEGER REFERENCES consecutivos(id) ON DELETE SET NULL,
+          numero           INTEGER NOT NULL,
+          anio             INTEGER NOT NULL,
+          iniciada_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          tipo_reunion     TEXT NOT NULL DEFAULT 'presencial' CHECK(tipo_reunion IN ('presencial','virtual')),
+          plataforma       TEXT DEFAULT '',
+          dependencia      TEXT DEFAULT 'Liceo de Calle Fallas',
+          lugar            TEXT DEFAULT '',
+          fecha_reunion    DATE,
+          hora_inicio      TEXT DEFAULT '',
+          hora_fin         TEXT DEFAULT '',
+          tema             TEXT DEFAULT '',
+          elaborada_por    TEXT DEFAULT '',
+          temas_tratados   TEXT DEFAULT '',
+          acuerdos         TEXT DEFAULT '',
+          estado           TEXT NOT NULL DEFAULT 'en_curso' CHECK(estado IN ('en_curso','finalizada')),
+          created_at       TIMESTAMP DEFAULT NOW(),
+          updated_at       TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_minutas_estado ON minutas(estado)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_minutas_anio ON minutas(anio)`);
+
+      // Asistentes a la minuta: presentes y ausentes.
+      // - Si es del sistema, usuario_id != null y heredamos nombre/puesto desde usuarios.
+      // - Si es externo, usuario_id = null y se llena nombre+puesto manualmente.
+      // - Para ausentes: justificacion = 'justificado' | 'injustificado' | NULL (en presentes no aplica).
+      // - firma = TRUE solo si firmó en la impresión / al cerrar la minuta.
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS minuta_asistentes (
+          id              SERIAL PRIMARY KEY,
+          minuta_id       INTEGER NOT NULL REFERENCES minutas(id) ON DELETE CASCADE,
+          usuario_id      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          nombre          TEXT NOT NULL,
+          puesto          TEXT DEFAULT '',
+          tipo            TEXT NOT NULL CHECK(tipo IN ('presente','ausente')),
+          justificacion   TEXT,
+          orden           INTEGER DEFAULT 0,
+          created_at      TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_minasis_minuta ON minuta_asistentes(minuta_id)`);
+
+      console.log("✅ Tablas de Minutas listas");
+    } catch (errMin) {
+      console.error("❌❌❌ ERROR CREANDO TABLAS MINUTAS ❌❌❌");
+      console.error("   Código:", errMin.code);
+      console.error("   Mensaje:", errMin.message);
+      throw errMin;
+    }
+
 
     // ── CATÁLOGO REAC: artículos e incisos ────────────────────────────────
     // Sembrado oficial de los artículos del Reglamento de Evaluación de los

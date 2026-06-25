@@ -377,6 +377,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="hibrida" id="nav-hibrida" onclick="goTo('hibrida')" style="display:none"><span class="icon">🏠</span><span>Ed. Híbrida</span></button>
   <button class="nav-btn" data-page="debidos" id="nav-debidos" onclick="goTo('debidos')" style="display:none"><span class="icon">⚖️</span><span>Debidos Procesos</span></button>
   <button class="nav-btn" data-page="protocolos" id="nav-protocolos" onclick="goTo('protocolos')" style="display:none"><span class="icon">🛡️</span><span>Protocolos</span></button>
+  <button class="nav-btn" data-page="minutas" id="nav-minutas" onclick="goTo('minutas')" style="display:none"><span class="icon">📝</span><span>Minutas</span></button>
   <button class="nav-btn" data-page="inventario" id="nav-inventario" onclick="goTo('inventario')" style="display:none"><span class="icon">📦</span><span>Inventario</span></button>
 </nav>
 
@@ -2203,6 +2204,234 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
+     PÁGINA: MINUTAS
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-minutas">
+  <h2>📝 Minutas de Reuniones</h2>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">
+    Registro de reuniones internas. Cualquier persona del personal puede crear una minuta.
+    El consecutivo (MIN-NNN-AAAA) se asigna automáticamente.
+  </p>
+
+  <div id="alert-min" class="alert"></div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+    <div style="display:flex;gap:4px;flex-wrap:wrap;" id="min-tabs">
+      <button id="min-tab-curso" class="min-tab-btn" onclick="minCambiarTab('en_curso')" style="padding:8px 16px;background:var(--azul);color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:bold;">📝 En Curso</button>
+      <button id="min-tab-finalizadas" class="min-tab-btn" onclick="minCambiarTab('finalizada')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">✅ Finalizadas</button>
+      <button id="min-tab-mias" class="min-tab-btn" onclick="minCambiarTab('mias')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">👤 Mis minutas</button>
+    </div>
+    <button class="btn btn-primary" onclick="abrirNuevaMinuta()">+ Nueva Minuta</button>
+  </div>
+
+  <div class="table-wrap">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#f1f5f9;">
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:left;">N°</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:left;">Tema</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:left;">Fecha</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:left;">Tipo</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:left;">Creada por</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;">Asist.</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;">Estado</th>
+          <th style="padding:8px;border-bottom:2px solid var(--border);text-align:center;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="min-tbody">
+        <tr><td colspan="8" class="empty">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── MODAL: NUEVA MINUTA ─── -->
+<div class="modal-overlay" id="modal-nueva-minuta">
+  <div class="modal" style="max-width:680px;">
+    <h3>📝 Nueva Minuta</h3>
+    <div id="alert-nmin" class="alert"></div>
+
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Tipo de reunión *</label>
+        <div style="display:flex;gap:14px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+            <input type="radio" name="nmin-tipo" value="presencial" checked onchange="nminToggleTipo()"/>
+            <span>🏢 Presencial</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:normal;">
+            <input type="radio" name="nmin-tipo" value="virtual" onchange="nminToggleTipo()"/>
+            <span>💻 Virtual</span>
+          </label>
+        </div>
+      </div>
+      <div class="fg" style="grid-column:1/-1;" id="nmin-plataforma-row">
+        <label>Plataforma (si es virtual)</label>
+        <input type="text" id="nmin-plataforma" placeholder="Ej: Zoom, Google Meet, Teams"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Tema / Asunto *</label>
+        <input type="text" id="nmin-tema" placeholder="Ej: Reunión de coordinación primer período"/>
+      </div>
+      <div class="fg">
+        <label>Lugar</label>
+        <input type="text" id="nmin-lugar" placeholder="Ej: Sala de profesores"/>
+      </div>
+      <div class="fg">
+        <label>Dependencia / Centro Educativo</label>
+        <input type="text" id="nmin-dependencia" value="Liceo de Calle Fallas"/>
+      </div>
+      <div class="fg">
+        <label>Fecha de la reunión</label>
+        <input type="date" id="nmin-fecha"/>
+      </div>
+      <div class="fg">
+        <label>Hora de inicio</label>
+        <input type="time" id="nmin-hora-ini"/>
+      </div>
+      <div class="fg">
+        <label>Hora de finalización</label>
+        <input type="time" id="nmin-hora-fin"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Elaborada por</label>
+        <input type="text" id="nmin-elaborada" placeholder="Se autocompleta con tu nombre"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-nueva-minuta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarNuevaMinuta()">📝 Crear Minuta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: DETALLE DE MINUTA ─── -->
+<div class="modal-overlay" id="modal-min-detalle">
+  <div class="modal" style="max-width:900px;">
+    <h3 id="mind-titulo">📝 Minuta</h3>
+    <div id="mind-subtitulo" style="font-size:12.5px;color:var(--muted);margin-bottom:10px;"></div>
+    <div id="alert-mind" class="alert"></div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      <button class="btn btn-outline btn-sm" onclick="imprimirMinuta()" style="border-color:#6366f1;color:#6366f1;">🖨️ Imprimir Minuta</button>
+      <button class="btn btn-outline btn-sm" onclick="abrirEditarMinuta()" id="btn-min-editar">✏️ Editar Datos</button>
+      <button class="btn btn-success btn-sm" onclick="finalizarMinuta()" id="btn-min-finalizar">✅ Finalizar</button>
+      <button class="btn btn-outline btn-sm" onclick="reabrirMinuta()" id="btn-min-reabrir" style="display:none;border-color:#7c3aed;color:#7c3aed;">🔄 Reabrir</button>
+      <button class="btn btn-danger btn-sm" onclick="eliminarMinuta()" id="btn-min-eliminar">🗑️ Eliminar</button>
+    </div>
+
+    <!-- Datos de cabecera (read-only) -->
+    <div style="background:#f8fafc;border-radius:6px;padding:12px 14px;margin-bottom:14px;font-size:13px;" id="mind-cabecera">
+    </div>
+
+    <!-- Asistentes -->
+    <div style="margin-bottom:14px;">
+      <h4 style="margin:8px 0;color:var(--azul);">👥 Personal Presente</h4>
+      <div id="mind-presentes-lista" style="margin-bottom:8px;"></div>
+      <button class="btn btn-outline btn-xs" onclick="abrirAgregarAsistente('presente')" id="btn-min-add-presente">+ Agregar presente</button>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <h4 style="margin:8px 0;color:#ea580c;">👤 Personal Ausente</h4>
+      <div id="mind-ausentes-lista" style="margin-bottom:8px;"></div>
+      <button class="btn btn-outline btn-xs" onclick="abrirAgregarAsistente('ausente')" id="btn-min-add-ausente">+ Agregar ausente</button>
+    </div>
+
+    <!-- Temas tratados y acuerdos -->
+    <div class="fg" style="margin-bottom:10px;">
+      <label>📋 Temas tratados</label>
+      <textarea id="mind-temas" rows="5" placeholder="Detalle de los temas tratados durante la reunión..."></textarea>
+    </div>
+    <div class="fg" style="margin-bottom:10px;">
+      <label>✅ Acuerdos / Compromisos</label>
+      <textarea id="mind-acuerdos" rows="4" placeholder="Acuerdos tomados, responsables y plazos..."></textarea>
+    </div>
+    <div style="text-align:right;margin-bottom:10px;">
+      <button class="btn btn-primary btn-sm" onclick="guardarTemasAcuerdos()">💾 Guardar contenido</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-min-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: AGREGAR ASISTENTE ─── -->
+<div class="modal-overlay" id="modal-min-asistente">
+  <div class="modal" style="max-width:560px;">
+    <h3 id="mina-titulo">+ Agregar asistente</h3>
+    <input type="hidden" id="mina-tipo"/>
+    <div id="alert-mina" class="alert"></div>
+
+    <div class="fg" style="margin-bottom:8px;">
+      <label>Persona del sistema</label>
+      <select id="mina-usuario-id" onchange="minaUsuarioCambio()">
+        <option value="">— Externo / no aparece —</option>
+      </select>
+      <small style="color:var(--muted);font-size:11px;">Si está en el sistema, elegilo y se autocompletan nombre y puesto.</small>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div class="fg" style="flex:2;min-width:200px;">
+        <label>Nombre completo *</label>
+        <input type="text" id="mina-nombre" placeholder="Apellidos, Nombre"/>
+      </div>
+      <div class="fg" style="flex:1;min-width:140px;">
+        <label>Puesto / Dependencia</label>
+        <input type="text" id="mina-puesto" placeholder="Ej: Orientador, Director"/>
+      </div>
+    </div>
+    <div class="fg" id="mina-just-row" style="display:none;margin-top:8px;">
+      <label>Justificación de ausencia</label>
+      <select id="mina-justificacion">
+        <option value="justificado">Justificado</option>
+        <option value="injustificado" selected>Injustificado</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-min-asistente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarAsistente()">✅ Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: EDITAR MINUTA (cabecera) ─── -->
+<div class="modal-overlay" id="modal-min-editar">
+  <div class="modal" style="max-width:680px;">
+    <h3>✏️ Editar datos de la minuta</h3>
+    <div id="alert-mineditar" class="alert"></div>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Tipo de reunión</label>
+        <select id="emin-tipo" onchange="eminToggleTipo()">
+          <option value="presencial">🏢 Presencial</option>
+          <option value="virtual">💻 Virtual</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:1/-1;" id="emin-plataforma-row">
+        <label>Plataforma</label>
+        <input type="text" id="emin-plataforma"/>
+      </div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Tema</label>
+        <input type="text" id="emin-tema"/>
+      </div>
+      <div class="fg"><label>Lugar</label><input type="text" id="emin-lugar"/></div>
+      <div class="fg"><label>Dependencia</label><input type="text" id="emin-dependencia"/></div>
+      <div class="fg"><label>Fecha</label><input type="date" id="emin-fecha"/></div>
+      <div class="fg"><label>Hora inicio</label><input type="time" id="emin-hora-ini"/></div>
+      <div class="fg"><label>Hora fin</label><input type="time" id="emin-hora-fin"/></div>
+      <div class="fg" style="grid-column:1/-1;">
+        <label>Elaborada por</label><input type="text" id="emin-elaborada"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-min-editar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEdicionMinuta()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
      PÁGINA: INVENTARIO
      ═══════════════════════════════════════════════════════════════ -->
 <div class="page" id="page-inventario">
@@ -3591,6 +3820,7 @@ function goTo(page){
   if(page==="hibrida")     iniciarMedidas('educacion_hibrida');
   if(page==="debidos")     iniciarDebidosProcesos();
   if(page==="protocolos")  iniciarProtocolos();
+  if(page==="minutas")     iniciarMinutas();
   if(page==="inventario")  iniciarInventario();
   if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
@@ -3736,6 +3966,14 @@ async function iniciarApp(){
     document.getElementById("nav-protocolos").style.display="";
   }
 
+  // ── MINUTAS ─────────────────────────────────────────────────────
+  // Cualquier persona del personal del centro puede crear minutas de
+  // reuniones internas (consejos, comités, equipos).
+  const rolesMinutas = ["admin","auxiliar","administrativo","secretaria","profesor","profesor_guia","orientador","cocinera"];
+  if(rolesMinutas.includes(ME.rol)){
+    document.getElementById("nav-minutas").style.display="";
+  }
+
   // ── INVENTARIO ──────────────────────────────────────────────────
   // Solo Junta Administrativa y Administrador del sistema.
   if(ME.rol === "junta" || ME.rol === "admin"){
@@ -3750,7 +3988,7 @@ async function iniciarApp(){
      'nav-consulta','nav-mensajes','nav-estudiantes','nav-reportes','nav-cartas',
      'nav-expediente','nav-comedor','nav-consecutivos','nav-constancia',
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
-     'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos',
+     'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
      'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet'
     ].forEach(id => {
       const el = document.getElementById(id);
@@ -9009,6 +9247,468 @@ const INV_ROLES_JUNTA = ['admin','junta'];
 let invUsuarios = [];     // cache de usuarios que pueden retirar
 let invProductos = [];    // cache de productos para búsqueda local
 let invSalItems = [];     // items del carrito de salida en proceso
+
+// ════════════════════════════════════════════════════════════════════════
+//  MINUTAS DE REUNIONES
+// ════════════════════════════════════════════════════════════════════════
+// Estado:
+//   minEstadoActual: 'en_curso' | 'finalizada' | 'mias' (tab activa)
+//   minData: cache de la lista actual
+//   minActual: objeto { minuta, asistentes } del detalle abierto
+//   minUsuariosCache: lista de usuarios del sistema para el select de asistentes
+let minEstadoActual = 'en_curso';
+let minData = [];
+let minActual = null;
+let minUsuariosCache = [];
+
+async function iniciarMinutas(){
+  document.getElementById('alert-min').className = 'alert';
+  await cargarMinutasLista(minEstadoActual);
+}
+
+function minCambiarTab(estado){
+  minEstadoActual = estado;
+  ['curso','finalizadas','mias'].forEach(t => {
+    const b = document.getElementById(`min-tab-${t}`);
+    if(b){ b.style.background='transparent'; b.style.color='var(--muted)'; b.style.fontWeight='normal'; }
+  });
+  const map = { en_curso:'curso', finalizada:'finalizadas', mias:'mias' };
+  const activo = document.getElementById(`min-tab-${map[estado]}`);
+  if(activo){ activo.style.background='var(--azul)'; activo.style.color='#fff'; activo.style.fontWeight='bold'; }
+  cargarMinutasLista(estado);
+}
+
+async function cargarMinutasLista(estado){
+  const tbody = document.getElementById('min-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" class="empty">Cargando...</td></tr>';
+  let url = '/api/minutas';
+  if(estado === 'mias') url += '?mias=1';
+  else if(estado) url += `?estado=${encodeURIComponent(estado)}`;
+  try {
+    minData = await api(url) || [];
+    if(!minData.length){
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">Sin minutas en esta vista.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = minData.map(m => {
+      const creador = `${m.ini_ap1||''} ${m.ini_nombre||''}`.trim();
+      let badge;
+      if(m.estado === 'en_curso'){
+        badge = '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">📝 En curso</span>';
+      } else {
+        badge = '<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">✅ Finalizada</span>';
+      }
+      const tipoBadge = m.tipo_reunion === 'virtual'
+        ? '<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:10px;">💻 Virtual</span>'
+        : '<span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-size:10px;">🏢 Presencial</span>';
+      return `<tr style="cursor:pointer;" onclick="abrirMinutaDetalle(${m.id})">
+        <td style="padding:8px;border-bottom:1px solid var(--border);font-family:monospace;font-weight:bold;">MIN-${String(m.numero).padStart(3,'0')}-${m.anio}</td>
+        <td style="padding:8px;border-bottom:1px solid var(--border);">${m.tema || '<em style="color:var(--muted);">(sin tema)</em>'}</td>
+        <td style="padding:8px;border-bottom:1px solid var(--border);">${m.fecha_reunion ? fmtF(m.fecha_reunion) : '—'}</td>
+        <td style="padding:8px;border-bottom:1px solid var(--border);">${tipoBadge}</td>
+        <td style="padding:8px;border-bottom:1px solid var(--border);font-size:12px;">${creador}</td>
+        <td style="padding:8px;border-bottom:1px solid var(--border);text-align:center;font-size:12px;">
+          <span class="badge b-guia" style="font-size:10px;" title="Presentes">${m.presentes||0}</span>
+          <span class="badge b-aux" style="font-size:10px;" title="Ausentes">${m.ausentes||0}</span>
+        </td>
+        <td style="padding:8px;border-bottom:1px solid var(--border);text-align:center;">${badge}</td>
+        <td style="padding:8px;border-bottom:1px solid var(--border);text-align:center;" onclick="event.stopPropagation()">
+          <button class="btn btn-outline btn-xs" onclick="abrirMinutaDetalle(${m.id})">👁️ Ver</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e){
+    tbody.innerHTML = `<tr><td colspan="8" class="empty" style="color:var(--rojo);">Error: ${e.message}</td></tr>`;
+  }
+}
+
+// ─── Crear ──────────────────────────────────────────────────────────────
+function nminToggleTipo(){
+  const tipo = document.querySelector('input[name="nmin-tipo"]:checked')?.value || 'presencial';
+  document.getElementById('nmin-plataforma-row').style.display = tipo === 'virtual' ? '' : 'none';
+}
+
+async function abrirNuevaMinuta(){
+  // Reset
+  ['nmin-plataforma','nmin-tema','nmin-lugar','nmin-fecha',
+   'nmin-hora-ini','nmin-hora-fin','nmin-elaborada'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  const radioPres = document.querySelector('input[name="nmin-tipo"][value="presencial"]');
+  if(radioPres) radioPres.checked = true;
+  nminToggleTipo();
+  // Default dependencia y elaborada por
+  document.getElementById('nmin-dependencia').value = 'Liceo de Calle Fallas';
+  document.getElementById('nmin-elaborada').value = `${ME.primer_apellido||''} ${ME.segundo_apellido||''} ${ME.nombre||''}`.replace(/\s+/g,' ').trim();
+  // Default fecha hoy
+  document.getElementById('nmin-fecha').value = fechaHoyCR();
+  document.getElementById('alert-nmin').className = 'alert';
+  document.getElementById('modal-nueva-minuta').classList.add('show');
+}
+
+async function guardarNuevaMinuta(){
+  const tema = document.getElementById('nmin-tema').value.trim();
+  if(!tema){ sa('alert-nmin','El tema es obligatorio.','danger'); return; }
+  const tipo_reunion = document.querySelector('input[name="nmin-tipo"]:checked')?.value || 'presencial';
+  const data = {
+    tipo_reunion,
+    plataforma:    document.getElementById('nmin-plataforma').value.trim(),
+    dependencia:   document.getElementById('nmin-dependencia').value.trim(),
+    lugar:         document.getElementById('nmin-lugar').value.trim(),
+    fecha_reunion: document.getElementById('nmin-fecha').value || null,
+    hora_inicio:   document.getElementById('nmin-hora-ini').value || '',
+    hora_fin:      document.getElementById('nmin-hora-fin').value || '',
+    tema,
+    elaborada_por: document.getElementById('nmin-elaborada').value.trim(),
+  };
+  try {
+    const r = await api('/api/minutas', 'POST', data);
+    cerrarModal('modal-nueva-minuta');
+    sa('alert-min', `✅ Minuta creada: MIN-${String(r.numero).padStart(3,'0')}-${r.anio}`, 'success');
+    await cargarMinutasLista(minEstadoActual);
+    setTimeout(() => abrirMinutaDetalle(r.id), 400);
+  } catch(e){
+    sa('alert-nmin', e.message, 'danger');
+  }
+}
+
+// ─── Detalle ─────────────────────────────────────────────────────────────
+async function abrirMinutaDetalle(id){
+  try {
+    minActual = await api(`/api/minutas/${id}`);
+    if(!minActual) return;
+    const m = minActual.minuta;
+    const a = minActual.asistentes || [];
+
+    document.getElementById('mind-titulo').textContent =
+      `📝 Minuta MIN-${String(m.numero).padStart(3,'0')}-${m.anio}`;
+    document.getElementById('mind-subtitulo').innerHTML =
+      `Creada por ${(m.ini_ap1||'')} ${(m.ini_nombre||'')} · ${fmtTS(m.created_at)} · Estado: ${m.estado === 'en_curso' ? '<strong style="color:#1e40af;">En curso</strong>' : '<strong style="color:#16a34a;">Finalizada</strong>'}`;
+
+    // Botones según estado y permisos
+    const esCreador = m.iniciada_por === ME.id;
+    const esStaff = ['admin','administrativo'].includes(ME.rol);
+    const puedeEditar = (esCreador || esStaff) && m.estado === 'en_curso';
+    document.getElementById('btn-min-editar').style.display     = puedeEditar ? '' : 'none';
+    document.getElementById('btn-min-finalizar').style.display  = puedeEditar ? '' : 'none';
+    document.getElementById('btn-min-reabrir').style.display    = (esStaff && m.estado === 'finalizada') ? '' : 'none';
+    document.getElementById('btn-min-eliminar').style.display   = (esCreador || esStaff) ? '' : 'none';
+    document.getElementById('btn-min-add-presente').style.display = puedeEditar ? '' : 'none';
+    document.getElementById('btn-min-add-ausente').style.display  = puedeEditar ? '' : 'none';
+
+    // Cabecera
+    const cab = document.getElementById('mind-cabecera');
+    cab.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+        <div><strong>Tipo:</strong> ${m.tipo_reunion === 'virtual' ? '💻 Virtual'+(m.plataforma?' ('+m.plataforma+')':'') : '🏢 Presencial'}</div>
+        <div><strong>Lugar:</strong> ${m.lugar || '—'}</div>
+        <div><strong>Fecha:</strong> ${m.fecha_reunion ? fmtF(m.fecha_reunion) : '—'}</div>
+        <div><strong>Hora:</strong> ${m.hora_inicio || '—'} - ${m.hora_fin || '—'}</div>
+        <div style="grid-column:1/-1;"><strong>Tema:</strong> ${m.tema || '—'}</div>
+        <div style="grid-column:1/-1;"><strong>Elaborada por:</strong> ${m.elaborada_por || '—'}</div>
+      </div>`;
+
+    // Asistentes
+    const presentes = a.filter(x => x.tipo === 'presente');
+    const ausentes  = a.filter(x => x.tipo === 'ausente');
+    const renderAsis = (lista, tipo) => {
+      if(!lista.length){
+        return `<div style="color:var(--muted);font-size:12px;padding:6px 0;">(ninguno)</div>`;
+      }
+      return `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:#f1f5f9;">
+          <th style="padding:4px 8px;border:1px solid var(--border);text-align:left;">Nombre</th>
+          <th style="padding:4px 8px;border:1px solid var(--border);text-align:left;">Puesto / Dependencia</th>
+          ${tipo === 'ausente' ? '<th style="padding:4px 8px;border:1px solid var(--border);">Justif.</th>' : ''}
+          ${puedeEditar ? '<th style="padding:4px 8px;border:1px solid var(--border);text-align:center;">Acción</th>' : ''}
+        </tr></thead>
+        <tbody>
+          ${lista.map(x => `<tr>
+            <td style="padding:4px 8px;border:1px solid var(--border);">${x.nombre}${x.usuario_id?' <small style="color:var(--muted);">(sistema)</small>':' <small style="color:var(--muted);">(externo)</small>'}</td>
+            <td style="padding:4px 8px;border:1px solid var(--border);">${x.puesto || '—'}</td>
+            ${tipo === 'ausente' ? `<td style="padding:4px 8px;border:1px solid var(--border);text-align:center;">${x.justificacion === 'justificado' ? '✅ Justif.' : '❌ Injustif.'}</td>` : ''}
+            ${puedeEditar ? `<td style="padding:4px 8px;border:1px solid var(--border);text-align:center;"><button class="btn btn-danger btn-xs" onclick="quitarAsistente(${x.id})">✖</button></td>` : ''}
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    };
+    document.getElementById('mind-presentes-lista').innerHTML = renderAsis(presentes, 'presente');
+    document.getElementById('mind-ausentes-lista').innerHTML = renderAsis(ausentes, 'ausente');
+
+    // Temas y acuerdos
+    document.getElementById('mind-temas').value = m.temas_tratados || '';
+    document.getElementById('mind-acuerdos').value = m.acuerdos || '';
+    document.getElementById('mind-temas').disabled    = !puedeEditar;
+    document.getElementById('mind-acuerdos').disabled = !puedeEditar;
+
+    document.getElementById('alert-mind').className = 'alert';
+    document.getElementById('modal-min-detalle').classList.add('show');
+  } catch(e){
+    alert('Error al cargar minuta: ' + e.message);
+  }
+}
+
+async function guardarTemasAcuerdos(){
+  if(!minActual) return;
+  try {
+    await api(`/api/minutas/${minActual.minuta.id}`, 'PUT', {
+      temas_tratados: document.getElementById('mind-temas').value,
+      acuerdos:       document.getElementById('mind-acuerdos').value,
+    });
+    sa('alert-mind','✅ Contenido guardado.','success');
+  } catch(e){
+    sa('alert-mind', e.message, 'danger');
+  }
+}
+
+// ─── Asistentes ──────────────────────────────────────────────────────────
+async function abrirAgregarAsistente(tipo){
+  document.getElementById('mina-tipo').value = tipo;
+  document.getElementById('mina-titulo').textContent = tipo === 'presente'
+    ? '+ Agregar Personal Presente'
+    : '+ Agregar Personal Ausente';
+  document.getElementById('mina-nombre').value = '';
+  document.getElementById('mina-puesto').value = '';
+  document.getElementById('mina-usuario-id').value = '';
+  document.getElementById('mina-just-row').style.display = tipo === 'ausente' ? '' : 'none';
+  document.getElementById('mina-justificacion').value = 'injustificado';
+  document.getElementById('alert-mina').className = 'alert';
+
+  // Cargar usuarios del sistema (una vez por sesión)
+  if(!minUsuariosCache.length){
+    try { minUsuariosCache = await api('/api/admin/profesores') || []; } catch(_){}
+  }
+  const sel = document.getElementById('mina-usuario-id');
+  sel.innerHTML = '<option value="">— Externo / no aparece en sistema —</option>' +
+    minUsuariosCache.map(p => {
+      const nom = `${p.primer_apellido||''} ${p.segundo_apellido||''} ${p.nombre||''}`.replace(/\s+/g,' ').trim();
+      return `<option value="${p.id}" data-nombre="${nom}" data-rol="${p.rol||''}">${nom} (${RLBL[p.rol]||p.rol||''})</option>`;
+    }).join('');
+
+  document.getElementById('modal-min-asistente').classList.add('show');
+}
+
+function minaUsuarioCambio(){
+  const sel = document.getElementById('mina-usuario-id');
+  const opt = sel.options[sel.selectedIndex];
+  if(opt && opt.value){
+    document.getElementById('mina-nombre').value = opt.dataset.nombre || '';
+    document.getElementById('mina-puesto').value = RLBL[opt.dataset.rol] || opt.dataset.rol || '';
+  } else {
+    document.getElementById('mina-nombre').value = '';
+    document.getElementById('mina-puesto').value = '';
+  }
+}
+
+async function guardarAsistente(){
+  if(!minActual) return;
+  const tipo = document.getElementById('mina-tipo').value;
+  const usuario_id = document.getElementById('mina-usuario-id').value || null;
+  const nombre = document.getElementById('mina-nombre').value.trim();
+  if(!usuario_id && !nombre){
+    sa('alert-mina','Ingresá el nombre o elegí un usuario del sistema.','danger');
+    return;
+  }
+  const body = {
+    tipo,
+    usuario_id: usuario_id ? +usuario_id : null,
+    nombre,
+    puesto: document.getElementById('mina-puesto').value.trim(),
+  };
+  if(tipo === 'ausente'){
+    body.justificacion = document.getElementById('mina-justificacion').value;
+  }
+  try {
+    await api(`/api/minutas/${minActual.minuta.id}/asistentes`, 'POST', body);
+    cerrarModal('modal-min-asistente');
+    await abrirMinutaDetalle(minActual.minuta.id);
+  } catch(e){
+    sa('alert-mina', e.message, 'danger');
+  }
+}
+
+async function quitarAsistente(aid){
+  if(!minActual) return;
+  if(!confirm('¿Quitar este asistente?')) return;
+  try {
+    await api(`/api/minutas/${minActual.minuta.id}/asistentes/${aid}`, 'DELETE');
+    await abrirMinutaDetalle(minActual.minuta.id);
+  } catch(e){
+    sa('alert-mind', e.message, 'danger');
+  }
+}
+
+// ─── Editar / finalizar / reabrir / eliminar ─────────────────────────────
+function abrirEditarMinuta(){
+  if(!minActual) return;
+  const m = minActual.minuta;
+  document.getElementById('emin-tipo').value         = m.tipo_reunion || 'presencial';
+  document.getElementById('emin-plataforma').value   = m.plataforma || '';
+  document.getElementById('emin-tema').value         = m.tema || '';
+  document.getElementById('emin-lugar').value        = m.lugar || '';
+  document.getElementById('emin-dependencia').value  = m.dependencia || '';
+  document.getElementById('emin-fecha').value        = m.fecha_reunion ? String(m.fecha_reunion).slice(0,10) : '';
+  document.getElementById('emin-hora-ini').value     = m.hora_inicio || '';
+  document.getElementById('emin-hora-fin').value     = m.hora_fin || '';
+  document.getElementById('emin-elaborada').value    = m.elaborada_por || '';
+  eminToggleTipo();
+  document.getElementById('alert-mineditar').className = 'alert';
+  document.getElementById('modal-min-editar').classList.add('show');
+}
+
+function eminToggleTipo(){
+  const v = document.getElementById('emin-tipo').value;
+  document.getElementById('emin-plataforma-row').style.display = v === 'virtual' ? '' : 'none';
+}
+
+async function guardarEdicionMinuta(){
+  if(!minActual) return;
+  const data = {
+    tipo_reunion:  document.getElementById('emin-tipo').value,
+    plataforma:    document.getElementById('emin-plataforma').value.trim(),
+    dependencia:   document.getElementById('emin-dependencia').value.trim(),
+    lugar:         document.getElementById('emin-lugar').value.trim(),
+    fecha_reunion: document.getElementById('emin-fecha').value || null,
+    hora_inicio:   document.getElementById('emin-hora-ini').value || '',
+    hora_fin:      document.getElementById('emin-hora-fin').value || '',
+    tema:          document.getElementById('emin-tema').value.trim(),
+    elaborada_por: document.getElementById('emin-elaborada').value.trim(),
+  };
+  try {
+    await api(`/api/minutas/${minActual.minuta.id}`, 'PUT', data);
+    cerrarModal('modal-min-editar');
+    await abrirMinutaDetalle(minActual.minuta.id);
+    sa('alert-mind','✅ Datos actualizados.','success');
+  } catch(e){
+    sa('alert-mineditar', e.message, 'danger');
+  }
+}
+
+async function finalizarMinuta(){
+  if(!minActual) return;
+  if(!confirm(`¿Finalizar esta minuta? Una vez finalizada, no se podrá editar (salvo que admin/administrativo la reabra).`)) return;
+  try {
+    await api(`/api/minutas/${minActual.minuta.id}/finalizar`, 'POST');
+    cerrarModal('modal-min-detalle');
+    sa('alert-min','✅ Minuta finalizada.','success');
+    await cargarMinutasLista(minEstadoActual);
+  } catch(e){
+    sa('alert-mind', e.message, 'danger');
+  }
+}
+
+async function reabrirMinuta(){
+  if(!minActual) return;
+  if(!confirm('¿Reabrir esta minuta para edición?')) return;
+  try {
+    await api(`/api/minutas/${minActual.minuta.id}/reabrir`, 'POST');
+    await abrirMinutaDetalle(minActual.minuta.id);
+    sa('alert-mind','✅ Minuta reabierta.','success');
+  } catch(e){
+    sa('alert-mind', e.message, 'danger');
+  }
+}
+
+async function eliminarMinuta(){
+  if(!minActual) return;
+  const m = minActual.minuta;
+  if(!confirm(`¿Eliminar definitivamente la minuta MIN-${String(m.numero).padStart(3,'0')}-${m.anio}?\n\nEsta acción no se puede deshacer. El consecutivo se liberará para reuso.`)) return;
+  try {
+    await api(`/api/minutas/${m.id}`, 'DELETE');
+    cerrarModal('modal-min-detalle');
+    sa('alert-min','✅ Minuta eliminada.','success');
+    await cargarMinutasLista(minEstadoActual);
+  } catch(e){
+    sa('alert-mind', e.message, 'danger');
+  }
+}
+
+// ─── Imprimir minuta ─────────────────────────────────────────────────────
+function imprimirMinuta(){
+  if(!minActual) return;
+  const m = minActual.minuta;
+  const a = minActual.asistentes || [];
+  const presentes = a.filter(x => x.tipo === 'presente');
+  const ausentes  = a.filter(x => x.tipo === 'ausente');
+
+  const numFmt = `MIN-${String(m.numero).padStart(3,'0')}-${m.anio}`;
+  const tipoTxt = m.tipo_reunion === 'virtual'
+    ? `Presencial (   )   Virtual ( ✓ )   Plataforma: ${m.plataforma || '_______'}`
+    : `Presencial ( ✓ )   Virtual (   )   Plataforma: _______`;
+
+  const area = document.getElementById('print-area') || (() => {
+    const d = document.createElement('div');
+    d.id = 'print-area';
+    document.body.appendChild(d);
+    return d;
+  })();
+
+  const styleEl = document.createElement('style');
+  styleEl.textContent = `
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+      @page { size: letter; margin: 1.2cm; }
+    }
+    #print-area table.min-tbl { width:100%; border-collapse:collapse; font-size:11.5pt; margin-bottom:8px; }
+    #print-area table.min-tbl td { border:1px solid #000; padding:6px 8px; vertical-align:top; }
+    #print-area table.min-tbl td.lbl { background:#f1f5f9; font-weight:bold; width:30%; }
+    #print-area .min-section-title { background:#1F3864; color:#fff; padding:5px 10px; font-weight:bold; font-size:12pt; margin-top:10px; }
+    #print-area .min-box { border:1px solid #000; padding:10px; min-height:80px; font-size:11pt; white-space:pre-wrap; margin-bottom:10px; }
+  `;
+  document.head.appendChild(styleEl);
+
+  area.innerHTML = `
+    ${encabezadoMEP('')}
+    <div style="text-align:center;margin:8px 0 14px 0;">
+      <div style="font-weight:bold;font-size:14pt;color:#1F3864;">MINUTA</div>
+      <div style="font-family:monospace;font-size:11.5pt;">Código de referencia: <strong>${numFmt}</strong></div>
+    </div>
+
+    <table class="min-tbl">
+      <tr><td class="lbl">Tipo de reunión:</td><td>${tipoTxt}</td></tr>
+      <tr><td class="lbl">Dependencia o Centro Educativo:</td><td>${m.dependencia || ''}</td></tr>
+      <tr><td class="lbl">Lugar de la reunión:</td><td>${m.lugar || ''}</td></tr>
+      <tr><td class="lbl">Fecha:</td><td>${m.fecha_reunion ? fmtF(m.fecha_reunion) : ''}</td></tr>
+      <tr><td class="lbl">Hora de inicio:</td><td>${m.hora_inicio || ''} &nbsp;&nbsp; <strong>Hora de finalización:</strong> ${m.hora_fin || ''}</td></tr>
+      <tr><td class="lbl">Tema(s) o asunto:</td><td>${m.tema || ''}</td></tr>
+      <tr><td class="lbl">Elaborada por:</td><td>${m.elaborada_por || ''}</td></tr>
+    </table>
+
+    <table class="min-tbl">
+      <tr><td class="lbl" style="vertical-align:top;">Personal Presente:</td>
+        <td>${presentes.length ? presentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''}`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
+      </tr>
+      <tr><td class="lbl" style="vertical-align:top;">Personal Ausente:</td>
+        <td>${ausentes.length ? ausentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''} <strong>(${p.justificacion === 'justificado' ? 'justificado' : 'injustificado'})</strong>`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
+      </tr>
+    </table>
+
+    <div class="min-section-title">Temas tratados:</div>
+    <div class="min-box">${(m.temas_tratados||'').trim() || ' '}</div>
+
+    ${m.acuerdos ? `
+      <div class="min-section-title">Acuerdos / Compromisos:</div>
+      <div class="min-box">${m.acuerdos}</div>
+    ` : ''}
+
+    <div class="min-section-title">Firma participantes</div>
+    <table class="min-tbl" style="margin-top:0;">
+      <tr><td class="lbl" style="width:50%;text-align:center;">Nombre</td><td class="lbl" style="text-align:center;">Firma</td></tr>
+      ${presentes.length ? presentes.map(p => `<tr><td>${p.nombre}${p.puesto?' <small style="color:#666;">('+p.puesto+')</small>':''}</td><td style="height:32px;"></td></tr>`).join('') : `
+        <tr><td style="height:30px;"></td><td></td></tr>
+        <tr><td style="height:30px;"></td><td></td></tr>
+        <tr><td style="height:30px;"></td><td></td></tr>
+      `}
+    </table>
+
+    ${piePaginaMEP()}
+  `;
+
+  imprimirConEncabezado(area, styleEl);
+}
+
 
 async function iniciarInventario(){
   // Solo la junta entra aquí — mostrar todas las tabs y empezar en dashboard.
