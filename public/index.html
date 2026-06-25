@@ -2248,7 +2248,12 @@ tr:hover td{background:#f8fafc;}
 <!-- ─── MODAL: NUEVA MINUTA ─── -->
 <div class="modal-overlay" id="modal-nueva-minuta">
   <div class="modal" style="max-width:680px;">
-    <h3>📝 Nueva Minuta</h3>
+    <h3>📝 Nueva Minuta — Paso 1 de 2</h3>
+    <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:8px 12px;margin-bottom:10px;border-radius:6px;font-size:12.5px;color:#1e3a8a;">
+      ℹ️ Acá registrás los datos básicos de la reunión. Después de crear,
+      vas a poder agregar los <strong>presentes y ausentes</strong>, escribir
+      los <strong>temas tratados</strong> y <strong>acuerdos</strong>, e <strong>imprimir</strong> la minuta.
+    </div>
     <div id="alert-nmin" class="alert"></div>
 
     <div class="form-grid">
@@ -2300,16 +2305,25 @@ tr:hover td{background:#f8fafc;}
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-nueva-minuta')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarNuevaMinuta()">📝 Crear Minuta</button>
+      <button class="btn btn-primary" onclick="guardarNuevaMinuta()">📝 Crear y continuar →</button>
     </div>
   </div>
 </div>
 
 <!-- ─── MODAL: DETALLE DE MINUTA ─── -->
+<!-- Acá se completa todo el contenido: presentes, ausentes, temas tratados,
+     acuerdos. También están los botones para imprimir, finalizar y eliminar. -->
 <div class="modal-overlay" id="modal-min-detalle">
   <div class="modal" style="max-width:900px;">
     <h3 id="mind-titulo">📝 Minuta</h3>
     <div id="mind-subtitulo" style="font-size:12.5px;color:var(--muted);margin-bottom:10px;"></div>
+    <div id="mind-pasos-ayuda" style="background:#fef3c7;border-left:4px solid #f59e0b;padding:8px 12px;margin-bottom:12px;border-radius:6px;font-size:12px;color:#78350f;display:none;">
+      📋 <strong>Para completar la minuta:</strong>
+      1) Agregá los <strong>presentes</strong> y <strong>ausentes</strong> ·
+      2) Escribí los <strong>temas tratados</strong> y los <strong>acuerdos</strong> ·
+      3) Guardá el contenido ·
+      4) Cuando esté lista, <strong>imprimila</strong> y/o <strong>finalizala</strong>.
+    </div>
     <div id="alert-mind" class="alert"></div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
@@ -3225,10 +3239,9 @@ tr:hover td{background:#f8fafc;}
       <select id="consec-tipo" onchange="cambiarTipoConsecutivo()">
         <option value="">— Seleccionar —</option>
         <option value="oficio">📨 Oficio</option>
-        <option value="minuta">📝 Minuta</option>
       </select>
       <div style="margin-top:6px;padding:6px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:11.5px;color:#78350f;">
-        ℹ️ Los consecutivos de <strong>Debido Proceso</strong> y <strong>Protocolo</strong> se generan automáticamente desde sus módulos respectivos (⚖️ Debidos Procesos y 🛡️ Protocolos) al iniciar el expediente. Los expedientes viejos siguen visibles en la lista de abajo a modo de consulta.
+        ℹ️ Los consecutivos de <strong>Debido Proceso</strong>, <strong>Protocolo</strong> y <strong>Minuta</strong> se generan automáticamente desde sus módulos respectivos (⚖️ Debidos Procesos, 🛡️ Protocolos y 📝 Minutas) al iniciar el expediente o registro. Los expedientes viejos siguen visibles en la lista de abajo a modo de consulta.
       </div>
     </div>
 
@@ -9364,9 +9377,10 @@ async function guardarNuevaMinuta(){
   try {
     const r = await api('/api/minutas', 'POST', data);
     cerrarModal('modal-nueva-minuta');
-    sa('alert-min', `✅ Minuta creada: MIN-${String(r.numero).padStart(3,'0')}-${r.anio}`, 'success');
+    sa('alert-min', `✅ Minuta MIN-${String(r.numero).padStart(3,'0')}-${r.anio} creada. Completá los presentes, ausentes, temas y acuerdos.`, 'success');
     await cargarMinutasLista(minEstadoActual);
-    setTimeout(() => abrirMinutaDetalle(r.id), 400);
+    // Abrir directamente el detalle para continuar llenando los datos
+    await abrirMinutaDetalle(r.id);
   } catch(e){
     sa('alert-nmin', e.message, 'danger');
   }
@@ -9440,6 +9454,16 @@ async function abrirMinutaDetalle(id){
     document.getElementById('mind-acuerdos').value = m.acuerdos || '';
     document.getElementById('mind-temas').disabled    = !puedeEditar;
     document.getElementById('mind-acuerdos').disabled = !puedeEditar;
+
+    // Mostrar el cartel de ayuda solo cuando la minuta está vacía (recién
+    // creada): sin asistentes adicionales, sin temas y sin acuerdos.
+    // El usuario que la creó queda agregado automáticamente como primer
+    // presente, así que comprobamos si hay solo 1 presente y todo lo demás vacío.
+    const minutaVacia = (presentes.length <= 1) && !ausentes.length
+                        && !(m.temas_tratados||'').trim()
+                        && !(m.acuerdos||'').trim()
+                        && m.estado === 'en_curso';
+    document.getElementById('mind-pasos-ayuda').style.display = minutaVacia ? '' : 'none';
 
     document.getElementById('alert-mind').className = 'alert';
     document.getElementById('modal-min-detalle').classList.add('show');
