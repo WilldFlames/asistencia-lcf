@@ -13823,8 +13823,23 @@ async function guardarYImprimirCarta(){
       porcentaje: a.porcentaje
     });
     sa("alert-cart","✅ Carta guardada en el histórico. Imprimiendo...","success");
+
+    // Defensa: si la vista previa no está renderizada (puede pasar en móvil
+    // cuando el onchange no disparó el render), la generamos ahora mismo
+    // antes de intentar leer las imágenes.
+    let area = document.getElementById("carta-imprimible");
+    if(!area){
+      renderVistaPreviaCarta(a);
+      // Esperar un tick para que el DOM se actualice
+      await new Promise(r => setTimeout(r, 50));
+      area = document.getElementById("carta-imprimible");
+    }
+    if(!area){
+      // Si después de regenerar aún no existe, abortamos con un error claro
+      throw new Error("No se pudo generar la vista previa. Recargá la página e intentá de nuevo.");
+    }
+
     // Imprimir esperando que carguen las imágenes del encabezado
-    const area = document.getElementById("carta-imprimible");
     const imgs = area.querySelectorAll("img");
     await Promise.all(Array.from(imgs).map(img =>
       img.complete && img.naturalWidth > 0
