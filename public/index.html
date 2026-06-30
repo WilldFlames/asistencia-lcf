@@ -9720,46 +9720,44 @@ function imprimirMinuta(){
 <title>Minuta ${numFmt}</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; margin: 0; color: #000; font-size: 11.5pt; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; color: #000; font-size: 11.5pt; }
 
-  /* Márgenes de página: arriba/abajo amplios para que NO choquen con
-     el encabezado y pie fijos. Los navegadores reservan ese espacio. */
-  @page { size: letter; margin: 3.4cm 1.2cm 2.6cm 1.2cm; }
+  /* Márgenes generosos en cada página: el thead/tfoot ocupará parte
+     de estos márgenes al repetirse en cada página. */
+  @page { size: letter; margin: 1.2cm; }
 
-  /* Encabezado FIJO: position:fixed con valor negativo lo posiciona
-     en el área del margen superior; los navegadores lo repiten en cada
-     página al imprimir. */
-  .print-header {
-    position: fixed;
-    top: -2.8cm; left: 0; right: 0;
-    height: 2.4cm;
-    padding: 0 1.2cm;
-    background: #fff;
-  }
-  /* Pie FIJO: igual pero en el margen inferior. Se repite en cada página. */
-  .print-footer {
-    position: fixed;
-    bottom: -2.2cm; left: 0; right: 0;
-    background: #1F3864; color: #fff;
-    padding: 8px 14px; font-size: 9.5pt;
-    text-align: center; font-weight: bold; line-height: 1.4;
-  }
+  /* TRUCO CLAVE para repetir encabezado y pie en cada página al imprimir:
+     usamos una <table> con <thead> y <tfoot>. Los navegadores TODOS
+     repiten automáticamente thead y tfoot al cortar la tabla entre páginas.
+     Esto es comportamiento estándar de HTML, mucho más confiable que
+     position:fixed (que falla en muchos navegadores al imprimir). */
+  table.page-wrap { width: 100%; border-collapse: collapse; }
+  table.page-wrap > thead { display: table-header-group; }
+  table.page-wrap > tfoot { display: table-footer-group; }
+  table.page-wrap > thead > tr > td,
+  table.page-wrap > tfoot > tr > td,
+  table.page-wrap > tbody > tr > td { padding: 0; border: 0; }
 
-  /* Encabezado MEP — tabla de 4 columnas con separadores azules */
-  .hdr-mep { width:100%; border-collapse:collapse; }
-  .hdr-mep td { vertical-align:middle; padding:4px 8px; }
+  /* Encabezado MEP: tabla de 4 columnas con separadores azules */
+  .hdr-mep { width:100%; border-collapse:collapse; margin-bottom: 10px; }
+  .hdr-mep td { vertical-align:middle; padding:4px 8px; border:0; }
   .hdr-mep .hdr-logo { width:23%; padding-right:8px; }
   .hdr-mep .hdr-logo img { width:100%; max-height:55px; object-fit:contain; }
   .hdr-mep .hdr-col { border-left:2px solid #1F3864; color:#1F3864; font-size:10pt; line-height:1.2; }
 
-  /* Contenido principal con padding lateral igual al @page */
-  .print-content { padding: 0 1.2cm; }
+  /* Pie azul que aparece al fondo de cada página */
+  .pie-mep {
+    background: #1F3864; color: #fff;
+    padding: 8px 14px; font-size: 9.5pt;
+    text-align: center; font-weight: bold; line-height: 1.4;
+    margin-top: 14px;
+  }
 
   /* Tabla de datos de la minuta */
   table.min-tbl { width:100%; border-collapse:collapse; font-size:11.5pt; margin-bottom:8px; }
   table.min-tbl td { border:1px solid #000; padding:6px 8px; vertical-align:top; }
   table.min-tbl td.lbl { background:#f1f5f9; font-weight:bold; width:30%; }
-  /* Las filas no se cortan a la mitad entre páginas */
   table.min-tbl tr { break-inside: avoid; page-break-inside: avoid; }
 
   /* Secciones de contenido */
@@ -9774,86 +9772,94 @@ function imprimirMinuta(){
     margin-bottom:10px;
     break-inside: avoid; page-break-inside: avoid;
   }
-  /* Los bloques (título + caja) se intentan mantener juntos */
   .min-section-block { break-inside: avoid; page-break-inside: avoid; }
 </style>
 </head>
 <body>
 
-<!-- ENCABEZADO FIJO: se repite en cada página al imprimir -->
-<div class="print-header">
-  <table class="hdr-mep">
-    <tr>
-      <td class="hdr-logo">${logoMEP ? `<img src="${logoMEP}"/>` : ''}</td>
-      <td class="hdr-col"><strong>Dirección Regional<br/>Desamparados</strong></td>
-      <td class="hdr-col"><strong>Supervisión Educativa<br/>Circuito 07</strong></td>
-      <td class="hdr-col"><strong>Liceo de Calle<br/>Fallas</strong></td>
-    </tr>
-  </table>
-</div>
+<table class="page-wrap">
+  <!-- THEAD: el navegador lo repite arriba en cada página -->
+  <thead>
+    <tr><td>
+      <table class="hdr-mep">
+        <tr>
+          <td class="hdr-logo">${logoMEP ? `<img src="${logoMEP}"/>` : ''}</td>
+          <td class="hdr-col"><strong>Dirección Regional<br/>Desamparados</strong></td>
+          <td class="hdr-col"><strong>Supervisión Educativa<br/>Circuito 07</strong></td>
+          <td class="hdr-col"><strong>Liceo de Calle<br/>Fallas</strong></td>
+        </tr>
+      </table>
+    </td></tr>
+  </thead>
 
-<!-- PIE FIJO: se repite en cada página al imprimir -->
-<div class="print-footer">
-  <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
-  <div>Teléfono 2250-0590 / 2250-0614</div>
-  <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
-</div>
+  <!-- TFOOT: el navegador lo repite abajo en cada página -->
+  <tfoot>
+    <tr><td>
+      <div class="pie-mep">
+        <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+        <div>Teléfono 2250-0590 / 2250-0614</div>
+        <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
+      </div>
+    </td></tr>
+  </tfoot>
 
-<!-- CONTENIDO: dentro de print-content para mantener padding lateral -->
-<div class="print-content">
+  <!-- TBODY: el contenido real, que se paginará automáticamente -->
+  <tbody>
+    <tr><td>
 
-<div style="text-align:center;margin:8px 0 14px 0;">
-  <div style="font-weight:bold;font-size:14pt;color:#1F3864;">MINUTA</div>
-  <div style="font-family:monospace;font-size:11.5pt;">Código de referencia: <strong>${numFmt}</strong></div>
-</div>
+      <div style="text-align:center;margin:8px 0 14px 0;">
+        <div style="font-weight:bold;font-size:14pt;color:#1F3864;">MINUTA</div>
+        <div style="font-family:monospace;font-size:11.5pt;">Código de referencia: <strong>${numFmt}</strong></div>
+      </div>
 
-<table class="min-tbl">
-  <tr><td class="lbl">Tipo de reunión:</td><td>${tipoTxt}</td></tr>
-  <tr><td class="lbl">Dependencia o Centro Educativo:</td><td>${m.dependencia || ''}</td></tr>
-  <tr><td class="lbl">Lugar de la reunión:</td><td>${m.lugar || ''}</td></tr>
-  <tr><td class="lbl">Fecha:</td><td>${m.fecha_reunion ? fmtF(m.fecha_reunion) : ''}</td></tr>
-  <tr><td class="lbl">Hora de inicio:</td><td>${m.hora_inicio || ''} &nbsp;&nbsp; <strong>Hora de finalización:</strong> ${m.hora_fin || ''}</td></tr>
-  <tr><td class="lbl">Tema(s) o asunto:</td><td>${m.tema || ''}</td></tr>
-  <tr><td class="lbl">Elaborada por:</td><td>${m.elaborada_por || ''}</td></tr>
+      <table class="min-tbl">
+        <tr><td class="lbl">Tipo de reunión:</td><td>${tipoTxt}</td></tr>
+        <tr><td class="lbl">Dependencia o Centro Educativo:</td><td>${m.dependencia || ''}</td></tr>
+        <tr><td class="lbl">Lugar de la reunión:</td><td>${m.lugar || ''}</td></tr>
+        <tr><td class="lbl">Fecha:</td><td>${m.fecha_reunion ? fmtF(m.fecha_reunion) : ''}</td></tr>
+        <tr><td class="lbl">Hora de inicio:</td><td>${m.hora_inicio || ''} &nbsp;&nbsp; <strong>Hora de finalización:</strong> ${m.hora_fin || ''}</td></tr>
+        <tr><td class="lbl">Tema(s) o asunto:</td><td>${m.tema || ''}</td></tr>
+        <tr><td class="lbl">Elaborada por:</td><td>${m.elaborada_por || ''}</td></tr>
+      </table>
+
+      <table class="min-tbl">
+        <tr><td class="lbl" style="vertical-align:top;">Personal Presente:</td>
+          <td>${presentes.length ? presentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''}`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
+        </tr>
+        <tr><td class="lbl" style="vertical-align:top;">Personal Ausente:</td>
+          <td>${ausentes.length ? ausentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''} <strong>(${p.justificacion === 'justificado' ? 'justificado' : 'injustificado'})</strong>`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
+        </tr>
+      </table>
+
+      <div class="min-section-block">
+        <div class="min-section-title">Temas tratados:</div>
+        <div class="min-box">${(m.temas_tratados||'').trim() || ' '}</div>
+      </div>
+
+      ${m.acuerdos ? `
+      <div class="min-section-block">
+        <div class="min-section-title">Acuerdos / Compromisos:</div>
+        <div class="min-box">${m.acuerdos}</div>
+      </div>
+      ` : ''}
+
+      <div class="min-section-block">
+        <div class="min-section-title">Firma participantes</div>
+        <table class="min-tbl" style="margin-top:0;">
+          <tr><td class="lbl" style="width:50%;text-align:center;">Nombre</td><td class="lbl" style="text-align:center;">Firma</td></tr>
+          ${presentes.length ? presentes.map(p => `<tr><td>${p.nombre}${p.puesto?' <small style="color:#666;">('+p.puesto+')</small>':''}</td><td style="height:32px;"></td></tr>`).join('') : `
+            <tr><td style="height:30px;"></td><td></td></tr>
+            <tr><td style="height:30px;"></td><td></td></tr>
+            <tr><td style="height:30px;"></td><td></td></tr>
+          `}
+        </table>
+      </div>
+
+    </td></tr>
+  </tbody>
 </table>
-
-<table class="min-tbl">
-  <tr><td class="lbl" style="vertical-align:top;">Personal Presente:</td>
-    <td>${presentes.length ? presentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''}`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
-  </tr>
-  <tr><td class="lbl" style="vertical-align:top;">Personal Ausente:</td>
-    <td>${ausentes.length ? ausentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''} <strong>(${p.justificacion === 'justificado' ? 'justificado' : 'injustificado'})</strong>`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
-  </tr>
-</table>
-
-<div class="min-section-block">
-  <div class="min-section-title">Temas tratados:</div>
-  <div class="min-box">${(m.temas_tratados||'').trim() || ' '}</div>
-</div>
-
-${m.acuerdos ? `
-<div class="min-section-block">
-  <div class="min-section-title">Acuerdos / Compromisos:</div>
-  <div class="min-box">${m.acuerdos}</div>
-</div>
-` : ''}
-
-<div class="min-section-block">
-  <div class="min-section-title">Firma participantes</div>
-  <table class="min-tbl" style="margin-top:0;">
-    <tr><td class="lbl" style="width:50%;text-align:center;">Nombre</td><td class="lbl" style="text-align:center;">Firma</td></tr>
-    ${presentes.length ? presentes.map(p => `<tr><td>${p.nombre}${p.puesto?' <small style="color:#666;">('+p.puesto+')</small>':''}</td><td style="height:32px;"></td></tr>`).join('') : `
-      <tr><td style="height:30px;"></td><td></td></tr>
-      <tr><td style="height:30px;"></td><td></td></tr>
-      <tr><td style="height:30px;"></td><td></td></tr>
-    `}
-  </table>
-</div>
-
-</div>
 
 <script>
-  // Lanzar el diálogo de impresión cuando todo (incluido el logo) cargó.
   window.addEventListener('load', function(){
     setTimeout(function(){ window.print(); }, 250);
   });
