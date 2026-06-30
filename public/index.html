@@ -9706,77 +9706,122 @@ function imprimirMinuta(){
     ? `Presencial (   )   Virtual ( ✓ )   Plataforma: ${m.plataforma || '_______'}`
     : `Presencial ( ✓ )   Virtual (   )   Plataforma: _______`;
 
-  const area = document.getElementById('print-area') || (() => {
-    const d = document.createElement('div');
-    d.id = 'print-area';
-    document.body.appendChild(d);
-    return d;
-  })();
+  // Logo MEP base64 (la variable global) — la metemos directo en el HTML
+  // de la ventana nueva para que no dependa del documento principal.
+  const logoMEP = (typeof MEP_LOGO !== 'undefined') ? MEP_LOGO : '';
 
-  const styleEl = document.createElement('style');
-  styleEl.textContent = `
-    @media print {
-      body * { visibility: hidden; }
-      #print-area, #print-area * { visibility: visible; }
-      #print-area { position: absolute; left: 0; top: 0; width: 100%; }
-      @page { size: letter; margin: 1.2cm; }
-    }
-    #print-area table.min-tbl { width:100%; border-collapse:collapse; font-size:11.5pt; margin-bottom:8px; }
-    #print-area table.min-tbl td { border:1px solid #000; padding:6px 8px; vertical-align:top; }
-    #print-area table.min-tbl td.lbl { background:#f1f5f9; font-weight:bold; width:30%; }
-    #print-area .min-section-title { background:#1F3864; color:#fff; padding:5px 10px; font-weight:bold; font-size:12pt; margin-top:10px; }
-    #print-area .min-box { border:1px solid #000; padding:10px; min-height:80px; font-size:11pt; white-space:pre-wrap; margin-bottom:10px; }
-  `;
-  document.head.appendChild(styleEl);
+  // Construimos un documento HTML COMPLETO y autocontenido. Mucho más
+  // confiable que jugar con visibility:hidden en la página actual (que
+  // antes hacía que se viera el contenido del modal duplicado al imprimir).
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Minuta ${numFmt}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; margin: 0; padding: 1.2cm; color: #000; font-size: 11.5pt; }
+  @page { size: letter; margin: 1.2cm; }
 
-  area.innerHTML = `
-    ${encabezadoMEP('')}
-    <div style="text-align:center;margin:8px 0 14px 0;">
-      <div style="font-weight:bold;font-size:14pt;color:#1F3864;">MINUTA</div>
-      <div style="font-family:monospace;font-size:11.5pt;">Código de referencia: <strong>${numFmt}</strong></div>
-    </div>
+  /* Encabezado MEP — tabla de 4 columnas con separadores azules */
+  .hdr-mep { width:100%; border-collapse:collapse; margin-bottom:14px; }
+  .hdr-mep td { vertical-align:middle; padding:4px 8px; }
+  .hdr-mep .hdr-logo { width:23%; padding-right:8px; }
+  .hdr-mep .hdr-logo img { width:100%; max-height:60px; object-fit:contain; }
+  .hdr-mep .hdr-col { border-left:2px solid #1F3864; color:#1F3864; font-size:10.5pt; line-height:1.25; }
 
-    <table class="min-tbl">
-      <tr><td class="lbl">Tipo de reunión:</td><td>${tipoTxt}</td></tr>
-      <tr><td class="lbl">Dependencia o Centro Educativo:</td><td>${m.dependencia || ''}</td></tr>
-      <tr><td class="lbl">Lugar de la reunión:</td><td>${m.lugar || ''}</td></tr>
-      <tr><td class="lbl">Fecha:</td><td>${m.fecha_reunion ? fmtF(m.fecha_reunion) : ''}</td></tr>
-      <tr><td class="lbl">Hora de inicio:</td><td>${m.hora_inicio || ''} &nbsp;&nbsp; <strong>Hora de finalización:</strong> ${m.hora_fin || ''}</td></tr>
-      <tr><td class="lbl">Tema(s) o asunto:</td><td>${m.tema || ''}</td></tr>
-      <tr><td class="lbl">Elaborada por:</td><td>${m.elaborada_por || ''}</td></tr>
-    </table>
+  /* Tabla de datos de la minuta */
+  table.min-tbl { width:100%; border-collapse:collapse; font-size:11.5pt; margin-bottom:8px; }
+  table.min-tbl td { border:1px solid #000; padding:6px 8px; vertical-align:top; }
+  table.min-tbl td.lbl { background:#f1f5f9; font-weight:bold; width:30%; }
 
-    <table class="min-tbl">
-      <tr><td class="lbl" style="vertical-align:top;">Personal Presente:</td>
-        <td>${presentes.length ? presentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''}`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
-      </tr>
-      <tr><td class="lbl" style="vertical-align:top;">Personal Ausente:</td>
-        <td>${ausentes.length ? ausentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''} <strong>(${p.justificacion === 'justificado' ? 'justificado' : 'injustificado'})</strong>`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
-      </tr>
-    </table>
+  /* Secciones de contenido */
+  .min-section-title { background:#1F3864; color:#fff; padding:5px 10px; font-weight:bold; font-size:12pt; margin-top:10px; }
+  .min-box { border:1px solid #000; padding:10px; min-height:80px; font-size:11pt; white-space:pre-wrap; margin-bottom:10px; }
 
-    <div class="min-section-title">Temas tratados:</div>
-    <div class="min-box">${(m.temas_tratados||'').trim() || ' '}</div>
+  /* Pie de página con franja azul */
+  .pie-mep { background: #1F3864; color: #fff; padding: 10px 14px; font-size: 9.5pt; text-align: center; font-weight: bold; line-height: 1.5; margin-top: 20px; }
+</style>
+</head>
+<body>
 
-    ${m.acuerdos ? `
-      <div class="min-section-title">Acuerdos / Compromisos:</div>
-      <div class="min-box">${m.acuerdos}</div>
-    ` : ''}
+<!-- ENCABEZADO INSTITUCIONAL -->
+<table class="hdr-mep">
+  <tr>
+    <td class="hdr-logo">${logoMEP ? `<img src="${logoMEP}"/>` : ''}</td>
+    <td class="hdr-col"><strong>Dirección Regional<br/>Desamparados</strong></td>
+    <td class="hdr-col"><strong>Supervisión Educativa<br/>Circuito 07</strong></td>
+    <td class="hdr-col"><strong>Liceo de Calle<br/>Fallas</strong></td>
+  </tr>
+</table>
 
-    <div class="min-section-title">Firma participantes</div>
-    <table class="min-tbl" style="margin-top:0;">
-      <tr><td class="lbl" style="width:50%;text-align:center;">Nombre</td><td class="lbl" style="text-align:center;">Firma</td></tr>
-      ${presentes.length ? presentes.map(p => `<tr><td>${p.nombre}${p.puesto?' <small style="color:#666;">('+p.puesto+')</small>':''}</td><td style="height:32px;"></td></tr>`).join('') : `
-        <tr><td style="height:30px;"></td><td></td></tr>
-        <tr><td style="height:30px;"></td><td></td></tr>
-        <tr><td style="height:30px;"></td><td></td></tr>
-      `}
-    </table>
+<div style="text-align:center;margin:8px 0 14px 0;">
+  <div style="font-weight:bold;font-size:14pt;color:#1F3864;">MINUTA</div>
+  <div style="font-family:monospace;font-size:11.5pt;">Código de referencia: <strong>${numFmt}</strong></div>
+</div>
 
-    ${piePaginaMEP()}
-  `;
+<table class="min-tbl">
+  <tr><td class="lbl">Tipo de reunión:</td><td>${tipoTxt}</td></tr>
+  <tr><td class="lbl">Dependencia o Centro Educativo:</td><td>${m.dependencia || ''}</td></tr>
+  <tr><td class="lbl">Lugar de la reunión:</td><td>${m.lugar || ''}</td></tr>
+  <tr><td class="lbl">Fecha:</td><td>${m.fecha_reunion ? fmtF(m.fecha_reunion) : ''}</td></tr>
+  <tr><td class="lbl">Hora de inicio:</td><td>${m.hora_inicio || ''} &nbsp;&nbsp; <strong>Hora de finalización:</strong> ${m.hora_fin || ''}</td></tr>
+  <tr><td class="lbl">Tema(s) o asunto:</td><td>${m.tema || ''}</td></tr>
+  <tr><td class="lbl">Elaborada por:</td><td>${m.elaborada_por || ''}</td></tr>
+</table>
 
-  imprimirConEncabezado(area, styleEl);
+<table class="min-tbl">
+  <tr><td class="lbl" style="vertical-align:top;">Personal Presente:</td>
+    <td>${presentes.length ? presentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''}`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
+  </tr>
+  <tr><td class="lbl" style="vertical-align:top;">Personal Ausente:</td>
+    <td>${ausentes.length ? ausentes.map(p => `• ${p.nombre}${p.puesto?' — '+p.puesto:''} <strong>(${p.justificacion === 'justificado' ? 'justificado' : 'injustificado'})</strong>`).join('<br/>') : '<em>Ninguno registrado</em>'}</td>
+  </tr>
+</table>
+
+<div class="min-section-title">Temas tratados:</div>
+<div class="min-box">${(m.temas_tratados||'').trim() || ' '}</div>
+
+${m.acuerdos ? `
+  <div class="min-section-title">Acuerdos / Compromisos:</div>
+  <div class="min-box">${m.acuerdos}</div>
+` : ''}
+
+<div class="min-section-title">Firma participantes</div>
+<table class="min-tbl" style="margin-top:0;">
+  <tr><td class="lbl" style="width:50%;text-align:center;">Nombre</td><td class="lbl" style="text-align:center;">Firma</td></tr>
+  ${presentes.length ? presentes.map(p => `<tr><td>${p.nombre}${p.puesto?' <small style="color:#666;">('+p.puesto+')</small>':''}</td><td style="height:32px;"></td></tr>`).join('') : `
+    <tr><td style="height:30px;"></td><td></td></tr>
+    <tr><td style="height:30px;"></td><td></td></tr>
+    <tr><td style="height:30px;"></td><td></td></tr>
+  `}
+</table>
+
+<div class="pie-mep">
+  <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+  <div>Teléfono 2250-0590 / 2250-0614</div>
+  <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
+<\/div>
+
+<script>
+  // Lanzar el diálogo de impresión cuando todo (incluido el logo) cargó.
+  // Esperamos un tick extra para asegurar que las imágenes base64 ya están listas.
+  window.addEventListener('load', function(){
+    setTimeout(function(){ window.print(); }, 200);
+  });
+<\/script>
+
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if(!w){
+    alert('Tu navegador bloqueó la ventana. Permití las ventanas emergentes y volvé a intentar.');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 
