@@ -656,6 +656,69 @@ router.post("/:id/decidir-sesion", requireAuth, async (req, res) => {
   res.json({ ok: true, paso_id: pasoId });
 });
 
+// ── CANCELAR ENVÍO DE DECISIÓN (guía) ─────────────────────────────────
+// Permite al guía revertir el estado del acta sesión cuando ya la envió al
+// orientador pero:
+//   - todavía no fue aprobada (está pendiente)
+//   - o fue rechazada por el orientador
+// NO se puede cancelar si ya fue APROBADA (porque ya se crearon los pasos
+// siguientes: traslado_cargos, resolucion_final o desestima).
+router.post("/:id/cancelar-decision", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  try {
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+
+    // Solo el guía efectivo o staff pueden cancelar
+    const puedeGuia = (guiaEfectivo(dp) === u.id) || ["admin","administrativo","auxiliar"].includes(u.rol);
+    if (!puedeGuia) return res.status(403).json({ error: "Sin permisos." });
+
+    // Verificar que NO haya sido APROBADA
+    const pasoR = await pool.query(
+      "SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'",
+      [req.params.id]
+    );
+    if (pasoR.rows.length) {
+      const aprR = await pool.query(
+        "SELECT decision FROM dp_aprobaciones_orientador WHERE paso_id=$1",
+        [pasoR.rows[0].id]
+      );
+      if (aprR.rows.length && aprR.rows[0].decision === "aprobado") {
+        return res.status(400).json({ error: "La decisión ya fue APROBADA por el orientador y no se puede cancelar. Ya se crearon los pasos siguientes." });
+      }
+      // Borrar aprobaciones pendientes/rechazadas de este paso
+      await pool.query(
+        "DELETE FROM dp_aprobaciones_orientador WHERE paso_id=$1",
+        [pasoR.rows[0].id]
+      );
+    }
+
+    // Resetear decision_sesion y borrar el paso acta_sesion
+    await pool.query(
+      "UPDATE debidos_procesos SET decision_sesion=NULL, updated_at=NOW() WHERE id=$1",
+      [req.params.id]
+    );
+    await pool.query(
+      "DELETE FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'",
+      [req.params.id]
+    );
+
+    console.log(`[DP] Decisión cancelada en N°${dp.numero}-${dp.anio} por usuario ${u.id} (${u.rol})`);
+
+    // Notificar al orientador asignado (si existe) que el envío fue cancelado
+    if (dp.orientador_asignado) {
+      await notificar(dp.orientador_asignado, "debido_proceso",
+        `⏪ El guía canceló el envío de la decisión del DP N°${dp.numero}-${dp.anio}. La va a volver a registrar.`);
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("cancelar-decision:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── APROBAR / RECHAZAR ACTA SESIÓN (orientador) ───────────────────────
 router.post("/:id/aprobar-sesion", requireAuth, async (req, res) => {
   const u = req.session.usuario;

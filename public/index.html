@@ -8500,19 +8500,38 @@ function renderDPPasos(d){
       }
       // Acta sesión (paso 8): botón especial de decisión
       else if(ps.tipo === 'acta_sesion'){
+        // Estado de la aprobación (si el paso existe y tiene registro)
+        const aprobado = reg ? d.aprobaciones.find(a => a.paso_id === reg.id) : null;
+        const fueRechazado = aprobado && aprobado.decision === 'rechazado';
+        const fueAprobado = aprobado && aprobado.decision === 'aprobado';
+
         if(esGuia && !dp.decision_sesion){
+          // Sin decisión aún → botón para registrar
           acciones.push(`<button class="btn btn-primary btn-xs" onclick="abrirDecisionDP()">🧑‍⚖️ Registrar decisión</button>`);
         } else if(reg){
           if(esGuia) acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden})'>✏️ Ver</button>`);
           acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden})'>🖨️ Imprimir</button>`);
-          // Aprobación pendiente
-          const aprobado = d.aprobaciones.find(a => a.paso_id === reg.id);
+
+          // Botón para el orientador: aprobar / rechazar cuando está pendiente
           if(!aprobado && dp.decision_sesion && esOrientador){
             acciones.push(`<button class="btn btn-success btn-xs" onclick="abrirAprobarSesion()">✅ Aprobar</button>`);
           } else if(aprobado){
-            const c = aprobado.decision === 'aprobado' ? '#16a34a' : '#dc2626';
-            acciones.push(`<span style="font-size:11px;color:${c};font-weight:bold;">${aprobado.decision === 'aprobado' ? '✅ Aprobado' : '❌ Rechazado'} por orientador</span>`);
+            const c = fueAprobado ? '#16a34a' : '#dc2626';
+            acciones.push(`<span style="font-size:11px;color:${c};font-weight:bold;">${fueAprobado ? '✅ Aprobado' : '❌ Rechazado'} por orientador</span>`);
           }
+
+          // Botón "Cancelar envío / Editar decisión" para el guía:
+          // - Si está pendiente de aprobación (sin decisión del orientador)
+          // - O si fue rechazado
+          // NO se muestra si ya fue aprobado (porque ya crearon los pasos siguientes).
+          if(esGuia && !fueAprobado){
+            acciones.push(`<button class="btn btn-outline btn-xs" onclick="cancelarDecisionDP()" style="border-color:#f59e0b;color:#b45309;">⏪ Cancelar envío / Editar</button>`);
+          }
+        } else if(esGuia && dp.decision_sesion){
+          // Caso raro: hay decision_sesion pero no existe el paso (procesos
+          // rechazados antes del fix). Ofrecer cancelar para limpiar y poder
+          // volver a registrar.
+          acciones.push(`<button class="btn btn-outline btn-xs" onclick="cancelarDecisionDP()" style="border-color:#f59e0b;color:#b45309;">⏪ Restablecer decisión</button>`);
         }
       }
       else {
@@ -9350,6 +9369,25 @@ async function guardarDecisionDP(){
     sa('alert-dpd','✅ Decisión registrada. Pendiente de aprobación del orientador.','success');
     await abrirDPDetalle(dpProcesoActual.proceso.id);
   } catch(e){ sa('alert-dec', e.message, 'danger'); }
+}
+
+// Permite al guía revertir el envío de la decisión al orientador. Útil
+// cuando:
+//  - Se mandó por error y aún no la vio el orientador
+//  - El orientador la rechazó y hay que empezar de nuevo
+//  - Está en un estado inconsistente (proceso viejo con bug)
+// NO se puede si ya fue aprobada (el backend valida y rechaza).
+async function cancelarDecisionDP(){
+  const dp = dpProcesoActual?.proceso;
+  if(!dp) return;
+  if(!confirm(`¿Cancelar el envío de la decisión del acta sesión?\n\nSe eliminará el registro actual y podrás volver a registrar la decisión desde cero. Los pasos siguientes (si existen) NO se tocan.\n\nSolo se puede hacer si la decisión NO fue aprobada aún.`)) return;
+  try {
+    await api(`/api/debidos-procesos/${dp.id}/cancelar-decision`, 'POST');
+    sa('alert-dpd', '✅ Envío de decisión cancelado. Ya podés volver a registrar.', 'success');
+    await abrirDPDetalle(dp.id);
+  } catch(e){
+    sa('alert-dpd', 'Error: ' + e.message, 'danger');
+  }
 }
 
 // ── APROBAR ACTA SESIÓN (orientador) ──────────────────────────────────
