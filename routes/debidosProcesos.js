@@ -705,11 +705,35 @@ router.post("/:id/aprobar-sesion", requireAuth, async (req, res) => {
         `, [req.params.id, tipo, orden]);
       }
     }
+  } else if (decision === "rechazado") {
+    // 🔧 BUG FIX: al rechazar, hay que RESETEAR decision_sesion a null.
+    // Si no lo hacemos, el frontend chequea `if(!dp.decision_sesion)` para
+    // mostrar el botón "Registrar decisión" y nunca aparece de nuevo,
+    // dejando al guía (o sustituto) sin forma de corregir y volver a
+    // enviar la decisión al orientador.
+    await pool.query(
+      "UPDATE debidos_procesos SET decision_sesion=NULL, updated_at=NOW() WHERE id=$1",
+      [req.params.id]
+    );
+    // También borramos el paso acta_sesion para que el guía pueda re-registrarlo
+    // desde cero (así se vuelve a limpiar el contenido).
+    await pool.query(
+      "DELETE FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'",
+      [req.params.id]
+    );
   }
 
-  // Notificar al guía del proceso
-  await notificar(dp.guia_a_cargo, "debido_proceso",
-    `📋 El orientador ${decision === "aprobado" ? "aprobó" : "rechazó"} el acta sesión del debido proceso N°${dp.numero}-${dp.anio}. ${observacion ? "Observación: " + observacion : ""}`);
+  // Notificar al GUÍA EFECTIVO (sustituto si lo hay, si no el original).
+  // Antes solo se notificaba a guia_a_cargo, dejando al sustituto sin aviso.
+  const guiaAvisar = guiaEfectivo(dp);
+  await notificar(guiaAvisar, "debido_proceso",
+    `📋 El orientador ${decision === "aprobado" ? "aprobó" : "rechazó"} el acta sesión del debido proceso N°${dp.numero}-${dp.anio}. ${observacion ? "Observación: " + observacion : ""}${decision === "rechazado" ? " Podés volver a registrar la decisión." : ""}`);
+  // Si el sustituto es distinto del guía original, también avisamos al original
+  // (así se mantiene informado el docente titular aunque no esté a cargo).
+  if (dp.guia_sustituto_id && dp.guia_a_cargo && dp.guia_sustituto_id !== dp.guia_a_cargo) {
+    await notificar(dp.guia_a_cargo, "debido_proceso",
+      `📋 (Informativo) El orientador ${decision === "aprobado" ? "aprobó" : "rechazó"} el acta sesión del DP N°${dp.numero}-${dp.anio} que gestiona tu sustituto.`);
+  }
 
   await pool.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [req.params.id]);
   res.json({ ok: true });
