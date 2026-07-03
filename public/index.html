@@ -788,6 +788,7 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-success btn-sm" onclick="prom_imprimirActa()" id="btn-prom-imprimir" disabled>🖨️ Imprimir acta</button>
         <button class="btn btn-outline btn-sm" onclick="prom_imprimirBoletas()" id="btn-prom-boletas" disabled style="color:var(--azul);border-color:var(--azul);">📄 Boletas individuales</button>
+        <button class="btn btn-outline btn-sm" onclick="prom_descargarSEA()" id="btn-prom-sea" disabled style="color:#059669;border-color:#059669;" title="Descargar archivo CSV para subir a la plataforma SEA del MEP">📥 Archivo SEA</button>
         <button class="btn btn-orange btn-sm" onclick="prom_cerrarPeriodo()" id="btn-prom-cerrar" style="display:none">🔒 Cerrar período</button>
         <button class="btn btn-primary btn-sm" onclick="prom_reabrirPeriodo()" id="btn-prom-reabrir" style="display:none">🔓 Reabrir (admin)</button>
       </div>
@@ -17024,7 +17025,7 @@ async function iniciarPromedio(){
   document.getElementById("prom-tbody").innerHTML = '';
   document.getElementById("prom-info-cierre").innerHTML = '';
   document.getElementById("prom-resumen-rubros").style.display = 'none';
-  document.getElementById("btn-prom-imprimir").disabled = true; document.getElementById("btn-prom-boletas").disabled = true;
+  document.getElementById("btn-prom-imprimir").disabled = true; document.getElementById("btn-prom-boletas").disabled = true; document.getElementById("btn-prom-sea").disabled = true;
   document.getElementById("btn-prom-cerrar").style.display = 'none';
   document.getElementById("btn-prom-reabrir").style.display = 'none';
 
@@ -17068,7 +17069,7 @@ async function prom_recargar(){
     document.getElementById("prom-tbody").innerHTML = '';
     document.getElementById("prom-info-cierre").innerHTML = '';
     document.getElementById("prom-resumen-rubros").style.display = 'none';
-    document.getElementById("btn-prom-imprimir").disabled = true; document.getElementById("btn-prom-boletas").disabled = true;
+    document.getElementById("btn-prom-imprimir").disabled = true; document.getElementById("btn-prom-boletas").disabled = true; document.getElementById("btn-prom-sea").disabled = true;
     document.getElementById("btn-prom-cerrar").style.display = 'none';
     document.getElementById("btn-prom-reabrir").style.display = 'none';
     return;
@@ -17209,7 +17210,7 @@ function renderPromPeriodo(data){
     }
     document.getElementById("btn-prom-reabrir").style.display = 'none';
   }
-  document.getElementById("btn-prom-imprimir").disabled = est.length === 0; document.getElementById("btn-prom-boletas").disabled = est.length === 0;
+  document.getElementById("btn-prom-imprimir").disabled = est.length === 0; document.getElementById("btn-prom-boletas").disabled = est.length === 0; document.getElementById("btn-prom-sea").disabled = est.length === 0;
 }
 
 function renderPromAnual(data){
@@ -17255,7 +17256,7 @@ function renderPromAnual(data){
   document.getElementById("prom-info-cierre").innerHTML = '';
   document.getElementById("btn-prom-cerrar").style.display = 'none';
   document.getElementById("btn-prom-reabrir").style.display = 'none';
-  document.getElementById("btn-prom-imprimir").disabled = est.length === 0; document.getElementById("btn-prom-boletas").disabled = est.length === 0;
+  document.getElementById("btn-prom-imprimir").disabled = est.length === 0; document.getElementById("btn-prom-boletas").disabled = est.length === 0; document.getElementById("btn-prom-sea").disabled = est.length === 0;
 }
 
 // ── Cerrar período (profesor) ─────────────────────────────
@@ -17315,6 +17316,74 @@ async function prom_confirmarReapertura(){
 }
 
 // ── Imprimir acta ─────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────
+// Descargar archivo SEA (CSV) del MEP para la plataforma oficial.
+// Formato requerido:
+//   - Delimitador: punto y coma (;)
+//   - Todos los campos entre comillas dobles
+//   - BOM UTF-8 al inicio (para que Excel lo abra bien con acentos)
+//   - Columnas: Id, Nombre, Trabajo cotidiano, Tareas, Prueba, Asistencia
+//   - Id: cédula sin guiones (solo dígitos)
+//   - Nombre: "APELLIDOS NOMBRE" todo en mayúsculas, sin coma
+//   - Notas: números ENTEROS (redondeados), sin decimales ni comas
+// Se descarga solo para el I o II período (no aplica para "Anual").
+function prom_descargarSEA(){
+  if(!promDataActual || !promDataActual.asignacion){ return; }
+  const a = promDataActual.asignacion;
+  const est = promDataActual.estudiantes || [];
+  if(!est.length){ sa("alert-prom","No hay estudiantes para exportar.","warning"); return; }
+
+  const vista = document.getElementById("prom-vista").value;
+  if(vista === 'anual'){
+    sa("alert-prom","El archivo SEA es por período (I o II). Cambiá la vista arriba.", "warning");
+    return;
+  }
+
+  // Encabezado del CSV con delimitador ; y campos entrecomillados
+  const encabezado = '"Id";"Nombre";"Trabajo cotidiano";"Tareas";"Prueba";"Asistencia"';
+
+  const filas = est.map(e => {
+    // Id: solo dígitos (elimina guiones, espacios y cualquier otro carácter)
+    const id = String(e.cedula || '').replace(/\D/g, '');
+    // Nombre completo en MAYÚSCULAS, sin coma: "APELLIDO1 APELLIDO2 NOMBRE"
+    const nombre = `${e.primer_apellido||''} ${e.segundo_apellido||''} ${e.nombre||''}`
+      .replace(/\s+/g,' ').trim().toUpperCase();
+
+    // Rubros: puntos ganados en la escala del rubro (redondeados a entero).
+    // Si el rubro no tiene peso configurado o el estudiante no tiene datos,
+    // usamos 0 (la plataforma SEA requiere números, no vacíos).
+    const cotid = Math.round(Number(e.rubros?.cotidiano?.pct || 0));
+    const tarea = Math.round(Number(e.rubros?.tarea?.pct || 0));
+    const prueb = Math.round(Number(e.rubros?.examen?.pct || 0));
+    const asist = Math.round(Number(e.asistencia?.pct || 0));
+
+    // Escapamos cualquier comilla dentro del nombre (raro pero por seguridad)
+    const nombreEsc = nombre.replace(/"/g, '""');
+    return `"${id}";"${nombreEsc}";"${cotid}";"${tarea}";"${prueb}";"${asist}"`;
+  });
+
+  // BOM UTF-8 para que Excel lo abra correctamente con acentos
+  const csv = '\ufeff' + encabezado + '\r\n' + filas.join('\r\n') + '\r\n';
+
+  // Construir nombre de archivo: seccion_materia_periodo.csv
+  const seccion = (a.seccion_nombre || 'seccion').replace(/[^a-zA-Z0-9\-]/g,'_');
+  const materia = (a.materia_nombre || 'materia').replace(/[^a-zA-Z0-9\-]/g,'_');
+  const periodo = vista === 'I Período' ? 'I' : 'II';
+  const nombreArchivo = `SEA_${seccion}_${materia}_${periodo}_periodo.csv`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = nombreArchivo;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  sa("alert-prom", `✅ Archivo SEA descargado: <strong>${nombreArchivo}</strong> (${filas.length} estudiantes). Ya podés subirlo a la plataforma SEA.`, "success");
+}
+
 function prom_imprimirActa(){
   if(!promDataActual || !promDataActual.asignacion){ return; }
   const a = promDataActual.asignacion;
