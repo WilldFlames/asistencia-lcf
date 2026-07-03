@@ -843,6 +843,63 @@ router.post("/:id/cerrar", requireAuth, async (req, res) => {
 // Borra el proceso, sus pasos, testigos, aprobaciones e historial. Además
 // libera el consecutivo asociado para que pueda ser reutilizado por otro
 // proceso. Es IRREVERSIBLE — pensada para limpiar registros de prueba.
+// ── REACTIVAR DEBIDO PROCESO ─────────────────────────────────────────
+// Permite a admin/administrativo reabrir un DP que ya fue cerrado
+// (resuelto, desestimado o archivado) para poder corregirlo. El estado
+// vuelve a 'en_curso' y se preserva todo el contenido de los pasos.
+// Uso típico: se detectó un error en la resolución después de cerrado.
+router.post("/:id/reactivar", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  if (!["admin","administrativo"].includes(u.rol)) {
+    return res.status(403).json({ error: "Solo admin/administrativo puede reactivar debidos procesos." });
+  }
+  const { justificacion } = req.body || {};
+  if (!justificacion || !justificacion.trim()) {
+    return res.status(400).json({ error: "La justificación es obligatoria." });
+  }
+  try {
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+    if (dp.estado === "en_curso") {
+      return res.status(400).json({ error: "El proceso ya está en curso." });
+    }
+
+    // Reactivar: estado vuelve a 'en_curso' y limpiamos los campos de archivo
+    // (si estaba archivado). El contenido de los pasos se preserva.
+    await pool.query(`
+      UPDATE debidos_procesos SET
+        estado = 'en_curso',
+        archivo_solicitado_por = NULL,
+        archivo_solicitado_at = NULL,
+        archivo_justificacion = NULL,
+        archivo_aprobado_por = NULL,
+        archivo_aprobado_at = NULL,
+        archivo_decision_orientador = NULL,
+        updated_at = NOW()
+      WHERE id = $1
+    `, [req.params.id]);
+
+    console.log(`[DP] Reactivado N°${dp.numero}-${dp.anio} (estado anterior: ${dp.estado}) por usuario ${u.id} (${u.rol}). Justificación: ${justificacion}`);
+
+    // Notificar al guía efectivo y al orientador asignado
+    const guiaAvisar = guiaEfectivo(dp);
+    if (guiaAvisar) {
+      await notificar(guiaAvisar, "debido_proceso",
+        `🔄 El debido proceso N°${dp.numero}-${dp.anio} fue REACTIVADO por administración. Justificación: ${justificacion.trim()}`);
+    }
+    if (dp.orientador_asignado && dp.orientador_asignado !== guiaAvisar) {
+      await notificar(dp.orientador_asignado, "debido_proceso",
+        `🔄 El debido proceso N°${dp.numero}-${dp.anio} fue REACTIVADO por administración. Justificación: ${justificacion.trim()}`);
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("reactivar DP:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.delete("/:id", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   if (!["admin","administrativo"].includes(u.rol)) {

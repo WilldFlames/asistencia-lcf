@@ -2088,6 +2088,7 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-outline" id="btn-dp-sustituto" onclick="abrirAsignarSustituto()" style="display:none;border-color:#ea580c;color:#ea580c;">🔄 Guía Sustituto</button>
       <button class="btn btn-outline" id="btn-dp-solicitar-archivo" onclick="abrirSolicitarArchivo()" style="display:none;border-color:#7c3aed;color:#7c3aed;">📦 Solicitar Archivo</button>
       <button class="btn btn-outline" id="btn-dp-aprobar-archivo" onclick="abrirAprobarArchivo()" style="display:none;border-color:#16a34a;color:#16a34a;">✅ Decidir sobre Archivo</button>
+      <button class="btn btn-outline" id="btn-dp-reactivar" onclick="abrirReactivarDP()" style="display:none;border-color:#0891b2;color:#0891b2;">🔄 Reactivar Proceso</button>
     </div>
     <div id="dpd-pasos-lista" style="margin-top:14px;max-height:65vh;overflow:auto;"></div>
     <div class="modal-actions">
@@ -8257,6 +8258,16 @@ async function abrirDPDetalle(procesoId){
       btnAprobArchivo.style.display = puedeDecidir ? '' : 'none';
     }
 
+    // - "Reactivar Proceso": visible SOLO para admin/administrativo cuando
+    //   el proceso está cerrado (resuelto/desestimado/archivado). Sirve para
+    //   reabrir procesos ya cerrados si hace falta corregir algo.
+    const btnReactivar = document.getElementById('btn-dp-reactivar');
+    if(btnReactivar){
+      const esStaff = ['admin','administrativo'].includes(ME.rol);
+      const cerrado = ['resuelto','desestimado','archivado','pendiente_archivo'].includes(dp.estado);
+      btnReactivar.style.display = (esStaff && cerrado) ? '' : 'none';
+    }
+
     // Badge de plazo
     const creado = new Date(dp.created_at);
     const diffDias = Math.floor((new Date() - creado) / (1000*60*60*24));
@@ -8358,6 +8369,35 @@ async function guardarSustituto(){
 // ════════════════════════════════════════════════════════════════════
 //  ARCHIVAR DEBIDO PROCESO (flujo solicitud → aprobación del orientador)
 // ════════════════════════════════════════════════════════════════════
+// Reactivar un debido proceso cerrado (resuelto/desestimado/archivado).
+// Vuelve el estado a 'en_curso' para que se pueda corregir. Solo
+// admin/administrativo. Requiere justificación.
+async function abrirReactivarDP(){
+  if(!dpProcesoActual) return;
+  const dp = dpProcesoActual.proceso;
+  const estadoLbl = {
+    'resuelto':      'RESUELTO',
+    'desestimado':   'DESESTIMADO',
+    'archivado':     'ARCHIVADO',
+    'pendiente_archivo': 'PENDIENTE DE ARCHIVO'
+  }[dp.estado] || dp.estado;
+  const justif = prompt(
+    `🔄 Reactivar el debido proceso N°${String(dp.numero).padStart(3,'0')}-${dp.anio}\n\n`
+    + `Estudiante: ${dp.est_ap1||''} ${dp.est_ap2||''}, ${dp.est_nombre||''}\n`
+    + `Estado actual: ${estadoLbl}\n\n`
+    + `El proceso volverá a estado "EN CURSO" y se podrá corregir. El contenido de los pasos se preserva.\n\n`
+    + `Justificación (obligatoria):`
+  );
+  if(justif === null) return;
+  if(!justif.trim()){ alert('La justificación es obligatoria.'); return; }
+  try {
+    await api(`/api/debidos-procesos/${dp.id}/reactivar`, 'POST', { justificacion: justif.trim() });
+    cerrarModal('modal-dp-detalle');
+    sa('alert-dp', `✅ Debido proceso N°${dp.numero}-${dp.anio} reactivado. Ya se puede editar.`, 'success');
+    await cargarDPLista(dpEstadoActual);
+  } catch(e){ alert('Error: ' + e.message); }
+}
+
 async function abrirSolicitarArchivo(){
   if(!dpProcesoActual) return;
   const dp = dpProcesoActual.proceso;
