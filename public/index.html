@@ -3453,6 +3453,20 @@ tr:hover td{background:#f8fafc;}
 <!-- ─── MODAL: DETALLE COMPLETO DE ESTUDIANTE ARCHIVADO ─────────────── -->
 <!-- Muestra todos los datos del estudiante archivado: información personal,
      encargados, dirección, motivo del archivo, justificación, etc. -->
+<!-- ─── MODAL: LISTA DE ESTUDIANTES POR NIVEL ───────────────────────── -->
+<!-- Se abre al hacer clic en una card de "Estudiantes por Nivel" del
+     dashboard. Muestra la lista ordenada alfabéticamente con opción de
+     imprimir o exportar a CSV. -->
+<div class="modal-overlay" id="modal-lista-nivel">
+  <div class="modal" style="max-width:820px;">
+    <h3 id="nvl-titulo">📋 Estudiantes</h3>
+    <div id="nvl-contenido"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-lista-nivel')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-detalle-archivado">
   <div class="modal" style="max-width:820px;">
     <h3 id="darch-titulo">📁 Detalle del Estudiante Archivado</h3>
@@ -4675,15 +4689,15 @@ async function cargarDashboard(){
         const total = activos.length;
 
         let nivelHtml = `<div class="card" style="margin-top:14px;">
-          <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📊 Estudiantes por Nivel</div>
+          <div style="font-weight:bold;font-size:14px;color:var(--azul);margin-bottom:12px;">📊 Estudiantes por Nivel <span style="font-weight:normal;color:var(--muted);font-size:11.5px;">— clic para ver la lista</span></div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:10px;">
             ${[7,8,9,10,11].map(n=>`
-              <div style="text-align:center;padding:12px 8px;background:#f8fafc;border:2px solid ${colores[n]}22;border-radius:10px;">
+              <div onclick="abrirListaNivel(${n})" style="text-align:center;padding:12px 8px;background:#f8fafc;border:2px solid ${colores[n]}22;border-radius:10px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='${colores[n]}';this.style.transform='translateY(-2px)';" onmouseout="this.style.background='#f8fafc';this.style.borderColor='${colores[n]}22';this.style.transform='';">
                 <div style="font-size:28px;font-weight:bold;color:${colores[n]};">${niveles[n]}</div>
                 <div style="font-size:12px;font-weight:bold;color:#374151;">${nombres[n]}</div>
               </div>`).join("")}
             ${sinSeccion>0?`
-              <div style="text-align:center;padding:12px 8px;background:#f8fafc;border:2px solid #94a3b822;border-radius:10px;">
+              <div onclick="abrirListaNivel(0)" style="text-align:center;padding:12px 8px;background:#f8fafc;border:2px solid #94a3b822;border-radius:10px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#94a3b8';this.style.transform='translateY(-2px)';" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#94a3b822';this.style.transform='';">
                 <div style="font-size:28px;font-weight:bold;color:var(--muted);">${sinSeccion}</div>
                 <div style="font-size:12px;font-weight:bold;color:#374151;">Sin sección</div>
               </div>`:""}
@@ -4701,6 +4715,221 @@ async function cargarDashboard(){
   }
   })();
   try { await cargarDashboard._enCurso; } finally { cargarDashboard._enCurso = null; }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  LISTA DE ESTUDIANTES POR NIVEL (desde el dashboard)
+// ════════════════════════════════════════════════════════════════════════
+// Al hacer clic en una card de "Estudiantes por Nivel" del dashboard, se
+// abre un modal con TODOS los estudiantes de ese nivel ordenados
+// alfabéticamente (no por sección), con opción de imprimir. Útil para
+// pasar lista, revisar matrícula, etc.
+// El parámetro nivel = 0 significa "Sin sección".
+let _listaNivelActual = { nivel: null, estudiantes: [] };
+
+async function abrirListaNivel(nivel){
+  const nombres = { 7:'Sétimo', 8:'Octavo', 9:'Noveno', 10:'Décimo', 11:'Undécimo', 0:'Sin sección' };
+  const titulo = nombres[nivel] || 'Nivel';
+  document.getElementById('nvl-titulo').textContent = `📋 Estudiantes de ${titulo}`;
+  document.getElementById('nvl-contenido').innerHTML =
+    '<div style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>';
+  document.getElementById('modal-lista-nivel').classList.add('show');
+
+  try {
+    const todos = await api('/api/estudiantes') || [];
+    // Filtrar por nivel (o "sin sección" si nivel = 0). El nivel del
+    // estudiante viene inferido del nombre de la sección (ej: "9-3" → 9).
+    const filtrados = todos.filter(e => {
+      if(!e.activo) return false;
+      if(nivel === 0){
+        return !e.seccion_nombre;
+      }
+      const secNombre = e.seccion_nombre || '';
+      const nivelSec = parseInt(secNombre.split('-')[0]) || null;
+      return nivelSec === nivel;
+    });
+
+    // Orden alfabético por primer apellido, segundo apellido, nombre
+    filtrados.sort((a, b) => {
+      const na = `${a.primer_apellido||''} ${a.segundo_apellido||''} ${a.nombre||''}`.toLowerCase();
+      const nb = `${b.primer_apellido||''} ${b.segundo_apellido||''} ${b.nombre||''}`.toLowerCase();
+      return na.localeCompare(nb, 'es');
+    });
+
+    _listaNivelActual = { nivel, estudiantes: filtrados, titulo };
+
+    if(!filtrados.length){
+      document.getElementById('nvl-contenido').innerHTML =
+        `<div style="padding:30px;text-align:center;color:var(--muted);">No hay estudiantes activos en ${titulo}.</div>`;
+      return;
+    }
+
+    const rows = filtrados.map((e, i) => {
+      const nom = `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/\s+/g,' ').trim();
+      return `<tr>
+        <td style="text-align:center;color:var(--muted);font-size:12px;">${i+1}</td>
+        <td>${nom}</td>
+        <td style="font-family:monospace;font-size:12px;">${e.cedula || '—'}</td>
+        <td style="font-size:12px;">${e.seccion_nombre || '<span style="color:var(--muted);">—</span>'}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('nvl-contenido').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:13px;color:var(--muted);">
+          <strong style="color:#111;">${filtrados.length}</strong> estudiantes · ordenados alfabéticamente
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-success btn-sm" onclick="imprimirListaNivel()">🖨️ Imprimir</button>
+          <button class="btn btn-outline btn-sm" onclick="exportarListaNivelCSV()">📥 CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap" style="max-height:60vh;overflow-y:auto;">
+        <table style="width:100%;">
+          <thead style="position:sticky;top:0;background:#f1f5f9;z-index:1;">
+            <tr>
+              <th style="width:40px;text-align:center;">#</th>
+              <th>Apellidos, Nombre</th>
+              <th>Cédula</th>
+              <th>Sección</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  } catch(e){
+    document.getElementById('nvl-contenido').innerHTML =
+      `<div style="padding:20px;text-align:center;color:var(--rojo);">Error: ${e.message}</div>`;
+  }
+}
+
+// Exportar la lista actual a CSV
+function exportarListaNivelCSV(){
+  const { estudiantes, titulo } = _listaNivelActual;
+  if(!estudiantes.length) return;
+  const filas = [['#','Apellidos','Nombre','Cédula','Sección']];
+  estudiantes.forEach((e, i) => {
+    filas.push([
+      i+1,
+      `${e.primer_apellido||''} ${e.segundo_apellido||''}`.trim(),
+      e.nombre || '',
+      e.cedula || '',
+      e.seccion_nombre || ''
+    ]);
+  });
+  const csv = filas.map(f => f.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `estudiantes_${(titulo||'nivel').toLowerCase().replace(/\s+/g,'_')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Imprimir la lista en una ventana nueva con encabezado y pie oficial.
+function imprimirListaNivel(){
+  const { estudiantes, titulo } = _listaNivelActual;
+  if(!estudiantes.length) return;
+  const logoMEP = (typeof MEP_LOGO !== 'undefined') ? MEP_LOGO : '';
+
+  const filas = estudiantes.map((e, i) => {
+    const nom = `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/\s+/g,' ').trim();
+    return `<tr>
+      <td style="text-align:center;">${i+1}</td>
+      <td>${nom}</td>
+      <td style="font-family:monospace;font-size:10pt;">${e.cedula || '—'}</td>
+      <td>${e.seccion_nombre || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/><title>Estudiantes de ${titulo}</title>
+<style>
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; }
+  body { font-family:Arial,sans-serif; color:#000; font-size:11pt; }
+  @page { size: letter; margin: 1.2cm; }
+
+  /* Uso el mismo patrón thead/tfoot para repetir encabezado y pie en cada
+     página al imprimir (comportamiento estándar de <table>). */
+  table.page-wrap { width:100%; border-collapse:collapse; }
+  .hdr-mep { width:100%; border-collapse:collapse; margin-bottom:10px; }
+  .hdr-mep td { vertical-align:middle; padding:4px 8px; border:0; }
+  .hdr-mep .hdr-logo { width:23%; padding-right:8px; }
+  .hdr-mep .hdr-logo img { width:100%; max-height:55px; object-fit:contain; }
+  .hdr-mep .hdr-col { border-left:2px solid #1F3864; color:#1F3864; font-size:10pt; line-height:1.2; }
+  .pie-mep {
+    background: #1F3864; color: #fff;
+    padding: 8px 14px; font-size: 9.5pt;
+    text-align: center; font-weight: bold; line-height: 1.4;
+    margin-top: 14px;
+  }
+  h2.titulo { text-align:center; margin:6px 0 12px; color:#1F3864; font-size:14pt; }
+  table.lista { width:100%; border-collapse:collapse; font-size:10.5pt; }
+  table.lista th, table.lista td { border:1px solid #000; padding:5px 8px; }
+  table.lista th { background:#f1f5f9; text-align:left; }
+  table.lista tr { break-inside:avoid; page-break-inside:avoid; }
+</style>
+</head>
+<body>
+<table class="page-wrap">
+  <thead style="display:table-header-group;">
+    <tr><td style="padding:0;border:0;">
+      <table class="hdr-mep">
+        <tr>
+          <td class="hdr-logo">${logoMEP ? `<img src="${logoMEP}"/>` : ''}</td>
+          <td class="hdr-col"><strong>Dirección Regional<br/>Desamparados</strong></td>
+          <td class="hdr-col"><strong>Supervisión Educativa<br/>Circuito 07</strong></td>
+          <td class="hdr-col"><strong>Liceo de Calle<br/>Fallas</strong></td>
+        </tr>
+      </table>
+    </td></tr>
+  </thead>
+  <tfoot style="display:table-footer-group;">
+    <tr><td style="padding:0;border:0;">
+      <div class="pie-mep">
+        <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+        <div>Teléfono 2250-0590 / 2250-0614</div>
+        <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
+      </div>
+    </td></tr>
+  </tfoot>
+  <tbody>
+    <tr><td style="padding:0;border:0;">
+      <h2 class="titulo">ESTUDIANTES DE ${titulo.toUpperCase()}</h2>
+      <div style="font-size:10pt;color:#444;margin-bottom:8px;">
+        <strong>Total:</strong> ${estudiantes.length} estudiante(s) · Ordenados alfabéticamente ·
+        Fecha de impresión: ${new Date().toLocaleDateString('es-CR')}
+      </div>
+      <table class="lista">
+        <thead>
+          <tr><th style="width:40px;text-align:center;">#</th><th>Apellidos, Nombre</th><th style="width:110px;">Cédula</th><th style="width:80px;">Sección</th></tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </td></tr>
+  </tbody>
+</table>
+
+<script>
+  window.addEventListener('load', function(){
+    setTimeout(function(){ window.print(); }, 250);
+  });
+<\/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if(!w){
+    alert('Tu navegador bloqueó la ventana. Permití las ventanas emergentes.');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 // ════════════════════════════════════
