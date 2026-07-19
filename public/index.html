@@ -3829,6 +3829,25 @@ function detectarPeriodo(fechaStr) {
   return "Período Lectivo";
 }
 
+// Devuelve SIEMPRE "I Período" o "II Período" (nunca "Período Lectivo").
+// Sirve para autocompletar selectores donde solo esos dos valores son
+// válidos. Si la fecha actual cae fuera de los períodos (receso, verano),
+// elige el más cercano/próximo:
+//   - Antes del I Período (enero-feb)      → I Período (próximo)
+//   - Entre I y II (receso mitad de año)  → II Período (próximo)
+//   - Después del II Período (dic-ene)     → II Período (recién terminado)
+function periodoActualODefault(fechaStr) {
+  const p = detectarPeriodo(fechaStr);
+  if (p === "I Período" || p === "II Período") return p;
+  const hoy = fechaStr || fechaHoyCR();
+  // Entre I y II (receso de mitad de año, ~jul 4 al jul 19) → II Período
+  if (hoy >= "2026-07-04" && hoy < "2026-07-20") return "II Período";
+  // Después del II Período (a partir del 10 de diciembre) → II Período
+  if (hoy > "2026-12-09") return "II Período";
+  // Antes del I Período (enero-febrero) → I Período
+  return "I Período";
+}
+
 // Materias que usan subgrupo A/B
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
 const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario"];
@@ -15865,17 +15884,30 @@ function imprimirBarras(){
 
 // ════════════════════════════════════════════════════════════════════════
 async function iniciarCalificaciones(){
-  // Período por defecto según fecha actual
+  // Autocompletar el período con I o II Período según la fecha actual.
+  // Nunca deja el select vacío (aunque estemos en receso o vacaciones).
   const sel = document.getElementById("calif-periodo");
-  if(sel && !sel.dataset.init){
-    sel.value = detectarPeriodo(null) || "I Período";
-    sel.dataset.init = "1";
+  if(sel){
+    if(!sel.dataset.init){
+      sel.value = periodoActualODefault();
+      sel.dataset.init = "1";
+    } else if(sel.value !== "I Período" && sel.value !== "II Período"){
+      // Defensa extra: si por algún motivo el select quedó con valor inválido,
+      // lo forzamos a uno válido antes de disparar la petición al backend.
+      sel.value = periodoActualODefault();
+    }
   }
   await cargarCalificacionesAsignaciones();
 }
 
 async function cargarCalificacionesAsignaciones(){
-  const periodo = document.getElementById("calif-periodo").value || "I Período";
+  // Defensa: si el select tiene un valor no válido (vacío o algo raro),
+  // usar el período automático. Antes se enviaba "" al backend y fallaba.
+  let periodo = document.getElementById("calif-periodo").value;
+  if(periodo !== "I Período" && periodo !== "II Período"){
+    periodo = periodoActualODefault();
+    document.getElementById("calif-periodo").value = periodo;
+  }
   try{
     const rows = await api(`/api/calificaciones/mis-asignaciones?periodo=${encodeURIComponent(periodo)}`) || [];
     califAsigData = rows;
