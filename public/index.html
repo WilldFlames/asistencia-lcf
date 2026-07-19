@@ -1295,8 +1295,9 @@ tr:hover td{background:#f8fafc;}
       <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:10px 14px;border-radius:6px;font-size:12.5px;color:#1e3a8a;margin-bottom:14px;">
         📊 <strong>Códigos de barras por sección.</strong> Generá una hoja con códigos de barras
         (Code128) de 5&nbsp;×&nbsp;3&nbsp;cm por estudiante, con líneas divisorias para recortar
-        y pegar en el cuaderno. El código codifica solo los números de la cédula
-        (sin guiones ni prefijos), y debajo aparece el nombre completo.
+        y pegar en el cuaderno. El código codifica el número de identificación del estudiante
+        <strong>tal cual</strong> (letras incluidas para DIMEX y residentes), quitando solo
+        guiones y espacios. Debajo aparece el nombre completo.
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -1334,7 +1335,7 @@ tr:hover td{background:#f8fafc;}
               <th style="width:40px;"><input type="checkbox" id="cbar-check-all" onchange="cbarToggleAll(this)"/></th>
               <th>Apellidos, Nombre</th>
               <th>Cédula</th>
-              <th>Cédula (solo números)</th>
+              <th>ID del código</th>
             </tr>
           </thead>
           <tbody id="cbar-tbody">
@@ -15546,17 +15547,26 @@ let califAsigData = [];
 // ════════════════════════════════════════════════════════════════════════
 //  CÓDIGOS DE BARRAS POR SECCIÓN
 // ════════════════════════════════════════════════════════════════════════
-// Genera una hoja imprimible con códigos Code128 de la cédula del estudiante
-// (solo dígitos, sin guiones ni prefijos) en una grilla de 5cm × 3cm con
+// Genera una hoja imprimible con códigos Code128 del ID del estudiante
+// (números y letras: se preservan letras para DIMEX/residentes, solo se
+// quitan guiones y espacios) en una grilla de 5cm × 3cm con
 // líneas divisorias para recortar y pegar en el cuaderno.
 // Usa JsBarcode (CDN cargada en el <head>).
 let cbarEstData = [];
 let cbarSeleccionados = new Set();
 let cbarInicializado = false;
 
-// Limpia una cédula: solo dígitos.
+// Limpia una cédula para el código de barras.
+// Conserva letras y números alfanuméricos (para cédulas de residencia,
+// DIMEX, extranjeras y todo tipo de identificación). Solo quita
+// separadores comunes (guiones, espacios, puntos, barras) y convierte
+// a mayúsculas para consistencia visual del código.
+// Code128 soporta perfectamente letras y números mezclados.
 function cbarLimpiar(cedula){
-  return String(cedula || '').replace(/\D/g, '');
+  return String(cedula || '')
+    .replace(/[\s\-.\/\\]/g, '')  // quita espacios, guiones, puntos, barras
+    .toUpperCase()
+    .trim();
 }
 
 async function inicializarBarrasSiNecesario(){
