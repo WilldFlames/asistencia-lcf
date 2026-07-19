@@ -14928,7 +14928,18 @@ async function imprimirConstanciaPremat(){
   const diaT=dias[hoy.getDate()]||hoy.getDate();
   const mesT=meses[hoy.getMonth()];
   const consec=String(pmData.consecutivo_prematricula).padStart(3,'0');
-  const encNombre=`${pmData.enc_ap1||''} ${pmData.enc_ap2||''}, ${pmData.enc_nombre||''}`.trim();
+  // Normalizar datos del encargado. El backend puede devolverlos:
+  //   - aplanados (enc_ap1, enc_nombre, enc_cedula) cuando vienen del listado
+  //   - anidados (pmData.encargado.primer_apellido) cuando vienen del GET /:id
+  // Esta capa toma lo que haya, con preferencia por el anidado.
+  const enc = pmData.encargado || {};
+  const encAp1 = enc.primer_apellido || pmData.enc_ap1 || '';
+  const encAp2 = enc.segundo_apellido || pmData.enc_ap2 || '';
+  const encNom = enc.nombre || pmData.enc_nombre || '';
+  const encCed = enc.cedula || pmData.enc_cedula || '';
+  const encPar = enc.parentesco || pmData.enc_parentesco || pmData.parentesco || '';
+  const encTel = enc.telefono || pmData.enc_telefono || '';
+  const encNombre = `${encAp1} ${encAp2}, ${encNom}`.replace(/\s+/g,' ').replace(/^,\s*/,'').replace(/,\s*$/,'').trim();
   let printArea=document.getElementById("print-boleta-area");
   if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
@@ -14938,7 +14949,7 @@ async function imprimirConstanciaPremat(){
     <h2 style="text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE PREMATRÍCULA</h2>
     <div style="font-size:13px;line-height:2;text-align:justify;">
       <p style="text-indent:2em;">El suscrito(a), funcionario(a) administrativo(a) del Liceo de Calle Fallas, hace constar que el(la) señor(a)
-      <strong>${encNombre}</strong>, portador(a) de la cédula de identidad número <strong>${pmData.enc_cedula||'_______________'}</strong>,
+      <strong>${encNombre}</strong>, portador(a) de la cédula de identidad número <strong>${encCed||'_______________'}</strong>,
       en calidad de encargado(a) legal, ha solicitado el proceso de prematrícula para el(la) estudiante
       <strong>${pmData.primer_apellido} ${pmData.segundo_apellido||''}, ${pmData.nombre}</strong>,
       portador(a) de la cédula de identidad número <strong>${pmData.cedula}</strong>,
@@ -14952,15 +14963,31 @@ async function imprimirConstanciaPremat(){
       <p style="text-indent:2em;">La presente constancia se extiende a solicitud de la persona interesada, como comprobante del trámite realizado,
       a los <strong>${diaT}</strong> días del mes de <strong>${mesT}</strong> del año dos mil veintiséis.</p>
     </div>
-    <div style="margin-top:50px;text-align:left;max-width:320px;">
-      <div style="border-top:1px solid #374151;padding-top:8px;">
-        <div style="font-size:13px;">Firma del funcionario(a)</div>
-        <div style="font-size:13px;">Nombre: <strong>${auxNombre}</strong></div>
-        <div style="font-size:13px;">Cédula: <strong>${auxCedula}</strong></div>
-        <div style="font-size:13px;">Consecutivo N.°: <strong>${consec}</strong></div>
-        <div style="font-size:13px;">Cargo: <strong>${cargo}</strong></div>
-        <div style="font-size:13px;">Liceo de Calle Fallas</div>
-        <div style="font-size:13px;margin-top:8px;">(Sello del centro educativo)</div>
+    <div style="margin-top:50px;display:flex;gap:40px;justify-content:space-between;flex-wrap:wrap;">
+      <!-- Firma del funcionario(a) que atiende el trámite -->
+      <div style="flex:1;min-width:280px;max-width:340px;">
+        <div style="border-top:1px solid #374151;padding-top:8px;">
+          <div style="font-size:13px;">Firma del funcionario(a)</div>
+          <div style="font-size:13px;">Nombre: <strong>${auxNombre}</strong></div>
+          <div style="font-size:13px;">Cédula: <strong>${auxCedula}</strong></div>
+          <div style="font-size:13px;">Consecutivo N.°: <strong>${consec}</strong></div>
+          <div style="font-size:13px;">Cargo: <strong>${cargo}</strong></div>
+          <div style="font-size:13px;">Liceo de Calle Fallas</div>
+          <div style="font-size:13px;margin-top:8px;">(Sello del centro educativo)</div>
+        </div>
+      </div>
+      <!-- Firma del encargado(a) legal que solicita la prematrícula.
+           Los datos vienen precargados desde el registro de la prematrícula
+           (encargado que se completó en el paso 1). -->
+      <div style="flex:1;min-width:280px;max-width:340px;">
+        <div style="border-top:1px solid #374151;padding-top:8px;">
+          <div style="font-size:13px;">Firma del encargado(a) legal</div>
+          <div style="font-size:13px;">Nombre: <strong>${encNombre || '_____________________'}</strong></div>
+          <div style="font-size:13px;">Cédula: <strong>${encCed || '_____________________'}</strong></div>
+          <div style="font-size:13px;">Parentesco: <strong>${encPar || '_____________________'}</strong></div>
+          <div style="font-size:13px;">Teléfono: <strong>${encTel || '_____________________'}</strong></div>
+          <div style="font-size:13px;margin-top:8px;">Recibí conforme la presente constancia.</div>
+        </div>
       </div>
     </div>
     ${piePaginaMEP()}

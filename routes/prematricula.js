@@ -16,7 +16,8 @@ function canAccess(req, res, next) {
 router.get("/", canAccess, async (req, res) => {
   const r = await pool.query(`
     SELECT p.*, pe.nombre AS enc_nombre, pe.primer_apellido AS enc_ap1,
-      pe.parentesco, pe.cedula AS enc_cedula,
+      pe.segundo_apellido AS enc_ap2, pe.parentesco AS enc_parentesco,
+      pe.parentesco, pe.cedula AS enc_cedula, pe.telefono AS enc_telefono,
       u.nombre AS reg_nombre, u.primer_apellido AS reg_ap1
     FROM prematricula p
     LEFT JOIN prematricula_encargado pe ON pe.prematricula_id=p.id
