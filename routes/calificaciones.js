@@ -116,10 +116,16 @@ router.get("/reglas", requireAuth, async (req, res) => {
 // identificadores (seccion, materia, subgrupo, periodo). Devuelve la asignación
 // o null si no existe.
 async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo) {
+  // Buscar la asignación con lógica de herencia:
+  //   1º intento: asignación creada específicamente para el período pedido
+  //   2º intento: asignación del I Período (que hereda automáticamente al II
+  //               cuando no existe una versión específica del II)
+  // Prioriza siempre la más específica (por eso el ORDER BY).
   const r = await pool.query(`
     SELECT a.id, m.nombre AS materia_nombre,
            (a.modo_simplificado OR COALESCE(m.modo_simplificado, false)) AS modo_simplificado,
            s.nivel AS seccion_nivel,
+           COALESCE(a.periodo,'I Período') AS periodo,
            mre.regla_id, reg.codigo AS regla_codigo, reg.cantidad_pruebas, reg.cantidad_proyectos, reg.proyecto_o_prueba
     FROM asignaciones a
     JOIN materias m ON m.id = a.materia_id
@@ -132,7 +138,21 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
       AND a.seccion_id  = $2
       AND a.materia_id  = $3
       AND (($4::text IS NULL AND a.subgrupo IS NULL) OR a.subgrupo = $4)
-      AND a.periodo     = $5
+      AND (
+        COALESCE(a.periodo,'I Período') = $5
+        OR (
+          COALESCE(a.periodo,'I Período') = 'I Período'
+          AND NOT EXISTS (
+            SELECT 1 FROM asignaciones a2
+            WHERE a2.profesor_id = a.profesor_id
+              AND a2.seccion_id = a.seccion_id
+              AND a2.materia_id = a.materia_id
+              AND (($4::text IS NULL AND a2.subgrupo IS NULL) OR a2.subgrupo = $4)
+              AND COALESCE(a2.periodo,'I Período') = $5
+          )
+        )
+      )
+    ORDER BY CASE WHEN COALESCE(a.periodo,'I Período')=$5 THEN 0 ELSE 1 END
     LIMIT 1
   `, [profesor_id, seccion_id, materia_id, subgrupo || null, periodo]);
   return r.rows[0] || null;

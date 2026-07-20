@@ -972,6 +972,12 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="volverConducta()">← Volver</button>
         <h2 style="margin:0;flex:1" id="cond-titulo"></h2>
+        <label style="font-size:13px;color:var(--muted);">Período:</label>
+        <select id="cond-periodo" onchange="cargarBoletasLista()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;">
+          <option value="anual">Anual (todo el año)</option>
+          <option value="I Período">I Período</option>
+          <option value="II Período">II Período</option>
+        </select>
         <button class="btn btn-success no-print" onclick="imprimirConducta()">🖨️ Imprimir Informe</button>
         <button class="btn btn-outline no-print" onclick="imprimirInformeSeccionConducta()">📋 Imprimir Informe de Sección</button>
       </div>
@@ -7224,7 +7230,16 @@ async function registrarBoleta(){
 }
 
 async function cargarBoletasLista(){
-  const d = await api(`/api/conducta/estudiante/${condEstudianteActual}`);
+  // El backend filtra por rango de fechas. Convertimos el período elegido
+  // a fechas concretas para que solo se cuenten las boletas de ese lapso.
+  // Esto es clave: la nota de conducta se calcula sobre TODAS las boletas
+  // que devuelve, así que filtrar por período da la nota correcta por período.
+  const per = document.getElementById("cond-periodo")?.value || 'anual';
+  let url = `/api/conducta/estudiante/${condEstudianteActual}`;
+  if(per === 'I Período')      url += `?desde=2026-02-23&hasta=2026-07-03`;
+  else if(per === 'II Período') url += `?desde=2026-07-20&hasta=2026-12-09`;
+  // Anual = sin filtro de fechas
+  const d = await api(url);
   if(!d) return;
 
   // Actualizar nota card
@@ -7290,7 +7305,19 @@ function volverConducta(){
 }
 
 async function imprimirConducta(){
-  const d = await api(`/api/conducta/estudiante/${condEstudianteActual}`);
+  // Usar el período seleccionado en pantalla, no el actual por fecha.
+  // Así el encabezado y las boletas coinciden con lo que ve el usuario.
+  const per = document.getElementById("cond-periodo")?.value || 'anual';
+  let urlBoletas = `/api/conducta/estudiante/${condEstudianteActual}`;
+  let periodoLabel = 'Anual (todo el año)';
+  if(per === 'I Período'){
+    urlBoletas += `?desde=2026-02-23&hasta=2026-07-03`;
+    periodoLabel = 'I Período';
+  } else if(per === 'II Período'){
+    urlBoletas += `?desde=2026-07-20&hasta=2026-12-09`;
+    periodoLabel = 'II Período';
+  }
+  const d = await api(urlBoletas);
   if(!d) return;
   // Obtener sección y datos del guía
   const secs = await api("/api/admin/secciones");
@@ -7299,7 +7326,7 @@ async function imprimirConducta(){
   const secFinal = condSec || sec;
   const guia = secFinal ? `${secFinal.guia_ap1||""} ${secFinal.guia_ap2||""}, ${secFinal.guia_nombre||""}`.trim().replace(/^,\s*/,"") : "";
   const guiaCed = secFinal?.guia_cedula || "";
-  const periodo = detectarPeriodo(null);
+  const periodo = periodoLabel;
   const titulo = document.getElementById("cond-titulo").textContent;
   const nota = d.notaConducta;
   const tipLabel={muy_leve:"Muy Leve",leve:"Leve",grave:"Grave",muy_grave:"Muy Grave",gravisima:"Gravísima"};
@@ -7318,7 +7345,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA")}
       <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;flex-wrap:wrap;gap:8px;">
         <div>
           <div><strong>Estudiante:</strong> ${titulo.replace("Conducta — ","")}</div>
-          <div><strong>Período:</strong> ${detectarPeriodo(null)}</div>
+          <div><strong>Período:</strong> ${periodo}</div>
         </div>
         <div style="background:${nota>=80?'#dcfce7':nota>=60?'#fef9c3':'#fee2e2'};padding:6px 16px;border-radius:8px;font-weight:bold;font-size:18px;">
           Nota de Conducta: ${nota}
@@ -14617,64 +14644,85 @@ async function cargarVistaIntercambio(){
   cont.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">⏳ Cargando...</div>';
   try {
     const d = await api("/api/periodos/preview");
-    if(!d || !d.grupos){ cont.innerHTML='<div style="color:var(--rojo)">No se pudieron cargar los datos.</div>'; return; }
+    if(!d){ cont.innerHTML='<div style="color:var(--rojo);padding:20px;">❌ No se pudo conectar con el servidor.</div>'; return; }
+    if(!d.grupos){
+      cont.innerHTML = `<div style="color:var(--rojo);padding:20px;">
+        ❌ Respuesta inesperada del servidor. ${d.error ? '<br/>Detalle: ' + d.error : ''}
+      </div>`;
+      return;
+    }
     if(!d.grupos.length){
       cont.innerHTML = `<div style="text-align:center;color:var(--muted);padding:20px;">
-        No hay asignaciones de Hogar / Industriales en 7°-9° del I Período en este momento.
+        <div style="font-size:15px;margin-bottom:8px;">No hay pares de <strong>Hogar / Industriales</strong> para intercambiar.</div>
+        <div style="font-size:12.5px;">Esto significa que en 7°-9° del I Período no hay asignaciones creadas para estas dos materias. Si esperabas verlos acá, verificá primero que las asignaciones estén creadas en la sección <strong>📋 Asignaciones Docentes</strong>.</div>
       </div>`;
       return;
     }
 
-    // Separar pares válidos (con ambas materias) de los incompletos
-    const completos = d.grupos.filter(g => g.hogar && g.industriales);
-    const incompletos = d.grupos.filter(g => !g.hogar || !g.industriales);
+    // Separar secciones válidas (con al menos 1 Hogar y 1 Industriales)
+    // de las incompletas.
+    const completas = d.grupos.filter(g => g.hogar.length && g.industriales.length);
+    const incompletos = d.grupos.filter(g => !g.hogar.length || !g.industriales.length);
     const yaHechos = d.grupos.filter(g => g.ya_intercambiado).length;
-    const pendientes = completos.filter(g => !g.ya_intercambiado);
+    const pendientes = completas.filter(g => !g.ya_intercambiado);
 
     cont.innerHTML = `
       <div style="background:#eff6ff;border-left:3px solid var(--azul);padding:9px 12px;border-radius:5px;font-size:12px;margin-bottom:12px;">
         <strong>Período actual:</strong> ${d.periodo_actual} ·
-        <strong>${pendientes.length}</strong> pares pendientes ·
-        <strong>${yaHechos}</strong> ya intercambiados ·
-        <strong>${incompletos.length}</strong> incompletos
+        <strong>${pendientes.length}</strong> secciones pendientes ·
+        <strong>${yaHechos}</strong> ya intercambiadas ·
+        <strong>${incompletos.length}</strong> incompletas
+        <div style="margin-top:6px;font-size:11px;color:var(--muted);">
+          💡 En el intercambio, cada profe conserva su materia y sección — solo cambia de <strong>subgrupo</strong>. Ej: si dabas Hogar al subgrupo A, en el II Período darás Hogar al subgrupo B.
+        </div>
       </div>
       <div class="table-wrap" style="max-height:380px;overflow-y:auto;">
         <table style="width:100%;font-size:12.5px;">
           <thead><tr style="position:sticky;top:0;background:var(--bg);">
-            <th>Sección</th><th>Subgrupo</th>
-            <th>🏠 Hogar (I)</th><th>🔧 Industriales (I)</th>
-            <th style="text-align:center;">Después →</th>
+            <th>Sección</th>
+            <th>🏠 Hogar (I Período)</th><th>🔧 Industriales (I Período)</th>
+            <th style="text-align:center;">Después del intercambio (II Período) →</th>
           </tr></thead>
           <tbody>
-            ${d.grupos.map(g => {
-              const subLbl = g.subgrupo ? g.subgrupo : '<em style="color:var(--muted)">grupo completo</em>';
-              if(!g.hogar || !g.industriales){
+            ${d.grupos.map(sec => {
+              if(!sec.hogar.length || !sec.industriales.length){
                 return `<tr style="background:#fef9c3;">
-                  <td><strong>${g.seccion_nombre}</strong></td>
-                  <td>${subLbl}</td>
+                  <td><strong>${sec.seccion_nombre}</strong></td>
                   <td colspan="3" style="color:var(--naranja);font-size:11px;">
-                    ⚠️ Falta ${!g.hogar?'Hogar':'Industriales'}. No se puede intercambiar este grupo.
+                    ⚠️ Falta ${!sec.hogar.length?'Hogar':'Industriales'}. No se puede intercambiar esta sección.
                   </td>
                 </tr>`;
               }
-              if(g.ya_intercambiado){
-                return `<tr style="background:#f0fdf4;opacity:.7;">
-                  <td><strong>${g.seccion_nombre}</strong></td>
-                  <td>${subLbl}</td>
-                  <td>${g.hogar.prof_nombre}</td>
-                  <td>${g.industriales.prof_nombre}</td>
+              const hogarList = sec.hogar.map(h =>
+                `<div>${h.prof_nombre} <small style="color:var(--muted);">— subgrupo ${h.subgrupo||'(único)'}</small></div>`
+              ).join('');
+              const indusList = sec.industriales.map(i =>
+                `<div>${i.prof_nombre} <small style="color:var(--muted);">— subgrupo ${i.subgrupo||'(único)'}</small></div>`
+              ).join('');
+              if(sec.ya_intercambiado){
+                return `<tr style="background:#f0fdf4;opacity:.75;">
+                  <td><strong>${sec.seccion_nombre}</strong></td>
+                  <td>${hogarList}</td>
+                  <td>${indusList}</td>
                   <td style="text-align:center;color:var(--verde);font-size:11px;">✅ Ya intercambiado</td>
                 </tr>`;
               }
+              // Preview del intercambio: emparejamos por orden
+              const n = Math.min(sec.hogar.length, sec.industriales.length);
+              const cambios = [];
+              for(let i=0; i<n; i++){
+                const h = sec.hogar[i];
+                const idx = sec.industriales[i];
+                cambios.push(
+                  `${h.prof_nombre.split(',')[0]} → Hogar <strong>subgrupo ${idx.subgrupo||'(único)'}</strong><br/>` +
+                  `${idx.prof_nombre.split(',')[0]} → Industriales <strong>subgrupo ${h.subgrupo||'(único)'}</strong>`
+                );
+              }
               return `<tr>
-                <td><strong>${g.seccion_nombre}</strong></td>
-                <td>${subLbl}</td>
-                <td>${g.hogar.prof_nombre}</td>
-                <td>${g.industriales.prof_nombre}</td>
-                <td style="text-align:center;font-size:11px;color:var(--azul2);">
-                  ${g.industriales.prof_nombre.split(',')[0]} → Hogar<br/>
-                  ${g.hogar.prof_nombre.split(',')[0]} → Industriales
-                </td>
+                <td><strong>${sec.seccion_nombre}</strong></td>
+                <td>${hogarList}</td>
+                <td>${indusList}</td>
+                <td style="font-size:11px;color:var(--azul2);">${cambios.join('<hr style="margin:6px 0;"/>')}</td>
               </tr>`;
             }).join('')}
           </tbody>

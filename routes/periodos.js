@@ -2,9 +2,13 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireRol } = require("../middleware/auth");
 
-// Solo admin y auxiliar pueden tocar este módulo
-const canSwap = requireRol("admin", "auxiliar");
+// Roles autorizados: admin, auxiliar y administrativo pueden hacer intercambio.
+// (Antes solo admin y auxiliar — administrativo también debería poder).
+const canSwap = requireRol("admin", "auxiliar", "administrativo");
 
+// Nombres oficiales de las materias intercambiables. La búsqueda en la BD
+// es case-insensitive (con ILIKE) por si en algún seed quedó con mayúsculas
+// distintas.
 const NOMBRE_HOGAR = "Educación para el Hogar";
 const NOMBRE_INDUSTRIALES = "Artes Industriales";
 
@@ -13,18 +17,40 @@ function periodoActualNombre() {
   return (hoy < new Date('2026-07-04T00:00:00')) ? 'I Período' : 'II Período';
 }
 
+// Busca los IDs de las materias Hogar e Industriales de forma tolerante:
+// primero intenta con nombre exacto, si no encuentra usa ILIKE.
+async function obtenerIdsMaterias(client) {
+  const cli = client || pool;
+  // Exacto primero
+  let r = await cli.query(
+    "SELECT id, nombre FROM materias WHERE nombre IN ($1, $2)",
+    [NOMBRE_HOGAR, NOMBRE_INDUSTRIALES]);
+  let idHogar = r.rows.find(m => m.nombre === NOMBRE_HOGAR)?.id;
+  let idIndus = r.rows.find(m => m.nombre === NOMBRE_INDUSTRIALES)?.id;
+  // Fallback tolerante
+  if (!idHogar) {
+    const rh = await cli.query(
+      "SELECT id FROM materias WHERE nombre ILIKE $1 LIMIT 1",
+      ['%hogar%']);
+    if (rh.rows.length) idHogar = rh.rows[0].id;
+  }
+  if (!idIndus) {
+    const ri = await cli.query(
+      "SELECT id FROM materias WHERE nombre ILIKE $1 LIMIT 1",
+      ['%industriales%']);
+    if (ri.rows.length) idIndus = ri.rows[0].id;
+  }
+  return { idHogar, idIndus };
+}
+
 // ── VISTA PREVIA: pares actuales del I Período en 7°-9° ──────────────────────
 // Devuelve, agrupado por sección, las asignaciones de Hogar e Industriales
 // (incluyendo subgrupos) y el detalle de quién las dicta hoy. Solo muestra
 // secciones donde HAY al menos una asignación de Hogar o Industriales.
 router.get("/preview", canSwap, async (req, res) => {
   try {
-    // Obtener IDs de las materias
-    const matR = await pool.query(
-      "SELECT id, nombre FROM materias WHERE nombre IN ($1, $2)",
-      [NOMBRE_HOGAR, NOMBRE_INDUSTRIALES]);
-    const idHogar = matR.rows.find(m => m.nombre === NOMBRE_HOGAR)?.id;
-    const idIndus = matR.rows.find(m => m.nombre === NOMBRE_INDUSTRIALES)?.id;
+    // Obtener IDs de las materias (con búsqueda tolerante)
+    const { idHogar, idIndus } = await obtenerIdsMaterias();
 
     if (!idHogar || !idIndus) {
       return res.status(400).json({
@@ -62,41 +88,44 @@ router.get("/preview", canSwap, async (req, res) => {
     const yaExiste = new Set(yaCreadasR.rows.map(r =>
       `${r.seccion_id}|${r.materia_id}|${r.subgrupo || ''}`));
 
-    // Agrupar por sección+subgrupo para detectar pares
-    const grupos = {};
+    // Agrupar por SECCIÓN (no por subgrupo). Dentro de cada sección
+    // recolectamos todos los subgrupos con Hogar y con Industriales, para
+    // que el frontend muestre los intercambios como pares "Hogar subgrupo A
+    // ↔ Industriales subgrupo B" claramente.
+    const secciones = {};
     for (const a of asigR.rows) {
-      const key = `${a.seccion_id}|${a.subgrupo || ''}`;
-      if (!grupos[key]) {
-        grupos[key] = {
+      if (!secciones[a.seccion_id]) {
+        secciones[a.seccion_id] = {
           seccion_id: a.seccion_id,
           seccion_nombre: a.seccion_nombre,
           nivel: a.nivel,
-          subgrupo: a.subgrupo || null,
-          hogar: null,
-          industriales: null,
+          hogar: [],        // lista de {subgrupo, prof_nombre, ...}
+          industriales: [],
           ya_intercambiado: false
         };
       }
-      const target = a.materia_id === idHogar ? 'hogar' : 'industriales';
-      grupos[key][target] = {
+      const info = {
         asignacion_id: a.id,
+        subgrupo: a.subgrupo || null,
         prof_id: a.prof_id,
         prof_nombre: `${a.prof_ap1} ${a.prof_ap2 || ''}, ${a.prof_nombre}`.trim(),
         lecciones_semana: a.lecciones_semana
       };
+      if (a.materia_id === idHogar) secciones[a.seccion_id].hogar.push(info);
+      else secciones[a.seccion_id].industriales.push(info);
     }
 
-    // Marcar los que ya tienen asignaciones del II Período creadas
-    Object.values(grupos).forEach(g => {
-      const kHogar = `${g.seccion_id}|${idHogar}|${g.subgrupo || ''}`;
-      const kIndus = `${g.seccion_id}|${idIndus}|${g.subgrupo || ''}`;
-      g.ya_intercambiado = yaExiste.has(kHogar) || yaExiste.has(kIndus);
+    // Marcar las secciones que ya tienen intercambios en II Período
+    Object.values(secciones).forEach(sec => {
+      sec.hogar.sort((a,b) => (a.subgrupo||'').localeCompare(b.subgrupo||''));
+      sec.industriales.sort((a,b) => (a.subgrupo||'').localeCompare(b.subgrupo||''));
+      // Se considera "ya intercambiada" si existe alguna asignación de II en esta sección
+      sec.ya_intercambiado = [...yaExiste].some(k => k.startsWith(`${sec.seccion_id}|`));
     });
 
-    const lista = Object.values(grupos).sort((a, b) => {
+    const lista = Object.values(secciones).sort((a, b) => {
       if (a.nivel !== b.nivel) return a.nivel - b.nivel;
-      if (a.seccion_nombre !== b.seccion_nombre) return a.seccion_nombre.localeCompare(b.seccion_nombre);
-      return (a.subgrupo || '').localeCompare(b.subgrupo || '');
+      return a.seccion_nombre.localeCompare(b.seccion_nombre);
     });
 
     res.json({
@@ -119,11 +148,7 @@ router.post("/intercambiar", canSwap, async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const matR = await client.query(
-      "SELECT id, nombre FROM materias WHERE nombre IN ($1, $2)",
-      [NOMBRE_HOGAR, NOMBRE_INDUSTRIALES]);
-    const idHogar = matR.rows.find(m => m.nombre === NOMBRE_HOGAR)?.id;
-    const idIndus = matR.rows.find(m => m.nombre === NOMBRE_INDUSTRIALES)?.id;
+    const { idHogar, idIndus } = await obtenerIdsMaterias(client);
     if (!idHogar || !idIndus) {
       await client.query('ROLLBACK');
       return res.status(400).json({
@@ -131,10 +156,10 @@ router.post("/intercambiar", canSwap, async (req, res) => {
       });
     }
 
-    // Recolectar pares del I Período en 7°-9°
+    // Recolectar todas las asignaciones de Hogar/Industriales en 7°-9° del I Período
     const asigR = await client.query(`
       SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.lecciones_semana,
-        s.nivel
+        s.nivel, s.nombre AS seccion_nombre
       FROM asignaciones a
       JOIN secciones s ON s.id=a.seccion_id
       WHERE a.materia_id IN ($1, $2)
@@ -142,21 +167,27 @@ router.post("/intercambiar", canSwap, async (req, res) => {
         AND COALESCE(a.periodo,'I Período') = 'I Período'
     `, [idHogar, idIndus]);
 
-    const grupos = {};
+    // Agrupar por SECCIÓN (no por sección+subgrupo). Dentro de cada sección
+    // recolectamos todas las asignaciones de Hogar y de Industriales por
+    // subgrupo. La lógica del intercambio es: el subgrupo que tenía Hogar
+    // en el I Período, ahora tiene Industriales en el II (y viceversa).
+    // Cada profe MANTIENE su materia y su sección — solo cambia de subgrupo.
+    const secciones = {};
     for (const a of asigR.rows) {
-      const key = `${a.seccion_id}|${a.subgrupo || ''}`;
-      if (!grupos[key]) {
-        grupos[key] = {
-          seccion_id: a.seccion_id, subgrupo: a.subgrupo || null,
-          hogar: null, industriales: null
+      if (!secciones[a.seccion_id]) {
+        secciones[a.seccion_id] = {
+          seccion_id: a.seccion_id,
+          seccion_nombre: a.seccion_nombre,
+          nivel: a.nivel,
+          hogar: [],       // asignaciones de Hogar (con sus subgrupos)
+          industriales: [] // asignaciones de Industriales (con sus subgrupos)
         };
       }
-      const t = a.materia_id === idHogar ? 'hogar' : 'industriales';
-      grupos[key][t] = a;
+      if (a.materia_id === idHogar) secciones[a.seccion_id].hogar.push(a);
+      else secciones[a.seccion_id].industriales.push(a);
     }
 
-    // Verificar qué pares del II Período ya están creados — si CUALQUIERA está creado,
-    // ya se hizo el intercambio para ese par y lo saltamos.
+    // Verificar qué pares del II Período ya están creados
     const yaCreadasR = await client.query(`
       SELECT seccion_id, materia_id, subgrupo
       FROM asignaciones
@@ -169,66 +200,112 @@ router.post("/intercambiar", canSwap, async (req, res) => {
     let saltados = 0;
     const detalle = [];
 
-    for (const g of Object.values(grupos)) {
-      // Solo intercambiar si AMBOS lados existen
-      if (!g.hogar || !g.industriales) {
+    for (const sec of Object.values(secciones)) {
+      // Para intercambiar necesitamos AL MENOS un Hogar y un Industriales
+      // en la misma sección, con subgrupos distintos entre sí.
+      if (!sec.hogar.length || !sec.industriales.length) {
         saltados++;
         detalle.push({
-          seccion_id: g.seccion_id, subgrupo: g.subgrupo,
+          seccion_id: sec.seccion_id, seccion_nombre: sec.seccion_nombre,
           resultado: 'omitido',
-          motivo: 'Falta una de las dos materias en este grupo'
+          motivo: 'Falta Hogar o Industriales en esta sección'
         });
         continue;
       }
 
-      // Saltar si ya hay alguna asignación del II Período para este grupo+subgrupo
-      const kHogar = `${g.seccion_id}|${idHogar}|${g.subgrupo || ''}`;
-      const kIndus = `${g.seccion_id}|${idIndus}|${g.subgrupo || ''}`;
-      if (yaExiste.has(kHogar) || yaExiste.has(kIndus)) {
+      // Emparejar: cada asignación de Hogar (subgrupo X) se cruza con la de
+      // Industriales de OTRO subgrupo. En el modelo estándar del liceo, cada
+      // sección tiene 2 subgrupos: A y B. Hogar A se cruza con Industriales B,
+      // resultando en: profe de Hogar A ahora enseña Hogar B, y profe de
+      // Industriales B ahora enseña Industriales A.
+      //
+      // Si hay más de un subgrupo por materia (raro), emparejamos por orden.
+      const subgruposHogar = sec.hogar.slice().sort((a,b) => (a.subgrupo||'').localeCompare(b.subgrupo||''));
+      const subgruposIndus = sec.industriales.slice().sort((a,b) => (a.subgrupo||'').localeCompare(b.subgrupo||''));
+
+      // Verificar que los subgrupos sean DISTINTOS entre Hogar e Industriales
+      // (si un profe da Hogar al subgrupo A y otro Industriales también al A,
+      // no hay intercambio posible: hay conflicto de horario).
+      const subgH = new Set(subgruposHogar.map(a => a.subgrupo || ''));
+      const subgI = new Set(subgruposIndus.map(a => a.subgrupo || ''));
+      const hayInterseccion = [...subgH].some(x => subgI.has(x));
+      if (hayInterseccion) {
         saltados++;
         detalle.push({
-          seccion_id: g.seccion_id, subgrupo: g.subgrupo,
+          seccion_id: sec.seccion_id, seccion_nombre: sec.seccion_nombre,
           resultado: 'omitido',
-          motivo: 'Ya existe asignación del II Período para este grupo'
+          motivo: 'Hay subgrupos compartidos entre Hogar e Industriales (no se pueden intercambiar)'
         });
         continue;
       }
 
-      // Crear las dos nuevas asignaciones INTERCAMBIADAS para el II Período:
-      // El profe que daba Hogar en I → ahora da Industriales en II (misma sección y subgrupo)
-      // El profe que daba Industriales en I → ahora da Hogar en II (misma sección y subgrupo)
-      const nuevaHogar = await client.query(`
-        INSERT INTO asignaciones (profesor_id, seccion_id, materia_id, subgrupo, lecciones_semana, periodo)
-        VALUES ($1, $2, $3, $4, $5, 'II Período') RETURNING id
-      `, [g.industriales.profesor_id, g.seccion_id, idHogar, g.subgrupo, g.industriales.lecciones_semana]);
+      // Para cada asignación de Hogar, creamos una nueva en II Período con
+      // el MISMO profe, MISMA sección, MISMA materia (Hogar), pero con el
+      // SUBGRUPO del que daba Industriales.
+      // Y viceversa para Industriales.
+      let alguIntercambio = false;
+      const paresProcesados = Math.min(subgruposHogar.length, subgruposIndus.length);
 
-      const nuevaIndus = await client.query(`
-        INSERT INTO asignaciones (profesor_id, seccion_id, materia_id, subgrupo, lecciones_semana, periodo)
-        VALUES ($1, $2, $3, $4, $5, 'II Período') RETURNING id
-      `, [g.hogar.profesor_id, g.seccion_id, idIndus, g.subgrupo, g.hogar.lecciones_semana]);
+      for (let i = 0; i < paresProcesados; i++) {
+        const aH = subgruposHogar[i];    // El profe X daba Hogar al subgrupo aH.subgrupo
+        const aI = subgruposIndus[i];    // El profe Y daba Industriales al subgrupo aI.subgrupo
 
-      // Registrar en la bitácora de intercambios
-      await client.query(`
-        INSERT INTO intercambios_periodo
-          (nivel, seccion_id, asig_hogar_i, asig_indus_i, asig_hogar_ii, asig_indus_ii, ejecutado_por)
-        SELECT s.nivel, $1, $2, $3, $4, $5, $6 FROM secciones s WHERE s.id=$1
-      `, [g.seccion_id, g.hogar.id, g.industriales.id, nuevaHogar.rows[0].id, nuevaIndus.rows[0].id, req.session.usuario.id]);
+        // En II Período:
+        //   Profe X sigue con Hogar en la sección, pero ahora con el subgrupo de aI
+        //   Profe Y sigue con Industriales en la sección, pero ahora con el subgrupo de aH
+        const kNuevaHogar = `${sec.seccion_id}|${idHogar}|${aI.subgrupo || ''}`;
+        const kNuevaIndus = `${sec.seccion_id}|${idIndus}|${aH.subgrupo || ''}`;
+        if (yaExiste.has(kNuevaHogar) || yaExiste.has(kNuevaIndus)) {
+          continue;  // ya se hizo antes, saltar
+        }
 
-      intercambiados++;
-      detalle.push({
-        seccion_id: g.seccion_id, subgrupo: g.subgrupo,
-        resultado: 'intercambiado',
-        nueva_hogar_id: nuevaHogar.rows[0].id,
-        nueva_indus_id: nuevaIndus.rows[0].id
-      });
+        const nuevaHogar = await client.query(`
+          INSERT INTO asignaciones (profesor_id, seccion_id, materia_id, subgrupo, lecciones_semana, periodo)
+          VALUES ($1, $2, $3, $4, $5, 'II Período') RETURNING id
+        `, [aH.profesor_id, sec.seccion_id, idHogar, aI.subgrupo, aH.lecciones_semana]);
+
+        const nuevaIndus = await client.query(`
+          INSERT INTO asignaciones (profesor_id, seccion_id, materia_id, subgrupo, lecciones_semana, periodo)
+          VALUES ($1, $2, $3, $4, $5, 'II Período') RETURNING id
+        `, [aI.profesor_id, sec.seccion_id, idIndus, aH.subgrupo, aI.lecciones_semana]);
+
+        await client.query(`
+          INSERT INTO intercambios_periodo
+            (nivel, seccion_id, asig_hogar_i, asig_indus_i, asig_hogar_ii, asig_indus_ii, ejecutado_por)
+          SELECT s.nivel, $1, $2, $3, $4, $5, $6 FROM secciones s WHERE s.id=$1
+        `, [sec.seccion_id, aH.id, aI.id, nuevaHogar.rows[0].id, nuevaIndus.rows[0].id, req.session.usuario.id]);
+
+        alguIntercambio = true;
+        intercambiados++;
+        detalle.push({
+          seccion_id: sec.seccion_id, seccion_nombre: sec.seccion_nombre,
+          resultado: 'intercambiado',
+          hogar_original_subgrupo: aH.subgrupo,
+          hogar_nuevo_subgrupo: aI.subgrupo,
+          industriales_original_subgrupo: aI.subgrupo,
+          industriales_nuevo_subgrupo: aH.subgrupo
+        });
+      }
+
+      if (!alguIntercambio) {
+        saltados++;
+        detalle.push({
+          seccion_id: sec.seccion_id, seccion_nombre: sec.seccion_nombre,
+          resultado: 'omitido',
+          motivo: 'Ya existe asignación del II Período para esta sección'
+        });
+      }
     }
 
     await client.query('COMMIT');
+    console.log(`[INTERCAMBIO] Ejecutado por usuario ${req.session.usuario.id} (${req.session.usuario.rol}): ${intercambiados} pares intercambiados, ${saltados} omitidos.`);
     res.json({ ok: true, intercambiados, saltados, detalle });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('periodos/intercambiar error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('[INTERCAMBIO] Error:', err.code || '', err.message);
+    console.error('   Detail:', err.detail || '(sin detalle)');
+    console.error('   Stack:', err.stack);
+    res.status(500).json({ error: err.message + (err.detail ? ' — ' + err.detail : '') });
   } finally {
     client.release();
   }
