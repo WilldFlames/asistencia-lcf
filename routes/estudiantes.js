@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
+const cldHelper = require("./cloudinary-helper");
 
 const canManage = requireRol("admin","auxiliar");
 
@@ -444,11 +445,40 @@ router.delete("/:id", canManage, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── GUARDAR FOTO (base64) ─────────────────────────────────────
+// ── GUARDAR FOTO ──────────────────────────────────────────────
+// Si Cloudinary está configurado, sube la foto ahí y guarda la URL en
+// la BD (~100 bytes). Si no, guarda el base64 en la BD como antes.
+// El campo `foto_url` en la BD puede contener:
+//   - Una URL https://res.cloudinary.com/... (nuevo, Cloudinary)
+//   - Un data URI base64 "data:image/jpeg;base64,..." (viejo, en BD)
+//   - null (sin foto)
+// El frontend usa el valor directo en <img src=...>, así que ambos formatos
+// funcionan sin cambios.
 router.put("/:id/foto", canManage, async (req, res) => {
   const { foto_url } = req.body;
-  await pool.query("UPDATE estudiantes SET foto_url=$1 WHERE id=$2", [foto_url||null, req.params.id]);
-  res.json({ ok: true });
+  if (!foto_url) {
+    // Sin foto: limpiar y borrar la de Cloudinary si existía
+    await pool.query("UPDATE estudiantes SET foto_url=NULL WHERE id=$1", [req.params.id]);
+    if (cldHelper.habilitado()) {
+      await cldHelper.borrarFotoEstudiante(req.params.id);
+    }
+    return res.json({ ok: true });
+  }
+  // Si Cloudinary está habilitado, subir ahí
+  if (cldHelper.habilitado()) {
+    const result = await cldHelper.subirFotoEstudiante(req.params.id, foto_url);
+    if (result && result.url) {
+      await pool.query("UPDATE estudiantes SET foto_url=$1 WHERE id=$2",
+        [result.url, req.params.id]);
+      return res.json({ ok: true, cloudinary: true, url: result.url });
+    }
+    // Si falló Cloudinary, fallback: guardar en BD (para no perder la foto)
+    console.warn(`⚠️  Fallo Cloudinary al subir foto estudiante ${req.params.id}. Guardando en BD.`);
+  }
+  // Modo legacy: guardar el base64 en la BD
+  await pool.query("UPDATE estudiantes SET foto_url=$1 WHERE id=$2",
+    [foto_url, req.params.id]);
+  res.json({ ok: true, cloudinary: false });
 });
 
 // ── LISTAR ARCHIVADOS ────────────────────────────────────────────────
