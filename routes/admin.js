@@ -186,7 +186,13 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
   // a.* ya trae a.modo_simplificado. También exponemos el de la materia
   // para que el frontend muestre "(toda la materia simplificada)" cuando
   // aplique y deshabilite el toggle individual.
-  const sql = `
+  //
+  // Cuando el admin filtra por período actual (default), aplicamos herencia:
+  // muestra las asignaciones creadas específicamente para el período pedido
+  // MÁS las del I Período que no tienen versión en el período pedido. Esto
+  // refleja la realidad: la mayoría de materias son anuales, solo algunas
+  // (como talleres semestrales) cambian entre períodos.
+  const sqlTodas = `
     SELECT a.*, COALESCE(a.periodo,'I Período') AS periodo,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol AS prof_rol,
       s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
@@ -195,10 +201,34 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id
     JOIN materias m ON m.id=a.materia_id
-    ${todas ? '' : "WHERE COALESCE(a.periodo,'I Período')=$1"}
     ORDER BY u.primer_apellido, s.nombre, m.nombre
   `;
-  const r = await pool.query(sql, todas ? [] : [periodo]);
+  const sqlPeriodo = `
+    SELECT a.*, COALESCE(a.periodo,'I Período') AS periodo,
+      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol AS prof_rol,
+      s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
+      COALESCE(m.modo_simplificado, false) AS materia_modo_simplificado
+    FROM asignaciones a
+    JOIN usuarios u ON u.id=a.profesor_id
+    JOIN secciones s ON s.id=a.seccion_id
+    JOIN materias m ON m.id=a.materia_id
+    WHERE (
+      COALESCE(a.periodo,'I Período') = $1
+      OR (
+        COALESCE(a.periodo,'I Período') = 'I Período'
+        AND NOT EXISTS (
+          SELECT 1 FROM asignaciones a2
+          WHERE a2.profesor_id = a.profesor_id
+            AND a2.seccion_id = a.seccion_id
+            AND a2.materia_id = a.materia_id
+            AND COALESCE(a2.subgrupo,'') = COALESCE(a.subgrupo,'')
+            AND COALESCE(a2.periodo,'I Período') = $1
+        )
+      )
+    )
+    ORDER BY u.primer_apellido, s.nombre, m.nombre
+  `;
+  const r = await pool.query(todas ? sqlTodas : sqlPeriodo, todas ? [] : [periodo]);
   res.json(r.rows);
 });
 
