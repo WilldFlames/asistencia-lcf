@@ -12,19 +12,50 @@ function periodoActualNombre() {
 
 router.get("/mis-asignaciones", requireDocente, async (req, res) => {
   const uid = req.session.usuario.id;
-  // Solo mostrar asignaciones del PERÍODO ACTUAL para que el profe no se confunda
-  // tomando asistencia en una asignación vieja. Las históricas existen en BD para reportes.
   const periodo = periodoActualNombre();
+
+  // Traemos las asignaciones del profe. Un profe puede tener:
+  //  1) Una asignación creada específicamente para el período actual
+  //     (ej: Industriales para el II Período)
+  //  2) Una del período anterior que NO tiene equivalente en el actual
+  //     (ej: Matemática del I Período — no cambia, sigue valiendo en II)
+  //
+  // La regla de negocio: si NO existe una asignación nueva para el período
+  // actual con la misma sección+materia, la del período anterior "hereda"
+  // automáticamente. Esto refleja la realidad del liceo: la mayoría de
+  // materias son anuales (no cambian entre períodos), solo algunas como
+  // los talleres semestrales rotan (Hogar ↔ Industriales).
+  //
+  // Prioridad: si existe una asignación del período actual, se usa esa.
+  // Si no, se cae al período anterior.
   const r = await pool.query(`
-    SELECT a.id, a.lecciones_semana, a.subgrupo, a.periodo,
-      s.nombre AS seccion_nombre, s.nivel,
-      m.nombre AS materia_nombre,
-      (SELECT COUNT(*) FROM sesiones_asistencia sa WHERE sa.asignacion_id=a.id) AS sesiones_total
-    FROM asignaciones a
-    JOIN secciones s ON s.id=a.seccion_id
-    JOIN materias m ON m.id=a.materia_id
-    WHERE a.profesor_id=$1 AND COALESCE(a.periodo,'I Período')=$2
-    ORDER BY s.nombre, m.nombre
+    WITH mis_asig AS (
+      SELECT a.*,
+        s.nombre AS seccion_nombre, s.nivel,
+        m.nombre AS materia_nombre
+      FROM asignaciones a
+      JOIN secciones s ON s.id=a.seccion_id
+      JOIN materias m ON m.id=a.materia_id
+      WHERE a.profesor_id=$1
+        AND COALESCE(a.periodo,'I Período') IN ('I Período', $2)
+    ),
+    -- Para cada sección+materia, priorizamos la del período actual.
+    -- ROW_NUMBER con ORDER BY (periodo actual primero) permite quedarnos
+    -- solo con la asignación relevante.
+    ranked AS (
+      SELECT *,
+        ROW_NUMBER() OVER (
+          PARTITION BY seccion_id, materia_id, COALESCE(subgrupo,'')
+          ORDER BY CASE WHEN COALESCE(periodo,'I Período')=$2 THEN 0 ELSE 1 END
+        ) AS rn
+      FROM mis_asig
+    )
+    SELECT id, lecciones_semana, subgrupo, periodo,
+      seccion_nombre, nivel, materia_nombre,
+      (SELECT COUNT(*) FROM sesiones_asistencia sa WHERE sa.asignacion_id=ranked.id) AS sesiones_total
+    FROM ranked
+    WHERE rn = 1
+    ORDER BY seccion_nombre, materia_nombre
   `, [uid, periodo]);
   res.json(r.rows);
 });

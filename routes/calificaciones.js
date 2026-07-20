@@ -59,7 +59,24 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
       LEFT JOIN materia_evaluacion_oficial regla
         ON regla.id = mre.regla_id
       WHERE a.profesor_id = $1
-        AND a.periodo = $2
+        -- Mostrar asignaciones del período pedido O las del I Período que
+        -- NO tienen una versión más nueva en el II Período (herencia
+        -- automática — la mayoría de materias son anuales y no cambian
+        -- entre períodos, solo algunas como los talleres rotan).
+        AND (
+          a.periodo = $2
+          OR (
+            COALESCE(a.periodo,'I Período') = 'I Período'
+            AND NOT EXISTS (
+              SELECT 1 FROM asignaciones a2
+              WHERE a2.profesor_id = a.profesor_id
+                AND a2.seccion_id = a.seccion_id
+                AND a2.materia_id = a.materia_id
+                AND COALESCE(a2.subgrupo,'') = COALESCE(a.subgrupo,'')
+                AND a2.periodo = $2
+            )
+          )
+        )
         AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
       ORDER BY s.nombre, m.nombre, a.subgrupo NULLS FIRST
     `, [u.id, periodo]);
