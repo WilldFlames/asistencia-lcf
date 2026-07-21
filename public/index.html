@@ -957,7 +957,7 @@ tr:hover td{background:#f8fafc;}
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
         <h2 style="margin:0">📋 Conducta Estudiantil — REAC</h2>
-        <button class="btn btn-outline btn-sm" id="btn-imprimir-seccion-cond" onclick="imprimirInformeSeccionConducta()" style="display:none">📋 Imprimir Informe de Sección</button>
+        <button class="btn btn-outline btn-sm" id="btn-imprimir-seccion-cond" onclick="abrirMenuInformeSeccion(this)" style="display:none">📋 Imprimir Informe de Sección ▾</button>
       </div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
         <div class="fg"><label>Sección</label><select id="cond-seccion" onchange="cargarEstConducta()"><option value="">— Seleccionar —</option></select></div>
@@ -979,7 +979,7 @@ tr:hover td{background:#f8fafc;}
           <option value="II Período">II Período</option>
         </select>
         <button class="btn btn-success no-print" onclick="imprimirConducta()">🖨️ Imprimir Informe</button>
-        <button class="btn btn-outline no-print" onclick="imprimirInformeSeccionConducta()">📋 Imprimir Informe de Sección</button>
+        <button class="btn btn-outline no-print" onclick="abrirMenuInformeSeccion(this)">📋 Imprimir Informe de Sección ▾</button>
       </div>
       <div id="alert-cond" class="alert"></div>
 
@@ -14123,20 +14123,82 @@ async function cargarCumplimiento(){
 // ════════════════════════════════════
 //  INFORME DE SECCIÓN — CONDUCTA
 // ════════════════════════════════════
-async function imprimirInformeSeccionConducta(){
+// Muestra un mini menú al hacer clic en "Imprimir Informe de Sección"
+// para que el usuario elija I Período, II Período o Anual (promedio).
+function abrirMenuInformeSeccion(btn){
+  // Si ya hay un menú abierto, cerrarlo
+  const existente = document.getElementById('menu-informe-seccion');
+  if(existente){ existente.remove(); return; }
+
+  const menu = document.createElement('div');
+  menu.id = 'menu-informe-seccion';
+  menu.style.cssText = `position:absolute;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:9999;min-width:200px;padding:6px 0;`;
+  menu.innerHTML = `
+    <button onclick="cerrarMenuInformeSeccion();imprimirInformeSeccionConducta('I Período')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">🖨️ I Período</button>
+    <button onclick="cerrarMenuInformeSeccion();imprimirInformeSeccionConducta('II Período')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">🖨️ II Período</button>
+    <button onclick="cerrarMenuInformeSeccion();imprimirInformeSeccionConducta('anual')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">🖨️ Anual (promedio 50/50)</button>
+  `;
+  document.body.appendChild(menu);
+
+  // Posicionar debajo del botón
+  const r = btn.getBoundingClientRect();
+  menu.style.top = (r.bottom + window.scrollY + 4) + 'px';
+  menu.style.left = (r.left + window.scrollX) + 'px';
+
+  // Cerrar al hacer clic fuera
+  setTimeout(() => {
+    document.addEventListener('click', function cerrar(ev){
+      if(!menu.contains(ev.target) && ev.target !== btn){
+        menu.remove();
+        document.removeEventListener('click', cerrar);
+      }
+    });
+  }, 50);
+}
+
+function cerrarMenuInformeSeccion(){
+  const m = document.getElementById('menu-informe-seccion');
+  if(m) m.remove();
+}
+
+async function imprimirInformeSeccionConducta(periodoOpt){
   // Leer la sección del dropdown directamente (no depende de condSeccionActual)
   const secId = condSeccionActual || document.getElementById("cond-seccion")?.value;
   if(!secId){ alert("Seleccioná una sección primero."); return; }
+
+  // Período elegido por el usuario ('I Período', 'II Período' o 'anual')
+  const per = periodoOpt || 'anual';
+  let periodoLabel = per === 'anual' ? 'Anual' : per;
 
   // Obtener todos los estudiantes de la sección con sus notas de conducta
   const ests = await api(`/api/reportes/seccion/${secId}/estudiantes`);
   if(!ests || !ests.length){ alert("No hay estudiantes en esta sección."); return; }
 
-  // Obtener nota de conducta de cada uno
+  // Calcular la nota de cada estudiante SEGÚN EL PERÍODO ELEGIDO.
+  // - I Período: filtramos boletas por rango de fechas del I
+  // - II Período: filtramos boletas por rango de fechas del II
+  // - Anual: promedio ponderado 50/50 igual que las materias
+  const base = (id) => `/api/conducta/estudiante/${id}`;
   const datos = [];
   for(const e of ests){
-    const d = await api(`/api/conducta/estudiante/${e.id}`);
-    datos.push({ ...e, nota: d?.notaConducta ?? 100, boletas: d?.boletas?.length ?? 0 });
+    let notaFinal, boletasCount, extra = '';
+    if(per === 'anual'){
+      const [dI, dII] = await Promise.all([
+        api(`${base(e.id)}?desde=2026-02-23&hasta=2026-07-03`),
+        api(`${base(e.id)}?desde=2026-07-20&hasta=2026-12-09`),
+      ]);
+      const notaI = dI?.notaConducta ?? 100;
+      const notaII = dII?.notaConducta ?? 100;
+      notaFinal = Math.round((notaI * 0.5) + (notaII * 0.5));
+      boletasCount = (dI?.boletas?.length ?? 0) + (dII?.boletas?.length ?? 0);
+      extra = `I:${notaI} · II:${notaII}`;
+    } else {
+      const rango = per === 'I Período' ? '?desde=2026-02-23&hasta=2026-07-03' : '?desde=2026-07-20&hasta=2026-12-09';
+      const d = await api(`${base(e.id)}${rango}`);
+      notaFinal = d?.notaConducta ?? 100;
+      boletasCount = d?.boletas?.length ?? 0;
+    }
+    datos.push({ ...e, nota: notaFinal, boletas: boletasCount, extra });
   }
 
   // FIX orientadores: usar /api/reportes/mis-secciones que sí soporta orientadores
@@ -14157,7 +14219,7 @@ async function imprimirInformeSeccionConducta(){
   }
   const nombreSec = sec?.nombre || "";
   const guia = sec ? `${sec.guia_ap1||""} ${sec.guia_nombre||""}`.trim() : "";
-  const periodo = detectarPeriodo(null);
+  const periodo = periodoLabel;
   const fechaGen = new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"});
 
   let printArea = document.getElementById("print-boleta-area");
@@ -14180,6 +14242,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+nombreSec)}
             <th style="padding:4px 6px;text-align:left;width:26px;">#</th>
             <th style="padding:4px 6px;text-align:left;">Apellidos, Nombre</th>
             <th style="padding:4px 6px;text-align:center;width:60px;">Boletas</th>
+            ${per === 'anual' ? '<th style="padding:4px 6px;text-align:center;width:80px;">I / II</th>' : ''}
             <th style="padding:4px 6px;text-align:center;width:90px;">Nota de Conducta</th>
           </tr>
         </thead>
@@ -14188,6 +14251,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+nombreSec)}
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${i+1}</td>
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;">${e.boletas}</td>
+            ${per === 'anual' ? `<td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:9.5px;color:#555;">${e.extra||''}</td>` : ''}
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${e.nota>=80?'#166534':e.nota>=60?'#92400e':'#991b1b'};">${e.nota}</td>
           </tr>`).join("")}
         </tbody>
