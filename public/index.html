@@ -522,7 +522,23 @@ tr:hover td{background:#f8fafc;}
       </table></div>
     </div>
     <div class="card no-print">
-      <h2>📅 Historial de Sesiones</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
+        <h2 style="margin:0;">📅 Historial de Sesiones</h2>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;" id="hist-tabs-wrap">
+          <button id="hist-tab-todos" onclick="histCambiarTab('todos')"
+            style="padding:6px 14px;background:var(--azul);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12.5px;font-weight:bold;">
+            📚 Todas <span id="hist-count-todos" style="opacity:.85;font-size:11px;margin-left:2px;"></span>
+          </button>
+          <button id="hist-tab-I" onclick="histCambiarTab('I')"
+            style="padding:6px 14px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12.5px;">
+            📗 I Período <span id="hist-count-I" style="opacity:.85;font-size:11px;margin-left:2px;"></span>
+          </button>
+          <button id="hist-tab-II" onclick="histCambiarTab('II')"
+            style="padding:6px 14px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12.5px;">
+            📘 II Período <span id="hist-count-II" style="opacity:.85;font-size:11px;margin-left:2px;"></span>
+          </button>
+        </div>
+      </div>
       <div class="table-wrap"><table>
         <thead><tr><th>Fecha</th><th>Lecc.</th><th>P</th><th>A</th><th>T</th><th>Ver</th><th>PDF</th><th>Elim.</th></tr></thead>
         <tbody id="hist-sesiones-body"></tbody>
@@ -5971,6 +5987,7 @@ async function abrirAsistencia(id,titulo){
   // Recargar medidas activas al entrar a asistencia
   try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
   asigActiva=id;
+  _histTabInited = false;  // reset del historial de sesiones para autoelegir tab
   document.getElementById("asis-titulo").textContent=titulo;
   document.getElementById("asis-seccion-info").textContent="";
   document.getElementById("asis-view-lista").style.display="none";
@@ -6280,29 +6297,108 @@ async function prepararEImprimirAsistencia(fecha, lecc, registros){
   }, 500);
 }
 
+// Estado del historial de sesiones: guardamos todas las filas y filtramos
+// según la pestaña activa (I Período, II Período o Todos).
+let _histSesionesData = [];
+let _histTabActual = 'todos';
+
+// Determina el período de una fecha usando los rangos oficiales del año.
+// Cualquier fecha entre I y II (receso de mitad de año) se asigna al I.
+function periodoDeFecha(fecha){
+  const f = String(fecha).slice(0, 10);
+  if(f >= '2026-07-20') return 'II';
+  return 'I';
+}
+
+function histCambiarTab(tab){
+  _histTabActual = tab;
+  ['todos','I','II'].forEach(t => {
+    const b = document.getElementById(`hist-tab-${t}`);
+    if(!b) return;
+    if(t === tab){
+      b.style.background = 'var(--azul)';
+      b.style.color = '#fff';
+      b.style.border = 'none';
+      b.style.fontWeight = 'bold';
+    } else {
+      b.style.background = 'transparent';
+      b.style.color = 'var(--muted)';
+      b.style.border = '1px solid var(--border)';
+      b.style.fontWeight = 'normal';
+    }
+  });
+  renderHistSesiones();
+}
+
+function renderHistSesiones(){
+  const tbody = document.getElementById("hist-sesiones-body");
+  if(!tbody) return;
+
+  // Contadores para las pestañas
+  const totalI = _histSesionesData.filter(r => periodoDeFecha(r.fecha) === 'I').length;
+  const totalII = _histSesionesData.filter(r => periodoDeFecha(r.fecha) === 'II').length;
+  const total = _histSesionesData.length;
+  const setCount = (id, n) => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = n > 0 ? `(${n})` : '';
+  };
+  setCount('hist-count-todos', total);
+  setCount('hist-count-I', totalI);
+  setCount('hist-count-II', totalII);
+
+  // Filtrar según pestaña activa
+  let filtradas = _histSesionesData;
+  if(_histTabActual === 'I') filtradas = _histSesionesData.filter(r => periodoDeFecha(r.fecha) === 'I');
+  else if(_histTabActual === 'II') filtradas = _histSesionesData.filter(r => periodoDeFecha(r.fecha) === 'II');
+
+  if(!filtradas.length){
+    const msg = _histTabActual === 'todos'
+      ? 'Sin sesiones registradas.'
+      : `Sin sesiones registradas en el ${_histTabActual} Período.`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">${msg}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtradas.map(r=>{
+    const fecha = (r.fecha||'').slice(0,10);
+    return `<tr>
+      <td style="font-size:12px;font-weight:bold;">${fmtF(fecha)}</td>
+      <td style="text-align:center;">${r.lecciones}</td>
+      <td style="text-align:center;color:var(--verde);font-weight:bold;">${r.total_presentes||0}</td>
+      <td style="text-align:center;color:var(--rojo);font-weight:bold;">${r.total_ausentes||0}</td>
+      <td style="text-align:center;color:var(--naranja);font-weight:bold;">${r.total_tardias||0}</td>
+      <td><button onclick="verSesion('${fecha}',${r.lecciones})" class="btn btn-primary btn-xs">👁️ Ver</button></td>
+      <td><button onclick="imprimirAsistenciaPorFecha('${fecha}',${r.lecciones})" class="btn btn-outline btn-xs" title="Imprimir / Guardar como PDF">🖨️</button></td>
+      <td><button onclick="elimSesion(${r.id})" class="btn btn-danger btn-xs">🗑️</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// Marca si el tab ya fue inicializado al menos una vez para esta asignación.
+// Al cambiar de asignación se resetea (ver iniciar/cargar).
+let _histTabInited = false;
+
 async function cargarHistSesiones(){
   if(!asigActiva) return;
   try{
     const rows = await api(`/api/asistencia/historial/${asigActiva}`)||[];
-    const tbody = document.getElementById("hist-sesiones-body");
-    if(!tbody) return;
-    if(!rows.length){
-      tbody.innerHTML='<tr><td colspan="8" class="empty">Sin sesiones registradas.</td></tr>';
-      return;
+    _histSesionesData = rows;
+    // Solo autoelegimos la pestaña la PRIMERA vez que se carga el historial
+    // para esta asignación. Después preservamos lo que el usuario haya
+    // elegido manualmente (así al guardar una nueva sesión no se le cambia
+    // la vista debajo de las manos).
+    if(!_histTabInited){
+      const hoy = fechaHoyCR();
+      const hayII = rows.some(r => periodoDeFecha(r.fecha) === 'II');
+      const hayI = rows.some(r => periodoDeFecha(r.fecha) === 'I');
+      if(hoy >= '2026-07-20' && hayII) _histTabActual = 'II';
+      else if(hayI && !hayII) _histTabActual = 'I';
+      else _histTabActual = 'todos';
+      _histTabInited = true;
+      histCambiarTab(_histTabActual);
+    } else {
+      renderHistSesiones();
     }
-    tbody.innerHTML = rows.map(r=>{
-      const fecha = (r.fecha||'').slice(0,10);
-      return `<tr>
-        <td style="font-size:12px;font-weight:bold;">${fmtF(fecha)}</td>
-        <td style="text-align:center;">${r.lecciones}</td>
-        <td style="text-align:center;color:var(--verde);font-weight:bold;">${r.total_presentes||0}</td>
-        <td style="text-align:center;color:var(--rojo);font-weight:bold;">${r.total_ausentes||0}</td>
-        <td style="text-align:center;color:var(--naranja);font-weight:bold;">${r.total_tardias||0}</td>
-        <td><button onclick="verSesion('${fecha}',${r.lecciones})" class="btn btn-primary btn-xs">👁️ Ver</button></td>
-        <td><button onclick="imprimirAsistenciaPorFecha('${fecha}',${r.lecciones})" class="btn btn-outline btn-xs" title="Imprimir / Guardar como PDF">🖨️</button></td>
-        <td><button onclick="elimSesion(${r.id})" class="btn btn-danger btn-xs">🗑️</button></td>
-      </tr>`;
-    }).join('');
   }catch(err){ console.error('cargarHistSesiones:', err.message); }
 }
 
