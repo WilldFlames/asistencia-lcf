@@ -7234,18 +7234,52 @@ async function cargarBoletasLista(){
   // a fechas concretas para que solo se cuenten las boletas de ese lapso.
   // Esto es clave: la nota de conducta se calcula sobre TODAS las boletas
   // que devuelve, así que filtrar por período da la nota correcta por período.
+  //
+  // Caso especial ANUAL: la nota anual NO es 100 - (boletas del año). El
+  // usuario aclaró que la conducta anual funciona como los promedios de
+  // materias: (Nota I × 0.5) + (Nota II × 0.5). Por eso hacemos dos
+  // pedidos separados (uno por período) y calculamos el promedio ponderado.
   const per = document.getElementById("cond-periodo")?.value || 'anual';
-  let url = `/api/conducta/estudiante/${condEstudianteActual}`;
-  if(per === 'I Período')      url += `?desde=2026-02-23&hasta=2026-07-03`;
-  else if(per === 'II Período') url += `?desde=2026-07-20&hasta=2026-12-09`;
-  // Anual = sin filtro de fechas
-  const d = await api(url);
-  if(!d) return;
+  const base = `/api/conducta/estudiante/${condEstudianteActual}`;
+
+  let d, notaFinal, totalRebajadoLbl;
+  if(per === 'anual'){
+    // Traemos ambos períodos por separado para calcular la nota ponderada.
+    const [dI, dII] = await Promise.all([
+      api(`${base}?desde=2026-02-23&hasta=2026-07-03`),
+      api(`${base}?desde=2026-07-20&hasta=2026-12-09`),
+    ]);
+    if(!dI || !dII) return;
+    const notaI = dI.notaConducta;
+    const notaII = dII.notaConducta;
+    // Promedio 50/50 (redondeado como el resto del sistema)
+    notaFinal = Math.round((notaI * 0.5) + (notaII * 0.5));
+    // Para la vista, unificamos todas las boletas de ambos períodos
+    d = {
+      boletas: [...dI.boletas, ...dII.boletas].sort((a,b) =>
+        new Date(b.fecha) - new Date(a.fecha) ||
+        new Date(b.created_at) - new Date(a.created_at)
+      ),
+      totalRebajado: dI.totalRebajado + dII.totalRebajado,
+      notaConducta: notaFinal,
+      // Guardamos las notas por período para poder mostrar el desglose
+      notaI, notaII,
+    };
+    totalRebajadoLbl = `Nota I: ${notaI} · Nota II: ${notaII} · Anual = (${notaI} × 0.5) + (${notaII} × 0.5)`;
+  } else {
+    let url = base;
+    if(per === 'I Período')      url += `?desde=2026-02-23&hasta=2026-07-03`;
+    else if(per === 'II Período') url += `?desde=2026-07-20&hasta=2026-12-09`;
+    d = await api(url);
+    if(!d) return;
+    notaFinal = d.notaConducta;
+    totalRebajadoLbl = `Puntos rebajados: ${d.totalRebajado} de 100`;
+  }
 
   // Actualizar nota card
-  const nota = d.notaConducta;
+  const nota = notaFinal;
   document.getElementById("cond-nota-num").textContent = nota;
-  document.getElementById("cond-puntos-rebajados").textContent = `Puntos rebajados: ${d.totalRebajado} de 100`;
+  document.getElementById("cond-puntos-rebajados").textContent = totalRebajadoLbl;
   const estadoEl = document.getElementById("cond-nota-estado");
   if(nota >= 90)       { estadoEl.textContent="⭐ Excelente"; }
   else if(nota >= 80)  { estadoEl.textContent="✅ Muy Buena"; }
@@ -7307,18 +7341,43 @@ function volverConducta(){
 async function imprimirConducta(){
   // Usar el período seleccionado en pantalla, no el actual por fecha.
   // Así el encabezado y las boletas coinciden con lo que ve el usuario.
+  //
+  // Caso especial ANUAL: la nota anual es el promedio ponderado 50/50 de
+  // la nota del I Período y la del II Período (no es 100 menos todas las
+  // boletas del año). Traemos los dos períodos por separado.
   const per = document.getElementById("cond-periodo")?.value || 'anual';
-  let urlBoletas = `/api/conducta/estudiante/${condEstudianteActual}`;
-  let periodoLabel = 'Anual (todo el año)';
-  if(per === 'I Período'){
-    urlBoletas += `?desde=2026-02-23&hasta=2026-07-03`;
-    periodoLabel = 'I Período';
-  } else if(per === 'II Período'){
-    urlBoletas += `?desde=2026-07-20&hasta=2026-12-09`;
-    periodoLabel = 'II Período';
+  const base = `/api/conducta/estudiante/${condEstudianteActual}`;
+  let d, periodoLabel, notaFinal, extraInfo = '';
+
+  if(per === 'anual'){
+    const [dI, dII] = await Promise.all([
+      api(`${base}?desde=2026-02-23&hasta=2026-07-03`),
+      api(`${base}?desde=2026-07-20&hasta=2026-12-09`),
+    ]);
+    if(!dI || !dII) return;
+    const notaI = dI.notaConducta;
+    const notaII = dII.notaConducta;
+    notaFinal = Math.round((notaI * 0.5) + (notaII * 0.5));
+    d = {
+      boletas: [...dI.boletas, ...dII.boletas].sort((a,b) =>
+        new Date(b.fecha) - new Date(a.fecha)),
+      totalRebajado: dI.totalRebajado + dII.totalRebajado,
+    };
+    periodoLabel = 'Anual';
+    extraInfo = `Nota I Período: <strong>${notaI}</strong> · Nota II Período: <strong>${notaII}</strong> · Anual = (${notaI} × 0.5) + (${notaII} × 0.5) = <strong>${notaFinal}</strong>`;
+  } else {
+    let urlBoletas = base;
+    if(per === 'I Período'){
+      urlBoletas += `?desde=2026-02-23&hasta=2026-07-03`;
+      periodoLabel = 'I Período';
+    } else if(per === 'II Período'){
+      urlBoletas += `?desde=2026-07-20&hasta=2026-12-09`;
+      periodoLabel = 'II Período';
+    }
+    d = await api(urlBoletas);
+    if(!d) return;
+    notaFinal = d.notaConducta;
   }
-  const d = await api(urlBoletas);
-  if(!d) return;
   // Obtener sección y datos del guía
   const secs = await api("/api/admin/secciones");
   const sec = secs?.find(s=>s.nombre === document.getElementById("cond-titulo").textContent.replace("Conducta — ","").split(" — ")[0]?.trim()) || null;
@@ -7328,7 +7387,7 @@ async function imprimirConducta(){
   const guiaCed = secFinal?.guia_cedula || "";
   const periodo = periodoLabel;
   const titulo = document.getElementById("cond-titulo").textContent;
-  const nota = d.notaConducta;
+  const nota = notaFinal;
   const tipLabel={muy_leve:"Muy Leve",leve:"Leve",grave:"Grave",muy_grave:"Muy Grave",gravisima:"Gravísima"};
   const tipPts={muy_leve:5,leve:10,grave:20,muy_grave:35,gravisima:50};
 
@@ -7351,6 +7410,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA")}
           Nota de Conducta: ${nota}
         </div>
       </div>
+      ${extraInfo ? `<div style="background:#eff6ff;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:12px;color:#1e3a8a;">${extraInfo}</div>` : ''}
 
       ${d.boletas.length===0?'<p style="color:#666;text-align:center;padding:20px;">Sin boletas registradas.</p>':`
       <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
