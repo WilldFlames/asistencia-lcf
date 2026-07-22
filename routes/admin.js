@@ -274,11 +274,18 @@ router.get("/profesores", async (req, res) => {
 // y cuántas son "grandes" (>200 KB en base64) — candidatas a re-compresión.
 router.get("/diagnostico/fotos", onlyAdmin, async (req, res) => {
   try {
+    // Detección: las URLs de Cloudinary empiezan con "http". Las fotos en la
+    // BD como base64 empiezan con "data:". Separamos para saber cuánto ocupa
+    // realmente cada tipo y decidir si vale la pena migrar/hacer VACUUM.
     const r = await pool.query(`
       SELECT
         COUNT(*) FILTER (WHERE foto_url IS NOT NULL AND foto_url <> '') AS total_con_foto,
+        COUNT(*) FILTER (WHERE foto_url LIKE 'http%') AS en_cloudinary,
+        COUNT(*) FILTER (WHERE foto_url LIKE 'data:%') AS en_bd_base64,
         COUNT(*) AS total_estudiantes,
         COALESCE(SUM(LENGTH(foto_url)) FILTER (WHERE foto_url IS NOT NULL), 0) AS bytes_totales,
+        COALESCE(SUM(LENGTH(foto_url)) FILTER (WHERE foto_url LIKE 'data:%'), 0) AS bytes_base64,
+        COALESCE(SUM(LENGTH(foto_url)) FILTER (WHERE foto_url LIKE 'http%'), 0) AS bytes_urls,
         COUNT(*) FILTER (WHERE LENGTH(foto_url) > 200000) AS grandes_a_recomprimir,
         COALESCE(SUM(LENGTH(foto_url)) FILTER (WHERE LENGTH(foto_url) > 200000), 0) AS bytes_grandes,
         COALESCE(AVG(LENGTH(foto_url)) FILTER (WHERE foto_url IS NOT NULL AND foto_url <> ''), 0)::bigint AS promedio_bytes,
@@ -299,11 +306,21 @@ router.get("/diagnostico/fotos", onlyAdmin, async (req, res) => {
       if (f.rows.length) estadoRec = f.rows[0].valor;
     } catch {}
 
+    // Estado de Cloudinary
+    const cldEnabled = require("./cloudinary-helper").habilitado();
+
     res.json({
       total_estudiantes:        Number(row.total_estudiantes),
       total_con_foto:           Number(row.total_con_foto),
+      en_cloudinary:            Number(row.en_cloudinary),
+      en_bd_base64:             Number(row.en_bd_base64),
+      cloudinary_habilitado:    cldEnabled,
       bytes_totales:            Number(row.bytes_totales),
       mb_totales:               (Number(row.bytes_totales) / 1024 / 1024).toFixed(2),
+      bytes_base64:             Number(row.bytes_base64),
+      mb_base64:                (Number(row.bytes_base64) / 1024 / 1024).toFixed(2),
+      bytes_urls:               Number(row.bytes_urls),
+      kb_urls:                  (Number(row.bytes_urls) / 1024).toFixed(2),
       grandes_a_recomprimir:    Number(row.grandes_a_recomprimir),
       bytes_grandes:            Number(row.bytes_grandes),
       mb_grandes:               (Number(row.bytes_grandes) / 1024 / 1024).toFixed(2),
@@ -314,6 +331,135 @@ router.get("/diagnostico/fotos", onlyAdmin, async (req, res) => {
     });
   } catch (e) {
     console.error("diagnostico/fotos:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── MIGRAR FOTOS BASE64 → CLOUDINARY ─────────────────────────────
+// Toma todas las fotos que quedaron guardadas como base64 en la BD
+// (subidas antes de activar Cloudinary) y las mueve a Cloudinary,
+// reemplazando el campo foto_url con la URL. Después de migrarlas todas,
+// se hace VACUUM para liberar espacio real de la BD.
+//
+// El proceso es SEGURO: si una foto falla al subir a Cloudinary, se deja
+// como está en la BD y se continúa con la siguiente. Al final devuelve
+// estadísticas de cuántas se migraron y cuántas fallaron.
+router.post("/migrar-fotos-cloudinary", onlyAdmin, async (req, res) => {
+  const cldHelper = require("./cloudinary-helper");
+  if (!cldHelper.habilitado()) {
+    return res.status(400).json({
+      error: "Cloudinary no está configurado. Configurá las variables CLOUDINARY_* en Railway primero."
+    });
+  }
+  try {
+    // Buscar solo las que están como base64 (no las que ya son URLs)
+    const r = await pool.query(`
+      SELECT id, LENGTH(foto_url) AS bytes
+      FROM estudiantes
+      WHERE foto_url LIKE 'data:%'
+      ORDER BY LENGTH(foto_url) DESC
+    `);
+    const total = r.rows.length;
+    if (total === 0) {
+      return res.json({ ok: true, mensaje: "No hay fotos base64 para migrar.", migradas: 0, fallidas: 0, total: 0 });
+    }
+
+    console.log(`[MIGRAR-FOTOS] Empezando migración de ${total} fotos base64 a Cloudinary...`);
+    let migradas = 0;
+    let fallidas = 0;
+    const errores = [];
+
+    for (const fila of r.rows) {
+      try {
+        // Leer la foto base64 completa
+        const fR = await pool.query("SELECT foto_url FROM estudiantes WHERE id=$1", [fila.id]);
+        const base64 = fR.rows[0]?.foto_url;
+        if (!base64 || !base64.startsWith("data:")) {
+          fallidas++;
+          continue;
+        }
+        // Subir a Cloudinary
+        const result = await cldHelper.subirFotoEstudiante(fila.id, base64);
+        if (result && result.url) {
+          // Reemplazar en la BD con la URL corta
+          await pool.query("UPDATE estudiantes SET foto_url=$1 WHERE id=$2", [result.url, fila.id]);
+          migradas++;
+          if (migradas % 10 === 0) {
+            console.log(`[MIGRAR-FOTOS] Progreso: ${migradas}/${total}`);
+          }
+        } else {
+          fallidas++;
+          errores.push({ id: fila.id, error: "Cloudinary devolvió null" });
+        }
+      } catch (e) {
+        fallidas++;
+        errores.push({ id: fila.id, error: e.message });
+        console.error(`[MIGRAR-FOTOS] Error en estudiante ${fila.id}:`, e.message);
+      }
+    }
+
+    console.log(`[MIGRAR-FOTOS] Completado: ${migradas} migradas, ${fallidas} fallidas de ${total} total.`);
+
+    res.json({
+      ok: true,
+      total,
+      migradas,
+      fallidas,
+      errores: errores.slice(0, 20),  // solo primeros 20 errores
+      mensaje: `Migradas ${migradas} de ${total} fotos. ${fallidas > 0 ? `${fallidas} fallaron.` : ''} Ahora podés correr VACUUM para liberar el espacio en la BD.`
+    });
+  } catch (e) {
+    console.error("migrar-fotos-cloudinary:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── VACUUM ESTUDIANTES (recuperar espacio) ───────────────────────
+// Ejecuta VACUUM FULL sobre la tabla estudiantes para recuperar el
+// espacio físico ocupado por filas viejas (dead tuples). Postgres no
+// libera automáticamente el espacio al hacer UPDATE, se acumula hasta
+// correr un VACUUM. Sin este paso, aunque migremos las fotos, el archivo
+// físico de la tabla sigue siendo grande.
+// IMPORTANTE: VACUUM FULL bloquea la tabla durante la operación. Solo
+// admin puede correrlo.
+router.post("/vacuum-estudiantes", onlyAdmin, async (req, res) => {
+  try {
+    // Tamaño ANTES
+    const antesR = await pool.query(`
+      SELECT
+        pg_total_relation_size('estudiantes') AS bytes,
+        pg_size_pretty(pg_total_relation_size('estudiantes')) AS pretty
+    `);
+    const antesBytes = Number(antesR.rows[0].bytes);
+    const antesPretty = antesR.rows[0].pretty;
+
+    console.log(`[VACUUM] Iniciando VACUUM FULL de estudiantes (tamaño actual: ${antesPretty})...`);
+    const inicio = Date.now();
+    await pool.query("VACUUM FULL estudiantes");
+    const duracionMs = Date.now() - inicio;
+
+    // Tamaño DESPUÉS
+    const despuesR = await pool.query(`
+      SELECT
+        pg_total_relation_size('estudiantes') AS bytes,
+        pg_size_pretty(pg_total_relation_size('estudiantes')) AS pretty
+    `);
+    const despuesBytes = Number(despuesR.rows[0].bytes);
+    const despuesPretty = despuesR.rows[0].pretty;
+    const ahorroMB = ((antesBytes - despuesBytes) / 1024 / 1024).toFixed(2);
+
+    console.log(`[VACUUM] Completado en ${(duracionMs/1000).toFixed(1)}s. Antes: ${antesPretty}, después: ${despuesPretty}. Ahorro: ${ahorroMB} MB`);
+
+    res.json({
+      ok: true,
+      antes: antesPretty,
+      despues: despuesPretty,
+      ahorro_mb: ahorroMB,
+      duracion_segundos: (duracionMs / 1000).toFixed(1),
+      mensaje: `VACUUM completado. Recuperados ${ahorroMB} MB de espacio.`
+    });
+  } catch (e) {
+    console.error("vacuum-estudiantes:", e);
     res.status(500).json({ error: e.message });
   }
 });

@@ -8007,16 +8007,26 @@ async function diagnosticoFotos(){
       : `<div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px;">
            ℹ️ Re-compresión todavía no se ha ejecutado. Se corre automáticamente al próximo arranque del servidor si hay fotos grandes.
          </div>`;
+
+    // Nueva sección: estado de Cloudinary y desglose por tipo de almacenamiento
+    const cldSeccion = `<div style="background:${d.cloudinary_habilitado?'#dcfce7':'#fef3c7'};border-left:3px solid ${d.cloudinary_habilitado?'#16a34a':'#f59e0b'};padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px;">
+      ${d.cloudinary_habilitado
+        ? `☁️ <strong>Cloudinary activo</strong> · ${d.en_cloudinary} foto(s) en CDN · ${d.en_bd_base64} foto(s) todavía en la BD`
+        : `⚠️ <strong>Cloudinary NO configurado</strong> · Todas las fotos se guardan en la BD.`
+      }
+    </div>`;
+
     const mensaje = `
       <div style="font-family:Arial,sans-serif;font-size:13px;line-height:1.6;text-align:left;">
         ${estadoRec}
+        ${cldSeccion}
         <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
           <tr style="background:#f1f5f9;"><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Estudiantes totales</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${d.total_estudiantes}</td></tr>
           <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Estudiantes con foto</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${d.total_con_foto}</td></tr>
-          <tr style="background:#f1f5f9;"><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Espacio total de fotos</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;"><strong style="color:#2563eb;">${d.mb_totales} MB</strong></td></tr>
+          <tr style="background:#dbeafe;"><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">☁️ <strong>En Cloudinary</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;color:#1e40af;"><strong>${d.en_cloudinary}</strong> (${d.kb_urls} KB en BD)</td></tr>
+          <tr style="background:#fef3c7;"><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">💾 <strong>En BD (base64)</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;color:#92400e;"><strong>${d.en_bd_base64}</strong> (${d.mb_base64} MB)</td></tr>
           <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Foto más grande</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${d.max_kb} KB</td></tr>
           <tr style="background:#f1f5f9;"><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><strong>Promedio por foto</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${d.promedio_kb} KB</td></tr>
-          <tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:${d.grandes_a_recomprimir>0?'#dc2626':'#16a34a'};"><strong>Fotos grandes (>200 KB)</strong></td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;color:${d.grandes_a_recomprimir>0?'#dc2626':'#16a34a'};"><strong>${d.grandes_a_recomprimir}</strong> (${d.mb_grandes} MB)</td></tr>
           ${d.bd_total_mb ? `<tr style="background:#dbeafe;"><td style="padding:8px 10px;"><strong>Tamaño total de la BD</strong></td><td style="padding:8px 10px;text-align:right;"><strong style="color:#1e40af;">${d.bd_total_mb} MB</strong></td></tr>` : ''}
         </table>
       </div>`;
@@ -8024,19 +8034,39 @@ async function diagnosticoFotos(){
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay show';
     overlay.style.zIndex = 99999;
-    // Solo admin/administrativo ve el botón de borrar todas
+    // Solo admin/administrativo ve los botones de acción masiva
     const esAdminParaBorrar = (ME.rol === 'admin' || ME.rol === 'administrativo');
+
+    // Botón migrar solo aparece si Cloudinary está activo y hay fotos base64 pendientes
+    const botonMigrar = (esAdminParaBorrar && d.cloudinary_habilitado && d.en_bd_base64 > 0)
+      ? `<button class="btn btn-success" onclick="migrarFotosACloudinary(this)">☁️ Migrar ${d.en_bd_base64} foto(s) a Cloudinary</button>`
+      : '';
+
+    // Botón VACUUM solo si hay MB significativos en la BD por fotos base64
+    const botonVacuum = (esAdminParaBorrar && parseFloat(d.mb_base64) < 5 && Number(d.en_bd_base64) === 0 && parseFloat(d.bd_total_mb||0) > 100)
+      ? `<button class="btn btn-outline" onclick="vacuumEstudiantes(this)" style="border-color:#7c3aed;color:#7c3aed;">🧹 Liberar espacio (VACUUM)</button>`
+      : '';
+
     const botonBorrar = (esAdminParaBorrar && d.total_con_foto > 0)
       ? `<button class="btn btn-danger" onclick="borrarTodasLasFotos(this)">🗑️ Borrar todas las fotos (${d.total_con_foto})</button>`
       : '';
+
     overlay.innerHTML = `
-      <div class="modal" style="max-width:520px;">
+      <div class="modal" style="max-width:560px;">
         <h3>📊 Diagnóstico de Fotos</h3>
         ${mensaje}
+        ${botonMigrar ? `<div style="background:#eff6ff;border-left:3px solid #2563eb;padding:8px 12px;border-radius:6px;font-size:11.5px;color:#1e3a8a;margin-top:10px;">
+          💡 <strong>Migrar a Cloudinary</strong>: mueve las fotos base64 restantes al CDN. Después podés correr VACUUM para liberar el espacio en la BD.
+        </div>` : ''}
+        ${botonVacuum ? `<div style="background:#faf5ff;border-left:3px solid #7c3aed;padding:8px 12px;border-radius:6px;font-size:11.5px;color:#581c87;margin-top:10px;">
+          🧹 <strong>VACUUM</strong>: recupera el espacio físico de fotos que ya fueron movidas a Cloudinary. Bloquea la tabla estudiantes ~30 segundos.
+        </div>` : ''}
         ${botonBorrar ? `<div style="background:#fef2f2;border-left:3px solid #dc2626;padding:8px 12px;border-radius:6px;font-size:11.5px;color:#7f1d1d;margin-top:10px;">
           ⚠️ El botón "Borrar todas las fotos" libera espacio en la BD pero <strong>no se puede deshacer</strong>. Las fotos se pierden definitivamente.
         </div>` : ''}
-        <div class="modal-actions">
+        <div class="modal-actions" style="flex-wrap:wrap;gap:6px;">
+          ${botonMigrar}
+          ${botonVacuum}
           ${botonBorrar}
           <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
         </div>
@@ -8044,6 +8074,53 @@ async function diagnosticoFotos(){
     document.body.appendChild(overlay);
   }catch(e){
     alert("Error al obtener diagnóstico: " + e.message);
+  }
+}
+
+// Migrar todas las fotos base64 de la BD a Cloudinary. Después de migrar
+// hay que correr VACUUM para liberar el espacio físico. Solo admin.
+async function migrarFotosACloudinary(btn){
+  if(!confirm("☁️ Esto va a subir todas las fotos que están en la BD como base64 a Cloudinary y reemplazarlas por URLs cortas.\n\nEl proceso es seguro (no borra nada si algo falla), pero puede tardar según cuántas fotos haya.\n\n¿Continuar?")) return;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Migrando... (no cierres esta ventana)";
+  try {
+    const r = await api("/api/admin/migrar-fotos-cloudinary", "POST", {});
+    if(r && r.ok){
+      alert(`✅ Migración completa.\n\n${r.mensaje}\n\nMigradas: ${r.migradas}\nFallidas: ${r.fallidas}\nTotal: ${r.total}`);
+      // Recargar diagnóstico
+      btn.closest('.modal-overlay')?.remove();
+      diagnosticoFotos();
+    } else {
+      throw new Error(r?.error || "Respuesta inesperada");
+    }
+  } catch(e){
+    alert("❌ Error: " + e.message);
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+// Ejecuta VACUUM FULL sobre la tabla estudiantes para liberar el espacio
+// físico ocupado por filas viejas. Bloquea la tabla mientras corre.
+async function vacuumEstudiantes(btn){
+  if(!confirm("🧹 Esto va a compactar la tabla 'estudiantes' para recuperar espacio de fotos ya borradas/migradas.\n\nLa tabla estará bloqueada ~30 segundos (no se pueden crear/editar estudiantes durante ese tiempo).\n\n¿Continuar?")) return;
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Compactando... (no cierres esta ventana)";
+  try {
+    const r = await api("/api/admin/vacuum-estudiantes", "POST", {});
+    if(r && r.ok){
+      alert(`✅ VACUUM completado en ${r.duracion_segundos}s\n\nAntes: ${r.antes}\nDespués: ${r.despues}\nAhorro: ${r.ahorro_mb} MB`);
+      btn.closest('.modal-overlay')?.remove();
+      diagnosticoFotos();
+    } else {
+      throw new Error(r?.error || "Respuesta inesperada");
+    }
+  } catch(e){
+    alert("❌ Error: " + e.message);
+    btn.disabled = false;
+    btn.textContent = orig;
   }
 }
 
