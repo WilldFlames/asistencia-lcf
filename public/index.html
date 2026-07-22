@@ -4427,140 +4427,8 @@ async function cargarDashboard(){
     const asigsPendientes = d.asignaciones.filter(a=>!a.sesion_hoy);
     const asigsOk = d.asignaciones.filter(a=>a.sesion_hoy);
 
-    // ── CALENDARIO DE EVALUACIÓN — II Pruebas Parciales · I Período 2026 ─────────
-    // Semana del 26 de junio al 3 de julio de 2026 (sétimo a undécimo).
-    // Codificación de color por nivel idéntica a "Estudiantes por Nivel".
-    let examenesHtml = '';
-    {
-      const _exHoy = new Date(hoyStr+'T12:00:00').getTime();
-      const _mkTs = (m,d) => new Date(`2026-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}T12:00:00`).getTime();
-      const exDias = [
-        {dia:'Vie', num:'26', mes:'JUN', ts:_mkTs(6,26)},
-        {dia:'Lun', num:'29', mes:'JUN', ts:_mkTs(6,29)},
-        {dia:'Mar', num:'30', mes:'JUN', ts:_mkTs(6,30)},
-        {dia:'Mié', num:'1°', mes:'JUL', ts:_mkTs(7,1)},
-        {dia:'Jue', num:'2',  mes:'JUL', ts:_mkTs(7,2)},
-        {dia:'Vie', num:'3',  mes:'JUL', ts:_mkTs(7,3)},
-      ];
-      const exHorarios = ['7:00 – 9:15 am','9:15 – 11:20 am','12:00 – 2:10 pm','2:10 – 4:15 pm'];
-      // Matriz: filas = horarios, columnas = días. Cada celda es un array de exámenes.
-      // Cada examen tiene {sub, lvls}: lvls de 1 elemento = nivel único; 2 elementos = mismo examen para varios niveles ("y").
-      // Una celda con varios objetos = exámenes distintos al mismo tiempo (ej. "Español 10° / Física 11°").
-      const exMatrix = [
-        [
-          [{sub:'Español', lvls:[7]}],
-          [{sub:'Sociales', lvls:[7]}],
-          [{sub:'Ciencias', lvls:[7]}],
-          [{sub:'Matemática', lvls:[7]}],
-          [{sub:'Inglés', lvls:[7]}],
-          [{sub:'Francés', lvls:[7]}],
-        ],
-        [
-          [{sub:'Español', lvls:[8,9]}],
-          [{sub:'Sociales', lvls:[10]}],
-          [{sub:'Ciencias', lvls:[8]}],
-          [{sub:'Matemática', lvls:[8]}],
-          [{sub:'Sociales', lvls:[8]}],
-          [{sub:'Francés', lvls:[8,9]}],
-        ],
-        [
-          [{sub:'Español', lvls:[10]}, {sub:'Física', lvls:[11]}],
-          [{sub:'Sociales', lvls:[9]}],
-          [{sub:'Química', lvls:[10,11]}],
-          [{sub:'Matemática', lvls:[10,11]}],
-          [{sub:'Tecnología', lvls:[11]}],
-          [{sub:'Cívica', lvls:[10]}],
-        ],
-        [
-          [{sub:'Español', lvls:[11]}, {sub:'Física', lvls:[10]}],
-          [{sub:'Sociales', lvls:[11]}],
-          [{sub:'Ciencias', lvls:[9]}, {sub:'Tecnología', lvls:[10]}],
-          [{sub:'Matemática', lvls:[9]}],
-          [{sub:'Biología', lvls:[10,11]}],
-          [{sub:'Cívica', lvls:[11]}],
-        ],
-      ];
-      // Paleta por nivel — alineada con "Estudiantes por Nivel" (azul/morado/verde/naranja/rojo)
-      const exCol = {
-        7:  {bg:'#dbeafe', fg:'#1e3a8a', bd:'#bfdbfe'},
-        8:  {bg:'#ede9fe', fg:'#5b21b6', bd:'#ddd6fe'},
-        9:  {bg:'#dcfce7', fg:'#166534', bd:'#bbf7d0'},
-        10: {bg:'#ffedd5', fg:'#9a3412', bd:'#fed7aa'},
-        11: {bg:'#fee2e2', fg:'#991b1b', bd:'#fecaca'},
-      };
-      const exPill = (ex) => {
-        const lblNiv = ex.lvls.map(l=>l+'°').join(' y ');
-        if (ex.lvls.length > 1) {
-          // Examen compartido entre niveles — gradiente suave entre los dos colores
-          const a = exCol[ex.lvls[0]], b = exCol[ex.lvls[ex.lvls.length-1]];
-          return `<div style="background:linear-gradient(135deg,${a.bg},${b.bg});color:var(--azul);border:1px solid ${a.bd};font-size:11px;font-weight:bold;padding:5px 7px;border-radius:6px;text-align:center;line-height:1.25;">${ex.sub}<br><span style="font-size:10px;opacity:.85;">${lblNiv}</span></div>`;
-        }
-        const c = exCol[ex.lvls[0]];
-        return `<div style="background:${c.bg};color:${c.fg};border:1px solid ${c.bd};font-size:11px;font-weight:bold;padding:5px 7px;border-radius:6px;text-align:center;line-height:1.25;">${ex.sub}<br><span style="font-size:10px;opacity:.8;">${lblNiv}</span></div>`;
-      };
-      // Badge de estado en la cabecera (siguiendo el patrón de "Fechas Clave")
-      const _exFirst = exDias[0].ts, _exLast = exDias[exDias.length-1].ts;
-      let badge = '';
-      if (_exHoy > _exLast) {
-        badge = `<span style="background:#e2e8f0;color:var(--muted);font-size:10px;font-weight:bold;padding:3px 9px;border-radius:10px;letter-spacing:.5px;">FINALIZADAS</span>`;
-      } else if (_exHoy >= _exFirst) {
-        badge = `<span style="background:var(--rojo);color:#fff;font-size:10px;font-weight:bold;padding:3px 9px;border-radius:10px;letter-spacing:.5px;">EN CURSO</span>`;
-      } else {
-        const dFalt = Math.ceil((_exFirst - _exHoy) / 86400000);
-        if (dFalt > 0) {
-          const c = dFalt <= 14 ? {bg:'#fef3c7',fg:'#92400e'} : {bg:'#eff6ff',fg:'var(--azul)'};
-          badge = `<span style="background:${c.bg};color:${c.fg};font-size:10px;font-weight:bold;padding:3px 9px;border-radius:10px;letter-spacing:.3px;">Faltan ${dFalt} día${dFalt===1?'':'s'}</span>`;
-        }
-      }
-      examenesHtml = `<div class="card" style="margin:0 0 14px 0;border-left:4px solid var(--azul2);">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:3px;flex-wrap:wrap;">
-          <div style="font-weight:bold;font-size:15px;color:var(--azul);">📝 II Pruebas Parciales · I Período 2026</div>
-          ${badge}
-        </div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Semana del 26 de junio al 3 de julio · Sétimo a Undécimo</div>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;">
-          <table style="width:100%;border-collapse:separate;border-spacing:4px;min-width:760px;">
-            <thead><tr>
-              <th style="background:transparent;padding:0;width:78px;border:none;"></th>
-              ${exDias.map(dia=>{
-                const past = dia.ts < _exHoy;
-                const today = dia.ts === _exHoy;
-                const bg = today ? 'var(--azul)' : past ? '#f1f5f9' : '#eff6ff';
-                const fg = today ? '#fff' : past ? 'var(--muted)' : 'var(--azul)';
-                return `<th style="background:${bg};color:${fg};padding:7px 4px;border-radius:7px;text-align:center;white-space:nowrap;border:none;opacity:${past?.55:1};">
-                  <div style="font-size:10px;font-weight:600;opacity:.85;text-transform:uppercase;letter-spacing:.5px;">${dia.dia}</div>
-                  <div style="font-size:18px;font-weight:bold;line-height:1.1;margin:1px 0;">${dia.num}</div>
-                  <div style="font-size:10px;font-weight:600;opacity:.85;">${dia.mes}</div>
-                  ${today?'<div style="font-size:8px;background:#fff;color:var(--azul);padding:1px 5px;border-radius:3px;margin-top:3px;font-weight:bold;letter-spacing:.5px;">HOY</div>':''}
-                </th>`;
-              }).join('')}
-            </tr></thead>
-            <tbody>
-              ${exMatrix.map((row,ri)=>`
-                <tr>
-                  <td style="background:#f8fafc;padding:6px 6px;border-radius:7px;font-size:10px;font-weight:bold;color:var(--azul);text-align:center;line-height:1.3;border:none;">
-                    ${exHorarios[ri].split(' – ').join('<br><span style="opacity:.6;font-size:9px;">a</span><br>')}
-                  </td>
-                  ${row.map((cell, ci)=>{
-                    const dia = exDias[ci];
-                    const past = dia.ts < _exHoy;
-                    return `<td style="padding:0;vertical-align:middle;border:none;opacity:${past?.5:1};">
-                      <div style="display:flex;flex-direction:column;gap:3px;">${cell.map(exPill).join('')}</div>
-                    </td>`;
-                  }).join('')}
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);">
-          <span style="font-weight:bold;color:var(--text);">Niveles:</span>
-          ${[7,8,9,10,11].map(n=>`<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:${exCol[n].bg};border:1px solid ${exCol[n].bd};display:inline-block;"></span>${n}°</span>`).join('')}
-        </div>
-      </div>`;
-    }
 
-    let html = examenesHtml + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;align-items:start;">`;
+    let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;align-items:start;">`;
 
     // ── TARJETA 1: Asistencia de Hoy ──
     {
@@ -4659,6 +4527,112 @@ async function cargarDashboard(){
     html += `<div class="card" style="margin:0;">
       <div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">📅 Fechas Clave 2026</div>
       <div style="display:flex;flex-direction:column;gap:4px;">${_periodos.map(p=>{const c=_pCol[p.tipo];const da=new Date(p.d1+'T12:00:00'),db=new Date(p.d2+'T12:00:00');const act=_hoyMs2>=da.getTime()&&_hoyMs2<=db.getTime();const pas=_hoyMs2>db.getTime();const rng=da.getTime()===db.getTime()?_fC2(da):`${_fC2(da)}–${_fC2(db)}`;return `<div style="display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:5px;background:${c.bg};opacity:${pas?.4:1};"><span style="font-size:12px;">${p.icono}</span><div style="flex:1;min-width:0;overflow:hidden;"><div style="font-size:11px;font-weight:bold;color:${c.c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.label}</div><div style="font-size:10px;color:${c.c};opacity:.8;">${rng}</div></div>${act?`<span style="background:${c.c};color:#fff;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:8px;">HOY</span>`:''}</div>`;}).join('')}</div>
+    </div>`;
+
+    // ── CALENDARIZACIÓN II PERÍODO 2026 (según circular oficial del MEP) ──
+    // Timeline vertical con todas las actividades del II Período, marcando la
+    // actividad ACTUAL (si estamos en su rango) o la PRÓXIMA (más cercana).
+    // Colores por tipo de actividad:
+    //   azul  → pruebas parciales / pruebas nacionales
+    //   naranja → sindicatos / congresos / feriados
+    //   verde → entregas de calificaciones / actas / SEA
+    //   rojo → graduación, cierre de año
+    //   morado → pruebas de ampliación, semana cívica
+    const _c2Col = {
+      azul: {bg:'#eff6ff', c:'#1e40af', dot:'#2563eb'},
+      naran:{bg:'#fff7ed', c:'#9a3412', dot:'#f97316'},
+      verde:{bg:'#f0fdf4', c:'#166534', dot:'#16a34a'},
+      rojo: {bg:'#fef2f2', c:'#991b1b', dot:'#dc2626'},
+      mora: {bg:'#faf5ff', c:'#6b21a8', dot:'#9333ea'},
+    };
+    const _c2Act = [
+      {tipo:'verde',icono:'📄',label:'Entrega informes de calificaciones I Período', involucra:'Personal docente', d1:'2026-08-03', d2:'2026-08-07'},
+      {tipo:'naran',icono:'🏛️',label:'Congreso APSE',                                involucra:'Afiliados',        d1:'2026-08-12', d2:'2026-08-14'},
+      {tipo:'azul', icono:'📝',label:'Primeras Pruebas Parciales',                    involucra:'Todos los niveles',d1:'2026-09-02', d2:'2026-09-08'},
+      {tipo:'mora', icono:'🎉',label:'Semana Cívica',                                 involucra:'Comunidad educativa',d1:'2026-09-09', d2:'2026-09-15'},
+      {tipo:'naran',icono:'🏳️',label:'Feriado',                                       involucra:'Todos',            d1:'2026-09-16', d2:'2026-09-16'},
+      {tipo:'azul', icono:'📝',label:'Segundas Pruebas Parciales (9° y 11°)',         involucra:'9° y 11°',         d1:'2026-10-12', d2:'2026-10-16'},
+      {tipo:'naran',icono:'🏛️',label:'Congreso ANDE',                                involucra:'Afiliados',        d1:'2026-10-21', d2:'2026-10-23'},
+      {tipo:'azul', icono:'📊',label:'Pruebas Nacionales Estandarizadas',             involucra:'11°',              d1:'2026-10-26', d2:'2026-10-30'},
+      {tipo:'verde',icono:'📄',label:'Entrega promedios y temario ampliación (9°/11°)',involucra:'9° y 11°',        d1:'2026-11-02', d2:'2026-11-06'},
+      {tipo:'azul', icono:'📝',label:'Segundas Pruebas Parciales (7°, 8° y 10°)',     involucra:'7°, 8° y 10°',     d1:'2026-11-02', d2:'2026-11-06'},
+      {tipo:'mora', icono:'📚',label:'I Pruebas de Ampliación (9° y 11°)',            involucra:'9° y 11°',         d1:'2026-11-09', d2:'2026-11-16'},
+      {tipo:'naran',icono:'🏛️',label:'Congreso SEC',                                 involucra:'Afiliados',        d1:'2026-11-17', d2:'2026-11-19'},
+      {tipo:'naran',icono:'🤝',label:'Día de la Confraternidad',                       involucra:'Todo el personal', d1:'2026-11-20', d2:'2026-11-20'},
+      {tipo:'verde',icono:'📥',label:'Entrega Planillas SEA (9° y 11°)',              involucra:'9° y 11°',         d1:'2026-11-24', d2:'2026-11-24'},
+      {tipo:'verde',icono:'📄',label:'Entrega promedios y temarios ampliación',        involucra:'7°, 8° y 10°',     d1:'2026-11-23', d2:'2026-11-27'},
+      {tipo:'mora', icono:'📚',label:'I Pruebas Ampliación (7°, 8° y 10°)',           involucra:'7°, 8° y 10°',     d1:'2026-11-30', d2:'2026-12-04'},
+      {tipo:'mora', icono:'📚',label:'II Pruebas Ampliación (9° y 11°)',              involucra:'9° y 11°',         d1:'2026-11-30', d2:'2026-12-04'},
+      {tipo:'verde',icono:'📥',label:'Entrega Planillas SEA (7°, 8° y 10°)',          involucra:'7°, 8° y 10°',     d1:'2026-12-07', d2:'2026-12-07'},
+      {tipo:'verde',icono:'🎓',label:'Entrega títulos de Noveno',                     involucra:'Comité matrícula', d1:'2026-12-08', d2:'2026-12-10'},
+      {tipo:'rojo', icono:'🎓',label:'Graduación',                                    involucra:'Todo el personal', d1:'2026-12-11', d2:'2026-12-11'},
+    ];
+
+    // Encontrar la actividad ACTUAL o la PRÓXIMA
+    let _c2Actual = null;
+    let _c2Proxima = null;
+    for (const a of _c2Act) {
+      const t1 = new Date(a.d1+'T00:00:00').getTime();
+      const t2 = new Date(a.d2+'T23:59:59').getTime();
+      if (_hoyMs2 >= t1 && _hoyMs2 <= t2) { _c2Actual = a; break; }
+      if (!_c2Proxima && t1 > _hoyMs2) _c2Proxima = a;
+    }
+
+    const _c2Fmt = (d1s, d2s) => {
+      const d1 = new Date(d1s+'T12:00:00'), d2 = new Date(d2s+'T12:00:00');
+      if (d1.getTime() === d2.getTime()) return _fC2(d1);
+      if (d1.getMonth() === d2.getMonth()) return `${d1.getDate()}–${d2.getDate()} ${_meses2[d1.getMonth()]}`;
+      return `${_fC2(d1)}–${_fC2(d2)}`;
+    };
+
+    // Card destacada arriba: actividad HOY o PRÓXIMA
+    let _c2Header = '';
+    if (_c2Actual) {
+      const cAct = _c2Col[_c2Actual.tipo];
+      _c2Header = `<div style="background:${cAct.bg};border-left:3px solid ${cAct.dot};padding:8px 10px;border-radius:6px;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:bold;color:${cAct.c};letter-spacing:.5px;">🔴 EN CURSO</div>
+        <div style="font-size:12.5px;font-weight:bold;color:${cAct.c};margin-top:2px;">${_c2Actual.icono} ${_c2Actual.label}</div>
+        <div style="font-size:10.5px;color:${cAct.c};opacity:.85;margin-top:1px;">${_c2Fmt(_c2Actual.d1, _c2Actual.d2)} · ${_c2Actual.involucra}</div>
+      </div>`;
+    } else if (_c2Proxima) {
+      const cAct = _c2Col[_c2Proxima.tipo];
+      const t1 = new Date(_c2Proxima.d1+'T00:00:00').getTime();
+      const dias = Math.ceil((t1 - _hoyMs2) / (1000*60*60*24));
+      _c2Header = `<div style="background:${cAct.bg};border-left:3px solid ${cAct.dot};padding:8px 10px;border-radius:6px;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:bold;color:${cAct.c};letter-spacing:.5px;">⏭️ PRÓXIMA ${dias > 0 ? `· en ${dias} día${dias===1?'':'s'}` : ''}</div>
+        <div style="font-size:12.5px;font-weight:bold;color:${cAct.c};margin-top:2px;">${_c2Proxima.icono} ${_c2Proxima.label}</div>
+        <div style="font-size:10.5px;color:${cAct.c};opacity:.85;margin-top:1px;">${_c2Fmt(_c2Proxima.d1, _c2Proxima.d2)} · ${_c2Proxima.involucra}</div>
+      </div>`;
+    }
+
+    html += `<div class="card" style="margin:0;grid-column:span 2;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-weight:bold;font-size:13px;color:var(--azul);">📅 Calendarización II Período 2026</div>
+        <div style="font-size:10px;color:var(--muted);">20 jul → 9 dic</div>
+      </div>
+      ${_c2Header}
+      <div style="max-height:280px;overflow-y:auto;padding-right:4px;">
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          ${_c2Act.map(a=>{
+            const c = _c2Col[a.tipo];
+            const t1 = new Date(a.d1+'T00:00:00').getTime();
+            const t2 = new Date(a.d2+'T23:59:59').getTime();
+            const activa = _hoyMs2 >= t1 && _hoyMs2 <= t2;
+            const pasada = _hoyMs2 > t2;
+            return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;background:${activa?c.bg:'transparent'};border-left:2px solid ${activa?c.dot:'transparent'};opacity:${pasada?.45:1};">
+              <span style="font-size:13px;flex-shrink:0;">${a.icono}</span>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:11px;font-weight:${activa?'bold':'600'};color:${c.c};line-height:1.25;">${a.label}</div>
+                <div style="font-size:10px;color:${c.c};opacity:.75;margin-top:1px;">${a.involucra}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div style="font-size:10.5px;font-weight:bold;color:${c.c};white-space:nowrap;">${_c2Fmt(a.d1, a.d2)}</div>
+                ${activa?`<span style="background:${c.dot};color:#fff;font-size:8.5px;font-weight:bold;padding:1px 5px;border-radius:8px;margin-top:2px;display:inline-block;">HOY</span>`:pasada?`<span style="font-size:9px;color:var(--muted);">✓ Realizado</span>`:''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
     </div>`;
     html += `<div class="card" style="margin:0;">
       <div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">🏛️ Sindicatos 2026</div>
