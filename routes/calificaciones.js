@@ -713,13 +713,42 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
     });
   });
 
+  // PRE-CÁLCULO: si algunos exámenes no tienen valor_porcentual guardado
+  // (ej: se crearon antes de que existiera ese campo), les asignamos un VP
+  // "virtual" con el peso restante distribuido equitativamente. Así siempre
+  // podemos usar el modo VP (suma directa por examen) y evitamos caer al
+  // modo LEGACY que promedia por puntaje total y da resultados incorrectos
+  // cuando faltan notas en algún examen.
+  //
+  // Ejemplo del bug: rubro Pruebas 50%, dos exámenes de 25% cada uno,
+  // estudiante saca 21/21 en el 1° y no hace el 2°.
+  //   - Modo VP (correcto): (21/21)*25 = 25 puntos del rubro
+  //   - Modo LEGACY (bug):  21/(21+18)*100 = 53.85 → *50/100 = 26.92
+  // La diferencia es porque LEGACY asume que TODOS los puntos posibles del
+  // rubro cuentan como una única masa, en vez de tratar cada examen aparte.
+  const examenesEvals = evalsR.rows.filter(e => e.tipo === 'examen');
+  let vpTotalAsignado = 0;
+  let sinVpCount = 0;
+  for (const ev of examenesEvals) {
+    const vp = Number(ev.valor_porcentual || 0);
+    if (vp > 0) vpTotalAsignado += vp;
+    else sinVpCount++;
+  }
+  const pesoPruebasRubro = Number(regla.porc_pruebas || 0);
+  const vpDisponibleRestante = Math.max(0, pesoPruebasRubro - vpTotalAsignado);
+  const vpVirtualPorSinVp = (sinVpCount > 0 && vpDisponibleRestante > 0)
+    ? vpDisponibleRestante / sinVpCount
+    : 0;
+
   // Cargar notas por cada evaluación
   for (const ev of evalsR.rows) {
     if (ev.tipo === 'examen') {
       const ntx = await pool.query("SELECT estudiante_id, puntos_obtenidos FROM notas_examen WHERE evaluacion_id=$1", [ev.id]);
       const notasMap = new Map(ntx.rows.map(n => [Number(n.estudiante_id), Number(n.puntos_obtenidos)]));
       const ptotal = Number(ev.puntaje_total);
-      const vp = Number(ev.valor_porcentual || 0);
+      const vpGuardado = Number(ev.valor_porcentual || 0);
+      // Si no tiene VP guardado, usar el virtual calculado arriba
+      const vp = vpGuardado > 0 ? vpGuardado : vpVirtualPorSinVp;
       for (const e of estudiantes) {
         const r = rubros.get(e.id).examen;
         r.cant_evals += 1;
@@ -813,14 +842,19 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
     // % aplicando peso
     const pctCotid = notaCotid !== null ? (notaCotid * pesos.cotidiano) / 100 : 0;
     const pctTar   = notaTar !== null   ? (notaTar   * pesos.tareas) / 100    : 0;
-    // Para exámenes: si todos tienen valor_porcentual definido, usar la suma directa.
-    // Si hay alguno sin valor_porcentual (legacy), caer al método proporcional.
+    // Para exámenes: si hay al menos un examen con VP (real o virtual),
+    // usar SIEMPRE el modo de suma directa por VP. Esto asegura que la
+    // nota de cada examen se calcula de forma independiente, sin que la
+    // ausencia de nota en uno afecte matemáticamente a los otros.
+    //
+    // Solo caemos al modo LEGACY (proporcional al puntaje total) si por
+    // algún motivo NINGÚN examen tiene VP ni se pudo calcular uno virtual.
     let pctExm;
-    if (r.examen.tiene_vp && !r.examen.sin_vp) {
-      // Todos los exámenes tienen valor_porcentual → usar suma directa
+    if (r.examen.tiene_vp) {
+      // Modo VP (correcto): suma directa por examen
       pctExm = r.examen.pct_sumado;
     } else {
-      // Modo legacy (proporcional al puntaje total)
+      // Modo LEGACY (fallback, no debería activarse en la práctica)
       pctExm = notaExm !== null ? (notaExm * pesos.pruebas) / 100 : 0;
     }
     const pctProy  = notaProy !== null  ? (notaProy  * pesos.proyectos) / 100 : 0;

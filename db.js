@@ -1440,6 +1440,51 @@ async function initDB() {
     // NULL para tipos que no son examen.
     await client.query(`ALTER TABLE evaluaciones ADD COLUMN IF NOT EXISTS valor_porcentual NUMERIC(5,2) DEFAULT NULL`);
 
+    // Backfill: para exámenes que quedaron con valor_porcentual=NULL (creados
+    // antes de que se agregara este campo), asignar automáticamente uno
+    // basado en el peso de pruebas del REAC de la materia, dividido entre
+    // los exámenes existentes del mismo profe/asignación/período. Esto
+    // evita que el cálculo de promedios caiga en "modo legacy" y dé notas
+    // inconsistentes cuando hay exámenes sin nota registrada. Se corre solo
+    // una vez por examen (si ya tiene valor guardado, no se toca).
+    try {
+      await client.query(`
+        WITH grupos AS (
+          SELECT
+            ev.profesor_id, ev.seccion_id, ev.materia_id,
+            COALESCE(ev.subgrupo,'') AS sg, ev.periodo,
+            s.nivel,
+            COUNT(*) FILTER (WHERE ev.tipo='examen') AS cant_ex
+          FROM evaluaciones ev
+          JOIN secciones s ON s.id = ev.seccion_id
+          WHERE ev.tipo='examen'
+          GROUP BY ev.profesor_id, ev.seccion_id, ev.materia_id,
+                   COALESCE(ev.subgrupo,''), ev.periodo, s.nivel
+        ),
+        pesos AS (
+          SELECT g.*, reg.porc_pruebas
+          FROM grupos g
+          JOIN materia_regla_evaluacion mre
+            ON mre.materia_id = g.materia_id
+            AND g.nivel BETWEEN mre.nivel_min AND mre.nivel_max
+          JOIN materia_evaluacion_oficial reg ON reg.id = mre.regla_id
+          WHERE reg.porc_pruebas > 0 AND g.cant_ex > 0
+        )
+        UPDATE evaluaciones ev
+        SET valor_porcentual = ROUND((p.porc_pruebas / p.cant_ex)::numeric, 2)
+        FROM pesos p
+        WHERE ev.tipo = 'examen'
+          AND ev.valor_porcentual IS NULL
+          AND ev.profesor_id = p.profesor_id
+          AND ev.seccion_id  = p.seccion_id
+          AND ev.materia_id  = p.materia_id
+          AND COALESCE(ev.subgrupo,'') = p.sg
+          AND ev.periodo = p.periodo
+      `);
+    } catch(e) {
+      console.warn("Backfill valor_porcentual:", e.message);
+    }
+
     // Índice para listar rápido por asignación
     await client.query(`CREATE INDEX IF NOT EXISTS idx_eval_asig ON evaluaciones(profesor_id, seccion_id, materia_id, periodo)`);
 

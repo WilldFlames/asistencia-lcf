@@ -17517,7 +17517,9 @@ function renderPromPeriodo(data){
       const colorEst = total >= aprobMin ? 'var(--verde)' : (total >= aprobMin - 10 ? 'var(--naranja)' : 'var(--rojo)');
       const lblEst = aprobado ? '✓ Aprobado' : '✗ Aplazado';
       return `<tr>
-        <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong><br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
+        <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
+          <button class="btn-xs" onclick='prom_verDesglose(${JSON.stringify(e).replace(/'/g, "&#39;")})' style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;margin-left:4px;font-size:11px;" title="Ver desglose del cálculo">🔍</button>
+          <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
         ${cels}
         ${celAsist}
         <td style="text-align:center;font-weight:bold;font-size:15px;color:${colorEst};">${total.toFixed(1)}</td>
@@ -17618,9 +17620,90 @@ async function prom_cerrarPeriodo(){
   }
 }
 
+// ── Diagnóstico: mostrar desglose del cálculo por estudiante ──────────
+// Sirve para depurar cuando la nota no cuadra con lo esperado. Muestra
+// cada rubro con: cuántas evaluaciones hay, cuántas tienen nota, cuánto
+// obtuvo, y cómo se calculó el pct que aporta al total. Al final suma
+// todos los aportes y muestra el total.
+function prom_verDesglose(e){
+  if(!promDataActual || !promDataActual.regla) return;
+  const regla = promDataActual.regla;
+  const nombre = `${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}`.trim();
+  const rubros = [
+    { key: 'cotidiano', nombre: 'Trabajo cotidiano', peso: Number(regla.porc_cotidiano)||0 },
+    { key: 'tarea',     nombre: 'Tareas',            peso: Number(regla.porc_tareas)||0 },
+    { key: 'examen',    nombre: 'Pruebas',           peso: Number(regla.porc_pruebas)||0 },
+    { key: 'proyecto',  nombre: 'Proyectos',         peso: Number(regla.porc_proyectos)||0 },
+  ];
+  const filas = rubros.map(rub => {
+    const r = e.rubros?.[rub.key];
+    if(!r || rub.peso === 0) return '';
+    const notaBruta = r.nota_100 != null ? Number(r.nota_100).toFixed(1) : '—';
+    const pctAporta = r.pct != null ? Number(r.pct).toFixed(2) : '0';
+    // Cómo se calculó el pct del rubro Pruebas (aporte al total):
+    // - Si tiene VP en todas las evaluaciones: pct_sumado (suma directa por examen)
+    // - Si no: notaExm × peso_rubro / 100 (modo legacy)
+    let explicacion = '';
+    if(rub.key === 'examen'){
+      if(r.tiene_vp && !r.sin_vp){
+        explicacion = `<div style="font-size:11px;color:var(--muted);margin-top:2px;">✓ Todas las pruebas tienen valor porcentual → sumamos aporte de cada una</div>`;
+      } else if(r.sin_vp){
+        explicacion = `<div style="font-size:11px;color:var(--naranja);margin-top:2px;">⚠️ Alguna prueba sin "valor porcentual" — cálculo modo legacy (proporcional al puntaje total)</div>`;
+      }
+    }
+    return `<tr>
+      <td style="padding:6px;border:1px solid var(--border);"><strong>${rub.nombre}</strong> <span style="font-size:11px;color:var(--muted);">(rubro pesa ${rub.peso}%)</span>${explicacion}</td>
+      <td style="padding:6px;border:1px solid var(--border);text-align:center;">${r.cant_evals}</td>
+      <td style="padding:6px;border:1px solid var(--border);text-align:center;">${r.cant_con_nota}</td>
+      <td style="padding:6px;border:1px solid var(--border);text-align:center;">${Number(r.obtenido||0).toFixed(1)} / ${Number(r.max||0).toFixed(1)}</td>
+      <td style="padding:6px;border:1px solid var(--border);text-align:center;">${notaBruta}</td>
+      <td style="padding:6px;border:1px solid var(--border);text-align:center;font-weight:bold;color:var(--azul);">${pctAporta}</td>
+    </tr>`;
+  }).filter(Boolean).join('');
+
+  const A = e.asistencia || {};
+  const asistPct = A.pct != null ? Number(A.pct).toFixed(2) : '0';
+  const asistFila = (Number(regla.porc_asistencia)||0) > 0 ? `<tr>
+    <td style="padding:6px;border:1px solid var(--border);"><strong>Asistencia</strong> <span style="font-size:11px;color:var(--muted);">(pesa ${regla.porc_asistencia}%)</span></td>
+    <td style="padding:6px;border:1px solid var(--border);text-align:center;" colspan="3">${A.lecciones_ausentes_injust||0} lecc. ausentes de ${A.total_lecciones||0} totales<br/><span style="font-size:11px;color:var(--muted);">${Number(A.porcentaje_ausencias||0).toFixed(1)}% ausencias</span></td>
+    <td style="padding:6px;border:1px solid var(--border);text-align:center;">${A.puntos_mep||0}/5 pts MEP</td>
+    <td style="padding:6px;border:1px solid var(--border);text-align:center;font-weight:bold;color:var(--azul);">${asistPct}</td>
+  </tr>` : '';
+
+  const total = Number(e.total||0).toFixed(2);
+  document.getElementById('desglose-titulo').textContent = `🔍 Desglose de ${nombre}`;
+  document.getElementById('desglose-contenido').innerHTML = `
+    <div style="background:#eff6ff;border-left:3px solid var(--azul);padding:8px 12px;border-radius:6px;font-size:12.5px;margin-bottom:10px;">
+      💡 <strong>Cómo leer esta tabla:</strong> cada fila muestra un rubro (cotidiano, tareas, pruebas, etc.). La columna <strong>"Aporte al total"</strong> es cuántos puntos suma ese rubro a la nota final. La suma de esos aportes = <strong>${total}</strong>.
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead style="background:#f1f5f9;">
+        <tr>
+          <th style="padding:6px;border:1px solid var(--border);text-align:left;">Rubro</th>
+          <th style="padding:6px;border:1px solid var(--border);">Evaluaciones</th>
+          <th style="padding:6px;border:1px solid var(--border);">Con nota</th>
+          <th style="padding:6px;border:1px solid var(--border);">Puntos obt./máx.</th>
+          <th style="padding:6px;border:1px solid var(--border);">Nota /100</th>
+          <th style="padding:6px;border:1px solid var(--border);">Aporte al total</th>
+        </tr>
+      </thead>
+      <tbody>${filas}${asistFila}
+        <tr style="background:#fef3c7;font-weight:bold;">
+          <td colspan="5" style="padding:8px;border:1px solid var(--border);text-align:right;">TOTAL:</td>
+          <td style="padding:8px;border:1px solid var(--border);text-align:center;font-size:15px;color:var(--azul);">${total}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);">
+      Si algún rubro te sorprende (ej: la nota de Pruebas debería ser 20 pero muestra 26),
+      contame en el chat qué esperabas y qué muestra acá para arreglarlo.
+    </div>
+  `;
+  document.getElementById('modal-desglose').classList.add('show');
+}
+
 // ── Reabrir período (admin) ───────────────────────────────
-function prom_reabrirPeriodo(){
-  if(!promDataActual || !promDataActual.asignacion) return;
+function prom_reabrirPeriodo(){  if(!promDataActual || !promDataActual.asignacion) return;
   const a = promDataActual.asignacion;
   const periodo = document.getElementById("prom-vista").value;
   document.getElementById("mrp-info").innerHTML =
@@ -18201,6 +18284,24 @@ async function pdfZoom(delta){
       <canvas id="pdf-canvas" style="box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:100%;"></canvas>
     </div>
     <div id="pdf-loading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:14px;display:none;">⏳ Cargando documento...</div>
+  </div>
+</div>
+
+<!-- ─── MODAL: DESGLOSE DEL CÁLCULO DE PROMEDIO ─────────────────
+     Se abre desde el botón 🔍 al lado del nombre de un estudiante en
+     la vista de Promedios. Muestra fila por fila cómo se compone la
+     nota final: qué aportó cada rubro (cotidiano, tareas, pruebas,
+     proyectos, asistencia), cuántas evaluaciones tiene el estudiante
+     con/sin nota y el "aporte al total" que se suma a la nota. Es la
+     herramienta principal para diagnosticar por qué una nota sale con
+     un valor inesperado. -->
+<div class="modal-overlay" id="modal-desglose">
+  <div class="modal" style="max-width:840px;">
+    <h3 id="desglose-titulo">🔍 Desglose del cálculo</h3>
+    <div id="desglose-contenido"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="cerrarModal('modal-desglose')">Cerrar</button>
+    </div>
   </div>
 </div>
 
