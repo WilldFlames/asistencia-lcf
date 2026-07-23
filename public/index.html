@@ -542,6 +542,7 @@ tr:hover td{background:#f8fafc;}
           <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Comité Comedor</button>
           <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Comité Matrícula</button>
           <button class="btn btn-orange btn-sm" onclick="abrirIntercambioPeriodo()">🔄 Intercambio Hogar↔Industriales (II Período)</button>
+          <button class="btn btn-danger btn-sm" onclick="abrirSubgruposEstudiantes()" title="Arreglar subgrupos A/B de estudiantes por sección">🔀 Corregir Subgrupos A/B</button>
           <button class="btn btn-outline btn-sm" onclick="diagnosticoFotos()" title="Ver cuánto espacio ocupan las fotos en la BD">📊 Diagnóstico Fotos</button>
         </div>
       </div>
@@ -1770,6 +1771,27 @@ tr:hover td{background:#f8fafc;}
     <div id="sf-lista" style="max-height:340px;overflow:auto;"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-secciones-frances')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CORREGIR SUBGRUPOS A/B DE ESTUDIANTES -->
+<div class="modal-overlay" id="modal-subgrupos-est">
+  <div class="modal" style="max-width:720px;">
+    <h3>🔀 Corregir Subgrupos A/B de Estudiantes</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">
+      Herramienta de <strong>corrección</strong>. Muestra cuántos estudiantes hay en A y B en cada sección.
+      Si están invertidos, pulsá "🔄 Invertir" en esa sección: los A pasan a B y viceversa (los sin subgrupo no se tocan).
+      <br/><strong>⚠️ Ojo:</strong> el cambio afecta a todas las materias que usen subgrupo (EdFís, Idioma, Taller, etc.).
+      Solo hacelo cuando estés seguro que ES el problema — comparalo primero con la asignación oficial en papel.
+    </p>
+    <div id="alert-subgrupos-est" class="alert"></div>
+    <div class="table-wrap" style="max-height:440px;overflow:auto;"><table style="font-size:12.5px;">
+      <thead><tr><th>Sección</th><th style="text-align:center;">A</th><th style="text-align:center;">B</th><th style="text-align:center;">Sin sub.</th><th>Total</th><th></th></tr></thead>
+      <tbody id="subgrupos-est-tbody"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-subgrupos-est')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -5475,6 +5497,44 @@ async function eliminarMateria(id,n){
 // ════════════════════════════════════
 //  SECCIONES ADMIN
 // ════════════════════════════════════
+async function abrirSubgruposEstudiantes(){
+  document.getElementById("modal-subgrupos-est").classList.add("show");
+  document.getElementById("alert-subgrupos-est").className = "alert";
+  await cargarSubgruposEstado();
+}
+
+async function cargarSubgruposEstado(){
+  const tbody = document.getElementById("subgrupos-est-tbody");
+  try{
+    const rows = await api("/api/admin/subgrupos-estado")||[];
+    if(!rows.length){ tbody.innerHTML = '<tr><td colspan="6" class="empty">Sin datos.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(s=>{
+      const hayAB = s.cant_a > 0 || s.cant_b > 0;
+      return `<tr>
+        <td><strong>${s.seccion_nombre}</strong></td>
+        <td style="text-align:center;font-weight:bold;color:${s.cant_a?'#059669':'#94a3b8'};">${s.cant_a}</td>
+        <td style="text-align:center;font-weight:bold;color:${s.cant_b?'#ea580c':'#94a3b8'};">${s.cant_b}</td>
+        <td style="text-align:center;color:#64748b;">${s.sin_subgrupo}</td>
+        <td style="color:#64748b;">${s.total}</td>
+        <td>${hayAB
+          ? `<button class="btn btn-orange btn-xs" onclick="invertirSubgrupos(${s.seccion_id},'${s.seccion_nombre}',${s.cant_a},${s.cant_b})">🔄 Invertir A↔B</button>`
+          : '<span style="font-size:11px;color:#94a3b8;">Sin A/B</span>'}
+        </td>
+      </tr>`;
+    }).join("");
+  }catch(e){ tbody.innerHTML = `<tr><td colspan="6" class="empty">${e.message}</td></tr>`; }
+}
+
+async function invertirSubgrupos(seccionId, seccionNombre, cantA, cantB){
+  if(!confirm(`⚠️ CONFIRMAR INVERSIÓN\n\nSección: ${seccionNombre}\n\nAntes:  A=${cantA} · B=${cantB}\nDespués: A=${cantB} · B=${cantA}\n\nEsto afecta a TODAS las materias que usen subgrupo (EdFís, Idioma, Taller, etc.).\n¿Continuar?`)) return;
+  if(!confirm(`Última confirmación:\n¿Invertir A↔B en ${seccionNombre}?`)) return;
+  try{
+    const r = await api(`/api/admin/subgrupos-invertir/${seccionId}`,"POST",{});
+    sa("alert-subgrupos-est", `✅ ${seccionNombre}: A=${r.despues.cant_a}, B=${r.despues.cant_b}`, "success");
+    await cargarSubgruposEstado();
+  }catch(e){ sa("alert-subgrupos-est", e.message, "danger"); }
+}
+
 async function cargarSeccionesAdmin(){
   const nivel=document.getElementById("filtro-nivel-sec")?.value||"";
   const rows=await api("/api/admin/secciones");
@@ -16268,13 +16328,23 @@ async function cargarVistaIntercambio(){
     const pendientes = completas.filter(g => !g.ya_intercambiado);
 
     cont.innerHTML = `
+      <div style="background:#fef2f2;border:2px solid #dc2626;padding:12px 14px;border-radius:8px;font-size:12.5px;margin-bottom:12px;">
+        <div style="font-weight:bold;font-size:13px;color:#991b1b;margin-bottom:6px;">⚠️ MUY IMPORTANTE — leer antes de ejecutar</div>
+        <div style="line-height:1.5;">
+          Este botón <strong>SOLO cambia la asignación del profesor</strong> (el subgrupo que le toca dar).
+          <strong style="color:#991b1b;">NO se debe editar el subgrupo A/B en la ficha de ningún estudiante.</strong>
+          Los estudiantes se quedan con el mismo A o B todo el año — es el profesor el que rota.
+          <br/>Ejemplo: si en el I Período el profe daba <em>Hogar al subgrupo A</em>, en el II Período dará <em>Hogar al subgrupo B</em>.
+          Los mismos chicos del subgrupo A siguen siendo A, solo que ahora con otro profesor.
+        </div>
+      </div>
       <div style="background:#eff6ff;border-left:3px solid var(--azul);padding:9px 12px;border-radius:5px;font-size:12px;margin-bottom:12px;">
         <strong>Período actual:</strong> ${d.periodo_actual} ·
         <strong>${pendientes.length}</strong> secciones pendientes ·
         <strong>${yaHechos}</strong> ya intercambiadas ·
         <strong>${incompletos.length}</strong> incompletas
         <div style="margin-top:6px;font-size:11px;color:var(--muted);">
-          💡 En el intercambio, cada profe conserva su materia y sección — solo cambia de <strong>subgrupo</strong>. Ej: si dabas Hogar al subgrupo A, en el II Período darás Hogar al subgrupo B.
+          💡 En el intercambio, cada profe conserva su materia y sección — solo cambia de <strong>subgrupo</strong>.
         </div>
       </div>
       <div class="table-wrap" style="max-height:380px;overflow-y:auto;">
@@ -16339,7 +16409,12 @@ async function cargarVistaIntercambio(){
 }
 
 async function confirmarIntercambio(){
-  if(!confirm("⚠️ Esto creará las asignaciones del II Período intercambiando los profesores de Hogar e Industriales. ¿Continuar?")) return;
+  const aviso = "⚠️ CONFIRMAR INTERCAMBIO\n\n" +
+    "El sistema SOLO cambia las asignaciones de los profesores (el subgrupo que da cada profe).\n\n" +
+    "🚫 NO edite subgrupos de estudiantes después de esto — los chicos se quedan con el mismo A o B todo el año, solo cambia el profesor.\n\n" +
+    "¿Continuar con el intercambio?";
+  if(!confirm(aviso)) return;
+  if(!confirm("Última confirmación: ¿ejecutar el intercambio ahora?")) return;
   const btn = document.getElementById("btn-ejecutar-intercambio");
   if(btn.disabled) return;
   btn.disabled = true;
@@ -16349,7 +16424,10 @@ async function confirmarIntercambio(){
     const r = await api("/api/periodos/intercambiar", "POST", {});
     if(r && r.ok){
       sa("alert-intercambio",
-        `✅ ${r.intercambiados} pares intercambiados${r.saltados>0?`, ${r.saltados} omitidos`:''}.`, "success");
+        `✅ ${r.intercambiados} pares intercambiados${r.saltados>0?`, ${r.saltados} omitidos`:''}. ` +
+        `RECORDATORIO IMPORTANTE: los subgrupos A/B en las fichas de los estudiantes NO deben editarse. ` +
+        `El intercambio ya rotó al profesor — el estudiante se queda con la misma letra.`,
+        "success");
       await cargarVistaIntercambio();
     } else {
       sa("alert-intercambio", "Error en la respuesta del servidor.", "danger");

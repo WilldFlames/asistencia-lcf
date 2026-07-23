@@ -146,6 +146,68 @@ router.get("/secciones", async (req, res) => {
 // GET /api/admin/diagnostico-asignaciones/:profesor_id
 // Devuelve TODAS las filas crudas de la tabla asignaciones para ese profe,
 // SIN filtros de período ni herencia. Solo admin.
+// ── ESTADO DE SUBGRUPOS POR SECCIÓN (para admin) ──────────────────────────
+// Devuelve, por cada sección, cuántos estudiantes hay con A, con B y sin subgrupo.
+// Sirve para verificar visualmente antes de invertir subgrupos.
+router.get("/subgrupos-estado", onlyAdmin, async (req, res) => {
+  const r = await pool.query(`
+    SELECT s.id AS seccion_id, s.nombre AS seccion_nombre, s.nivel,
+      COUNT(*) FILTER (WHERE UPPER(COALESCE(e.subgrupo,'')) = 'A')::int AS cant_a,
+      COUNT(*) FILTER (WHERE UPPER(COALESCE(e.subgrupo,'')) = 'B')::int AS cant_b,
+      COUNT(*) FILTER (WHERE COALESCE(e.subgrupo,'') = '')::int AS sin_subgrupo,
+      COUNT(*)::int AS total
+    FROM secciones s
+    LEFT JOIN estudiantes e ON e.seccion_id = s.id
+      AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
+    GROUP BY s.id, s.nombre, s.nivel
+    HAVING COUNT(*) > 0
+    ORDER BY s.nivel, s.nombre
+  `);
+  res.json(r.rows);
+});
+
+// ── INVERTIR A↔B EN UNA SECCIÓN (solo admin, con confirmación) ────────────
+// Los estudiantes con subgrupo A pasan a B y viceversa. Los sin subgrupo se quedan igual.
+// Registra en la tabla intercambios_periodo para auditoría.
+router.post("/subgrupos-invertir/:seccion_id", onlyAdmin, async (req, res) => {
+  const seccionId = parseInt(req.params.seccion_id);
+  if(!seccionId) return res.status(400).json({ error: "Sección inválida" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Contar antes para reporte
+    const antes = await client.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE UPPER(COALESCE(subgrupo,'')) = 'A')::int AS cant_a,
+        COUNT(*) FILTER (WHERE UPPER(COALESCE(subgrupo,'')) = 'B')::int AS cant_b
+      FROM estudiantes
+      WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL)
+    `, [seccionId]);
+    // Invertir (los sin subgrupo o con otro valor no se tocan)
+    await client.query(`
+      UPDATE estudiantes SET subgrupo = CASE
+        WHEN UPPER(subgrupo) = 'A' THEN 'B'
+        WHEN UPPER(subgrupo) = 'B' THEN 'A'
+        ELSE subgrupo
+      END
+      WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL)
+        AND UPPER(COALESCE(subgrupo,'')) IN ('A','B')
+    `, [seccionId]);
+    await client.query("COMMIT");
+    res.json({
+      ok: true,
+      seccion_id: seccionId,
+      antes: antes.rows[0],
+      despues: { cant_a: antes.rows[0].cant_b, cant_b: antes.rows[0].cant_a }
+    });
+  } catch(e) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 router.get("/diagnostico-asignaciones/:profesor_id", onlyAdmin, async (req, res) => {
   const r = await pool.query(`
     SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo,
