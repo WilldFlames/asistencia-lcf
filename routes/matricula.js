@@ -17,7 +17,7 @@ async function canAccess(req, res, next) {
 router.get("/", canAccess, async (req, res) => {
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
-      e.tipo_ingreso, e.nivel_matricula, e.matricula_completada,
+      e.tipo_ingreso, e.nivel_matricula, e.matricula_completada, e.idioma, e.tecnologia,
       e.seccion_id, s.nombre AS seccion_nombre, e.created_at
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
@@ -252,6 +252,260 @@ router.delete("/:id", canAccess, async (req, res) => {
     } catch(e) { console.error("matricula UPDATE prematricula pendiente:", e.message); }
   }
   res.json({ ok:true });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MATRÍCULA CON SECCIÓN POR AÑO (cupos, idioma, tecnología)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MAX_CUPO = 26; // máximo de estudiantes por sección
+
+// Fecha/año actual en Costa Rica (UTC-6)
+function fechaCR(){
+  const ahora = new Date();
+  const offsetCR = -6 * 60;
+  const localMs = ahora.getTime() + (ahora.getTimezoneOffset() + offsetCR) * 60000;
+  return new Date(localMs).toISOString().slice(0,10);
+}
+function anioActualCR(){ return parseInt(fechaCR().slice(0,4)); }
+
+// Subgrupo según tecnología: Inglés Conversacional = A · Diseño Publicitario = B
+function subgrupoDeTecnologia(tec){
+  if(!tec) return null;
+  if(/conversacional/i.test(tec)) return 'A';
+  if(/publicitario/i.test(tec)) return 'B';
+  return null;
+}
+
+// ── CUPOS POR SECCIÓN PARA UN AÑO ────────────────────────────────────────
+// Año actual → cuenta estudiantes activos en cada sección.
+// Año futuro → cuenta filas de matrícula de ese año.
+router.get("/cupos/:anio", canAccess, async (req, res) => {
+  const anio = parseInt(req.params.anio);
+  if(!anio) return res.status(400).json({ error: "Año inválido" });
+  const esActual = anio === anioActualCR();
+  const q = esActual ? `
+    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, COUNT(e.id)::int AS ocupados
+    FROM secciones s
+    LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
+    LEFT JOIN estudiantes e ON e.seccion_id = s.id
+      AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
+    GROUP BY s.id, si.idioma ORDER BY s.nivel, s.nombre
+  ` : `
+    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, COUNT(m.id)::int AS ocupados
+    FROM secciones s
+    LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
+    LEFT JOIN matricula m ON m.seccion_id = s.id AND m.anio = $1
+    GROUP BY s.id, si.idioma ORDER BY s.nivel, s.nombre
+  `;
+  const r = await pool.query(q, [anio]);
+  res.json(r.rows.map(x => ({ ...x, max: MAX_CUPO, disponibles: Math.max(0, MAX_CUPO - x.ocupados) })));
+});
+
+// ── ASIGNAR SECCIÓN (año actual o futuro) ────────────────────────────────
+// body: { estudiante_id, anio, seccion_id, idioma, tecnologia, forzar }
+// - Año actual  → actualiza estudiantes.seccion_id directamente (comportamiento clásico)
+// - Año futuro  → guarda en la tabla matricula; NO toca la sección vigente.
+//   El cambio real ocurre con POST /aplicar/:anio al arrancar el año nuevo.
+// - Cupo máximo 26. Solo admin puede forzar por encima del cupo (forzar=true).
+router.post("/asignar", canAccess, async (req, res) => {
+  const { estudiante_id, anio, seccion_id, idioma, tecnologia, forzar } = req.body;
+  const a = parseInt(anio);
+  if(!estudiante_id || !a || !seccion_id)
+    return res.status(400).json({ error: "estudiante_id, anio y seccion_id son requeridos" });
+
+  const u = req.session.usuario;
+  const esActual = a === anioActualCR();
+
+  // ── Verificar cupo (excluyendo al propio estudiante, por si reasigna) ──
+  let ocupados;
+  if(esActual){
+    const c = await pool.query(`
+      SELECT COUNT(*)::int AS c FROM estudiantes
+      WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL) AND id<>$2
+    `, [seccion_id, estudiante_id]);
+    ocupados = c.rows[0].c;
+  } else {
+    const c = await pool.query(
+      "SELECT COUNT(*)::int AS c FROM matricula WHERE seccion_id=$1 AND anio=$2 AND estudiante_id<>$3",
+      [seccion_id, a, estudiante_id]);
+    ocupados = c.rows[0].c;
+  }
+  if(ocupados >= MAX_CUPO && !(forzar && u.rol === "admin")){
+    return res.status(409).json({
+      error: `La sección está llena (${ocupados}/${MAX_CUPO}). Solo el administrador puede forzar la matrícula por encima del cupo.`,
+      llena: true
+    });
+  }
+
+  const secR = await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccion_id]);
+  const secNombre = secR.rows[0] ? secR.rows[0].nombre : "";
+  // Idioma exclusivo de la sección PARA ESE AÑO (2026: 10-3/11-3 · 2027: 10-2/11-2)
+  const secIdR = await pool.query(
+    "SELECT idioma FROM secciones_idioma WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
+  const secIdioma = secIdR.rows[0] ? secIdR.rows[0].idioma : null;
+  const sub = subgrupoDeTecnologia(tecnologia);
+
+  // ── Validación de idioma (secciones exclusivas de Francés) ────────────
+  // Idioma efectivo del estudiante: el que viene en la asignación, o el
+  // que ya tiene registrado (digitado por la orientadora de 9°).
+  const estIdR = await pool.query("SELECT idioma FROM estudiantes WHERE id=$1", [estudiante_id]);
+  const idiomaEf = idioma || (estIdR.rows[0] ? estIdR.rows[0].idioma : null);
+  const secEsFrances = secIdioma === "Francés";
+  const estEsFrances = idiomaEf === "Francés";
+  if(secEsFrances !== estEsFrances && !(forzar && u.rol === "admin")){
+    const msg = secEsFrances
+      ? `La sección ${secNombre} es EXCLUSIVA de Francés y el estudiante lleva ${idiomaEf || "idioma sin registrar"}.`
+      : `El estudiante lleva Francés y la sección ${secNombre} no es de Francés.`;
+    return res.status(409).json({ error: msg + " Solo el administrador puede forzar esta asignación.", idioma_conflicto: true });
+  }
+
+  if(esActual){
+    // Asignación inmediata + actualiza idioma/tecnología del estudiante
+    await pool.query(`
+      UPDATE estudiantes SET seccion_id=$1,
+        idioma = COALESCE($2, idioma),
+        tecnologia = COALESCE($3, tecnologia)
+      WHERE id=$4
+    `, [seccion_id, idioma || null, tecnologia || null, estudiante_id]);
+  }
+  // En ambos casos queda registrado en la tabla matricula (historial por año)
+  await pool.query(`
+    INSERT INTO matricula (estudiante_id, anio, seccion_id, seccion_nombre, idioma, tecnologia, subgrupo, confirmado_por)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    ON CONFLICT (estudiante_id, anio) DO UPDATE SET
+      seccion_id=$3, seccion_nombre=$4,
+      idioma=COALESCE($5, matricula.idioma),
+      tecnologia=COALESCE($6, matricula.tecnologia),
+      subgrupo=COALESCE($7, matricula.subgrupo),
+      confirmado_por=$8
+  `, [estudiante_id, a, seccion_id, secNombre, idioma || null, tecnologia || null, sub, u.id]);
+
+  res.json({ ok: true, aplicado_directo: esActual, seccion_nombre: secNombre, subgrupo: sub });
+});
+
+// ── ASIGNACIONES FUTURAS DE UN AÑO (para pintar la lista) ────────────────
+router.get("/asignaciones/:anio", canAccess, async (req, res) => {
+  const anio = parseInt(req.params.anio);
+  const r = await pool.query(`
+    SELECT m.estudiante_id, m.seccion_id, m.seccion_nombre, m.idioma, m.tecnologia, m.subgrupo
+    FROM matricula m WHERE m.anio=$1
+  `, [anio]);
+  res.json(r.rows);
+});
+
+// ── APLICAR MATRÍCULAS DE UN AÑO (solo admin, un botón al arrancar) ──────
+// 1. Cada estudiante con matrícula+sección de ese año pasa a su sección nueva
+//    (y hereda idioma/tecnología registrados en la matrícula).
+// 2. Los estudiantes activos SIN matrícula de ese año quedan SIN SECCIÓN
+//    (activos, para revisar a mano: graduados de 11°, traslados, no volvieron).
+router.post("/aplicar/:anio", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  if(u.rol !== "admin") return res.status(403).json({ error: "Solo el administrador puede aplicar matrículas" });
+  const anio = parseInt(req.params.anio);
+  if(!anio) return res.status(400).json({ error: "Año inválido" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const apl = await client.query(`
+      UPDATE estudiantes e SET
+        seccion_id = m.seccion_id,
+        idioma     = COALESCE(m.idioma, e.idioma),
+        tecnologia = COALESCE(m.tecnologia, e.tecnologia)
+      FROM matricula m
+      WHERE m.estudiante_id = e.id AND m.anio = $1 AND m.seccion_id IS NOT NULL
+        AND e.activo = true
+      RETURNING e.id
+    `, [anio]);
+    const sinMat = await client.query(`
+      UPDATE estudiantes SET seccion_id = NULL
+      WHERE activo = true AND (archivado = false OR archivado IS NULL)
+        AND id NOT IN (SELECT estudiante_id FROM matricula WHERE anio = $1 AND seccion_id IS NOT NULL)
+      RETURNING id
+    `, [anio]);
+    await client.query("COMMIT");
+    res.json({ ok: true, aplicados: apl.rows.length, sin_seccion: sinMat.rows.length, anio });
+  } catch(e) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ── SECCIONES DE FRANCÉS POR AÑO ─────────────────────────────────────────
+// GET: marcas del año. PUT (solo admin): marcar/desmarcar una sección.
+router.get("/secciones-idioma/:anio", canAccess, async (req, res) => {
+  const r = await pool.query(
+    "SELECT seccion_id, idioma FROM secciones_idioma WHERE anio=$1", [parseInt(req.params.anio)]);
+  res.json(r.rows);
+});
+
+router.put("/secciones-idioma", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  if(u.rol !== "admin") return res.status(403).json({ error: "Solo el administrador puede marcar secciones de idioma" });
+  const { seccion_id, anio, idioma } = req.body;
+  const a = parseInt(anio);
+  if(!seccion_id || !a) return res.status(400).json({ error: "seccion_id y anio requeridos" });
+  if(idioma && idioma !== "Francés")
+    return res.status(400).json({ error: "Idioma inválido (solo 'Francés' o vacío)" });
+  if(idioma){
+    await pool.query(`
+      INSERT INTO secciones_idioma (seccion_id, anio, idioma) VALUES ($1,$2,$3)
+      ON CONFLICT (seccion_id, anio) DO UPDATE SET idioma=$3
+    `, [seccion_id, a, idioma]);
+  } else {
+    await pool.query("DELETE FROM secciones_idioma WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
+  }
+  res.json({ ok: true });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  IDIOMA Y TECNOLOGÍA — módulo de la orientadora de 9° (9° → 10°)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function canIdiomaTec(req, res, next){
+  const u = req.session.usuario;
+  if(!u) return res.status(401).json({ error: "No autorizado" });
+  const fx = u.funciones_extra || [];
+  if(["admin","auxiliar","administrativo"].includes(u.rol)) return next();
+  if(u.rol === "orientador" || fx.includes("orientador")) return next();
+  return res.status(403).json({ error: "Sin permisos" });
+}
+
+// Lista estudiantes de NOVENO. Orientador → solo sus secciones asignadas.
+router.get("/idioma-tecnologia", canIdiomaTec, async (req, res) => {
+  const u = req.session.usuario;
+  const fx = u.funciones_extra || [];
+  const esOrientador = (u.rol === "orientador" || fx.includes("orientador")) &&
+                       !["admin","auxiliar","administrativo"].includes(u.rol);
+  let filtro = "", params = [];
+  if(esOrientador){
+    const secs = await pool.query("SELECT seccion_id FROM seccion_orientador WHERE orientador_id=$1", [u.id]);
+    if(!secs.rows.length) return res.json([]);
+    params.push(secs.rows.map(r=>r.seccion_id));
+    filtro = `AND e.seccion_id = ANY($${params.length}::int[])`;
+  }
+  const r = await pool.query(`
+    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      e.idioma, e.tecnologia, s.nombre AS seccion_nombre
+    FROM estudiantes e
+    JOIN secciones s ON s.id = e.seccion_id
+    WHERE e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
+      AND s.nivel = 9 ${filtro}
+    ORDER BY s.nombre, e.primer_apellido, e.segundo_apellido, e.nombre
+  `, params);
+  res.json(r.rows);
+});
+
+// Guardar idioma/tecnología de un estudiante (autosave por fila)
+router.put("/idioma-tecnologia/:id", canIdiomaTec, async (req, res) => {
+  const { idioma, tecnologia } = req.body;
+  await pool.query(`
+    UPDATE estudiantes SET idioma=$1, tecnologia=$2 WHERE id=$3
+  `, [idioma || null, tecnologia || null, req.params.id]);
+  res.json({ ok: true });
 });
 
 module.exports = router;

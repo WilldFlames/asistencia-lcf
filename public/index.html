@@ -356,6 +356,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="promedio" id="nav-promedio" onclick="goTo('promedio')" style="display:none"><span class="icon">📈</span><span>Promedio</span></button>
   <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
+  <button class="nav-btn" data-page="horario" id="nav-horario" onclick="goTo('horario')" style="display:none"><span class="icon">🕐</span><span>Horario</span></button>
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
   <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
   <button class="nav-btn" data-page="reportes" id="nav-reportes" onclick="goTo('reportes')" style="display:none"><span class="icon">📊</span><span>Reportes</span></button>
@@ -363,9 +364,12 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="expediente" id="nav-expediente" onclick="goTo('expediente')" style="display:none"><span class="icon">📁</span><span>Expediente</span></button>
   <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
   <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
+  <button class="nav-btn" data-page="idiomatec" id="nav-idiomatec" onclick="goTo('idiomatec')" style="display:none"><span class="icon">🗣️</span><span>Idioma/Tecnología</span></button>
   <div class="sidebar-section" id="sec-admin" style="display:none">Admin</div>
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
+  <button class="nav-btn" data-page="permisos" id="nav-permisos" onclick="goTo('permisos')" style="display:none"><span class="icon">🚪</span><span>Permisos Salida</span></button>
+  <button class="nav-btn" data-page="porteria" id="nav-porteria" onclick="goTo('porteria')" style="display:none"><span class="icon">🛂</span><span>Portería</span></button>
   <button class="nav-btn" data-page="comedor" id="nav-comedor" onclick="goTo('comedor')" style="display:none"><span class="icon">🍽️</span><span>Comedor</span></button>
   <button class="nav-btn" data-page="carnet" id="nav-carnet" onclick="goTo('carnet')" style="display:none"><span class="icon">🪪</span><span>Carnet</span></button>
   <button class="nav-btn" data-page="consecutivos" id="nav-consecutivos" onclick="goTo('consecutivos')" style="display:none"><span class="icon">🔢</span><span>Consecutivos</span></button>
@@ -1222,6 +1226,167 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
+<!-- IDIOMA Y TECNOLOGÍA (orientadora de 9°) -->
+<div class="page" id="page-idiomatec">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
+      <h2 style="margin:0">🗣️ Idioma y Tecnología — Noveno → Décimo</h2>
+      <select id="it-filtro-seccion" onchange="itRender()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;">
+        <option value="">— Todas las secciones —</option>
+      </select>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Registrá el <strong>idioma</strong> y la <strong>tecnología</strong> que eligió cada estudiante de noveno. Cuando se ratifique la matrícula a décimo, esta información aparece precargada. Se guarda automáticamente al cambiar cada campo. Recordá: Inglés Conversacional = <strong>Grupo A</strong> · Diseño Publicitario = <strong>Grupo B</strong>.</p>
+    <div id="alert-idiomatec" class="alert"></div>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+      <div class="stat"><div class="num" id="it-total">0</div><div class="lbl">Estudiantes 9°</div></div>
+      <div class="stat"><div class="num green" id="it-completos">0</div><div class="lbl">Completos</div></div>
+      <div class="stat"><div class="num orange" id="it-pendientes">0</div><div class="lbl">Pendientes</div></div>
+      <div class="stat"><div class="num" id="it-frances">0</div><div class="lbl">Francés</div></div>
+    </div>
+    <div class="table-wrap"><table style="font-size:12.5px;">
+      <thead><tr><th>#</th><th>Estudiante</th><th>Cédula</th><th>Sección</th><th>Idioma</th><th>Tecnología</th></tr></thead>
+      <tbody id="it-tbody"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- HORARIO -->
+<div class="page" id="page-horario">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+      <h2 style="margin:0">🕐 Horario — Curso Lectivo <span id="hor-anio-label"></span></h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" id="hor-btn-mi" onclick="horVerMiHorario()" style="display:none;">👤 Mi horario</button>
+        <button class="btn btn-success btn-sm" onclick="horImprimir()" id="hor-btn-imprimir" style="display:none;">🖨️ Imprimir</button>
+        <button class="btn btn-primary btn-sm" onclick="horGuardar()" id="hor-btn-guardar" style="display:none;">💾 Guardar Horario</button>
+      </div>
+    </div>
+    <div id="alert-horario" class="alert"></div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="fg" style="min-width:180px;">
+        <label>Sección</label>
+        <select id="hor-seccion" onchange="horCargarSeccion()"></select>
+      </div>
+      <div class="fg" style="width:110px;">
+        <label>Año</label>
+        <input type="number" id="hor-anio" onchange="horCargarSeccion()"/>
+      </div>
+      <div id="hor-guia-label" style="font-size:13px;color:var(--muted);padding-bottom:8px;"></div>
+    </div>
+    <div id="hor-grid-wrap" class="table-wrap"></div>
+  </div>
+</div>
+
+<!-- PERMISOS DE SALIDA -->
+<div class="page" id="page-permisos">
+  <div class="card" style="margin-bottom:14px;">
+    <h2 style="margin-bottom:4px;">🚪 Permisos de Salida</h2>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">El permiso vale para la fecha indicada y es de <strong>un solo uso por estudiante</strong>. En portería, el guarda escanea el código de barras: con permiso vigente se autoriza la salida; sin permiso y en horario lectivo, se deniega.</p>
+    <div id="alert-permisos" class="alert"></div>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      <label style="font-size:13px;font-weight:bold;">Tipo de permiso:</label>
+      <label style="font-size:13px;cursor:pointer;"><input type="radio" name="ps-tipo" value="individual" checked onchange="psTipoCambio()"/> 👤 Individual</label>
+      <label style="font-size:13px;cursor:pointer;"><input type="radio" name="ps-tipo" value="seccion" onchange="psTipoCambio()"/> 👥 Por sección</label>
+    </div>
+    <div class="form-grid">
+      <div class="fg" id="ps-fg-cedula">
+        <label>Cédula del estudiante *</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="ps-cedula" placeholder="Cédula..." style="flex:1;" onkeydown="if(event.key==='Enter')psBuscarEst()"/>
+          <button class="btn btn-outline btn-sm" onclick="psBuscarEst()">🔍</button>
+        </div>
+        <div id="ps-est-info" style="font-size:12.5px;margin-top:4px;color:var(--verde);"></div>
+      </div>
+      <div class="fg" id="ps-fg-seccion" style="display:none;">
+        <label>Sección *</label>
+        <select id="ps-seccion"></select>
+      </div>
+      <div class="fg"><label>Fecha *</label><input type="date" id="ps-fecha"/></div>
+      <div class="fg"><label>Hora de salida (referencia)</label><input type="time" id="ps-hora"/></div>
+      <div class="fg"><label>Encargado que autoriza *</label><input type="text" id="ps-aut-nombre" placeholder="Nombre completo..."/></div>
+      <div class="fg"><label>Cédula de quien autoriza</label><input type="text" id="ps-aut-cedula"/></div>
+      <div class="fg"><label>Parentesco</label><input type="text" id="ps-aut-parentesco" placeholder="Madre, padre, director..."/></div>
+      <div class="fg" style="grid-column:1/-1;"><label>Motivo *</label><input type="text" id="ps-motivo" placeholder="Cita médica, actividad, gira, situación familiar..."/></div>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-primary" onclick="psCrear()">➕ Crear Permiso</button>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <h2 style="margin:0;font-size:16px;">📋 Permisos registrados</h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="date" id="ps-filtro-fecha" onchange="psCargarLista()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
+        <label style="font-size:12.5px;cursor:pointer;"><input type="checkbox" id="ps-filtro-todos" onchange="psCargarLista()"/> Ver todos</label>
+      </div>
+    </div>
+    <div class="table-wrap"><table style="font-size:12.5px;">
+      <thead><tr><th>Nº</th><th>Fecha</th><th>Tipo</th><th>Estudiante / Sección</th><th>Motivo</th><th>Autoriza</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="ps-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- PORTERÍA -->
+<div class="page" id="page-porteria">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <h2 style="margin:0">🛂 Portería — Control de Entrada y Salida</h2>
+      <div style="font-size:13px;color:var(--muted);" id="pt-fecha-label"></div>
+    </div>
+    <div id="alert-porteria" class="alert"></div>
+
+    <!-- Selector de modo -->
+    <div style="display:flex;gap:10px;justify-content:center;margin:14px 0;">
+      <button id="pt-modo-entrada" onclick="ptSetModo('entrada')" style="flex:1;max-width:220px;padding:16px;font-size:18px;font-weight:bold;border-radius:var(--r);border:3px solid #16a34a;background:#16a34a;color:#fff;cursor:pointer;">⬇️ ENTRADA</button>
+      <button id="pt-modo-salida" onclick="ptSetModo('salida')" style="flex:1;max-width:220px;padding:16px;font-size:18px;font-weight:bold;border-radius:var(--r);border:3px solid #ea580c;background:#fff;color:#ea580c;cursor:pointer;">⬆️ SALIDA</button>
+    </div>
+
+    <!-- Input escaneo -->
+    <div style="text-align:center;padding:4px 0 8px;">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Escaneá o escribí la cédula del estudiante y presioná Enter</p>
+      <div style="display:flex;gap:10px;justify-content:center;max-width:460px;margin:0 auto 14px;">
+        <input type="text" id="pt-scan-input" placeholder="Cédula / código de barras"
+          style="flex:1;padding:14px 18px;font-size:20px;font-weight:bold;border:3px solid var(--azul);border-radius:var(--r);text-align:center;letter-spacing:2px;"
+          autocomplete="off"
+          onkeydown="if(event.key==='Enter') ptEscanear()"/>
+        <button class="btn btn-primary" style="padding:14px 18px;font-size:20px;" onclick="ptEscanear()">✔</button>
+      </div>
+      <!-- Resultado -->
+      <div id="pt-scan-result" style="display:none;max-width:520px;margin:0 auto 12px;border-radius:var(--r);padding:18px 22px;text-align:center;">
+        <div style="font-size:30px;font-weight:900;letter-spacing:1px;" id="ptr-estado"></div>
+        <div style="font-size:21px;font-weight:bold;margin-top:6px;" id="ptr-nombre"></div>
+        <div style="font-size:13px;color:#555;margin-top:2px;" id="ptr-sub"></div>
+        <div style="font-size:14px;margin-top:8px;font-weight:600;" id="ptr-detalle"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-top:6px;">
+      <div class="stat"><div class="num green" id="pt-entradas">0</div><div class="lbl">Entradas hoy</div></div>
+      <div class="stat"><div class="num orange" id="pt-salidas">0</div><div class="lbl">Salidas permitidas</div></div>
+      <div class="stat"><div class="num" id="pt-denegadas" style="color:#dc2626;">0</div><div class="lbl">Salidas denegadas</div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="pt-grid-2">
+    <div class="card">
+      <h2 style="font-size:15px;margin-bottom:10px;">📜 Movimientos de hoy</h2>
+      <div class="table-wrap" style="max-height:420px;overflow:auto;"><table style="font-size:12px;">
+        <thead><tr><th>Hora</th><th>Estudiante</th><th>Secc.</th><th>Tipo</th><th>Resultado</th></tr></thead>
+        <tbody id="pt-tbody-reg"><tr><td colspan="5" class="empty">Sin movimientos.</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h2 style="font-size:15px;margin-bottom:10px;">🚪 Permisos de salida vigentes hoy</h2>
+      <div class="table-wrap" style="max-height:420px;overflow:auto;"><table style="font-size:12px;">
+        <thead><tr><th>Nº</th><th>Tipo</th><th>Estudiante / Sección</th><th>Motivo</th><th>Estado</th></tr></thead>
+        <tbody id="pt-tbody-perm"><tr><td colspan="5" class="empty">Sin permisos hoy.</td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
 <!-- CARNET ESTUDIANTIL -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <div class="page" id="page-carnet">
@@ -1429,9 +1594,16 @@ tr:hover td{background:#f8fafc;}
   <!-- Encabezado + botón nueva matrícula -->
   <div class="card" style="margin-bottom:14px;">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-      <h2 style="margin:0">🎓 Matrícula 2027</h2>
-      <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
+      <h2 style="margin:0">🎓 Matrícula <span id="mat-anio-label"></span></h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:13px;font-weight:bold;">Año:</label>
+        <select id="mat-anio" onchange="matCambioAnio()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:bold;"></select>
+        <button class="btn btn-orange btn-sm" id="mat-btn-aplicar" onclick="matAplicarAnio()" style="display:none;">▶️ Aplicar Matrículas</button>
+        <button class="btn btn-outline btn-sm" id="mat-btn-frances" onclick="abrirSeccionesFrances()" style="display:none;">🇫🇷 Secciones Francés</button>
+        <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
+      </div>
     </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:6px;" id="mat-anio-nota"></p>
     <div id="alert-mat" class="alert" style="margin-top:10px;"></div>
 
     <!-- Resumen por nivel -->
@@ -1470,15 +1642,45 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- Modal asignar sección -->
+<div class="modal-overlay" id="modal-secciones-frances">
+  <div class="modal" style="max-width:420px;">
+    <h3>🇫🇷 Secciones de Francés — <span id="sf-anio"></span></h3>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Marcá qué secciones son <strong>exclusivas de Francés</strong> para este año. La marca es por año: en 2026 pueden ser la 10-3 y 11-3, y en 2027 la 10-2 y 11-2 sin conflicto. Se guarda al cambiar cada casilla.</p>
+    <div id="alert-sf" class="alert"></div>
+    <div id="sf-lista" style="max-height:340px;overflow:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-secciones-frances')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-asignar-seccion">
-  <div class="modal" style="max-width:400px;">
-    <h3>📚 Asignar Sección</h3>
+  <div class="modal" style="max-width:460px;">
+    <h3>📚 Asignar Sección <span id="asignar-sec-anio"></span></h3>
     <p id="asignar-sec-nombre" style="font-weight:bold;font-size:14px;margin-bottom:14px;"></p>
     <input type="hidden" id="asignar-sec-est-id"/>
+    <input type="hidden" id="asignar-sec-nivel"/>
     <div class="fg">
-      <label>Sección</label>
+      <label>Sección <span style="font-weight:normal;color:var(--muted);">(cupo máx. 26)</span></label>
       <select id="asignar-sec-select"><option value="">— Seleccionar —</option></select>
     </div>
+    <div class="fg" id="asignar-fg-idioma" style="display:none;">
+      <label>Idioma</label>
+      <select id="asignar-sec-idioma">
+        <option value="">— Seleccionar —</option>
+        <option value="Inglés">Inglés</option>
+        <option value="Francés">Francés</option>
+      </select>
+    </div>
+    <div class="fg" id="asignar-fg-tec" style="display:none;">
+      <label>Tecnología (Décimo)</label>
+      <select id="asignar-sec-tec">
+        <option value="">— Seleccionar —</option>
+        <option value="Inglés Conversacional">Inglés Conversacional — Grupo A</option>
+        <option value="Diseño Publicitario">Diseño Publicitario — Grupo B</option>
+      </select>
+    </div>
+    <div id="asignar-herencia" style="display:none;font-size:12.5px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 10px;margin-bottom:10px;"></div>
     <div id="alert-asignar-sec" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-asignar-seccion')">Cancelar</button>
@@ -3060,6 +3262,7 @@ tr:hover td{background:#f8fafc;}
           <option value="profesor_guia">Profesor Guía</option>
           <option value="orientador">Orientador</option>
           <option value="cocinera">Cocinera</option>
+          <option value="seguridad">Seguridad</option>
           <option value="secretaria">Secretaria</option>
           <option value="administrativo">Administrativo</option>
           <option value="auxiliar">Auxiliar Administrativo</option>
@@ -3874,8 +4077,8 @@ function periodoActualODefault(fechaStr) {
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
 const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
-const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa"};
-const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof",cocinera:"b-orient",secretaria:"b-aux",administrativo:"b-prof"};
+const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa",seguridad:"Seguridad"};
+const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof",cocinera:"b-orient",secretaria:"b-aux",administrativo:"b-prof",seguridad:"b-aux"};
 
 // ════════════════════════════════════
 //  AUTH
@@ -3989,6 +4192,9 @@ function goTo(page){
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
   if(page==="expediente")  document.getElementById("exp-cedula").focus();
   if(page==="comedor")     iniciarComedor();
+  if(page==="horario")     iniciarHorario();
+  if(page==="permisos")    iniciarPermisos();
+  if(page==="porteria")    iniciarPorteria();
   if(page==="carnet")      iniciarCarnet();
   if(page==="precautoria") iniciarMedidas('precautoria');
   if(page==="suspension")  iniciarMedidas('suspension');
@@ -4002,6 +4208,7 @@ function goTo(page){
   if(page==="archivo")      iniciarArchivo();
   if(page==="prematricula") iniciarPrematricula();
   if(page==="matricula")    iniciarMatricula();
+  if(page==="idiomatec")    iniciarIdiomaTec();
   if(page==="reportes")    initReportes();
   if(page==="cartas")      iniciarCartas();
   if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
@@ -4087,6 +4294,25 @@ async function iniciarApp(){
     document.getElementById("nav-comedor").style.display="";
   }
 
+  // ── HORARIO ──────────────────────────────────────────────────
+  // Admin edita; profes/guías/orientadores ven horarios de secciones
+  // y el suyo propio. Auxiliar/administrativo también pueden consultar.
+  if(esAdmin||esProfesor||esGuia||esOrientador||esAuxiliar||esAdminIst){
+    document.getElementById("nav-horario").style.display="";
+  }
+
+  // ── PERMISOS DE SALIDA ───────────────────────────────────────
+  // Auxiliares los crean (admin también).
+  if(esAdmin||esAuxiliar){
+    document.getElementById("nav-permisos").style.display="";
+  }
+
+  // ── PORTERÍA ─────────────────────────────────────────────────
+  // Rol seguridad (guarda) + admin.
+  if(esAdmin||ME.rol==="seguridad"){
+    document.getElementById("nav-porteria").style.display="";
+  }
+
   // ── CONSECUTIVOS ─────────────────────────────────────────────
   const rolesConsec=["secretaria","auxiliar","orientador","profesor","administrativo","profesor_guia"];
   if(rolesConsec.includes(ME.rol)||fx.includes("profesor_guia")||fx.includes("orientador")||esAdmin){
@@ -4103,6 +4329,11 @@ async function iniciarApp(){
   if(esAdmin||esAuxiliar||esAdminIst){
     document.getElementById("nav-prematricula").style.display="";
     document.getElementById("nav-matricula").style.display="";
+  }
+
+  // ── IDIOMA Y TECNOLOGÍA (orientadora de 9°) ──────────────────
+  if(esAdmin||esAuxiliar||esAdminIst||esOrientador){
+    document.getElementById("nav-idiomatec").style.display="";
   }
 
   // ── MEDIDAS (precautoria, suspensión, ed. híbrida) ───────────────
@@ -4164,7 +4395,8 @@ async function iniciarApp(){
      'nav-expediente','nav-comedor','nav-consecutivos','nav-constancia',
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
-     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet'
+     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec',
+     'nav-horario','nav-permisos','nav-porteria'
     ].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.style.display = "none";
@@ -4179,6 +4411,31 @@ async function iniciarApp(){
     if(navDash) navDash.style.display = "none";
     // Saltar dashboard: ir directo a Inventario después de un tick
     setTimeout(() => goTo('inventario'), 50);
+  }
+
+  // ── RESTRICCIONES PARA SEGURIDAD ────────────────────────────────
+  // El rol 'seguridad' (guarda) SOLO ve Portería. Igual que junta:
+  // se oculta todo lo demás y se salta el dashboard.
+  if(ME.rol === "seguridad"){
+    ['nav-asistencia','nav-calificaciones','nav-promedio','nav-conducta',
+     'nav-consulta','nav-mensajes','nav-estudiantes','nav-reportes','nav-cartas',
+     'nav-expediente','nav-comedor','nav-consecutivos','nav-constancia',
+     'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
+     'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
+     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec',
+     'nav-inventario','nav-horario','nav-permisos'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = "none";
+    });
+    ['sec-docente','sec-gestion','sec-admin'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = "none";
+    });
+    const navDashSeg = document.querySelector('[data-page="dashboard"]');
+    if(navDashSeg) navDashSeg.style.display = "none";
+    document.getElementById("nav-porteria").style.display = "";
+    setTimeout(() => goTo('porteria'), 50);
   }
 
   // ── ADMIN ────────────────────────────────────────────────────
@@ -4230,6 +4487,8 @@ async function iniciarApp(){
   // Redirigir según rol
   if(esCocinera){
     goTo("comedor");
+  } else if(ME.rol === "seguridad"){
+    // Ya redirigido a Portería en su bloque de restricciones
   } else if(esSecretaria){
     goTo("consecutivos");
   } else {
@@ -8193,10 +8452,97 @@ let matEncsPage = []; // encargados en memoria antes de guardar
 // ════════════════════════════════════
 let matData = [], matNivelFiltro = 0;
 
+// ── Estado de matrícula por año ──────────────────────────────────
+let matAnio = null;          // año de matrícula seleccionado
+let matCupos = [];           // cupos por sección para matAnio
+let matAsigFuturas = {};     // estudiante_id → asignación futura (si matAnio > actual)
+
+function matAnioActual(){ return parseInt(fechaHoyCR().slice(0,4)); }
+
 async function iniciarMatricula(){
-  matData = await api("/api/matricula") || [];
+  // Selector de año: actual y siguiente. Default: el siguiente a partir de setiembre.
+  const selA = document.getElementById("mat-anio");
+  const actual = matAnioActual();
+  if(selA && !selA.options.length){
+    selA.innerHTML = `<option value="${actual}">${actual}</option><option value="${actual+1}">${actual+1}</option>`;
+    const mes = parseInt(fechaHoyCR().slice(5,7));
+    selA.value = mes >= 9 ? String(actual+1) : String(actual);
+  }
+  matAnio = parseInt(selA?.value || actual);
+  document.getElementById("mat-anio-label").textContent = matAnio;
+  const nota = document.getElementById("mat-anio-nota");
+  const esFuturo = matAnio > actual;
+  if(nota) nota.textContent = esFuturo
+    ? `Las secciones asignadas quedan guardadas para el ${matAnio} SIN mover a nadie del año en curso. Al arrancar el ${matAnio}, el administrador presiona "▶️ Aplicar Matrículas" y todos pasan a su sección nueva de un solo golpe.`
+    : "Las secciones asignadas se aplican de inmediato (año en curso).";
+  const btnApl = document.getElementById("mat-btn-aplicar");
+  if(btnApl) btnApl.style.display = (esFuturo && ME.rol === "admin") ? "" : "none";
+  const btnFr = document.getElementById("mat-btn-frances");
+  if(btnFr) btnFr.style.display = ME.rol === "admin" ? "" : "none";
+
+  const [data, cupos, futuras] = await Promise.all([
+    api("/api/matricula"),
+    api(`/api/matricula/cupos/${matAnio}`).catch(()=>[]),
+    esFuturo ? api(`/api/matricula/asignaciones/${matAnio}`).catch(()=>[]) : Promise.resolve([])
+  ]);
+  matData = data || [];
+  matCupos = cupos || [];
+  matAsigFuturas = {};
+  (futuras||[]).forEach(f => { matAsigFuturas[f.estudiante_id] = f; });
   renderMatricula();
   renderResumenNiveles();
+}
+
+function matCambioAnio(){ iniciarMatricula(); }
+
+// ── Secciones de Francés por año (solo admin) ────────────────────
+async function abrirSeccionesFrances(){
+  document.getElementById("sf-anio").textContent = matAnio;
+  document.getElementById("alert-sf").className = "alert";
+  let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
+  if(!secciones.length){ try{ secciones = await api("/api/admin/secciones")||[]; }catch{} }
+  let marcas = [];
+  try{ marcas = await api(`/api/matricula/secciones-idioma/${matAnio}`)||[]; }catch{}
+  const marcaMap = {}; marcas.forEach(m=>{ marcaMap[m.seccion_id] = m.idioma; });
+  // Solo décimo y undécimo (donde aplica el francés exclusivo)
+  const lista = secciones.filter(s=>[10,11].includes(parseInt(s.nombre.split('-')[0])))
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
+  document.getElementById("sf-lista").innerHTML = `<table style="font-size:13px;"><tbody>
+    ${lista.map(s=>`<tr>
+      <td style="font-weight:bold;">${s.nombre}</td>
+      <td style="text-align:right;">
+        <label style="cursor:pointer;font-size:12.5px;">
+          <input type="checkbox" ${marcaMap[s.id]==='Francés'?'checked':''} onchange="sfGuardar(${s.id}, this)"/> 🇫🇷 Solo Francés
+        </label>
+      </td>
+    </tr>`).join("")}
+  </tbody></table>`;
+  document.getElementById("modal-secciones-frances").classList.add("show");
+}
+
+async function sfGuardar(seccionId, chk){
+  try{
+    await api("/api/matricula/secciones-idioma","PUT",{
+      seccion_id: seccionId, anio: matAnio, idioma: chk.checked ? "Francés" : null
+    });
+    sa("alert-sf", `✅ Guardado para el ${matAnio}.`, "success");
+  }catch(e){
+    chk.checked = !chk.checked; // revertir visualmente
+    sa("alert-sf", e.message, "danger");
+  }
+}
+
+async function matAplicarAnio(){
+  const actual = matAnioActual();
+  if(matAnio <= actual){ sa("alert-mat","Solo se aplican matrículas de un año futuro.","danger"); return; }
+  const conSec = Object.keys(matAsigFuturas).length;
+  if(!confirm(`Vas a APLICAR las matrículas del ${matAnio}:\n\n• ${conSec} estudiantes pasan a su sección nueva\n• Los estudiantes activos SIN matrícula ${matAnio} quedan SIN SECCIÓN (activos, para revisar a mano)\n\n⚠️ Hacé esto solo al arrancar el año nuevo, DESPUÉS de archivar el año anterior desde Expediente.\n\n¿Continuar?`)) return;
+  if(!confirm(`Última confirmación: ¿aplicar matrículas ${matAnio} ahora?`)) return;
+  try{
+    const r = await api(`/api/matricula/aplicar/${matAnio}`,"POST",{});
+    sa("alert-mat", `✅ Matrículas ${matAnio} aplicadas: ${r.aplicados} estudiantes en su sección nueva · ${r.sin_seccion} quedaron sin sección para revisión manual.`, "success");
+    await iniciarMatricula();
+  }catch(e){ sa("alert-mat", e.message, "danger"); }
 }
 
 function renderResumenNiveles(){
@@ -8237,9 +8583,7 @@ function renderMatricula(){
     <td><strong>${e.primer_apellido} ${e.segundo_apellido||""}, ${e.nombre}</strong></td>
     <td><span class="badge" style="background:${COLORES_TIPO[e.tipo_ingreso]||'#e0f2fe'};color:#374151;">${tipos[e.tipo_ingreso]||e.tipo_ingreso}</span></td>
     <td style="font-weight:bold;">${NIVELES_MAT[e.nivel_matricula]||'—'}</td>
-    <td>${e.seccion_nombre
-      ?`<span class="badge b-guia">${e.seccion_nombre}</span>`
-      :`<button class="btn btn-outline btn-xs" onclick="abrirAsignarSeccion(${e.id},'${(e.primer_apellido+' '+e.nombre).replace(/'/g,"\'")}',${e.nivel_matricula||0})">📚 Asignar</button>`}
+    <td>${matSeccionCelda(e)}
     </td>
     <td>${e.matricula_completada
       ?'<span class="badge b-guia">✅ Completa</span>'
@@ -8255,23 +8599,126 @@ function renderMatricula(){
 async function abrirAsignarSeccion(id, nombre, nivel){
   document.getElementById("asignar-sec-est-id").value = id;
   document.getElementById("asignar-sec-nombre").textContent = nombre;
+  document.getElementById("asignar-sec-nivel").value = nivel || 0;
+  document.getElementById("asignar-sec-anio").textContent = matAnio || '';
   document.getElementById("alert-asignar-sec").className = "alert";
+
+  // Refrescar cupos del año seleccionado
+  try{ matCupos = await api(`/api/matricula/cupos/${matAnio}`)||[]; }catch{ matCupos = []; }
+  const cuposMap = {}; matCupos.forEach(c=>{ cuposMap[c.seccion_id] = c; });
+
   let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
   if(!secciones.length){ try{ secciones = await api("/api/admin/secciones")||[]; }catch{} }
   const secFiltradas = nivel ? secciones.filter(s=>parseInt(s.nombre.split('-')[0])===nivel) : secciones;
+  const esAdminM = ME.rol === "admin";
+  const est = (matData||[]).find(x=>x.id==id) || {};
+  const fut = matAsigFuturas[id] || {};
+
   const sel = document.getElementById("asignar-sec-select");
   sel.innerHTML = '<option value="">— Seleccionar sección —</option>' +
-    secFiltradas.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+    secFiltradas.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(s=>{
+      const c = cuposMap[s.id];
+      // Si reasigna a la misma sección donde ya está, no cuenta contra el cupo
+      const yaAhi = (fut.seccion_id==s.id) || (!fut.seccion_id && est.seccion_id==s.id && matAnio===matAnioActual());
+      const ocupados = c ? c.ocupados - (yaAhi?1:0) : 0;
+      const llena = c && ocupados >= c.max;
+      const fr = c && c.idioma === 'Francés' ? ' · 🇫🇷 FRANCÉS' : '';
+      const label = c ? `${s.nombre}${fr} — ${ocupados}/${c.max}${llena?' · LLENA':` · ${c.max-ocupados} campos`}` : s.nombre;
+      const dis = (llena && !esAdminM) ? 'disabled' : '';
+      return `<option value="${s.id}" data-llena="${llena?1:0}" data-frances="${c&&c.idioma==='Francés'?1:0}" ${dis}>${label}</option>`;
+    }).join("");
+  if(fut.seccion_id) sel.value = String(fut.seccion_id);
+
+  // Idioma: se pregunta siempre. Tecnología: se elige en décimo; en undécimo se hereda.
+  const fgIdi = document.getElementById("asignar-fg-idioma");
+  const fgTec = document.getElementById("asignar-fg-tec");
+  const her   = document.getElementById("asignar-herencia");
+  fgIdi.style.display = "";
+  document.getElementById("asignar-sec-idioma").value = fut.idioma || est.idioma || "";
+  if(parseInt(nivel) === 10){
+    fgTec.style.display = "";
+    her.style.display = "none";
+    document.getElementById("asignar-sec-tec").value = fut.tecnologia || est.tecnologia || "";
+  } else if(parseInt(nivel) === 11){
+    fgTec.style.display = "none";
+    const tec = est.tecnologia || fut.tecnologia;
+    her.style.display = "";
+    her.innerHTML = tec
+      ? `♻️ <strong>Undécimo hereda su tecnología de décimo:</strong> ${tec}${subgrupoDeTec(tec)?` (Grupo ${subgrupoDeTec(tec)})`:''}`
+      : `⚠️ Este estudiante no tiene tecnología registrada de décimo. Podés dejarlo así y corregirlo después, o registrarla desde el módulo de estudiantes.`;
+  } else {
+    fgTec.style.display = "none";
+    her.style.display = "none";
+  }
+
   document.getElementById("modal-asignar-seccion").classList.add("show");
+}
+
+function subgrupoDeTec(tec){
+  if(!tec) return null;
+  if(/conversacional/i.test(tec)) return 'A';
+  if(/publicitario/i.test(tec)) return 'B';
+  return null;
+}
+
+// Celda de sección en la tabla de matrícula (actual + asignación futura)
+function matSeccionCelda(e){
+  const esFuturo = matAnio > matAnioActual();
+  const esc = (e.primer_apellido+' '+e.nombre).replace(/'/g,"\'");
+  const btnAsignar = `<button class="btn btn-outline btn-xs" onclick="abrirAsignarSeccion(${e.id},'${esc}',${e.nivel_matricula||0})">📚 Asignar</button>`;
+  const btnEditar  = `<button class="btn btn-outline btn-xs" onclick="abrirAsignarSeccion(${e.id},'${esc}',${e.nivel_matricula||0})" title="Cambiar sección">✏️</button>`;
+  if(esFuturo){
+    const fut = matAsigFuturas[e.id];
+    const actual = e.seccion_nombre ? `<div style="font-size:11px;color:var(--muted);">Hoy: ${e.seccion_nombre}</div>` : '';
+    if(fut && fut.seccion_nombre){
+      const extra = [fut.idioma, fut.tecnologia ? fut.tecnologia + (fut.subgrupo?` (Gr. ${fut.subgrupo})`:'') : null].filter(Boolean).join(' · ');
+      return `${actual}<span class="badge b-guia">${matAnio}: ${fut.seccion_nombre}</span> ${btnEditar}${extra?`<div style="font-size:11px;color:var(--muted);">${extra}</div>`:''}`;
+    }
+    return `${actual}${btnAsignar}`;
+  }
+  return e.seccion_nombre
+    ? `<span class="badge b-guia">${e.seccion_nombre}</span> ${btnEditar}`
+    : btnAsignar;
 }
 
 async function confirmarAsignarSeccion(){
   const id  = document.getElementById("asignar-sec-est-id").value;
-  const sid = document.getElementById("asignar-sec-select").value;
+  const sel = document.getElementById("asignar-sec-select");
+  const sid = sel.value;
+  const nivel = parseInt(document.getElementById("asignar-sec-nivel").value) || 0;
   if(!sid){ sa("alert-asignar-sec","Seleccioná una sección.","danger"); return; }
+  const idioma = document.getElementById("asignar-sec-idioma").value || null;
+  const tecnologia = nivel === 10 ? (document.getElementById("asignar-sec-tec").value || null) : null;
+  if(nivel === 10 && !tecnologia){
+    sa("alert-asignar-sec","Para décimo indicá la tecnología (Inglés Conversacional o Diseño Publicitario).","danger"); return;
+  }
+  // Sección llena → solo admin puede forzar, con confirmación
+  let forzar = false;
+  const opt = sel.options[sel.selectedIndex];
+  if(opt && opt.dataset.llena === "1"){
+    if(ME.rol !== "admin"){ sa("alert-asignar-sec","La sección está llena (26/26).","danger"); return; }
+    if(!confirm("⚠️ La sección está LLENA (26/26). ¿Forzar la matrícula por encima del cupo?")) return;
+    forzar = true;
+  }
+  // Validación de idioma: sección de francés ↔ estudiante de francés
+  const secEsFrances = opt && opt.dataset.frances === "1";
+  const estEsFrances = idioma === "Francés";
+  if(secEsFrances !== estEsFrances){
+    const msg = secEsFrances
+      ? `Esta sección es EXCLUSIVA de Francés y el estudiante lleva ${idioma || "idioma sin registrar"}.`
+      : `El estudiante lleva Francés y esta sección NO es de Francés.`;
+    if(ME.rol !== "admin"){ sa("alert-asignar-sec","⛔ " + msg,"danger"); return; }
+    if(!confirm("⚠️ " + msg + "\n\n¿Forzar la asignación de todos modos?")) return;
+    forzar = true;
+  }
   try{
-    await api(`/api/estudiantes/${id}/asignar-seccion`,"PUT",{seccion_id:+sid});
+    const r = await api("/api/matricula/asignar","POST",{
+      estudiante_id: +id, anio: matAnio, seccion_id: +sid, idioma, tecnologia, forzar
+    });
     cerrarModal("modal-asignar-seccion");
+    sa("alert-mat", r.aplicado_directo
+      ? `✅ Sección ${r.seccion_nombre} asignada (año en curso).`
+      : `✅ Sección ${r.seccion_nombre} reservada para el ${matAnio}. Se aplica al arrancar el año.`, "success");
     iniciarMatricula();
   }catch(e){ sa("alert-asignar-sec",e.message,"danger"); }
 }
@@ -13179,6 +13626,483 @@ async function escanearComedor(){
   input?.focus();
 }
 
+
+// ════════════════════════════════════
+//  IDIOMA Y TECNOLOGÍA (orientadora 9°)
+// ════════════════════════════════════
+let itData = [];
+
+async function iniciarIdiomaTec(){
+  try{
+    itData = await api("/api/matricula/idioma-tecnologia")||[];
+    // Poblar filtro de secciones (las que aparecen en los datos)
+    const sel = document.getElementById("it-filtro-seccion");
+    const secs = [...new Set(itData.map(e=>e.seccion_nombre))].sort((a,b)=>a.localeCompare(b,'es'));
+    const val = sel.value;
+    sel.innerHTML = '<option value="">— Todas las secciones —</option>' +
+      secs.map(s=>`<option value="${s}">${s}</option>`).join("");
+    if(val && secs.includes(val)) sel.value = val;
+    itRender();
+  }catch(e){ sa("alert-idiomatec", e.message, "danger"); }
+}
+
+function itStats(){
+  const completos = itData.filter(e=>e.idioma && e.tecnologia).length;
+  document.getElementById("it-total").textContent = itData.length;
+  document.getElementById("it-completos").textContent = completos;
+  document.getElementById("it-pendientes").textContent = itData.length - completos;
+  document.getElementById("it-frances").textContent = itData.filter(e=>e.idioma==='Francés').length;
+}
+
+function itRender(){
+  const filtro = document.getElementById("it-filtro-seccion").value;
+  const lista = filtro ? itData.filter(e=>e.seccion_nombre===filtro) : itData;
+  itStats();
+  const tbody = document.getElementById("it-tbody");
+  if(!lista.length){ tbody.innerHTML = '<tr><td colspan="6" class="empty">No hay estudiantes de noveno en tus secciones.</td></tr>'; return; }
+  tbody.innerHTML = lista.map((e,i)=>`<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+    <td><code>${e.cedula}</code></td>
+    <td>${e.seccion_nombre}</td>
+    <td>
+      <select onchange="itGuardar(${e.id}, this, 'idioma')" style="padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+        <option value="">—</option>
+        <option value="Inglés" ${e.idioma==='Inglés'?'selected':''}>Inglés</option>
+        <option value="Francés" ${e.idioma==='Francés'?'selected':''}>Francés</option>
+      </select>
+    </td>
+    <td>
+      <select onchange="itGuardar(${e.id}, this, 'tecnologia')" style="padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+        <option value="">—</option>
+        <option value="Inglés Conversacional" ${e.tecnologia==='Inglés Conversacional'?'selected':''}>Inglés Conversacional (Gr. A)</option>
+        <option value="Diseño Publicitario" ${e.tecnologia==='Diseño Publicitario'?'selected':''}>Diseño Publicitario (Gr. B)</option>
+      </select>
+    </td>
+  </tr>`).join("");
+}
+
+async function itGuardar(id, selEl, campo){
+  const est = itData.find(e=>e.id===id);
+  if(!est) return;
+  est[campo] = selEl.value || null;
+  try{
+    await api(`/api/matricula/idioma-tecnologia/${id}`,"PUT",{ idioma: est.idioma, tecnologia: est.tecnologia });
+    selEl.style.borderColor = "var(--verde)";
+    setTimeout(()=>{ selEl.style.borderColor = "var(--border)"; }, 1200);
+    itStats();
+  }catch(e){
+    selEl.style.borderColor = "#dc2626";
+    sa("alert-idiomatec", e.message, "danger");
+  }
+}
+
+// ════════════════════════════════════
+//  HORARIO
+// ════════════════════════════════════
+let horLecciones = [];     // catálogo [{n,ini,fin}]
+let horAsigsSeccion = [];  // asignaciones de la sección seleccionada (admin)
+let horModo = 'seccion';   // 'seccion' | 'mio'
+const HOR_DIAS = ['','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES'];
+// Filas decorativas entre lecciones (igual a la boleta oficial)
+const HOR_SEPARADORES = { 2:'RECREO', 4:'RECREO', 6:'ALMUERZO', 8:'RECREO', 10:'RECREO' };
+
+async function iniciarHorario(){
+  horModo = 'seccion';
+  const esAdminH = ME.rol === 'admin';
+  const esDocenteH = tieneAlgunRol('profesor','profesor_guia','orientador');
+  document.getElementById('hor-btn-mi').style.display = esDocenteH ? '' : 'none';
+  const anioInput = document.getElementById('hor-anio');
+  if(!anioInput.value) anioInput.value = fechaHoyCR().slice(0,4);
+  document.getElementById('hor-anio-label').textContent = anioInput.value;
+  // Poblar secciones desde el catálogo global
+  const sel = document.getElementById('hor-seccion');
+  if(sel && !sel.options.length){
+    sel.innerHTML = '<option value="">— Seleccionar sección —</option>' +
+      (allSecciones||[]).map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  }
+  if(!horLecciones.length){
+    try{ horLecciones = await api('/api/horarios/lecciones')||[]; }catch{}
+  }
+  if(sel && sel.value) await horCargarSeccion();
+  else document.getElementById('hor-grid-wrap').innerHTML =
+    '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Seleccioná una sección para ver su horario.</div>';
+}
+
+async function horCargarSeccion(){
+  horModo = 'seccion';
+  const secId = document.getElementById('hor-seccion').value;
+  const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
+  document.getElementById('hor-anio-label').textContent = anio;
+  const wrap = document.getElementById('hor-grid-wrap');
+  document.getElementById('hor-btn-guardar').style.display = 'none';
+  document.getElementById('hor-btn-imprimir').style.display = 'none';
+  document.getElementById('hor-guia-label').textContent = '';
+  if(!secId){ wrap.innerHTML=''; return; }
+  const esAdminH = ME.rol === 'admin';
+  try{
+    const r = await api(`/api/horarios/?seccion_id=${secId}&anio=${anio}`);
+    if(esAdminH){
+      horAsigsSeccion = await api(`/api/horarios/asignaciones/${secId}`)||[];
+    }
+    const g = r.guia;
+    document.getElementById('hor-guia-label').textContent = g
+      ? `Profesor(a) guía: ${g.primer_apellido||''} ${g.segundo_apellido||''} ${g.nombre||''}`.trim() : '';
+    // Mapa celdas: "dia-leccion" → celda
+    const mapa = {};
+    (r.celdas||[]).forEach(c => { mapa[`${c.dia}-${c.leccion}`] = c; });
+    wrap.innerHTML = horRenderGrid(mapa, esAdminH);
+    document.getElementById('hor-btn-guardar').style.display = esAdminH ? '' : 'none';
+    document.getElementById('hor-btn-imprimir').style.display = '';
+  }catch(e){ sa('alert-horario', e.message, 'danger'); }
+}
+
+function horEtiquetaAsig(a){
+  const sub = a.subgrupo ? ` [${a.subgrupo}]` : '';
+  return `${a.materia_nombre}${sub} — ${a.prof_ap1} ${a.prof_nombre}`;
+}
+
+function horRenderGrid(mapa, editable){
+  let html = '<table style="font-size:12px;min-width:760px;"><thead><tr>' +
+    '<th style="width:34px;">#</th><th style="width:92px;">Hora</th>' +
+    HOR_DIAS.slice(1).map(d=>`<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+  for(const lec of horLecciones){
+    html += `<tr><td style="text-align:center;font-weight:bold;">${lec.n}</td>` +
+      `<td style="white-space:nowrap;">${lec.ini} - ${lec.fin}</td>`;
+    for(let dia=1; dia<=5; dia++){
+      const c = mapa[`${dia}-${lec.n}`];
+      if(editable){
+        const opts = ['<option value="">—</option>'].concat(
+          horAsigsSeccion.map(a =>
+            `<option value="${a.id}" ${c && c.asignacion_id==a.id ? 'selected':''}>${horEtiquetaAsig(a)}</option>`)
+        ).join('');
+        html += `<td style="padding:2px;"><select class="hor-celda" data-dia="${dia}" data-leccion="${lec.n}" style="width:100%;font-size:11.5px;padding:4px;border:1px solid var(--border);border-radius:5px;">${opts}</select></td>`;
+      } else {
+        const txt = c ? (c.materia_nombre ? `<strong>${c.materia_nombre}</strong><br><span style="color:var(--muted);">${c.prof_ap1||''} ${c.prof_nombre||''}</span>` : (c.materia_texto||'')) : '';
+        html += `<td style="text-align:center;">${txt}</td>`;
+      }
+    }
+    html += '</tr>';
+    const sep = HOR_SEPARADORES[lec.n];
+    if(sep){
+      html += `<tr style="background:#f1f5f9;font-weight:bold;font-size:11px;"><td></td><td>${sep}</td>` +
+        [1,2,3,4,5].map(()=>`<td style="text-align:center;">${sep}</td>`).join('') + '</tr>';
+    }
+  }
+  return html + '</tbody></table>';
+}
+
+async function horGuardar(){
+  const secId = document.getElementById('hor-seccion').value;
+  const anio = parseInt(document.getElementById('hor-anio').value) || parseInt(fechaHoyCR().slice(0,4));
+  if(!secId){ sa('alert-horario','Seleccioná una sección.','danger'); return; }
+  const celdas = [];
+  document.querySelectorAll('.hor-celda').forEach(sel => {
+    if(sel.value) celdas.push({ dia: parseInt(sel.dataset.dia), leccion: parseInt(sel.dataset.leccion), asignacion_id: parseInt(sel.value) });
+  });
+  try{
+    await api(`/api/horarios/${secId}`,'PUT',{ anio, celdas });
+    sa('alert-horario','✅ Horario guardado correctamente.','success');
+  }catch(e){ sa('alert-horario', e.message, 'danger'); }
+}
+
+async function horVerMiHorario(){
+  horModo = 'mio';
+  const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
+  document.getElementById('hor-btn-guardar').style.display = 'none';
+  document.getElementById('hor-guia-label').textContent = '';
+  try{
+    if(!horLecciones.length) horLecciones = await api('/api/horarios/lecciones')||[];
+    const r = await api(`/api/horarios/mi-horario?anio=${anio}`);
+    const mapa = {};
+    (r.celdas||[]).forEach(c => {
+      mapa[`${c.dia}-${c.leccion}`] = { materia_nombre: c.materia_nombre, prof_ap1: `(${c.seccion_nombre})`, prof_nombre: '' };
+    });
+    document.getElementById('hor-grid-wrap').innerHTML =
+      '<div style="font-size:13px;font-weight:bold;margin-bottom:8px;">👤 Mi horario personal — cada celda muestra materia y sección</div>' +
+      horRenderGrid(mapa, false);
+    document.getElementById('hor-btn-imprimir').style.display = '';
+  }catch(e){ sa('alert-horario', e.message, 'danger'); }
+}
+
+function horImprimir(){
+  const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
+  const secSel = document.getElementById('hor-seccion');
+  const secNombre = horModo==='mio' ? '' : (secSel.options[secSel.selectedIndex]?.text || '');
+  const guia = document.getElementById('hor-guia-label').textContent.replace('Profesor(a) guía: ','');
+  // Si la grilla está en modo edición (selects), construir versión de solo
+  // lectura desde los valores ACTUALES del DOM (el atributo selected no se
+  // actualiza al cambiar el select, así que no sirve regexear el innerHTML).
+  let grid;
+  const selects = document.querySelectorAll('.hor-celda');
+  if(selects.length){
+    const mapa = {};
+    selects.forEach(s=>{
+      if(!s.value) return;
+      const a = horAsigsSeccion.find(x=>String(x.id)===String(s.value));
+      if(a) mapa[`${s.dataset.dia}-${s.dataset.leccion}`] = { materia_nombre: a.materia_nombre + (a.subgrupo?` [${a.subgrupo}]`:''), prof_ap1: a.prof_ap1, prof_nombre: a.prof_nombre };
+    });
+    grid = horRenderGrid(mapa, false);
+  } else {
+    grid = document.getElementById('hor-grid-wrap').innerHTML;
+  }
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Horario ${secNombre} ${anio}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;margin:20px;}
+      h1{text-align:center;font-size:16px;margin-bottom:14px;}
+      .meta{display:flex;gap:60px;font-size:13px;font-weight:bold;margin-bottom:12px;}
+      table{border-collapse:collapse;width:100%;}
+      th,td{border:1px solid #000;padding:4px 5px;text-align:center;}
+      th{background:#fff;}
+      @media print{ button{display:none} }
+    <\/style></head><body>
+    <h1>CURSO LECTIVO ${anio}</h1>
+    <div class="meta"><span>SECCIÓN: ${horModo==='mio' ? '' : secNombre}</span><span>PROFESOR GUÍA: ${horModo==='mio' ? (ME.primer_apellido+' '+ME.nombre) : guia}</span></div>
+    ${grid}
+    <script>window.onload=()=>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
+// ════════════════════════════════════
+//  PERMISOS DE SALIDA (auxiliares)
+// ════════════════════════════════════
+let psEstudiante = null; // estudiante encontrado para permiso individual
+
+async function iniciarPermisos(){
+  const f = document.getElementById('ps-fecha');
+  const ff = document.getElementById('ps-filtro-fecha');
+  const hoy = fechaHoyCR();
+  if(f && !f.value) f.value = hoy;
+  if(ff && !ff.value) ff.value = hoy;
+  // Poblar secciones
+  const sel = document.getElementById('ps-seccion');
+  if(sel && !sel.options.length){
+    sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+      (allSecciones||[]).map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  }
+  await psCargarLista();
+}
+
+function psTipoCambio(){
+  const tipo = document.querySelector('input[name="ps-tipo"]:checked')?.value || 'individual';
+  document.getElementById('ps-fg-cedula').style.display  = tipo==='individual' ? '' : 'none';
+  document.getElementById('ps-fg-seccion').style.display = tipo==='seccion' ? '' : 'none';
+}
+
+async function psBuscarEst(){
+  const ced = document.getElementById('ps-cedula').value.trim();
+  const info = document.getElementById('ps-est-info');
+  psEstudiante = null;
+  if(!ced){ info.textContent=''; return; }
+  try{
+    const e = await api(`/api/porteria/estudiante/${encodeURIComponent(ced)}`);
+    psEstudiante = e;
+    info.style.color = 'var(--verde)';
+    info.textContent = `✅ ${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre} — Sección ${e.seccion_nombre||'—'}`;
+  }catch(err){
+    info.style.color = '#dc2626';
+    info.textContent = '❌ ' + err.message;
+  }
+}
+
+async function psCrear(){
+  const tipo = document.querySelector('input[name="ps-tipo"]:checked')?.value || 'individual';
+  const body = {
+    tipo,
+    fecha: document.getElementById('ps-fecha').value,
+    hora_salida: document.getElementById('ps-hora').value || null,
+    autoriza_nombre: document.getElementById('ps-aut-nombre').value.trim(),
+    autoriza_cedula: document.getElementById('ps-aut-cedula').value.trim(),
+    autoriza_parentesco: document.getElementById('ps-aut-parentesco').value.trim(),
+    motivo: document.getElementById('ps-motivo').value.trim()
+  };
+  if(tipo==='individual'){
+    if(!psEstudiante){ sa('alert-permisos','Buscá primero al estudiante por cédula.','danger'); return; }
+    body.estudiante_id = psEstudiante.id;
+  } else {
+    body.seccion_id = document.getElementById('ps-seccion').value;
+    if(!body.seccion_id){ sa('alert-permisos','Seleccioná la sección.','danger'); return; }
+  }
+  if(!body.fecha){ sa('alert-permisos','Indicá la fecha del permiso.','danger'); return; }
+  if(!body.autoriza_nombre){ sa('alert-permisos','Indicá quién autoriza el permiso.','danger'); return; }
+  if(!body.motivo){ sa('alert-permisos','Indicá el motivo.','danger'); return; }
+  try{
+    const r = await api('/api/porteria/permisos','POST',body);
+    sa('alert-permisos', `✅ Permiso creado — Consecutivo Nº ${r.permiso.numero}-${r.permiso.anio}`, 'success');
+    // Limpiar campos variables (deja fecha y tipo)
+    ['ps-cedula','ps-aut-nombre','ps-aut-cedula','ps-aut-parentesco','ps-motivo','ps-hora'].forEach(id=>{
+      const el = document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('ps-est-info').textContent='';
+    psEstudiante = null;
+    await psCargarLista();
+  }catch(e){ sa('alert-permisos', e.message, 'danger'); }
+}
+
+function psEstadoBadge(p){
+  if(p.anulado) return '<span style="color:#dc2626;font-weight:bold;">✖ Anulado</span>';
+  const usos = parseInt(p.usos||0);
+  if(p.tipo==='individual')
+    return usos ? '<span style="color:var(--muted);">✔ Usado</span>' : '<span style="color:var(--verde);font-weight:bold;">● Vigente</span>';
+  return `<span style="color:var(--verde);font-weight:bold;">● Vigente</span> <span style="color:var(--muted);">(${usos} salida${usos===1?'':'s'})</span>`;
+}
+
+async function psCargarLista(){
+  const tbody = document.getElementById('ps-tbody');
+  const todos = document.getElementById('ps-filtro-todos').checked;
+  const fecha = document.getElementById('ps-filtro-fecha').value || fechaHoyCR();
+  try{
+    const rows = await api(`/api/porteria/permisos?${todos?'todos=1':'fecha='+fecha}`)||[];
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="8" class="empty">Sin permisos registrados.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(p=>{
+      const quien = p.tipo==='individual'
+        ? `${p.est_ap1||''} ${p.est_ap2||''}, ${p.est_nombre||''}`
+        : `👥 Sección ${p.seccion_nombre||'—'}`;
+      const anular = p.anulado ? '' :
+        `<button class="btn btn-outline btn-xs" onclick="psAnular(${p.id})" title="Anular permiso">🗑️</button>`;
+      return `<tr>
+        <td style="font-weight:bold;white-space:nowrap;">${p.numero}-${p.anio}</td>
+        <td style="white-space:nowrap;">${String(p.fecha).slice(0,10)}</td>
+        <td>${p.tipo==='individual'?'👤 Individual':'👥 Sección'}</td>
+        <td>${quien}</td>
+        <td>${p.motivo||''}</td>
+        <td>${p.autoriza_nombre||''}${p.autoriza_parentesco?` <span style="color:var(--muted);">(${p.autoriza_parentesco})</span>`:''}</td>
+        <td>${psEstadoBadge(p)}</td>
+        <td>${anular}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){ tbody.innerHTML=`<tr><td colspan="8" class="empty">${e.message}</td></tr>`; }
+}
+
+async function psAnular(id){
+  if(!confirm('¿Anular este permiso? El estudiante ya no podrá salir con él.')) return;
+  try{
+    await api(`/api/porteria/permisos/${id}/anular`,'PUT');
+    sa('alert-permisos','Permiso anulado.','success');
+    await psCargarLista();
+  }catch(e){ sa('alert-permisos', e.message, 'danger'); }
+}
+
+// ════════════════════════════════════
+//  PORTERÍA (rol seguridad)
+// ════════════════════════════════════
+let ptModo = 'entrada';
+let ptResultTimer = null;
+
+async function iniciarPorteria(){
+  document.getElementById('pt-fecha-label').textContent = fechaHoyCR();
+  ptSetModo(ptModo);
+  await Promise.all([ptCargarStats(), ptCargarRegistros(), ptCargarPermisosHoy()]);
+  document.getElementById('pt-scan-input')?.focus();
+}
+
+function ptSetModo(modo){
+  ptModo = modo;
+  const be = document.getElementById('pt-modo-entrada');
+  const bs = document.getElementById('pt-modo-salida');
+  if(modo==='entrada'){
+    be.style.background='#16a34a'; be.style.color='#fff';
+    bs.style.background='#fff';    bs.style.color='#ea580c';
+  } else {
+    bs.style.background='#ea580c'; bs.style.color='#fff';
+    be.style.background='#fff';    be.style.color='#16a34a';
+  }
+  document.getElementById('pt-scan-input')?.focus();
+}
+
+async function ptEscanear(){
+  const input = document.getElementById('pt-scan-input');
+  const cedula = input?.value?.trim();
+  if(!cedula) return;
+  const box = document.getElementById('pt-scan-result');
+  if(ptResultTimer){ clearTimeout(ptResultTimer); ptResultTimer=null; }
+  try{
+    const r = await api('/api/porteria/escaneo','POST',{ cedula, tipo: ptModo });
+    const est = r.estudiante||{};
+    const ok = r.resultado === 'permitido';
+    box.style.display='';
+    if(r.tipo==='entrada'){
+      box.style.background='#dcfce7'; box.style.border='3px solid #16a34a';
+      document.getElementById('ptr-estado').innerHTML='<span style="color:#166534;">✅ ENTRADA REGISTRADA</span>';
+    } else if(ok && r.aviso){
+      box.style.background='#fef9c3'; box.style.border='3px solid #ca8a04';
+      document.getElementById('ptr-estado').innerHTML='<span style="color:#854d0e;">⚠️ SALIDA PERMITIDA</span>';
+    } else if(ok){
+      box.style.background='#dcfce7'; box.style.border='3px solid #16a34a';
+      document.getElementById('ptr-estado').innerHTML='<span style="color:#166534;">✅ SALIDA PERMITIDA</span>';
+    } else {
+      box.style.background='#fee2e2'; box.style.border='3px solid #dc2626';
+      document.getElementById('ptr-estado').innerHTML='<span style="color:#991b1b;">⛔ SALIDA DENEGADA</span>';
+    }
+    document.getElementById('ptr-nombre').textContent = `${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}`;
+    document.getElementById('ptr-sub').textContent = `${est.cedula||cedula} · Sección ${est.seccion_nombre||'—'} · ${r.hora||''}`;
+    document.getElementById('ptr-detalle').textContent = r.detalle||'';
+    if(input) input.value='';
+    await Promise.all([ptCargarStats(), ptCargarRegistros(), ptCargarPermisosHoy()]);
+    // El resultado denegado se queda más tiempo en pantalla
+    ptResultTimer = setTimeout(()=>{ box.style.display='none'; }, ok ? 4000 : 8000);
+  }catch(e){
+    box.style.display='';
+    box.style.background='#fee2e2'; box.style.border='3px solid #dc2626';
+    document.getElementById('ptr-estado').innerHTML='<span style="color:#991b1b;">❌ ERROR</span>';
+    document.getElementById('ptr-nombre').textContent='';
+    document.getElementById('ptr-sub').textContent='';
+    document.getElementById('ptr-detalle').textContent=e.message;
+    ptResultTimer = setTimeout(()=>{ box.style.display='none'; }, 5000);
+  }
+  input?.focus();
+}
+
+async function ptCargarStats(){
+  try{
+    const s = await api('/api/porteria/stats');
+    document.getElementById('pt-entradas').textContent = s.entradas||0;
+    document.getElementById('pt-salidas').textContent = s.salidas||0;
+    document.getElementById('pt-denegadas').textContent = s.denegadas||0;
+  }catch{}
+}
+
+async function ptCargarRegistros(){
+  const tbody = document.getElementById('pt-tbody-reg');
+  try{
+    const rows = await api('/api/porteria/registros')||[];
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r=>{
+      const res = r.resultado==='permitido'
+        ? '<span style="color:var(--verde);font-weight:bold;">✔</span>'
+        : '<span style="color:#dc2626;font-weight:bold;">⛔</span>';
+      return `<tr title="${(r.detalle||'').replace(/"/g,'&quot;')}">
+        <td style="white-space:nowrap;">${r.hora}</td>
+        <td>${r.primer_apellido} ${r.segundo_apellido}, ${r.nombre}</td>
+        <td>${r.seccion_nombre||'—'}</td>
+        <td>${r.tipo==='entrada'?'⬇️ Entrada':'⬆️ Salida'}</td>
+        <td>${res}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){ tbody.innerHTML=`<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
+}
+
+async function ptCargarPermisosHoy(){
+  const tbody = document.getElementById('pt-tbody-perm');
+  try{
+    const rows = await api('/api/porteria/permisos')||[];
+    const vivos = rows.filter(p=>!p.anulado);
+    if(!vivos.length){ tbody.innerHTML='<tr><td colspan="5" class="empty">Sin permisos hoy.</td></tr>'; return; }
+    tbody.innerHTML = vivos.map(p=>{
+      const quien = p.tipo==='individual'
+        ? `${p.est_ap1||''} ${p.est_ap2||''}, ${p.est_nombre||''}`
+        : `👥 Sección ${p.seccion_nombre||'—'}`;
+      return `<tr>
+        <td style="font-weight:bold;white-space:nowrap;">${p.numero}-${p.anio}</td>
+        <td>${p.tipo==='individual'?'👤':'👥'}</td>
+        <td>${quien}</td>
+        <td>${p.motivo||''}</td>
+        <td>${psEstadoBadge(p)}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){ tbody.innerHTML=`<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
+}
 
 // ════════════════════════════════════
 //  EXPEDIENTE

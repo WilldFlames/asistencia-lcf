@@ -346,10 +346,30 @@ async function initDB() {
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS motivo_archivo TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS justificacion_archivo TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS becado BOOLEAN DEFAULT false`);
+    // Idioma y tecnología del estudiante (digitados por orientadora de 9° o en matrícula)
+    // idioma: 'Inglés' | 'Francés' · tecnologia: 'Inglés Conversacional' | 'Diseño Publicitario'
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS idioma TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS tecnologia TEXT DEFAULT NULL`);
+    // Matrícula del año siguiente: sección futura + idioma/tecnología/subgrupo elegidos
+    // (subgrupo: Inglés Conversacional = 'A' · Diseño Publicitario = 'B')
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS idioma TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS tecnologia TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
+    // Secciones exclusivas de un idioma POR AÑO (la sección de francés cambia:
+    // 2026 → 10-3 y 11-3 · 2027 → 10-2 y 11-2). El sistema valida al asignar.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS secciones_idioma (
+        id         SERIAL PRIMARY KEY,
+        seccion_id INTEGER REFERENCES secciones(id) ON DELETE CASCADE,
+        anio       INTEGER NOT NULL,
+        idioma     TEXT NOT NULL,
+        UNIQUE(seccion_id, anio)
+      )
+    `);
     // Ampliar constraint de rol para incluir todos los roles
     try {
       await client.query(`ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check`);
-      await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo','junta'))`);
+      await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo','junta','seguridad'))`);
     } catch(e) { /* ya existe con los valores correctos */ }
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS num_boleta TEXT DEFAULT ''`);
     // ── PREMATRÍCULA ─────────────────────────────────────────────────────
@@ -1610,6 +1630,74 @@ async function initDB() {
           ['muy_leve', 5, 'Otras faltas que se consideren como muy leves según la normativa interna del centro educativo.']);
       }
     } catch(e) {}
+
+    // ── HORARIOS POR SECCIÓN (grilla 12 lecciones × 5 días, por año) ─────
+    // El horario es ANUAL (campo anio permite archivar y arrancar limpio en 2027).
+    // Cada celda referencia una asignación existente (profe+materia) o queda libre.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS horarios (
+        id            SERIAL PRIMARY KEY,
+        anio          INTEGER NOT NULL,
+        seccion_id    INTEGER REFERENCES secciones(id) ON DELETE CASCADE,
+        dia           INTEGER NOT NULL CHECK(dia BETWEEN 1 AND 5),
+        leccion       INTEGER NOT NULL CHECK(leccion BETWEEN 1 AND 12),
+        asignacion_id INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        materia_texto TEXT DEFAULT NULL,
+        UNIQUE(anio, seccion_id, dia, leccion)
+      )
+    `);
+
+    // ── PERMISOS DE SALIDA (auxiliares) ──────────────────────────────────
+    // Consecutivo interno por año (numero + anio). Individual o por sección.
+    // Un solo uso POR ESTUDIANTE para la fecha indicada (tabla de usos).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS permisos_salida (
+        id             SERIAL PRIMARY KEY,
+        numero         INTEGER NOT NULL,
+        anio           INTEGER NOT NULL,
+        tipo           TEXT NOT NULL CHECK(tipo IN ('individual','seccion')),
+        estudiante_id  INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
+        seccion_id     INTEGER REFERENCES secciones(id) ON DELETE CASCADE,
+        fecha          DATE NOT NULL,
+        hora_salida    TEXT DEFAULT NULL,
+        autoriza_nombre     TEXT NOT NULL,
+        autoriza_cedula     TEXT DEFAULT NULL,
+        autoriza_parentesco TEXT DEFAULT NULL,
+        motivo         TEXT NOT NULL,
+        creado_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        anulado        BOOLEAN DEFAULT false,
+        created_at     TIMESTAMP DEFAULT NOW(),
+        UNIQUE(anio, numero)
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS permisos_salida_usos (
+        id             SERIAL PRIMARY KEY,
+        permiso_id     INTEGER REFERENCES permisos_salida(id) ON DELETE CASCADE,
+        estudiante_id  INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
+        fecha          DATE NOT NULL,
+        hora           TEXT NOT NULL,
+        registrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        UNIQUE(permiso_id, estudiante_id)
+      )
+    `);
+
+    // ── PORTERÍA (rol seguridad): registro de entradas/salidas ───────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS porteria_registros (
+        id             SERIAL PRIMARY KEY,
+        estudiante_id  INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
+        fecha          DATE NOT NULL,
+        hora           TEXT NOT NULL,
+        tipo           TEXT NOT NULL CHECK(tipo IN ('entrada','salida')),
+        resultado      TEXT NOT NULL CHECK(resultado IN ('permitido','denegado')),
+        detalle        TEXT DEFAULT NULL,
+        permiso_id     INTEGER REFERENCES permisos_salida(id) ON DELETE SET NULL,
+        registrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at     TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_porteria_fecha ON porteria_registros(fecha)`);
 
     // Nuevas materias
     await client.query("INSERT INTO materias (nombre) VALUES ('Inglés Conversacional') ON CONFLICT DO NOTHING");
