@@ -12,21 +12,28 @@ function anioCR(){
 }
 
 // ── Resumen general del año: secciones + estado de cada configuración ─────
+// Nota: la tabla `secciones` es global (no hay una por año). Los vínculos de
+// guía y orientador corresponden al AÑO EN CURSO. Para años futuros los
+// devolvemos vacíos, para no confundir a admin con datos que se limpiarán al
+// archivar el año actual.
 router.get("/resumen/:anio", onlyAdmin, async (req, res) => {
   const anio = parseInt(req.params.anio);
   if(!anio) return res.status(400).json({ error: "Año inválido" });
-  // Secciones existentes (globales, no por año — el sistema no separa secciones por año)
+  const esFuturo = anio > anioCR();
+  // Secciones existentes (globales)
   const secR = await pool.query(`
     SELECT s.id, s.nombre, s.nivel,
+      ${esFuturo ? "NULL::int AS guia_id, NULL::text AS guia, NULL::int AS orientador_id, NULL::text AS orientador," : `
       sg.profesor_id AS guia_id,
       (SELECT u.primer_apellido || ' ' || u.nombre FROM usuarios u WHERE u.id = sg.profesor_id) AS guia,
       so.orientador_id AS orientador_id,
-      (SELECT u.primer_apellido || ' ' || u.nombre FROM usuarios u WHERE u.id = so.orientador_id) AS orientador,
+      (SELECT u.primer_apellido || ' ' || u.nombre FROM usuarios u WHERE u.id = so.orientador_id) AS orientador,`}
       si.idioma AS idioma_exclusivo,
       sc.tec_b, sc.taller_a, sc.taller_b
     FROM secciones s
+    ${esFuturo ? "" : `
     LEFT JOIN seccion_guia sg ON sg.seccion_id = s.id
-    LEFT JOIN seccion_orientador so ON so.seccion_id = s.id
+    LEFT JOIN seccion_orientador so ON so.seccion_id = s.id`}
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
     LEFT JOIN secciones_config sc ON sc.seccion_id = s.id AND sc.anio = $1
     ORDER BY s.nivel, s.nombre
@@ -41,7 +48,7 @@ router.get("/resumen/:anio", onlyAdmin, async (req, res) => {
     if(s.taller_a && s.taller_b) porNivel[n].con_talleres++;
     if(s.tec_b) porNivel[n].con_tec_b++;
   });
-  res.json({ anio, secciones: secR.rows, por_nivel: porNivel });
+  res.json({ anio, es_futuro: esFuturo, secciones: secR.rows, por_nivel: porNivel });
 });
 
 // ── CREAR SECCIÓN NUEVA (a mano, sin guía ni orientador) ──────────────────

@@ -9042,11 +9042,33 @@ async function matAplicarAnio(){
   const actual = matAnioActual();
   if(matAnio <= actual){ sa("alert-mat","Solo se aplican matrículas de un año futuro.","danger"); return; }
   const conSec = Object.keys(matAsigFuturas).length;
-  if(!confirm(`Vas a APLICAR las matrículas del ${matAnio}:\n\n• ${conSec} estudiantes pasan a su sección nueva\n• Los estudiantes activos SIN matrícula ${matAnio} quedan SIN SECCIÓN (activos, para revisar a mano)\n\n⚠️ Hacé esto solo al arrancar el año nuevo, DESPUÉS de archivar el año anterior desde Expediente.\n\n¿Continuar?`)) return;
-  if(!confirm(`Última confirmación: ¿aplicar matrículas ${matAnio} ahora?`)) return;
+  const anioAnt = matAnio - 1;
+  const aviso = `Vas a APLICAR las matrículas del ${matAnio} y CERRAR el ${anioAnt}:\n\n` +
+    `📚 Se ARCHIVAN los promedios y ausencias del ${anioAnt} por estudiante/materia\n` +
+    `   (auxiliares y admin los ven en Expediente → 📚 Historial Académico)\n\n` +
+    `🗑️ Se BORRAN del sistema (para ahorrar espacio):\n` +
+    `   • Sesiones de asistencia diarias\n` +
+    `   • Evaluaciones, exámenes y notas del ${anioAnt}\n` +
+    `   • Boletas de conducta\n` +
+    `   • Asignaciones viejas de profes (los usuarios se mantienen)\n\n` +
+    `📋 Cambios:\n` +
+    `   • ${conSec} estudiantes pasan a su sección nueva (con idioma, tecnología y subgrupo)\n` +
+    `   • Los activos SIN matrícula ${matAnio} quedan SIN SECCIÓN\n` +
+    `   • Se limpian guías y orientadores (se reasignan desde Admin → Asignaciones)\n\n` +
+    `⚠️ Hacé esto solo al arrancar el año nuevo, DESPUÉS de archivar el ${anioAnt} desde Expediente.\n\n` +
+    `¿Continuar?`;
+  if(!confirm(aviso)) return;
+  if(!confirm(`Última confirmación:\n\n¿Cerrar ${anioAnt} y aplicar matrículas ${matAnio} ahora?\n\nEsta acción NO se puede deshacer.`)) return;
   try{
     const r = await api(`/api/matricula/aplicar/${matAnio}`,"POST",{});
-    sa("alert-mat", `✅ Matrículas ${matAnio} aplicadas: ${r.aplicados} estudiantes en su sección nueva · ${r.sin_seccion} quedaron sin sección para revisión manual.`, "success");
+    sa("alert-mat",
+      `✅ Cierre completado. Año ${matAnio} listo para arrancar.\n` +
+      `📚 ${r.resumenes_archivados} resúmenes académicos archivados (${r.resumenes_saltados} saltados)\n` +
+      `🎓 ${r.aplicados} estudiantes en sección nueva · ${r.sin_seccion} sin sección\n` +
+      `🗑️ ${r.asignaciones_borradas} asignaciones, ${r.boletas_borradas} boletas de conducta borradas\n` +
+      `🧹 ${r.guias_limpiadas} guías y ${r.orientadores_limpiados} orientadores limpiados\n\n` +
+      `Ahora asigná guías, orientadores y materias desde Admin → Asignaciones.`,
+      "success");
     await iniciarMatricula();
   }catch(e){ sa("alert-mat", e.message, "danger"); }
 }
@@ -14468,8 +14490,15 @@ async function caCargar(){
   document.getElementById("ca-anio-label").textContent = `— ${anio}`;
   try{
     caData = await api(`/api/config-anio/resumen/${anio}`);
+    // Aviso solo si es año futuro
+    const alertEl = document.getElementById("alert-ca");
+    if(caData.es_futuro){
+      alertEl.style.cssText = "display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:10px 14px;border-radius:7px;margin-top:10px;font-size:12.5px;";
+      alertEl.innerHTML = `ℹ️ <strong>Configurando ${anio} (año futuro).</strong> Guía y orientador se muestran vacíos — se asignan después desde <strong>Admin → Asignaciones</strong> cuando el año arranque. Al archivar el año actual, esos vínculos quedan limpios automáticamente.`;
+    } else {
+      alertEl.style.display = "none";
+    }
     caRenderResumen();
-    // Refrescar la pestaña actual
     caTab(caTabActual);
   }catch(e){ sa("alert-ca", e.message, "danger"); }
 }
@@ -14478,6 +14507,7 @@ function caRenderResumen(){
   const cont = document.getElementById("ca-resumen");
   if(!caData){ cont.innerHTML = ''; return; }
   const secTotal = caData.secciones.length;
+  const esFuturo = !!caData.es_futuro;
   const conGuia = caData.secciones.filter(s=>s.guia_id).length;
   const conOri = caData.secciones.filter(s=>s.orientador_id).length;
   const nivel7a9 = caData.secciones.filter(s=>s.nivel>=7 && s.nivel<=9);
@@ -14485,17 +14515,17 @@ function caRenderResumen(){
   const talleres_ok = nivel7a9.filter(s=>s.taller_a && s.taller_b).length;
   const tec_ok = nivel10a11.filter(s=>s.tec_b).length;
   const frances_ok = nivel10a11.filter(s=>s.idioma_exclusivo).length;
-  const st = (n,t)=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;">
-    <div style="font-size:22px;font-weight:bold;color:${n===t?'var(--verde)':'var(--azul)'};">${n}${t?`<span style="color:var(--muted);font-size:14px;">/${t}</span>`:''}</div>
-    <div style="font-size:11px;color:var(--muted);margin-top:2px;">$LBL$</div>
+  const st = (n,t,lbl,gris)=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;${gris?'opacity:.6;':''}">
+    <div style="font-size:22px;font-weight:bold;color:${gris?'#94a3b8':(n===t&&t?'var(--verde)':'var(--azul)')};">${gris?'—':n}${t?`<span style="color:var(--muted);font-size:14px;">/${t}</span>`:''}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px;">${lbl}${gris?' <span style="font-size:10px;">(al archivar)</span>':''}</div>
   </div>`;
   cont.innerHTML = [
-    st(secTotal, null).replace('$LBL$','Secciones'),
-    st(conGuia, secTotal).replace('$LBL$','Con guía'),
-    st(conOri, secTotal).replace('$LBL$','Con orientador'),
-    st(talleres_ok, nivel7a9.length).replace('$LBL$','Talleres 7°-9°'),
-    st(tec_ok, nivel10a11.length).replace('$LBL$','Tecnología 10°-11°'),
-    st(frances_ok, null).replace('$LBL$','Francés (10°-11°)'),
+    st(secTotal, null, 'Secciones', false),
+    st(conGuia, secTotal, 'Con guía', esFuturo),
+    st(conOri, secTotal, 'Con orientador', esFuturo),
+    st(talleres_ok, nivel7a9.length, 'Talleres 7°-9°', false),
+    st(tec_ok, nivel10a11.length, 'Tecnología 10°-11°', false),
+    st(frances_ok, null, 'Francés (10°-11°)', false),
   ].join("");
 }
 
@@ -14519,11 +14549,12 @@ function caRenderSecciones(){
   const tbody = document.getElementById("ca-sec-tbody");
   if(!caData){ tbody.innerHTML = '<tr><td colspan="5" class="empty">Sin datos</td></tr>'; return; }
   const rows = [...caData.secciones].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
+  const gris = '<span style="color:#94a3b8;font-style:italic;">— se asigna después —</span>';
   tbody.innerHTML = rows.length ? rows.map(s=>`<tr>
     <td><strong>${s.nombre}</strong></td>
     <td>${s.nivel}°</td>
-    <td>${s.guia || '<span style="color:#94a3b8;">— sin guía —</span>'}</td>
-    <td>${s.orientador || '<span style="color:#94a3b8;">— sin orientador —</span>'}</td>
+    <td>${s.guia || gris}</td>
+    <td>${s.orientador || gris}</td>
     <td><button class="btn btn-danger btn-xs" onclick="caEliminarSeccion(${s.id},'${s.nombre}')" title="Solo si no tiene estudiantes ni asignaciones">🗑️</button></td>
   </tr>`).join("") : '<tr><td colspan="5" class="empty">No hay secciones creadas.</td></tr>';
 }
@@ -15226,52 +15257,106 @@ async function iniciarExpediente(){
 async function buscarExpediente(){
   const cedula=document.getElementById("exp-cedula")?.value?.trim();
   if(!cedula){sa("alert-exp","Ingresá una cédula.","danger");return;}
+  const cont = document.getElementById("exp-resultado");
+  cont.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">🔍 Buscando...</div>';
   try{
-    // FIX: el endpoint correcto es /buscar/:cedula y devuelve { estudiante, encargados, historial, matriculas }
     const r=await api(`/api/expediente/buscar/${encodeURIComponent(cedula)}`);
-    if(!r||!r.estudiante){sa("alert-exp","No se encontró ningún estudiante.","warning");return;}
+    if(!r||!r.estudiante){ cont.innerHTML=''; sa("alert-exp","No se encontró ningún estudiante.","warning");return;}
     const est = r.estudiante;
-    const tbody=document.getElementById("exp-tbody");
-    if(tbody){
-      tbody.innerHTML=`<tr>
-        <td><strong>${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}</strong></td>
-        <td>${est.cedula}</td>
-        <td>${est.seccion_nombre||'—'}</td>
-        <td><button class="btn btn-outline btn-xs" onclick="verExpedienteCompleto('${est.cedula}')">👁️ Ver</button></td>
-      </tr>`;
+    const encs = r.encargados||[];
+    const mats = r.matriculas||[];
+    cont.innerHTML = `
+      <div style="border:1.5px solid var(--border);border-radius:10px;padding:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:240px;">
+            <div style="font-weight:bold;font-size:16px;">${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}</div>
+            <div style="font-size:12.5px;color:var(--muted);">Cédula: <code>${est.cedula}</code></div>
+            <div style="font-size:12.5px;color:var(--muted);">Sección actual: <strong>${est.seccion_nombre||'—'}</strong> · Estado: ${est.activo?'<span style="color:var(--verde);">Activo</span>':'<span style="color:#dc2626;">Inactivo</span>'}${est.archivado?' (Archivado)':''}</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="verHistorialAcademico(${est.id}, '${(est.primer_apellido+' '+est.nombre).replace(/'/g,"\\'")}')">📚 Historial Académico</button>
+        </div>
+        ${encs.length ? `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <div style="font-weight:bold;font-size:13px;margin-bottom:4px;">👨‍👩‍👧 Encargados (${encs.length})</div>
+          ${encs.map(en=>`<div style="font-size:12.5px;margin:2px 0;">• ${en.primer_apellido||''} ${en.nombre||''} <span style="color:var(--muted);">(${en.parentesco||'—'})</span> · Tel: ${en.telefono||'—'}${en.cedula?` · Céd: ${en.cedula}`:''}</div>`).join('')}
+        </div>` : ''}
+        ${mats.length ? `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <div style="font-weight:bold;font-size:13px;margin-bottom:4px;">📚 Matrículas (${mats.length})</div>
+          ${mats.map(m=>`<div style="font-size:12.5px;margin:2px 0;">• <strong>${m.anio}</strong>: ${m.seccion_nombre||m.sec_nombre||'—'}${m.tecnologia?` <span style="color:var(--muted);">— ${m.tecnologia}${m.subgrupo?` (Gr. ${m.subgrupo})`:''}</span>`:''}</div>`).join('')}
+        </div>` : ''}
+      </div>
+      <div id="exp-hist-cont" style="margin-top:14px;"></div>
+    `;
+  }catch(e){ cont.innerHTML=''; sa("alert-exp",e.message,"danger"); }
+}
+
+async function verHistorialAcademico(estudianteId, nombre){
+  const cont = document.getElementById("exp-hist-cont");
+  cont.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">🔍 Cargando historial académico...</div>';
+  try{
+    const r = await api(`/api/expediente/${estudianteId}/historial-academico`);
+    const hist = r.historial || {};
+    const anios = Object.keys(hist).sort((a,b)=>b-a);
+    if(!anios.length){
+      cont.innerHTML = '<div style="border:1px solid var(--border);border-radius:10px;padding:14px;color:var(--muted);text-align:center;">📚 Sin historial académico. Este estudiante no ha completado un año lectivo previo con datos archivados.</div>';
+      return;
     }
-  }catch(e){sa("alert-exp",e.message,"danger");}
+    cont.innerHTML = `<div style="border:1.5px solid var(--border);border-radius:10px;padding:14px;">
+      <h3 style="margin:0 0 10px 0;font-size:15px;">📚 Historial Académico — ${nombre}</h3>
+      ${anios.map(anio=>{
+        const h = hist[anio];
+        return `<div style="margin-bottom:14px;">
+          <div style="font-weight:bold;font-size:13.5px;color:var(--azul);border-bottom:1px solid var(--border);padding-bottom:3px;margin-bottom:6px;">
+            📅 Año ${anio} · Sección ${h.seccion||'—'}
+          </div>
+          ${['I','II'].map(p=>{
+            const rows = h[p]||[];
+            if(!rows.length) return '';
+            return `<div style="margin-bottom:10px;">
+              <div style="font-size:12.5px;font-weight:bold;color:#475569;margin:6px 0 4px;">${p} Período</div>
+              <div class="table-wrap"><table style="font-size:11.5px;">
+                <thead><tr>
+                  <th>Materia</th><th>Profesor</th>
+                  <th style="text-align:center;">Cot.</th>
+                  <th style="text-align:center;">Tar.</th>
+                  <th style="text-align:center;">Prue.</th>
+                  <th style="text-align:center;">Proy.</th>
+                  <th style="text-align:center;">Asist.</th>
+                  <th style="text-align:center;font-weight:bold;">TOTAL</th>
+                  <th style="text-align:center;" title="Ausencias / Ausencias justificadas / Tardías">A / AJ / T</th>
+                </tr></thead>
+                <tbody>
+                  ${rows.map(m=>{
+                    const total = m.nota_total;
+                    const color = total===null||total===undefined ? '#94a3b8'
+                                : (parseFloat(total) < (m.materia_nombre==='Conducta' ? 65 : 70) ? '#dc2626' : 'var(--verde)');
+                    const num = v => (v===null||v===undefined) ? '<span style="color:#cbd5e1;">—</span>' : parseFloat(v).toFixed(1);
+                    return `<tr>
+                      <td><strong>${m.materia_nombre}</strong></td>
+                      <td>${m.profesor_nombre||'<span style="color:var(--muted);">—</span>'}</td>
+                      <td style="text-align:center;">${num(m.nota_cotidiano)}</td>
+                      <td style="text-align:center;">${num(m.nota_tareas)}</td>
+                      <td style="text-align:center;">${num(m.nota_pruebas)}</td>
+                      <td style="text-align:center;">${num(m.nota_proyecto)}</td>
+                      <td style="text-align:center;">${num(m.nota_asistencia)}</td>
+                      <td style="text-align:center;font-weight:bold;color:${color};">${num(total)}</td>
+                      <td style="text-align:center;color:var(--muted);">${m.ausencias||0} / ${m.ausencias_just||0} / ${m.tardias||0}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table></div>
+            </div>`;
+          }).join('')}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }catch(e){ cont.innerHTML = `<div style="color:#dc2626;padding:14px;">${e.message}</div>`; }
 }
 
 async function verExpedienteCompleto(cedula){
-  try{
-    const r=await api(`/api/expediente/buscar/${encodeURIComponent(cedula)}`);
-    if(!r||!r.estudiante){ alert("No se encontró el expediente."); return; }
-    const e=r.estudiante;
-    const encs=r.encargados||[];
-    const hist=r.historial||[];
-    const mats=r.matriculas||[];
-    const partes=[];
-    partes.push(`📋 EXPEDIENTE`);
-    partes.push(`Estudiante: ${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`);
-    partes.push(`Cédula: ${e.cedula}`);
-    partes.push(`Sección actual: ${e.seccion_nombre||'—'}`);
-    if(e.fecha_nacimiento) partes.push(`Nacimiento: ${String(e.fecha_nacimiento).slice(0,10)}`);
-    partes.push(`Estado: ${e.activo?'Activo':'Inactivo'}${e.archivado?' (Archivado)':''}`);
-    if(encs.length){
-      partes.push(`\n👨‍👩‍👧 ENCARGADOS (${encs.length}):`);
-      encs.forEach(en=>partes.push(`  • ${en.primer_apellido||''} ${en.nombre||''} (${en.parentesco||'—'}) - Tel: ${en.telefono||'—'}`));
-    }
-    if(mats.length){
-      partes.push(`\n📚 MATRÍCULAS (${mats.length}):`);
-      mats.forEach(m=>partes.push(`  • ${m.anio}: ${m.sec_nombre||'—'} [${m.estado||'—'}]`));
-    }
-    if(hist.length){
-      partes.push(`\n📜 HISTORIAL (${hist.length}):`);
-      hist.forEach(h=>partes.push(`  • ${h.anio}: ${h.seccion_nombre||'—'}`));
-    }
-    alert(partes.join('\n'));
-  }catch(e){alert(e.message);}
+  // Función legacy con alert() — reemplazada por buscarExpediente que renderiza en pantalla
+  return buscarExpediente();
 }
 
 // ════════════════════════════════════

@@ -1502,3 +1502,16 @@ router.get("/mis-evaluaciones-misma-materia", requireAuth, async (req, res) => {
 });
 
 module.exports = router;
+
+// Helper para archivado por "Aplicar Matrículas": calcula promedios sin validar
+// sesión de profe (usa admin implícito). Devuelve la misma estructura que el
+// endpoint público /promedio/seccion.
+module.exports.calcularPromediosParaArchivo = async function(client, profesor_id, seccion_id, materia_id, subgrupo, periodo){
+  try {
+    return await calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo);
+  } catch(e){
+    // Si falla (sin regla REAC, sin evaluaciones, etc.), devolvemos null y el
+    // proceso de archivo la salta. No debe romper el flujo completo.
+    return null;
+  }
+};

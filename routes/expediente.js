@@ -130,4 +130,26 @@ router.get("/matricula/stats/:anio", canManage, async (req, res) => {
   });
 });
 
+// ── HISTORIAL ACADÉMICO (auxiliares/admin) ──────────────────────────────
+// Devuelve las notas archivadas por año/período/materia de un estudiante,
+// con totales de asistencia (ausencias, tardías, justificadas).
+router.get("/:id/historial-academico", canManage, async (req, res) => {
+  const r = await pool.query(`
+    SELECT anio, periodo, seccion_nombre, materia_nombre, profesor_nombre,
+      nota_cotidiano, nota_tareas, nota_pruebas, nota_proyecto, nota_asistencia,
+      nota_total, ausencias, ausencias_just, tardias, conducta_nota
+    FROM expediente_academico
+    WHERE estudiante_id = $1
+    ORDER BY anio DESC, periodo, materia_nombre
+  `, [req.params.id]);
+  // Agrupar por año → período → materias
+  const porAnio = {};
+  r.rows.forEach(row => {
+    if(!porAnio[row.anio]) porAnio[row.anio] = { I: [], II: [], seccion: row.seccion_nombre };
+    const p = row.periodo === "I Período" ? "I" : "II";
+    porAnio[row.anio][p].push(row);
+  });
+  res.json({ estudiante_id: parseInt(req.params.id), historial: porAnio });
+});
+
 module.exports = router;

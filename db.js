@@ -337,6 +337,41 @@ async function initDB() {
     await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_login BOOLEAN DEFAULT true`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
+    // Marca de vigencia: cuando arranca un año nuevo (Aplicar Matrículas),
+    // las asignaciones del año anterior pasan a activa=false. Las nuevas
+    // se crean con activa=true. El historial no se borra.
+    await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS activa BOOLEAN DEFAULT true`);
+    await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS anio INTEGER DEFAULT NULL`);
+
+    // ── EXPEDIENTE ACADÉMICO: resumen histórico por año ──────────────────
+    // Se llena al presionar "Aplicar Matrículas" del año siguiente. Guarda un
+    // resumen compacto por estudiante × año × período × materia (nota + faltas).
+    // Los datos crudos (sesiones_asistencia, asistencia, evaluaciones, notas)
+    // se BORRAN después de guardar aquí. Solo auxiliares/admin lo consultan.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS expediente_academico (
+        id             SERIAL PRIMARY KEY,
+        estudiante_id  INTEGER REFERENCES estudiantes(id) ON DELETE CASCADE,
+        anio           INTEGER NOT NULL,
+        periodo        TEXT NOT NULL,
+        seccion_nombre TEXT,
+        materia_nombre TEXT NOT NULL,
+        profesor_nombre TEXT,
+        nota_cotidiano NUMERIC,
+        nota_tareas    NUMERIC,
+        nota_pruebas   NUMERIC,
+        nota_proyecto  NUMERIC,
+        nota_asistencia NUMERIC,
+        nota_total     NUMERIC,
+        ausencias      INTEGER DEFAULT 0,
+        ausencias_just INTEGER DEFAULT 0,
+        tardias        INTEGER DEFAULT 0,
+        conducta_nota  NUMERIC,
+        created_at     TIMESTAMP DEFAULT NOW(),
+        UNIQUE(estudiante_id, anio, periodo, materia_nombre)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_acad_estudiante ON expediente_academico(estudiante_id, anio)`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS cedula TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS lugar_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS telefono_trabajo TEXT DEFAULT ''`);

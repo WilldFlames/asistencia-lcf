@@ -446,39 +446,179 @@ router.get("/asignaciones/:anio", canAccess, async (req, res) => {
 });
 
 // ── APLICAR MATRÍCULAS DE UN AÑO (solo admin, un botón al arrancar) ──────
-// 1. Cada estudiante con matrícula+sección de ese año pasa a su sección nueva
-//    (y hereda idioma/tecnología registrados en la matrícula).
-// 2. Los estudiantes activos SIN matrícula de ese año quedan SIN SECCIÓN
-//    (activos, para revisar a mano: graduados de 11°, traslados, no volvieron).
+// 1. ARCHIVAR resumen académico del año anterior (nota por materia/período + faltas)
+//    en la tabla `expediente_academico`. Este resumen lo consultan auxiliares/admin
+//    desde el Expediente del estudiante (tab "Historial Académico").
+// 2. BORRAR los datos crudos del año anterior (asistencia diaria, evaluaciones,
+//    notas) para no acumular volumen en la BD.
+// 3. Cada estudiante con matrícula+sección del año nuevo pasa a su sección.
+// 4. Los estudiantes activos SIN matrícula quedan SIN SECCIÓN.
+// 5. Se LIMPIAN los vínculos de profesor guía y orientador.
+// 6. Se BORRAN las asignaciones viejas (con todos sus datos ligados por CASCADE).
 router.post("/aplicar/:anio", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   if(u.rol !== "admin") return res.status(403).json({ error: "Solo el administrador puede aplicar matrículas" });
   const anio = parseInt(req.params.anio);
   if(!anio) return res.status(400).json({ error: "Año inválido" });
+  const anioAnt = anio - 1;
+
+  // Importar calculadora de promedios del módulo calificaciones (para el resumen)
+  const { calcularPromediosParaArchivo } = require("./calificaciones");
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+
+    // ── 1. ARCHIVAR RESUMEN ACADÉMICO DEL AÑO ANTERIOR ─────────────────
+    // Por cada asignación activa (del año en curso, que es el que estamos
+    // cerrando), calculamos su promedio por período y guardamos el resumen
+    // por cada estudiante activo de esa sección/subgrupo.
+    const asigsR = await client.query(`
+      SELECT a.id AS asig_id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.periodo,
+        s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
+        u.primer_apellido AS prof_ap1, u.nombre AS prof_nombre
+      FROM asignaciones a
+      JOIN secciones s ON s.id = a.seccion_id
+      JOIN materias m ON m.id = a.materia_id
+      JOIN usuarios u ON u.id = a.profesor_id
+      WHERE (a.activa = true OR a.activa IS NULL)
+    `);
+
+    let archivadas = 0, saltadas = 0;
+    for(const a of asigsR.rows){
+      try {
+        // Calcular promedios por estudiante (usando la lógica existente)
+        const data = await calcularPromediosParaArchivo(client, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.periodo);
+        if(!data || !data.estudiantes){ saltadas++; continue; }
+        const profNom = `${a.prof_ap1||''} ${a.prof_nombre||''}`.trim();
+        for(const est of data.estudiantes){
+          const rb = est.rubros || {};
+          await client.query(`
+            INSERT INTO expediente_academico (
+              estudiante_id, anio, periodo, seccion_nombre, materia_nombre, profesor_nombre,
+              nota_cotidiano, nota_tareas, nota_pruebas, nota_proyecto, nota_asistencia, nota_total,
+              ausencias, ausencias_just, tardias
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+            ON CONFLICT (estudiante_id, anio, periodo, materia_nombre) DO UPDATE SET
+              seccion_nombre = EXCLUDED.seccion_nombre,
+              profesor_nombre = EXCLUDED.profesor_nombre,
+              nota_cotidiano = EXCLUDED.nota_cotidiano,
+              nota_tareas = EXCLUDED.nota_tareas,
+              nota_pruebas = EXCLUDED.nota_pruebas,
+              nota_proyecto = EXCLUDED.nota_proyecto,
+              nota_asistencia = EXCLUDED.nota_asistencia,
+              nota_total = EXCLUDED.nota_total,
+              ausencias = EXCLUDED.ausencias,
+              ausencias_just = EXCLUDED.ausencias_just,
+              tardias = EXCLUDED.tardias
+          `, [
+            est.estudiante_id, anioAnt, a.periodo, a.seccion_nombre, a.materia_nombre, profNom,
+            rb.cotidiano ? rb.cotidiano.nota_100 : null,
+            rb.tarea     ? rb.tarea.nota_100     : null,
+            rb.examen    ? rb.examen.nota_100    : null,
+            rb.proyecto  ? rb.proyecto.nota_100  : null,
+            est.asistencia ? est.asistencia.puntos_mep : null,
+            est.total || null,
+            est.asistencia ? (est.asistencia.lecciones_ausentes_injust || 0) : 0,
+            0, // ausencias_just: no está en el struct, quedaría en cero (se puede completar después si es útil)
+            0  // tardias: idem
+          ]);
+          archivadas++;
+        }
+      } catch(e) {
+        console.warn(`Archivo asig ${a.asig_id}:`, e.message);
+        saltadas++;
+      }
+    }
+
+    // Resumen de conducta por período/año → guardar como una "materia virtual" Conducta
+    try {
+      const conductaR = await client.query(`
+        SELECT b.estudiante_id, b.fecha, i.puntos, e.seccion_id, s.nombre AS seccion_nombre
+        FROM boletas_conducta b
+        JOIN infracciones i ON i.id = b.infraccion_id
+        LEFT JOIN estudiantes e ON e.id = b.estudiante_id
+        LEFT JOIN secciones s ON s.id = e.seccion_id
+      `);
+      const rangosI  = { desde: `${anioAnt}-02-23`, hasta: `${anioAnt}-07-03` };
+      const rangosII = { desde: `${anioAnt}-07-20`, hasta: `${anioAnt}-12-09` };
+      const enRango = (b, rg) => String(b.fecha).slice(0,10) >= rg.desde && String(b.fecha).slice(0,10) <= rg.hasta;
+      const porEst = {};
+      conductaR.rows.forEach(b => {
+        if(!porEst[b.estudiante_id]) porEst[b.estudiante_id] = { I: 0, II: 0, secc: b.seccion_nombre };
+        if(enRango(b, rangosI))  porEst[b.estudiante_id].I  += (b.puntos||0);
+        if(enRango(b, rangosII)) porEst[b.estudiante_id].II += (b.puntos||0);
+      });
+      for(const [eid, dat] of Object.entries(porEst)){
+        for(const [per, key] of [['I Período','I'],['II Período','II']]){
+          const nota = Math.max(0, 100 - dat[key]);
+          await client.query(`
+            INSERT INTO expediente_academico (
+              estudiante_id, anio, periodo, seccion_nombre, materia_nombre,
+              nota_total, conducta_nota
+            ) VALUES ($1,$2,$3,$4,'Conducta',$5,$5)
+            ON CONFLICT (estudiante_id, anio, periodo, materia_nombre) DO UPDATE SET
+              seccion_nombre = EXCLUDED.seccion_nombre,
+              nota_total = EXCLUDED.nota_total,
+              conducta_nota = EXCLUDED.conducta_nota
+          `, [parseInt(eid), anioAnt, per, dat.secc, nota]);
+        }
+      }
+    } catch(e) { console.warn("Archivo conducta:", e.message); }
+
+    // ── 2. BORRAR DATOS CRUDOS DEL AÑO ANTERIOR ───────────────────────
+    // Todo ligado a asignaciones se borra en cascada al eliminar la asignación.
+    // Pero antes borro explícitamente lo que no cae por cascade para tener control:
+    //   - sesiones_asistencia y asistencia (cascade desde asignaciones)
+    //   - evaluaciones, indicadores, notas_examen, notas_indicador (cascade)
+    //   - boletas_conducta ligadas a asignaciones (cascade); las sin asignación → borrar todas
+    const boletasBorradas = await client.query("DELETE FROM boletas_conducta RETURNING id");
+
+    // ── 3. Estudiantes → nueva sección + idioma/tecnología/subgrupo ───
     const apl = await client.query(`
       UPDATE estudiantes e SET
         seccion_id = m.seccion_id,
         idioma     = COALESCE(m.idioma, e.idioma),
-        tecnologia = COALESCE(m.tecnologia, e.tecnologia)
+        tecnologia = COALESCE(m.tecnologia, e.tecnologia),
+        subgrupo   = COALESCE(m.subgrupo, e.subgrupo)
       FROM matricula m
       WHERE m.estudiante_id = e.id AND m.anio = $1 AND m.seccion_id IS NOT NULL
         AND e.activo = true
       RETURNING e.id
     `, [anio]);
+
+    // ── 4. Activos sin matrícula → sin sección ────────────────────────
     const sinMat = await client.query(`
       UPDATE estudiantes SET seccion_id = NULL
       WHERE activo = true AND (archivado = false OR archivado IS NULL)
         AND id NOT IN (SELECT estudiante_id FROM matricula WHERE anio = $1 AND seccion_id IS NOT NULL)
       RETURNING id
     `, [anio]);
+
+    // ── 5. Limpiar guía y orientador ──────────────────────────────────
+    const guiaClean = await client.query("DELETE FROM seccion_guia RETURNING seccion_id");
+    const oriClean  = await client.query("DELETE FROM seccion_orientador RETURNING seccion_id");
+
+    // ── 6. BORRAR asignaciones (cascade borra sesiones, notas, evaluaciones) ──
+    const asigBorradas = await client.query("DELETE FROM asignaciones RETURNING id");
+
     await client.query("COMMIT");
-    res.json({ ok: true, aplicados: apl.rows.length, sin_seccion: sinMat.rows.length, anio });
+    res.json({
+      ok: true,
+      aplicados: apl.rows.length,
+      sin_seccion: sinMat.rows.length,
+      guias_limpiadas: guiaClean.rows.length,
+      orientadores_limpiados: oriClean.rows.length,
+      asignaciones_borradas: asigBorradas.rows.length,
+      boletas_borradas: boletasBorradas.rows.length,
+      resumenes_archivados: archivadas,
+      resumenes_saltados: saltadas,
+      anio,
+      anio_archivado: anioAnt
+    });
   } catch(e) {
     await client.query("ROLLBACK");
+    console.error("Aplicar matrículas:", e);
     res.status(500).json({ error: e.message });
   } finally {
     client.release();
