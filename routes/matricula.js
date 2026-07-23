@@ -282,29 +282,44 @@ function subgrupoDeTecnologia(tec){
   return null;
 }
 
-// ── CUPOS POR SECCIÓN PARA UN AÑO ────────────────────────────────────────
+// ── CUPOS POR SECCIÓN PARA UN AÑO (con desglose por subgrupo A/B) ────────
 // Año actual → cuenta estudiantes activos en cada sección.
 // Año futuro → cuenta filas de matrícula de ese año.
+// Cupo máximo total: 26 · Máximo por subgrupo (A o B): 13
 router.get("/cupos/:anio", canAccess, async (req, res) => {
   const anio = parseInt(req.params.anio);
   if(!anio) return res.status(400).json({ error: "Año inválido" });
   const esActual = anio === anioActualCR();
   const q = esActual ? `
-    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, COUNT(e.id)::int AS ocupados
+    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma,
+      COUNT(e.id)::int AS ocupados,
+      COUNT(*) FILTER (WHERE UPPER(COALESCE(e.subgrupo,'')) = 'A')::int AS ocupados_a,
+      COUNT(*) FILTER (WHERE UPPER(COALESCE(e.subgrupo,'')) = 'B')::int AS ocupados_b
     FROM secciones s
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
     LEFT JOIN estudiantes e ON e.seccion_id = s.id
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
     GROUP BY s.id, si.idioma ORDER BY s.nivel, s.nombre
   ` : `
-    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, COUNT(m.id)::int AS ocupados
+    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma,
+      COUNT(m.id)::int AS ocupados,
+      COUNT(*) FILTER (WHERE UPPER(COALESCE(m.subgrupo,'')) = 'A')::int AS ocupados_a,
+      COUNT(*) FILTER (WHERE UPPER(COALESCE(m.subgrupo,'')) = 'B')::int AS ocupados_b
     FROM secciones s
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
     LEFT JOIN matricula m ON m.seccion_id = s.id AND m.anio = $1
     GROUP BY s.id, si.idioma ORDER BY s.nivel, s.nombre
   `;
   const r = await pool.query(q, [anio]);
-  res.json(r.rows.map(x => ({ ...x, max: MAX_CUPO, disponibles: Math.max(0, MAX_CUPO - x.ocupados) })));
+  const MAX_SUB = 13;
+  res.json(r.rows.map(x => ({
+    ...x,
+    max: MAX_CUPO,
+    max_subgrupo: MAX_SUB,
+    disponibles: Math.max(0, MAX_CUPO - x.ocupados),
+    disponibles_a: Math.max(0, MAX_SUB - x.ocupados_a),
+    disponibles_b: Math.max(0, MAX_SUB - x.ocupados_b),
+  })));
 });
 
 // ── ASIGNAR SECCIÓN (año actual o futuro) ────────────────────────────────
@@ -322,24 +337,41 @@ router.post("/asignar", canAccess, async (req, res) => {
   const u = req.session.usuario;
   const esActual = a === anioActualCR();
 
-  // ── Verificar cupo (excluyendo al propio estudiante, por si reasigna) ──
-  let ocupados;
+  // ── Verificar cupos (excluyendo al propio estudiante) ──────────────────
+  // Cupo total 26 + cupo por subgrupo 13 (aplica en 10° y 11° con tecnologías)
+  const MAX_SUB = 13;
+  const sub = subgrupoDeTecnologia(tecnologia);
+  let ocupados, ocupadosSub = 0;
   if(esActual){
     const c = await pool.query(`
-      SELECT COUNT(*)::int AS c FROM estudiantes
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE UPPER(COALESCE(subgrupo,'')) = $3)::int AS sub_c
+      FROM estudiantes
       WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL) AND id<>$2
-    `, [seccion_id, estudiante_id]);
-    ocupados = c.rows[0].c;
+    `, [seccion_id, estudiante_id, (sub||'').toUpperCase()]);
+    ocupados = c.rows[0].total;
+    ocupadosSub = c.rows[0].sub_c;
   } else {
-    const c = await pool.query(
-      "SELECT COUNT(*)::int AS c FROM matricula WHERE seccion_id=$1 AND anio=$2 AND estudiante_id<>$3",
-      [seccion_id, a, estudiante_id]);
-    ocupados = c.rows[0].c;
+    const c = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE UPPER(COALESCE(subgrupo,'')) = $4)::int AS sub_c
+      FROM matricula WHERE seccion_id=$1 AND anio=$2 AND estudiante_id<>$3
+    `, [seccion_id, a, estudiante_id, (sub||'').toUpperCase()]);
+    ocupados = c.rows[0].total;
+    ocupadosSub = c.rows[0].sub_c;
   }
   if(ocupados >= MAX_CUPO && !(forzar && u.rol === "admin")){
     return res.status(409).json({
       error: `La sección está llena (${ocupados}/${MAX_CUPO}). Solo el administrador puede forzar la matrícula por encima del cupo.`,
       llena: true
+    });
+  }
+  if(sub && ocupadosSub >= MAX_SUB && !(forzar && u.rol === "admin")){
+    return res.status(409).json({
+      error: `El Grupo ${sub} de esta sección ya está lleno (${ocupadosSub}/${MAX_SUB}). Solo el administrador puede forzar por encima del cupo del subgrupo.`,
+      subgrupo_lleno: true
     });
   }
 
@@ -349,7 +381,6 @@ router.post("/asignar", canAccess, async (req, res) => {
   const secIdR = await pool.query(
     "SELECT idioma FROM secciones_idioma WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
   const secIdioma = secIdR.rows[0] ? secIdR.rows[0].idioma : null;
-  const sub = subgrupoDeTecnologia(tecnologia);
 
   // ── Validación de idioma (secciones exclusivas de Francés) ────────────
   // Idioma efectivo del estudiante: el que viene en la asignación, o el
@@ -470,6 +501,7 @@ router.put("/secciones-idioma", requireAuth, async (req, res) => {
 //  IDIOMA Y TECNOLOGÍA — módulo de la orientadora de 9° (9° → 10°)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Middleware de LECTURA: admin, auxiliar, administrativo, orientador (todos ven)
 async function canIdiomaTec(req, res, next){
   const u = req.session.usuario;
   if(!u) return res.status(401).json({ error: "No autorizado" });
@@ -479,16 +511,30 @@ async function canIdiomaTec(req, res, next){
   return res.status(403).json({ error: "Sin permisos" });
 }
 
+// Middleware de ESCRITURA: solo admin, administrativo y orientador
+// (auxiliares SOLO ven, no editan idioma/tecnología/boleta desde este módulo)
+async function canEditarIdiomaTec(req, res, next){
+  const u = req.session.usuario;
+  if(!u) return res.status(401).json({ error: "No autorizado" });
+  const fx = u.funciones_extra || [];
+  if(["admin","administrativo"].includes(u.rol)) return next();
+  if(u.rol === "orientador" || fx.includes("orientador")) return next();
+  return res.status(403).json({ error: "Los auxiliares tienen acceso de solo lectura en este módulo. Para modificar idioma/tecnología, hacelo desde el módulo de Matrícula al asignar la sección." });
+}
+
 // Lista estudiantes de NOVENO. Orientador → solo sus secciones asignadas.
+// Auxiliares y administrativos → todas las secciones (solo lectura).
 router.get("/idioma-tecnologia", canIdiomaTec, async (req, res) => {
   const u = req.session.usuario;
   const fx = u.funciones_extra || [];
   const esOrientador = (u.rol === "orientador" || fx.includes("orientador")) &&
                        !["admin","auxiliar","administrativo"].includes(u.rol);
+  const puedeEditar = ["admin","administrativo"].includes(u.rol) ||
+                      u.rol === "orientador" || fx.includes("orientador");
   let filtro = "", params = [];
   if(esOrientador){
     const secs = await pool.query("SELECT seccion_id FROM seccion_orientador WHERE orientador_id=$1", [u.id]);
-    if(!secs.rows.length) return res.json([]);
+    if(!secs.rows.length) return res.json({ puede_editar: puedeEditar, estudiantes: [] });
     params.push(secs.rows.map(r=>r.seccion_id));
     filtro = `AND e.seccion_id = ANY($${params.length}::int[])`;
   }
@@ -501,11 +547,11 @@ router.get("/idioma-tecnologia", canIdiomaTec, async (req, res) => {
       AND s.nivel = 9 ${filtro}
     ORDER BY s.nombre, e.primer_apellido, e.segundo_apellido, e.nombre
   `, params);
-  res.json(r.rows);
+  res.json({ puede_editar: puedeEditar, estudiantes: r.rows });
 });
 
-// Guardar idioma/tecnología de un estudiante (autosave por fila)
-router.put("/idioma-tecnologia/:id", canIdiomaTec, async (req, res) => {
+// Guardar idioma/tecnología de un estudiante (autosave por fila) — solo editores
+router.put("/idioma-tecnologia/:id", canEditarIdiomaTec, async (req, res) => {
   const { idioma, tecnologia } = req.body;
   await pool.query(`
     UPDATE estudiantes SET idioma=$1, tecnologia=$2 WHERE id=$3
@@ -513,7 +559,8 @@ router.put("/idioma-tecnologia/:id", canIdiomaTec, async (req, res) => {
   res.json({ ok: true });
 });
 
-// Marcar/desmarcar boleta entregada (autosave)
+// Marcar/desmarcar boleta entregada (autosave) — admin/administrativo/auxiliar/orientador
+// (auxiliar sí puede marcar cuando recibe la boleta al momento de matricular)
 router.put("/boleta-entregada/:id", canIdiomaTec, async (req, res) => {
   const { entregada } = req.body;
   await pool.query("UPDATE estudiantes SET boleta_entregada=$1 WHERE id=$2",
