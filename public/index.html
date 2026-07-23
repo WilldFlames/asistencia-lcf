@@ -13776,9 +13776,14 @@ function horRenderGrid(mapa, editable){
           horAsigsSeccion.map(a =>
             `<option value="${a.id}" ${c && c.asignacion_id==a.id ? 'selected':''}>${horEtiquetaAsig(a)}</option>`)
         ).join('');
-        html += `<td style="padding:2px;"><select class="hor-celda" data-dia="${dia}" data-leccion="${lec.n}" style="width:100%;font-size:11.5px;padding:4px;border:1px solid var(--border);border-radius:5px;">${opts}</select></td>`;
+        const aulaVal = (c && c.aula !== null && c.aula !== undefined) ? c.aula : '';
+        html += `<td style="padding:2px;">
+          <select class="hor-celda" data-dia="${dia}" data-leccion="${lec.n}" style="width:100%;font-size:11.5px;padding:4px;border:1px solid var(--border);border-radius:5px;">${opts}</select>
+          <input type="number" min="0" max="30" class="hor-aula" data-dia="${dia}" data-leccion="${lec.n}" value="${aulaVal}" placeholder="Aula" title="Número de aula (0-30)" style="width:100%;margin-top:2px;font-size:11px;padding:3px 4px;border:1px solid var(--border);border-radius:5px;text-align:center;"/>
+        </td>`;
       } else {
-        const txt = c ? (c.materia_nombre ? `<strong>${c.materia_nombre}</strong><br><span style="color:var(--muted);">${c.prof_ap1||''} ${c.prof_nombre||''}</span>` : (c.materia_texto||'')) : '';
+        const aulaTxt = (c && c.aula !== null && c.aula !== undefined && c.aula !== '') ? `<br><span style="font-size:10.5px;color:var(--azul);font-weight:bold;">Aula ${c.aula}</span>` : '';
+        const txt = c ? (c.materia_nombre ? `<strong>${c.materia_nombre}</strong><br><span style="color:var(--muted);">${c.prof_ap1||''} ${c.prof_nombre||''}</span>${aulaTxt}` : ((c.materia_texto||'')+aulaTxt)) : '';
         html += `<td style="text-align:center;">${txt}</td>`;
       }
     }
@@ -13798,7 +13803,15 @@ async function horGuardar(){
   if(!secId){ sa('alert-horario','Seleccioná una sección.','danger'); return; }
   const celdas = [];
   document.querySelectorAll('.hor-celda').forEach(sel => {
-    if(sel.value) celdas.push({ dia: parseInt(sel.dataset.dia), leccion: parseInt(sel.dataset.leccion), asignacion_id: parseInt(sel.value) });
+    if(sel.value){
+      const aulaInp = document.querySelector(`.hor-aula[data-dia="${sel.dataset.dia}"][data-leccion="${sel.dataset.leccion}"]`);
+      celdas.push({
+        dia: parseInt(sel.dataset.dia),
+        leccion: parseInt(sel.dataset.leccion),
+        asignacion_id: parseInt(sel.value),
+        aula: aulaInp && aulaInp.value !== '' ? aulaInp.value : null
+      });
+    }
   });
   try{
     await api(`/api/horarios/${secId}`,'PUT',{ anio, celdas });
@@ -13816,7 +13829,7 @@ async function horVerMiHorario(){
     const r = await api(`/api/horarios/mi-horario?anio=${anio}`);
     const mapa = {};
     (r.celdas||[]).forEach(c => {
-      mapa[`${c.dia}-${c.leccion}`] = { materia_nombre: c.materia_nombre, prof_ap1: `(${c.seccion_nombre})`, prof_nombre: '' };
+      mapa[`${c.dia}-${c.leccion}`] = { materia_nombre: c.materia_nombre, prof_ap1: `(${c.seccion_nombre})`, prof_nombre: '', aula: c.aula };
     });
     document.getElementById('hor-grid-wrap').innerHTML =
       '<div style="font-size:13px;font-weight:bold;margin-bottom:8px;">👤 Mi horario personal — cada celda muestra materia y sección</div>' +
@@ -13840,7 +13853,14 @@ function horImprimir(){
     selects.forEach(s=>{
       if(!s.value) return;
       const a = horAsigsSeccion.find(x=>String(x.id)===String(s.value));
-      if(a) mapa[`${s.dataset.dia}-${s.dataset.leccion}`] = { materia_nombre: a.materia_nombre + (a.subgrupo?` [${a.subgrupo}]`:''), prof_ap1: a.prof_ap1, prof_nombre: a.prof_nombre };
+      if(a){
+        const aulaInp = document.querySelector(`.hor-aula[data-dia="${s.dataset.dia}"][data-leccion="${s.dataset.leccion}"]`);
+        mapa[`${s.dataset.dia}-${s.dataset.leccion}`] = {
+          materia_nombre: a.materia_nombre + (a.subgrupo?` [${a.subgrupo}]`:''),
+          prof_ap1: a.prof_ap1, prof_nombre: a.prof_nombre,
+          aula: aulaInp && aulaInp.value !== '' ? aulaInp.value : null
+        };
+      }
     });
     grid = horRenderGrid(mapa, false);
   } else {

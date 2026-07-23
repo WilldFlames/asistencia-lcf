@@ -67,7 +67,7 @@ router.get("/", requireAuth, async (req, res) => {
   if(!seccionId) return res.status(400).json({ error: "seccion_id requerido" });
 
   const celdas = await pool.query(`
-    SELECT h.dia, h.leccion, h.asignacion_id, h.materia_texto,
+    SELECT h.dia, h.leccion, h.asignacion_id, h.materia_texto, h.aula,
       m.nombre AS materia_nombre,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
     FROM horarios h
@@ -102,12 +102,20 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
     for(const c of celdas){
       if(!c.dia || !c.leccion) continue;
       if(!c.asignacion_id && !c.materia_texto) continue; // celda libre — no se guarda
+      let aula = null;
+      if(c.aula !== undefined && c.aula !== null && String(c.aula).trim() !== ''){
+        aula = parseInt(c.aula);
+        if(isNaN(aula) || aula < 0 || aula > 30){
+          await client.query("ROLLBACK");
+          return res.status(400).json({ error: `Aula inválida "${c.aula}" (día ${c.dia}, lección ${c.leccion}). Debe ser un número de 0 a 30.` });
+        }
+      }
       await client.query(`
-        INSERT INTO horarios (anio, seccion_id, dia, leccion, asignacion_id, materia_texto)
-        VALUES ($1,$2,$3,$4,$5,$6)
+        INSERT INTO horarios (anio, seccion_id, dia, leccion, asignacion_id, materia_texto, aula)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
         ON CONFLICT (anio, seccion_id, dia, leccion) DO UPDATE
-          SET asignacion_id = EXCLUDED.asignacion_id, materia_texto = EXCLUDED.materia_texto
-      `, [a, seccionId, c.dia, c.leccion, c.asignacion_id || null, c.materia_texto || null]);
+          SET asignacion_id = EXCLUDED.asignacion_id, materia_texto = EXCLUDED.materia_texto, aula = EXCLUDED.aula
+      `, [a, seccionId, c.dia, c.leccion, c.asignacion_id || null, c.materia_texto || null, aula]);
     }
     await client.query("COMMIT");
     res.json({ ok: true });
@@ -123,7 +131,7 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
 router.get("/mi-horario", requireAuth, async (req, res) => {
   const anio = parseInt(req.query.anio) || anioCR();
   const r = await pool.query(`
-    SELECT h.dia, h.leccion, s.nombre AS seccion_nombre, m.nombre AS materia_nombre
+    SELECT h.dia, h.leccion, h.aula, s.nombre AS seccion_nombre, m.nombre AS materia_nombre
     FROM horarios h
     JOIN asignaciones a ON a.id = h.asignacion_id
     JOIN secciones s ON s.id = h.seccion_id

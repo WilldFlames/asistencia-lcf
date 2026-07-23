@@ -1643,9 +1643,12 @@ async function initDB() {
         leccion       INTEGER NOT NULL CHECK(leccion BETWEEN 1 AND 12),
         asignacion_id INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
         materia_texto TEXT DEFAULT NULL,
+        aula          INTEGER DEFAULT NULL,
         UNIQUE(anio, seccion_id, dia, leccion)
       )
     `);
+    // Migración aditiva por si la tabla ya existía sin la columna
+    await client.query(`ALTER TABLE horarios ADD COLUMN IF NOT EXISTS aula INTEGER DEFAULT NULL`);
 
     // ── PERMISOS DE SALIDA (auxiliares) ──────────────────────────────────
     // Consecutivo interno por año (numero + anio). Individual o por sección.
