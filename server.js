@@ -54,6 +54,7 @@ app.use("/api/minutas",    requireAuth, require("./routes/minutas"));
 app.use("/api/horarios",   requireAuth, require("./routes/horarios"));
 app.use("/api/porteria",   requireAuth, require("./routes/porteria"));
 app.use("/api/anuncios",   requireAuth, require("./routes/anuncios"));
+app.use("/api/config-anio",requireAuth, require("./routes/configAnio"));
 app.use("/api/padres",     require("./routes/padres")); // auth propia (portal de encargados)
 app.use("/api/inventario", requireAuth, require("./routes/inventario"));
 

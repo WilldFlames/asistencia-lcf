@@ -368,6 +368,22 @@ async function initDB() {
         UNIQUE(seccion_id, anio)
       )
     `);
+    // Config del A/B por sección y año — para pre-cargar el año nuevo:
+    //   tec_b: qué tecnología B ofrece la sección (Diseño Publicitario o Matem/AMPROSA)
+    //          (el A siempre es Inglés Conversacional). Solo aplica en 10° y 11°.
+    //   taller_a / taller_b: qué taller cae en cada subgrupo en 7°-9°
+    //          (Educación para el Hogar / Artes Industriales)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS secciones_config (
+        id         SERIAL PRIMARY KEY,
+        seccion_id INTEGER REFERENCES secciones(id) ON DELETE CASCADE,
+        anio       INTEGER NOT NULL,
+        tec_b      TEXT DEFAULT NULL,
+        taller_a   TEXT DEFAULT NULL,
+        taller_b   TEXT DEFAULT NULL,
+        UNIQUE(seccion_id, anio)
+      )
+    `);
     // Ampliar constraint de rol para incluir todos los roles
     try {
       await client.query(`ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check`);

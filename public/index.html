@@ -464,6 +464,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="expediente" id="nav-expediente" onclick="goTo('expediente')" style="display:none"><span class="icon">📁</span><span>Expediente</span></button>
   <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
   <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
+  <button class="nav-btn" data-page="config-anio" id="nav-config-anio" onclick="goTo('config-anio')" style="display:none"><span class="icon">📚</span><span>Configurar Año</span></button>
   <button class="nav-btn" data-page="idiomatec" id="nav-idiomatec" onclick="goTo('idiomatec')" style="display:none"><span class="icon">🗣️</span><span>Idioma/Tecnología</span></button>
   <button class="nav-btn" data-page="anuncios" id="nav-anuncios" onclick="goTo('anuncios')" style="display:none"><span class="icon">📣</span><span>Anuncios</span></button>
   <div class="sidebar-section" id="sec-admin" style="display:none">Admin</div>
@@ -1351,6 +1352,79 @@ tr:hover td{background:#f8fafc;}
       <thead><tr><th>Fecha</th><th>Anuncio</th><th>Destino</th><th>Publicó</th><th>Estado</th><th></th></tr></thead>
       <tbody id="an-tbody"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
     </table></div>
+  </div>
+</div>
+
+<!-- CONFIGURAR AÑO NUEVO (solo admin) -->
+<div class="page" id="page-config-anio">
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
+      <h2 style="margin:0">📚 Configurar Año <span id="ca-anio-label" style="color:var(--muted);"></span></h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <label style="font-size:13px;font-weight:bold;">Año:</label>
+        <select id="ca-anio" onchange="caCambioAnio()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:bold;"></select>
+      </div>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:0;">Configurá todo lo del año nuevo <strong>antes</strong> de matricular: crear las secciones, marcar las de francés, y definir en cada sección qué talleres van en A/B (7°-9°) o qué tecnología B ofrece (10°-11°). Cuando aplicés matrículas, todo esto queda listo.</p>
+    <div id="alert-ca" class="alert" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Resumen por nivel -->
+  <div class="card" style="margin-bottom:14px;">
+    <h3 style="font-size:14px;margin-bottom:8px;">📊 Progreso de configuración</h3>
+    <div id="ca-resumen" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;"></div>
+  </div>
+
+  <!-- Pestañas -->
+  <div class="card">
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:8px;">
+      <button class="btn btn-outline btn-sm ca-tab" data-tab="secciones" onclick="caTab('secciones')">📋 Secciones</button>
+      <button class="btn btn-outline btn-sm ca-tab" data-tab="frances" onclick="caTab('frances')">🇫🇷 Francés</button>
+      <button class="btn btn-outline btn-sm ca-tab" data-tab="talleres" onclick="caTab('talleres')">🏭 Talleres 7°-9°</button>
+      <button class="btn btn-outline btn-sm ca-tab" data-tab="tecnologia" onclick="caTab('tecnologia')">🎨 Tecnología 10°-11°</button>
+    </div>
+
+    <!-- SECCIONES -->
+    <div id="ca-cont-secciones">
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="fg" style="width:160px;">
+          <label>Nombre (ej: 10-1)</label>
+          <input type="text" id="ca-sec-nombre" placeholder="10-1" onkeydown="if(event.key==='Enter') caCrearSeccion()"/>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="caCrearSeccion()">➕ Crear Sección</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--muted);margin-bottom:10px;">
+        💡 Las secciones se crean sin profesor guía ni orientador. Estos se asignan después desde <strong>Admin → Asignaciones</strong>.
+      </p>
+      <div class="table-wrap"><table style="font-size:12.5px;">
+        <thead><tr><th>Sección</th><th>Nivel</th><th>Guía</th><th>Orientador</th><th></th></tr></thead>
+        <tbody id="ca-sec-tbody"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- FRANCÉS -->
+    <div id="ca-cont-frances" style="display:none;">
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Marcá las secciones de 10° y 11° que son <strong>exclusivas de francés</strong>. La marca es por año — cambia entre años sin conflicto.</p>
+      <div id="ca-frances-lista"></div>
+    </div>
+
+    <!-- TALLERES 7°-9° -->
+    <div id="ca-cont-talleres" style="display:none;">
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Para cada sección de 7°-9°, definí qué taller lleva el <strong>Grupo A</strong> y cuál el <strong>Grupo B</strong>. Deben ser diferentes (uno Hogar y otro Industriales).</p>
+      <div class="table-wrap"><table style="font-size:12.5px;">
+        <thead><tr><th>Sección</th><th>Grupo A (taller)</th><th>Grupo B (taller)</th><th>Estado</th></tr></thead>
+        <tbody id="ca-talleres-tbody"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- TECNOLOGÍA 10°-11° -->
+    <div id="ca-cont-tecnologia" style="display:none;">
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Para cada sección de 10° y 11°, elegí qué tecnología B ofrece: <strong>Diseño Publicitario</strong> o <strong>Matem/AMPROSA</strong>. El Grupo A siempre es <strong>Inglés Conversacional</strong>. En matrícula, solo se podrá asignar la B correspondiente a la sección.</p>
+      <div class="table-wrap"><table style="font-size:12.5px;">
+        <thead><tr><th>Sección</th><th>Grupo A</th><th>Grupo B</th><th>Estado</th></tr></thead>
+        <tbody id="ca-tec-tbody"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
+      </table></div>
+    </div>
   </div>
 </div>
 
@@ -4433,6 +4507,7 @@ function goTo(page){
   if(page==="archivo")      iniciarArchivo();
   if(page==="prematricula") iniciarPrematricula();
   if(page==="matricula")    iniciarMatricula();
+  if(page==="config-anio")  iniciarConfigAnio();
   if(page==="idiomatec")    iniciarIdiomaTec();
   if(page==="anuncios")     iniciarAnuncios();
   if(page==="reportes")    initReportes();
@@ -4556,6 +4631,10 @@ async function iniciarApp(){
     document.getElementById("nav-prematricula").style.display="";
     document.getElementById("nav-matricula").style.display="";
   }
+  // ── CONFIGURAR AÑO NUEVO (solo admin) ────────────────────────
+  if(esAdmin){
+    document.getElementById("nav-config-anio").style.display="";
+  }
 
   // ── IDIOMA Y TECNOLOGÍA (orientadora de 9°) ──────────────────
   if(esAdmin||esAuxiliar||esAdminIst||esOrientador){
@@ -4626,7 +4705,7 @@ async function iniciarApp(){
      'nav-expediente','nav-comedor','nav-consecutivos','nav-constancia',
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
-     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios',
+     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios','nav-config-anio',
      'nav-horario','nav-permisos','nav-porteria'
     ].forEach(id => {
       const el = document.getElementById(id);
@@ -4653,7 +4732,7 @@ async function iniciarApp(){
      'nav-expediente','nav-comedor','nav-consecutivos','nav-constancia',
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
-     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios',
+     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios','nav-config-anio',
      'nav-inventario','nav-horario','nav-permisos'
     ].forEach(id => {
       const el = document.getElementById(id);
@@ -9037,6 +9116,26 @@ function asignarCuposInfo(){
   if(!c){ info.style.display = "none"; return; }
   const nivel = parseInt(document.getElementById("asignar-sec-nivel").value) || 0;
   const conSubgrupo = nivel >= 10;
+  // Filtrar opciones de tecnología B según config de la sección
+  const tecSel = document.getElementById("asignar-sec-tec");
+  if(tecSel && conSubgrupo){
+    const valActual = tecSel.value;
+    [...tecSel.options].forEach(opt=>{
+      if(opt.value === '' || opt.value === 'Inglés Conversacional'){
+        opt.disabled = false;
+        opt.style.display = '';
+      } else {
+        // Es una B. Solo mostrar la que ofrece esta sección (si está configurada)
+        const permitida = !c.tec_b || opt.value === c.tec_b;
+        opt.disabled = !permitida;
+        opt.style.display = permitida ? '' : 'none';
+      }
+    });
+    // Si el valor actual ya no es válido, limpiar
+    if(valActual && valActual !== 'Inglés Conversacional' && c.tec_b && valActual !== c.tec_b){
+      tecSel.value = '';
+    }
+  }
   const total = colorDisponibles(c.disponibles, c.max);
   info.style.display = "";
   if(conSubgrupo){
@@ -9045,9 +9144,13 @@ function asignarCuposInfo(){
     info.style.background = total.bg;
     info.style.border = `1px solid ${total.bd}`;
     info.style.color = total.txt;
+    const tecInfo = c.tec_b
+      ? `<div style="font-size:11px;margin-top:3px;">🎨 <strong>Grupo A:</strong> Inglés Conversacional · <strong>Grupo B:</strong> ${c.tec_b}</div>`
+      : `<div style="font-size:11px;margin-top:3px;color:#dc2626;">⚠️ Esta sección no tiene tecnología B configurada. Configurala en Configurar Año.</div>`;
     info.innerHTML = `
       <div style="font-weight:bold;margin-bottom:4px;">Cupos ${c.nombre}: <span style="font-weight:normal;">${c.ocupados}/${c.max} · ${c.disponibles} campo${c.disponibles===1?'':'s'} libre${c.disponibles===1?'':'s'}</span></div>
-      <div style="display:flex;gap:6px;">
+      ${tecInfo}
+      <div style="display:flex;gap:6px;margin-top:6px;">
         <div style="flex:1;background:${a.bg};border:1px solid ${a.bd};color:${a.txt};padding:4px 6px;border-radius:5px;text-align:center;">
           <strong>Grupo A</strong><br/>${c.ocupados_a}/${c.max_subgrupo} · <strong>${c.disponibles_a} libre${c.disponibles_a===1?'':'s'}</strong>
         </div>
@@ -14337,6 +14440,238 @@ async function anEliminar(id){
   if(!confirm("¿Eliminar este anuncio definitivamente?")) return;
   try{ await api(`/api/anuncios/${id}`,"DELETE"); await anCargarLista(); }
   catch(e){ sa("alert-anuncios", e.message, "danger"); }
+}
+
+// ════════════════════════════════════
+//  CONFIGURAR AÑO NUEVO (solo admin)
+// ════════════════════════════════════
+let caData = null;
+let caTabActual = 'secciones';
+
+async function iniciarConfigAnio(){
+  const selA = document.getElementById("ca-anio");
+  const actual = matAnioActual();
+  if(selA && !selA.options.length){
+    selA.innerHTML = `<option value="${actual}">${actual}</option><option value="${actual+1}">${actual+1}</option>`;
+    const mes = parseInt(fechaHoyCR().slice(5,7));
+    selA.value = mes >= 9 ? String(actual+1) : String(actual);
+  }
+  document.getElementById("ca-anio-label").textContent = `— ${selA.value}`;
+  await caCargar();
+  caTab(caTabActual);
+}
+
+function caCambioAnio(){ iniciarConfigAnio(); }
+
+async function caCargar(){
+  const anio = document.getElementById("ca-anio").value;
+  document.getElementById("ca-anio-label").textContent = `— ${anio}`;
+  try{
+    caData = await api(`/api/config-anio/resumen/${anio}`);
+    caRenderResumen();
+    // Refrescar la pestaña actual
+    caTab(caTabActual);
+  }catch(e){ sa("alert-ca", e.message, "danger"); }
+}
+
+function caRenderResumen(){
+  const cont = document.getElementById("ca-resumen");
+  if(!caData){ cont.innerHTML = ''; return; }
+  const secTotal = caData.secciones.length;
+  const conGuia = caData.secciones.filter(s=>s.guia_id).length;
+  const conOri = caData.secciones.filter(s=>s.orientador_id).length;
+  const nivel7a9 = caData.secciones.filter(s=>s.nivel>=7 && s.nivel<=9);
+  const nivel10a11 = caData.secciones.filter(s=>s.nivel>=10 && s.nivel<=11);
+  const talleres_ok = nivel7a9.filter(s=>s.taller_a && s.taller_b).length;
+  const tec_ok = nivel10a11.filter(s=>s.tec_b).length;
+  const frances_ok = nivel10a11.filter(s=>s.idioma_exclusivo).length;
+  const st = (n,t)=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;">
+    <div style="font-size:22px;font-weight:bold;color:${n===t?'var(--verde)':'var(--azul)'};">${n}${t?`<span style="color:var(--muted);font-size:14px;">/${t}</span>`:''}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px;">$LBL$</div>
+  </div>`;
+  cont.innerHTML = [
+    st(secTotal, null).replace('$LBL$','Secciones'),
+    st(conGuia, secTotal).replace('$LBL$','Con guía'),
+    st(conOri, secTotal).replace('$LBL$','Con orientador'),
+    st(talleres_ok, nivel7a9.length).replace('$LBL$','Talleres 7°-9°'),
+    st(tec_ok, nivel10a11.length).replace('$LBL$','Tecnología 10°-11°'),
+    st(frances_ok, null).replace('$LBL$','Francés (10°-11°)'),
+  ].join("");
+}
+
+function caTab(tab){
+  caTabActual = tab;
+  ['secciones','frances','talleres','tecnologia'].forEach(t=>{
+    const c = document.getElementById(`ca-cont-${t}`);
+    if(c) c.style.display = t===tab ? '' : 'none';
+  });
+  document.querySelectorAll('.ca-tab').forEach(b=>{
+    b.style.background = b.dataset.tab===tab ? 'var(--azul)' : '';
+    b.style.color = b.dataset.tab===tab ? '#fff' : '';
+  });
+  if(tab==='secciones')  caRenderSecciones();
+  if(tab==='frances')    caRenderFrances();
+  if(tab==='talleres')   caRenderTalleres();
+  if(tab==='tecnologia') caRenderTecnologia();
+}
+
+function caRenderSecciones(){
+  const tbody = document.getElementById("ca-sec-tbody");
+  if(!caData){ tbody.innerHTML = '<tr><td colspan="5" class="empty">Sin datos</td></tr>'; return; }
+  const rows = [...caData.secciones].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
+  tbody.innerHTML = rows.length ? rows.map(s=>`<tr>
+    <td><strong>${s.nombre}</strong></td>
+    <td>${s.nivel}°</td>
+    <td>${s.guia || '<span style="color:#94a3b8;">— sin guía —</span>'}</td>
+    <td>${s.orientador || '<span style="color:#94a3b8;">— sin orientador —</span>'}</td>
+    <td><button class="btn btn-danger btn-xs" onclick="caEliminarSeccion(${s.id},'${s.nombre}')" title="Solo si no tiene estudiantes ni asignaciones">🗑️</button></td>
+  </tr>`).join("") : '<tr><td colspan="5" class="empty">No hay secciones creadas.</td></tr>';
+}
+
+async function caCrearSeccion(){
+  const inp = document.getElementById("ca-sec-nombre");
+  const nombre = inp.value.trim();
+  if(!nombre){ sa("alert-ca","Escribí el nombre de la sección.","danger"); return; }
+  try{
+    await api("/api/config-anio/secciones","POST",{ nombre });
+    sa("alert-ca", `✅ Sección "${nombre}" creada.`, "success");
+    inp.value = "";
+    await caCargar();
+    // Refrescar catálogo global para que otros módulos la vean
+    try{ allSecciones = await api("/api/admin/secciones") || allSecciones; }catch{}
+    inp.focus();
+  }catch(e){ sa("alert-ca", e.message, "danger"); }
+}
+
+async function caEliminarSeccion(id, nombre){
+  if(!confirm(`¿Eliminar la sección "${nombre}"?\n\nSolo se puede si NO tiene estudiantes, asignaciones ni matrículas activas.`)) return;
+  try{
+    await api(`/api/config-anio/secciones/${id}`,"DELETE");
+    sa("alert-ca", `✅ Sección "${nombre}" eliminada.`, "success");
+    await caCargar();
+    try{ allSecciones = await api("/api/admin/secciones") || allSecciones; }catch{}
+  }catch(e){ sa("alert-ca", e.message, "danger"); }
+}
+
+function caRenderFrances(){
+  const cont = document.getElementById("ca-frances-lista");
+  if(!caData){ cont.innerHTML = ''; return; }
+  const rows = caData.secciones.filter(s=>s.nivel>=10 && s.nivel<=11)
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
+  if(!rows.length){ cont.innerHTML = '<p style="color:var(--muted);">Primero creá las secciones de 10° y 11°.</p>'; return; }
+  cont.innerHTML = `<table style="font-size:13px;"><tbody>
+    ${rows.map(s=>`<tr>
+      <td style="font-weight:bold;padding:6px 10px;">${s.nombre}</td>
+      <td style="text-align:right;padding:6px 10px;">
+        <label style="cursor:pointer;font-size:12.5px;">
+          <input type="checkbox" ${s.idioma_exclusivo==='Francés'?'checked':''} onchange="caGuardarFrances(${s.id}, this)"/> 🇫🇷 Solo Francés
+        </label>
+      </td>
+    </tr>`).join("")}
+  </tbody></table>`;
+}
+
+async function caGuardarFrances(seccionId, chk){
+  const anio = parseInt(document.getElementById("ca-anio").value);
+  try{
+    await api("/api/matricula/secciones-idioma","PUT",{
+      seccion_id: seccionId, anio, idioma: chk.checked ? "Francés" : null
+    });
+    sa("ca-alert", "", "success"); // silencioso
+    // Actualizar en memoria
+    const s = caData.secciones.find(x=>x.id===seccionId);
+    if(s) s.idioma_exclusivo = chk.checked ? "Francés" : null;
+    caRenderResumen();
+  }catch(e){
+    chk.checked = !chk.checked;
+    sa("alert-ca", e.message, "danger");
+  }
+}
+
+function caRenderTalleres(){
+  const tbody = document.getElementById("ca-talleres-tbody");
+  if(!caData){ tbody.innerHTML = ''; return; }
+  const rows = caData.secciones.filter(s=>s.nivel>=7 && s.nivel<=9)
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
+  if(!rows.length){ tbody.innerHTML = '<tr><td colspan="4" class="empty">No hay secciones de 7°-9°.</td></tr>'; return; }
+  const TALL = [
+    ['','—'],
+    ['Educación para el Hogar','Educación para el Hogar'],
+    ['Artes Industriales','Artes Industriales'],
+  ];
+  const mkSel = (id, val, campo) => `<select onchange="caGuardarTaller(${id}, '${campo}', this)" style="padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+    ${TALL.map(([v,t])=>`<option value="${v}" ${val===v?'selected':''}>${t}</option>`).join("")}
+  </select>`;
+  tbody.innerHTML = rows.map(s=>{
+    const listo = s.taller_a && s.taller_b;
+    const estado = listo
+      ? '<span style="color:var(--verde);font-weight:bold;">✅ Configurado</span>'
+      : '<span style="color:#ea580c;font-weight:bold;">⏳ Pendiente</span>';
+    return `<tr>
+      <td><strong>${s.nombre}</strong></td>
+      <td>${mkSel(s.id, s.taller_a||'', 'taller_a')}</td>
+      <td>${mkSel(s.id, s.taller_b||'', 'taller_b')}</td>
+      <td>${estado}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function caGuardarTaller(seccionId, campo, sel){
+  const anio = parseInt(document.getElementById("ca-anio").value);
+  const s = caData.secciones.find(x=>x.id===seccionId);
+  const body = { anio, tec_b: s.tec_b, taller_a: s.taller_a, taller_b: s.taller_b };
+  body[campo] = sel.value || null;
+  try{
+    await api(`/api/config-anio/config/${seccionId}`,"PUT",body);
+    if(s){ s[campo] = sel.value || null; }
+    caRenderResumen();
+    caRenderTalleres(); // re-render para actualizar estado
+  }catch(e){
+    sa("alert-ca", e.message, "danger");
+    await caCargar();
+  }
+}
+
+function caRenderTecnologia(){
+  const tbody = document.getElementById("ca-tec-tbody");
+  if(!caData){ tbody.innerHTML = ''; return; }
+  const rows = caData.secciones.filter(s=>s.nivel>=10 && s.nivel<=11)
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
+  if(!rows.length){ tbody.innerHTML = '<tr><td colspan="4" class="empty">No hay secciones de 10°-11°.</td></tr>'; return; }
+  const OPTS = [
+    ['','— Seleccionar —'],
+    ['Diseño Publicitario','Diseño Publicitario'],
+    ['Matem/AMPROSA','Matem/AMPROSA'],
+  ];
+  tbody.innerHTML = rows.map(s=>{
+    const estado = s.tec_b
+      ? '<span style="color:var(--verde);font-weight:bold;">✅ Configurada</span>'
+      : '<span style="color:#ea580c;font-weight:bold;">⏳ Pendiente</span>';
+    return `<tr>
+      <td><strong>${s.nombre}</strong>${s.idioma_exclusivo==='Francés'?' <span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:3px;">🇫🇷</span>':''}</td>
+      <td><span style="color:var(--muted);font-size:12px;">Inglés Conversacional (fijo)</span></td>
+      <td><select onchange="caGuardarTecB(${s.id}, this)" style="padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+        ${OPTS.map(([v,t])=>`<option value="${v}" ${(s.tec_b||'')===v?'selected':''}>${t}</option>`).join("")}
+      </select></td>
+      <td>${estado}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function caGuardarTecB(seccionId, sel){
+  const anio = parseInt(document.getElementById("ca-anio").value);
+  const s = caData.secciones.find(x=>x.id===seccionId);
+  try{
+    await api(`/api/config-anio/config/${seccionId}`,"PUT",{
+      anio, tec_b: sel.value || null, taller_a: s.taller_a, taller_b: s.taller_b
+    });
+    if(s) s.tec_b = sel.value || null;
+    caRenderResumen();
+    caRenderTecnologia();
+  }catch(e){
+    sa("alert-ca", e.message, "danger");
+    await caCargar();
+  }
 }
 
 // ════════════════════════════════════

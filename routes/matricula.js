@@ -291,24 +291,26 @@ router.get("/cupos/:anio", canAccess, async (req, res) => {
   if(!anio) return res.status(400).json({ error: "Año inválido" });
   const esActual = anio === anioActualCR();
   const q = esActual ? `
-    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma,
+    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, sc.tec_b,
       COUNT(e.id)::int AS ocupados,
       COUNT(*) FILTER (WHERE UPPER(COALESCE(e.subgrupo,'')) = 'A')::int AS ocupados_a,
       COUNT(*) FILTER (WHERE UPPER(COALESCE(e.subgrupo,'')) = 'B')::int AS ocupados_b
     FROM secciones s
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
+    LEFT JOIN secciones_config sc ON sc.seccion_id = s.id AND sc.anio = $1
     LEFT JOIN estudiantes e ON e.seccion_id = s.id
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
-    GROUP BY s.id, si.idioma ORDER BY s.nivel, s.nombre
+    GROUP BY s.id, si.idioma, sc.tec_b ORDER BY s.nivel, s.nombre
   ` : `
-    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma,
+    SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, sc.tec_b,
       COUNT(m.id)::int AS ocupados,
       COUNT(*) FILTER (WHERE UPPER(COALESCE(m.subgrupo,'')) = 'A')::int AS ocupados_a,
       COUNT(*) FILTER (WHERE UPPER(COALESCE(m.subgrupo,'')) = 'B')::int AS ocupados_b
     FROM secciones s
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
+    LEFT JOIN secciones_config sc ON sc.seccion_id = s.id AND sc.anio = $1
     LEFT JOIN matricula m ON m.seccion_id = s.id AND m.anio = $1
-    GROUP BY s.id, si.idioma ORDER BY s.nivel, s.nombre
+    GROUP BY s.id, si.idioma, sc.tec_b ORDER BY s.nivel, s.nombre
   `;
   const r = await pool.query(q, [anio]);
   const MAX_SUB = 13;
@@ -381,6 +383,19 @@ router.post("/asignar", canAccess, async (req, res) => {
   const secIdR = await pool.query(
     "SELECT idioma FROM secciones_idioma WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
   const secIdioma = secIdR.rows[0] ? secIdR.rows[0].idioma : null;
+  // Config A/B de la sección para ese año (qué tecnología B ofrece, qué talleres)
+  const secCfgR = await pool.query(
+    "SELECT tec_b FROM secciones_config WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
+  const secTecB = secCfgR.rows[0] ? secCfgR.rows[0].tec_b : null;
+
+  // Si la sección tiene configurada su tecnología B, la del estudiante debe coincidir
+  // (Inglés Conversacional siempre pasa porque es A y no aplica esta validación)
+  if(tecnologia && sub === 'B' && secTecB && tecnologia !== secTecB && !(forzar && u.rol === "admin")){
+    return res.status(409).json({
+      error: `La sección ${secNombre} ofrece "${secTecB}" como Grupo B, pero el estudiante seleccionó "${tecnologia}". Cambie la tecnología del estudiante o elija otra sección.`,
+      tec_conflicto: true
+    });
+  }
 
   // ── Validación de idioma (secciones exclusivas de Francés) ────────────
   // Idioma efectivo del estudiante: el que viene en la asignación, o el
