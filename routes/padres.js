@@ -80,35 +80,61 @@ router.post("/login", async (req, res) => {
   if(!hijos.length)
     return res.status(404).json({ error: "Esta cédula no está registrada como encargado de ningún estudiante activo. Verificá en la institución que su cédula esté en el expediente." });
 
-  // 2. Cuenta de acceso: si no existe, la contraseña inicial es la cédula
-  let acc = await pool.query("SELECT * FROM padres_acceso WHERE cedula=$1", [ced]);
-  if(!acc.rows.length){
-    if(password.trim() !== ced)
-      return res.status(401).json({ error: "Contraseña incorrecta. Si es su primer ingreso, use su número de cédula como contraseña." });
-    const hash = await bcrypt.hash(ced, 10);
-    acc = await pool.query(`
-      INSERT INTO padres_acceso (cedula, password_hash, primer_login) VALUES ($1,$2,true)
-      ON CONFLICT (cedula) DO UPDATE SET cedula=EXCLUDED.cedula RETURNING *
-    `, [ced, hash]);
+  // 2. ¿Esta cédula también pertenece a personal del liceo?
+  //    Si sí, se valida con la contraseña de personal (docente/guía/etc.).
+  //    Así una docente que además es madre entra al portal con SU MISMA
+  //    contraseña de docente — sin tener que llevar dos contraseñas.
+  const usuR = await pool.query(
+    "SELECT id, password_hash, activo FROM usuarios WHERE cedula=$1", [ced]);
+  const esPersonal = usuR.rows.length > 0;
+
+  let primerLogin = false;
+
+  if(esPersonal){
+    // Validar contra password de personal
+    if(!usuR.rows[0].activo)
+      return res.status(403).json({ error: "Su cuenta de personal está inactiva. Contacte a la institución." });
+    const ok = await bcrypt.compare(password, usuR.rows[0].password_hash);
+    if(!ok) return res.status(401).json({ error: "Contraseña incorrecta. Como docente/personal del liceo, use la MISMA contraseña con la que ingresa al sistema como funcionario(a)." });
+    // No creamos ni tocamos padres_acceso: el personal usa su propia cuenta.
+    // Aun así registramos el sid_activo para que la sesión única funcione.
+    await pool.query(`
+      INSERT INTO padres_acceso (cedula, password_hash, primer_login)
+      VALUES ($1, $2, false)
+      ON CONFLICT (cedula) DO UPDATE SET primer_login = false
+    `, [ced, usuR.rows[0].password_hash]);
   } else {
-    if(!acc.rows[0].activo) return res.status(403).json({ error: "Acceso deshabilitado. Contacte a la institución." });
-    const ok = await bcrypt.compare(password, acc.rows[0].password_hash);
-    if(!ok) return res.status(401).json({ error: "Contraseña incorrecta" });
+    // 3. NO es personal: flujo normal de padres (cédula como contraseña inicial)
+    let acc = await pool.query("SELECT * FROM padres_acceso WHERE cedula=$1", [ced]);
+    if(!acc.rows.length){
+      if(password.trim() !== ced)
+        return res.status(401).json({ error: "Contraseña incorrecta. Si es su primer ingreso, use su número de cédula como contraseña." });
+      const hash = await bcrypt.hash(ced, 10);
+      acc = await pool.query(`
+        INSERT INTO padres_acceso (cedula, password_hash, primer_login) VALUES ($1,$2,true)
+        ON CONFLICT (cedula) DO UPDATE SET cedula=EXCLUDED.cedula RETURNING *
+      `, [ced, hash]);
+    } else {
+      if(!acc.rows[0].activo) return res.status(403).json({ error: "Acceso deshabilitado. Contacte a la institución." });
+      const ok = await bcrypt.compare(password, acc.rows[0].password_hash);
+      if(!ok) return res.status(401).json({ error: "Contraseña incorrecta" });
+    }
+    primerLogin = acc.rows[0].primer_login;
   }
 
-  // 3. Nombre del encargado (del primer registro que lo tenga)
+  // 4. Nombre del encargado (del primer registro que lo tenga)
   const encR = await pool.query(`
     SELECT nombre, primer_apellido, segundo_apellido FROM encargados
     WHERE REPLACE(REPLACE(REPLACE(cedula,'-',''),'.',''),' ','') = $1 LIMIT 1
   `, [ced]);
   const enc = encR.rows[0] || { nombre: "", primer_apellido: "", segundo_apellido: "" };
 
-  // 4. Registrar sesión (única): el sid nuevo invalida cualquier sesión anterior
-  req.session.padre = { cedula: ced, nombre: enc.nombre, primer_apellido: enc.primer_apellido, segundo_apellido: enc.segundo_apellido };
-  delete req.session.usuario; // por si había sesión de personal en el mismo navegador
+  // 5. Registrar sesión (única): el sid nuevo invalida cualquier sesión anterior
+  req.session.padre = { cedula: ced, nombre: enc.nombre, primer_apellido: enc.primer_apellido, segundo_apellido: enc.segundo_apellido, es_personal: esPersonal };
+  delete req.session.usuario; // el portal de padres es aislado — para volver a admin debe salir e ingresar por el botón normal
   await pool.query("UPDATE padres_acceso SET sid_activo=$1 WHERE cedula=$2", [req.sessionID, ced]);
 
-  res.json({ ok: true, primer_login: acc.rows[0].primer_login, padre: req.session.padre, hijos });
+  res.json({ ok: true, primer_login: primerLogin, es_personal: esPersonal, padre: req.session.padre, hijos });
 });
 
 router.post("/cambiar-password", requirePadre, async (req, res) => {
@@ -116,6 +142,12 @@ router.post("/cambiar-password", requirePadre, async (req, res) => {
   if(!password_nuevo || password_nuevo.length < 6)
     return res.status(400).json({ error: "La nueva contraseña debe tener al menos 6 caracteres" });
   const ced = req.session.padre.cedula;
+  // Si es también personal del liceo, su contraseña la maneja el sistema de
+  // usuarios (no la puede cambiar desde el portal de padres — debería hacerlo
+  // desde su perfil como docente).
+  if(req.session.padre.es_personal){
+    return res.status(400).json({ error: "Como docente/personal del liceo, la contraseña se cambia desde su cuenta como funcionario(a), no desde el portal de padres." });
+  }
   const acc = await pool.query("SELECT * FROM padres_acceso WHERE cedula=$1", [ced]);
   if(!acc.rows.length) return res.status(404).json({ error: "Cuenta no encontrada" });
   const ok = await bcrypt.compare(password_actual || "", acc.rows[0].password_hash);

@@ -208,6 +208,123 @@ router.post("/subgrupos-invertir/:seccion_id", onlyAdmin, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  GESTIÓN DE CUENTAS DE PADRES (portal de encargados)
+//  Admin y auxiliares pueden buscar padres, ver estado, reiniciar y bloquear.
+// ═══════════════════════════════════════════════════════════════════════════
+const canGestionarPadres = requireRol("admin", "auxiliar");
+
+function limpiarCed(c){ return String(c||'').replace(/[\s\-.\/\\]/g,''); }
+
+// Buscar padres/encargados: por cédula, nombre o apellido.
+// Devuelve una fila por cédula única con la lista de hijos y estado de cuenta.
+router.get("/padres/buscar", canGestionarPadres, async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if(q.length < 2) return res.json([]);
+  const ced = limpiarCed(q);
+  const like = `%${q}%`;
+  const r = await pool.query(`
+    SELECT DISTINCT enc.cedula,
+      MAX(enc.nombre)          FILTER (WHERE enc.cedula IS NOT NULL) AS nombre,
+      MAX(enc.primer_apellido) FILTER (WHERE enc.cedula IS NOT NULL) AS primer_apellido,
+      MAX(enc.segundo_apellido)FILTER (WHERE enc.cedula IS NOT NULL) AS segundo_apellido
+    FROM encargados enc
+    WHERE enc.cedula IS NOT NULL AND enc.cedula <> ''
+      AND (
+        REPLACE(REPLACE(REPLACE(enc.cedula,'-',''),'.',''),' ','') = $1
+        OR enc.nombre ILIKE $2
+        OR enc.primer_apellido ILIKE $2
+        OR enc.segundo_apellido ILIKE $2
+      )
+    GROUP BY enc.cedula
+    LIMIT 30
+  `, [ced, like]);
+  // Para cada uno, contar hijos activos y estado de la cuenta
+  const salida = [];
+  for(const p of r.rows){
+    const cedLimpia = limpiarCed(p.cedula);
+    const hijos = await pool.query(`
+      SELECT COUNT(DISTINCT e.id)::int AS c
+      FROM encargados en
+      JOIN estudiantes e ON e.id = en.estudiante_id
+      WHERE REPLACE(REPLACE(REPLACE(en.cedula,'-',''),'.',''),' ','') = $1
+        AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
+    `, [cedLimpia]);
+    const acc = await pool.query(`
+      SELECT activo, primer_login, sid_activo IS NOT NULL AS sesion_activa, created_at
+      FROM padres_acceso WHERE cedula = $1
+    `, [cedLimpia]);
+    const esPersonal = await pool.query("SELECT id FROM usuarios WHERE cedula=$1", [cedLimpia]);
+    salida.push({
+      cedula: p.cedula,
+      nombre: p.nombre,
+      primer_apellido: p.primer_apellido,
+      segundo_apellido: p.segundo_apellido,
+      hijos_activos: hijos.rows[0].c,
+      cuenta: acc.rows[0] || null,
+      es_personal: esPersonal.rows.length > 0
+    });
+  }
+  res.json(salida);
+});
+
+// Ver los hijos de un padre específico
+router.get("/padres/:cedula/hijos", canGestionarPadres, async (req, res) => {
+  const cedLimpia = limpiarCed(req.params.cedula);
+  const r = await pool.query(`
+    SELECT DISTINCT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      s.nombre AS seccion_nombre
+    FROM encargados en
+    JOIN estudiantes e ON e.id = en.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE REPLACE(REPLACE(REPLACE(en.cedula,'-',''),'.',''),' ','') = $1
+      AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
+    ORDER BY e.primer_apellido, e.nombre
+  `, [cedLimpia]);
+  res.json(r.rows);
+});
+
+// Reiniciar contraseña: la deja igual a la cédula y fuerza cambio al ingresar.
+router.put("/padres/:cedula/reset-password", canGestionarPadres, async (req, res) => {
+  const cedLimpia = limpiarCed(req.params.cedula);
+  // No permitir reiniciar si es personal (esa contraseña se maneja aparte)
+  const esPersonal = await pool.query("SELECT id FROM usuarios WHERE cedula=$1", [cedLimpia]);
+  if(esPersonal.rows.length){
+    return res.status(400).json({ error: "Esta cédula pertenece a personal del liceo. Su contraseña se gestiona desde Admin → Usuarios (reset-password de usuario), no desde acá." });
+  }
+  const hash = await bcrypt.hash(cedLimpia, 10);
+  const r = await pool.query(`
+    INSERT INTO padres_acceso (cedula, password_hash, primer_login, activo, sid_activo)
+    VALUES ($1, $2, true, true, NULL)
+    ON CONFLICT (cedula) DO UPDATE
+      SET password_hash = EXCLUDED.password_hash,
+          primer_login = true,
+          activo = true,
+          sid_activo = NULL
+    RETURNING cedula
+  `, [cedLimpia, hash]);
+  res.json({ ok: true, mensaje: `Contraseña reiniciada a la cédula. Al ingresar, el sistema le pedirá cambiarla.`, cedula: r.rows[0].cedula });
+});
+
+// Activar / desactivar acceso de un padre
+router.put("/padres/:cedula/toggle-activo", canGestionarPadres, async (req, res) => {
+  const cedLimpia = limpiarCed(req.params.cedula);
+  const r = await pool.query(`
+    UPDATE padres_acceso SET activo = NOT activo, sid_activo = NULL
+    WHERE cedula = $1 RETURNING activo
+  `, [cedLimpia]);
+  if(!r.rows.length) return res.status(404).json({ error: "No hay cuenta creada para este padre. Solo se pueden activar/desactivar cuentas que ya hayan ingresado al menos una vez." });
+  res.json({ ok: true, activo: r.rows[0].activo });
+});
+
+// Forzar cierre de sesión activa (útil si sospechan uso no autorizado)
+router.put("/padres/:cedula/cerrar-sesion", canGestionarPadres, async (req, res) => {
+  const cedLimpia = limpiarCed(req.params.cedula);
+  await pool.query("UPDATE padres_acceso SET sid_activo = NULL WHERE cedula = $1", [cedLimpia]);
+  res.json({ ok: true });
+});
+
+// ── DIAGNÓSTICO TEMPORAL: ver TODAS las asignaciones de un profe ──────────
 router.get("/diagnostico-asignaciones/:profesor_id", onlyAdmin, async (req, res) => {
   const r = await pool.query(`
     SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo,

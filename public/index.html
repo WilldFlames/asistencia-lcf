@@ -303,6 +303,9 @@ tr:hover td{background:#f8fafc;}
     <div id="login-err" class="auth-err danger"></div>
     <div id="login-modo-aviso" style="display:none;margin-top:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;font-size:12.5px;color:#1e40af;text-align:left;">
       👨‍👩‍👧 <strong>Modo encargados:</strong> ingresá con la <strong>cédula registrada como encargado</strong> del estudiante. La primera vez, la contraseña es su misma cédula y el sistema le pedirá cambiarla.
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #bfdbfe;">
+        🏫 <strong>¿Es también funcionario(a) del liceo (docente, guía, orientador, etc.)?</strong> Use la <strong>MISMA contraseña</strong> que tiene como personal — no necesita otra.
+      </div>
     </div>
     <div style="margin-top:14px;text-align:center;">
       <a href="#" id="login-toggle" onclick="toggleLoginPadres();return false" style="color:#2563a8;font-size:13px;text-decoration:underline;">👨‍👩‍👧 Acceso para padres y encargados</a>
@@ -543,6 +546,7 @@ tr:hover td{background:#f8fafc;}
           <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Comité Matrícula</button>
           <button class="btn btn-orange btn-sm" onclick="abrirIntercambioPeriodo()">🔄 Intercambio Hogar↔Industriales (II Período)</button>
           <button class="btn btn-danger btn-sm" onclick="abrirSubgruposEstudiantes()" title="Arreglar subgrupos A/B de estudiantes por sección">🔀 Corregir Subgrupos A/B</button>
+          <button class="btn btn-outline btn-sm" onclick="abrirGestionPadres()" title="Reiniciar contraseñas y gestionar accesos de padres/encargados">👨‍👩‍👧 Gestión Padres</button>
           <button class="btn btn-outline btn-sm" onclick="diagnosticoFotos()" title="Ver cuánto espacio ocupan las fotos en la BD">📊 Diagnóstico Fotos</button>
         </div>
       </div>
@@ -574,6 +578,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" id="btn-imprimir-lista" onclick="imprimirListaEstudiantes()">🖨️ Imprimir Lista</button>
         <button class="btn btn-success btn-sm" id="btn-exportar-excel" onclick="exportarEstudiantesExcel()">📊 Exportar Excel</button>
         <button class="btn btn-orange btn-sm" id="btn-importar-excel" onclick="abrirImportarExcel()" style="display:none">📥 Importar Excel</button>
+        <button class="btn btn-outline btn-sm" id="btn-gp-est" onclick="abrirGestionPadres()" style="display:none;" title="Reiniciar contraseñas y gestionar accesos de padres/encargados">👨‍👩‍👧 Gestión Padres</button>
         <button class="btn btn-primary" id="btn-nuevo-est" onclick="abrirModalEstudiante()">+ Nuevo</button>
       </div>
     </div>
@@ -1776,6 +1781,27 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- CORREGIR SUBGRUPOS A/B DE ESTUDIANTES -->
+<!-- GESTIÓN DE PADRES / ENCARGADOS -->
+<div class="modal-overlay" id="modal-gestion-padres">
+  <div class="modal" style="max-width:820px;">
+    <h3>👨‍👩‍👧 Gestión de Padres / Encargados</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">
+      Buscá por <strong>cédula, nombre o apellido</strong> del encargado. Desde acá podés reiniciar su contraseña (queda igual a la cédula, con cambio obligatorio al ingresar), desactivar temporalmente su acceso, o forzar el cierre de su sesión activa.
+    </p>
+    <div id="alert-gp" class="alert"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input type="text" id="gp-buscar" placeholder="Cédula, nombre o apellido..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;" onkeydown="if(event.key==='Enter') gpBuscar()"/>
+      <button class="btn btn-primary btn-sm" onclick="gpBuscar()">🔍 Buscar</button>
+    </div>
+    <div id="gp-resultados" style="max-height:420px;overflow:auto;">
+      <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Escribí al menos 2 caracteres y presioná buscar.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-gestion-padres')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-subgrupos-est">
   <div class="modal" style="max-width:720px;">
     <h3>🔀 Corregir Subgrupos A/B de Estudiantes</h3>
@@ -4342,6 +4368,9 @@ function goTo(page){
     // (los mismos roles que pueden crear estudiantes uno por uno).
     const btnImportarExcel=document.getElementById("btn-importar-excel");
     if(btnImportarExcel) btnImportarExcel.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
+    // Botón gestión padres: admin y auxiliar (reset contraseñas, bloquear accesos)
+    const btnGpEst=document.getElementById("btn-gp-est");
+    if(btnGpEst) btnGpEst.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
     // Imprimir disponible para todos los que ven la pantalla
     const btnImprimir=document.getElementById("btn-imprimir-lista");
     if(btnImprimir) btnImprimir.style.display="";
@@ -5497,6 +5526,116 @@ async function eliminarMateria(id,n){
 // ════════════════════════════════════
 //  SECCIONES ADMIN
 // ════════════════════════════════════
+async function abrirGestionPadres(){
+  document.getElementById("modal-gestion-padres").classList.add("show");
+  document.getElementById("alert-gp").className = "alert";
+  document.getElementById("gp-buscar").value = "";
+  document.getElementById("gp-resultados").innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Escribí al menos 2 caracteres y presioná buscar.</div>';
+  setTimeout(()=>document.getElementById("gp-buscar").focus(), 100);
+}
+
+async function gpBuscar(){
+  const q = document.getElementById("gp-buscar").value.trim();
+  const cont = document.getElementById("gp-resultados");
+  if(q.length < 2){ cont.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Escribí al menos 2 caracteres.</div>'; return; }
+  cont.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">🔍 Buscando...</div>';
+  try{
+    const rows = await api(`/api/admin/padres/buscar?q=${encodeURIComponent(q)}`)||[];
+    if(!rows.length){
+      cont.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Sin resultados. Verificá que la cédula esté registrada como encargada en el expediente de algún estudiante activo.</div>';
+      return;
+    }
+    cont.innerHTML = rows.map(p=>{
+      const nombre = `${p.primer_apellido||''} ${p.segundo_apellido||''}, ${p.nombre||''}`.trim();
+      const c = p.cuenta;
+      let estado, badges = '';
+      if(p.es_personal){
+        badges += '<span class="badge b-admin" style="margin-right:4px;">🏫 Personal del liceo</span>';
+      }
+      if(!c){
+        estado = '<span style="color:#94a3b8;font-size:12px;">Nunca ha ingresado al portal</span>';
+      } else {
+        const est = [];
+        if(c.activo)        est.push('<span style="color:var(--verde);font-weight:bold;">● Activo</span>');
+        else                est.push('<span style="color:#dc2626;font-weight:bold;">✖ Bloqueado</span>');
+        if(c.primer_login)  est.push('<span style="color:#ea580c;font-size:11.5px;">Contraseña sin cambiar</span>');
+        if(c.sesion_activa) est.push('<span style="color:var(--azul);font-size:11.5px;">🔵 Sesión activa</span>');
+        estado = est.join(' · ');
+      }
+      const btnReset = p.es_personal
+        ? '<button class="btn btn-outline btn-xs" disabled title="Personal del liceo — reiniciar desde Admin → Usuarios">🔑 Reset</button>'
+        : `<button class="btn btn-outline btn-xs" onclick="gpReset('${p.cedula}','${nombre.replace(/'/g,"\\'")}')">🔑 Reset contraseña</button>`;
+      const btnToggle = c
+        ? (c.activo
+            ? `<button class="btn btn-danger btn-xs" onclick="gpToggle('${p.cedula}','${nombre.replace(/'/g,"\\'")}', true)">🚫 Bloquear</button>`
+            : `<button class="btn btn-success btn-xs" onclick="gpToggle('${p.cedula}','${nombre.replace(/'/g,"\\'")}', false)">✅ Activar</button>`)
+        : '';
+      const btnCerrar = c && c.sesion_activa
+        ? `<button class="btn btn-outline btn-xs" onclick="gpCerrarSesion('${p.cedula}')" title="Forzar cierre de sesión">🔓 Cerrar sesión</button>`
+        : '';
+      return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:220px;">
+            <div style="font-weight:bold;font-size:14px;">${nombre}</div>
+            <div style="font-size:12px;color:var(--muted);">Cédula: <code>${p.cedula}</code> · ${p.hijos_activos} hijo${p.hijos_activos===1?'':'s'} activo${p.hijos_activos===1?'':'s'}</div>
+            <div style="margin-top:5px;font-size:12px;">${badges}${estado}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-xs" onclick="gpVerHijos('${p.cedula}')" title="Ver hijos">👶 Hijos</button>
+            ${btnReset}
+            ${btnToggle}
+            ${btnCerrar}
+          </div>
+        </div>
+        <div id="gp-hijos-${p.cedula.replace(/[^0-9a-zA-Z]/g,'')}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);"></div>
+      </div>`;
+    }).join("");
+  }catch(e){ cont.innerHTML = `<div style="color:#dc2626;padding:20px;text-align:center;">${e.message}</div>`; }
+}
+
+async function gpVerHijos(cedula){
+  const key = cedula.replace(/[^0-9a-zA-Z]/g,'');
+  const div = document.getElementById(`gp-hijos-${key}`);
+  if(div.style.display !== 'none'){ div.style.display = 'none'; return; }
+  div.style.display = '';
+  div.innerHTML = '<div style="color:var(--muted);font-size:12px;">Cargando...</div>';
+  try{
+    const hijos = await api(`/api/admin/padres/${encodeURIComponent(cedula)}/hijos`)||[];
+    div.innerHTML = hijos.length
+      ? '<div style="font-size:12px;font-weight:bold;margin-bottom:4px;">Hijos activos:</div>' +
+        hijos.map(h=>`<div style="font-size:12px;margin:2px 0;">🎒 ${h.primer_apellido} ${h.segundo_apellido||''}, ${h.nombre} — <span style="color:var(--muted);">Sección ${h.seccion_nombre||'—'}</span></div>`).join("")
+      : '<div style="color:var(--muted);font-size:12px;">Sin hijos activos.</div>';
+  }catch(e){ div.innerHTML = `<div style="color:#dc2626;font-size:12px;">${e.message}</div>`; }
+}
+
+async function gpReset(cedula, nombre){
+  if(!confirm(`Reiniciar contraseña de:\n\n${nombre}\nCédula: ${cedula}\n\nLa nueva contraseña será su cédula. Al ingresar, el sistema le pedirá cambiarla obligatoriamente.\n\n¿Continuar?`)) return;
+  try{
+    const r = await api(`/api/admin/padres/${encodeURIComponent(cedula)}/reset-password`,"PUT");
+    sa("alert-gp", `✅ ${nombre}: contraseña reiniciada a la cédula. Comunicarle que use su cédula para ingresar la próxima vez.`, "success");
+    await gpBuscar();
+  }catch(e){ sa("alert-gp", e.message, "danger"); }
+}
+
+async function gpToggle(cedula, nombre, actualmenteActivo){
+  const accion = actualmenteActivo ? "BLOQUEAR el acceso de" : "REACTIVAR el acceso de";
+  if(!confirm(`¿${accion}:\n\n${nombre}\nCédula: ${cedula}\n\n?`)) return;
+  try{
+    const r = await api(`/api/admin/padres/${encodeURIComponent(cedula)}/toggle-activo`,"PUT");
+    sa("alert-gp", `✅ ${nombre}: acceso ${r.activo?'reactivado':'bloqueado'}.`, "success");
+    await gpBuscar();
+  }catch(e){ sa("alert-gp", e.message, "danger"); }
+}
+
+async function gpCerrarSesion(cedula){
+  if(!confirm(`¿Forzar el cierre de la sesión activa de este padre?\n\nAl siguiente intento, deberá volver a ingresar su contraseña.`)) return;
+  try{
+    await api(`/api/admin/padres/${encodeURIComponent(cedula)}/cerrar-sesion`,"PUT");
+    sa("alert-gp", "✅ Sesión cerrada.", "success");
+    await gpBuscar();
+  }catch(e){ sa("alert-gp", e.message, "danger"); }
+}
+
 async function abrirSubgruposEstudiantes(){
   document.getElementById("modal-subgrupos-est").classList.add("show");
   document.getElementById("alert-subgrupos-est").className = "alert";
