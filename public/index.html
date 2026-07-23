@@ -174,7 +174,9 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .stat .num.green{color:var(--verde);}.stat .num.red{color:var(--rojo);}.stat .num.orange{color:var(--naranja);}
 .stat .lbl{font-size:11px;color:var(--muted);margin-top:3px;}
 /* FORM */
-.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+.form-grid .fg input[type="date"],
+.form-grid .fg input[type="time"]{width:100%;box-sizing:border-box;min-width:0;}
 .fg{display:flex;flex-direction:column;gap:4px;}
 .fg label{font-size:12px;font-weight:bold;color:var(--muted);}
 .fg input,.fg select,.fg textarea{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:Arial,sans-serif;}
