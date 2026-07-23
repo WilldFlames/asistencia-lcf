@@ -1702,6 +1702,35 @@ async function initDB() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_porteria_fecha ON porteria_registros(fecha)`);
 
+    // ── PORTAL DE PADRES ─────────────────────────────────────────────────
+    // Acceso con la cédula del encargado. Contraseña inicial = cédula
+    // (cambio obligatorio). sid_activo fuerza UNA sola sesión a la vez.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS padres_acceso (
+        id            SERIAL PRIMARY KEY,
+        cedula        TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        primer_login  BOOLEAN DEFAULT true,
+        activo        BOOLEAN DEFAULT true,
+        sid_activo    TEXT DEFAULT NULL,
+        created_at    TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // ── ANUNCIOS (secretarias/admin/administrativos → padres) ────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS anuncios (
+        id         SERIAL PRIMARY KEY,
+        titulo     TEXT NOT NULL,
+        cuerpo     TEXT NOT NULL,
+        para_todos BOOLEAN DEFAULT true,
+        secciones  INTEGER[] DEFAULT ARRAY[]::INTEGER[],
+        creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        activo     BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     // Nuevas materias
     await client.query("INSERT INTO materias (nombre) VALUES ('Inglés Conversacional') ON CONFLICT DO NOTHING");
     await client.query("INSERT INTO materias (nombre) VALUES ('Diseño Publicitario') ON CONFLICT DO NOTHING");

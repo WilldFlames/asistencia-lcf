@@ -301,6 +301,12 @@ tr:hover td{background:#f8fafc;}
     <div class="auth-fg"><label>Contraseña</label><input type="password" id="l-pass" placeholder="Contraseña" onkeydown="if(event.key==='Enter')doLogin()"/></div>
     <button class="auth-btn blue" onclick="doLogin()">Ingresar</button>
     <div id="login-err" class="auth-err danger"></div>
+    <div id="login-modo-aviso" style="display:none;margin-top:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;font-size:12.5px;color:#1e40af;text-align:left;">
+      👨‍👩‍👧 <strong>Modo encargados:</strong> ingresá con la <strong>cédula registrada como encargado</strong> del estudiante. La primera vez, la contraseña es su misma cédula y el sistema le pedirá cambiarla.
+    </div>
+    <div style="margin-top:14px;text-align:center;">
+      <a href="#" id="login-toggle" onclick="toggleLoginPadres();return false" style="color:#2563a8;font-size:13px;text-decoration:underline;">👨‍👩‍👧 Acceso para padres y encargados</a>
+    </div>
   </div>
 </div>
 
@@ -316,6 +322,95 @@ tr:hover td{background:#f8fafc;}
     <button class="auth-btn purple" onclick="doCambiarPass()">Cambiar y Continuar</button>
     <div id="cp-err" class="auth-err danger"></div>
     <div id="cp-ok" class="auth-err success"></div>
+  </div>
+</div>
+
+<!-- PORTAL DE PADRES / ENCARGADOS -->
+<div id="portal-padres" style="display:none;position:fixed;inset:0;z-index:9000;background:#f1f5f9;overflow:auto;">
+  <div style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10;">
+    <div>
+      <div style="font-weight:bold;font-size:15px;">🏫 Liceo de Calle Fallas</div>
+      <div style="font-size:12px;opacity:.85;">Portal de Encargados · <span id="pp-nombre"></span></div>
+    </div>
+    <button onclick="ppLogout()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:7px 14px;font-size:13px;cursor:pointer;">Salir</button>
+  </div>
+
+  <div style="max-width:960px;margin:0 auto;padding:14px;">
+    <!-- Selector de hijo -->
+    <div id="pp-hijos-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+
+    <!-- Tabs de contenido -->
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:8px;">
+      <button class="btn btn-outline btn-sm pp-tab" data-tab="inicio" onclick="ppTab('inicio')">📢 Inicio</button>
+      <button class="btn btn-outline btn-sm pp-tab" data-tab="horario" onclick="ppTab('horario')">🕐 Horario</button>
+      <button class="btn btn-outline btn-sm pp-tab" data-tab="porteria" onclick="ppTab('porteria')">🛂 Entradas/Salidas</button>
+      <button class="btn btn-outline btn-sm pp-tab" data-tab="asistencia" onclick="ppTab('asistencia')">📅 Asistencia</button>
+      <button class="btn btn-outline btn-sm pp-tab" data-tab="conducta" onclick="ppTab('conducta')">📋 Conducta</button>
+    </div>
+
+    <!-- INICIO: alertas + anuncios -->
+    <div id="pp-cont-inicio">
+      <div class="card" id="pp-alertas-card" style="display:none;margin-bottom:14px;border-left:4px solid #dc2626;">
+        <h2 style="font-size:15px;margin-bottom:10px;">⚠️ Alertas recientes (últimos 7 días)</h2>
+        <div id="pp-alertas"></div>
+      </div>
+      <div class="card" style="margin-bottom:14px;">
+        <h2 style="font-size:15px;margin-bottom:10px;">📢 Anuncios de la institución</h2>
+        <div id="pp-anuncios"><div style="color:var(--muted);font-size:13px;">Cargando...</div></div>
+      </div>
+    </div>
+
+    <!-- HORARIO -->
+    <div id="pp-cont-horario" style="display:none;">
+      <div class="card">
+        <h2 style="font-size:15px;margin-bottom:10px;">🕐 Horario — <span id="pp-hor-seccion"></span></h2>
+        <div id="pp-horario" class="table-wrap" style="overflow:auto;"></div>
+      </div>
+    </div>
+
+    <!-- PORTERÍA -->
+    <div id="pp-cont-porteria" style="display:none;">
+      <div class="card">
+        <h2 style="font-size:15px;margin-bottom:10px;">🛂 Registro de entradas y salidas</h2>
+        <div class="table-wrap"><table style="font-size:12.5px;">
+          <thead><tr><th>Fecha</th><th>Hora</th><th>Movimiento</th><th>Resultado</th><th>Detalle</th></tr></thead>
+          <tbody id="pp-porteria-tbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ASISTENCIA -->
+    <div id="pp-cont-asistencia" style="display:none;">
+      <div class="card">
+        <h2 style="font-size:15px;margin-bottom:10px;">📅 Asistencia del año</h2>
+        <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px;">
+          <div class="stat"><div class="num" id="pp-as-aus" style="color:#dc2626;">0</div><div class="lbl">Ausencias</div></div>
+          <div class="stat"><div class="num orange" id="pp-as-tar">0</div><div class="lbl">Tardías</div></div>
+          <div class="stat"><div class="num" id="pp-as-jus">0</div><div class="lbl">Justificadas</div></div>
+          <div class="stat"><div class="num green" id="pp-as-pre">0</div><div class="lbl">Presentes</div></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Se muestran solo los días con ausencia o tardía. Los presentes se cuentan en el resumen.</p>
+        <div class="table-wrap"><table style="font-size:12.5px;">
+          <thead><tr><th>Fecha</th><th>Materia</th><th>Estado</th><th>Lecciones</th><th>Justificada</th></tr></thead>
+          <tbody id="pp-asistencia-tbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- CONDUCTA -->
+    <div id="pp-cont-conducta" style="display:none;">
+      <div class="card">
+        <h2 style="font-size:15px;margin-bottom:10px;">📋 Conducta</h2>
+        <div class="stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px;">
+          <div class="stat"><div class="num" id="pp-con-notaI">100</div><div class="lbl">Nota I Período</div></div>
+          <div class="stat"><div class="num" id="pp-con-notaII">100</div><div class="lbl">Nota II Período</div></div>
+        </div>
+        <div class="table-wrap"><table style="font-size:12.5px;">
+          <thead><tr><th>Fecha</th><th>Falta</th><th>Tipo</th><th>Puntos</th><th>Materia</th></tr></thead>
+          <tbody id="pp-conducta-tbody"></tbody>
+        </table></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -365,6 +460,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
   <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
   <button class="nav-btn" data-page="idiomatec" id="nav-idiomatec" onclick="goTo('idiomatec')" style="display:none"><span class="icon">🗣️</span><span>Idioma/Tecnología</span></button>
+  <button class="nav-btn" data-page="anuncios" id="nav-anuncios" onclick="goTo('anuncios')" style="display:none"><span class="icon">📣</span><span>Anuncios</span></button>
   <div class="sidebar-section" id="sec-admin" style="display:none">Admin</div>
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
@@ -1226,6 +1322,30 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
+<!-- ANUNCIOS (secretarias → padres) -->
+<div class="page" id="page-anuncios">
+  <div class="card" style="margin-bottom:14px;">
+    <h2 style="margin-bottom:4px;">📣 Anuncios para Encargados</h2>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">Los anuncios aparecen en el <strong>Portal de Encargados</strong> (padres de familia). Podés dirigirlos a toda la institución o a secciones específicas.</p>
+    <div id="alert-anuncios" class="alert"></div>
+    <div class="fg"><label>Título *</label><input type="text" id="an-titulo" placeholder="Ej: Reunión de padres 7° nivel..."/></div>
+    <div class="fg"><label>Contenido *</label><textarea id="an-cuerpo" rows="4" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;" placeholder="Detalle del anuncio..."></textarea></div>
+    <div style="margin:10px 0;">
+      <label style="font-size:13px;font-weight:bold;cursor:pointer;"><input type="checkbox" id="an-todos" checked onchange="anParaTodosChk()"/> 📣 Para toda la institución</label>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">O marcá secciones específicas:</div>
+    <div id="an-secciones" style="display:flex;gap:10px;flex-wrap:wrap;max-height:120px;overflow:auto;border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:12px;"></div>
+    <button class="btn btn-primary" onclick="anCrear()">📤 Publicar Anuncio</button>
+  </div>
+  <div class="card">
+    <h2 style="font-size:16px;margin-bottom:10px;">📋 Anuncios publicados</h2>
+    <div class="table-wrap"><table style="font-size:12.5px;">
+      <thead><tr><th>Fecha</th><th>Anuncio</th><th>Destino</th><th>Publicó</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="an-tbody"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+    </table></div>
+  </div>
+</div>
+
 <!-- IDIOMA Y TECNOLOGÍA (orientadora de 9°) -->
 <div class="page" id="page-idiomatec">
   <div class="card">
@@ -4083,12 +4203,38 @@ const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia
 // ════════════════════════════════════
 //  AUTH
 // ════════════════════════════════════
+// Modo de login: personal o encargados (portal de padres)
+let loginEsPadre = false;
+let PP = null; // sesión del portal de padres {padre, hijos}
+
+function toggleLoginPadres(){
+  loginEsPadre = !loginEsPadre;
+  document.getElementById("login-modo-aviso").style.display = loginEsPadre ? "" : "none";
+  document.getElementById("login-toggle").textContent = loginEsPadre
+    ? "← Volver al acceso del personal"
+    : "👨‍👩‍👧 Acceso para padres y encargados";
+  document.getElementById("login-err").style.display = "none";
+}
+
 async function doLogin(){
   const ced=document.getElementById("l-ced").value.trim();
   const pas=document.getElementById("l-pass").value;
   const errEl=document.getElementById("login-err");
   errEl.style.display="none";
   try{
+    if(loginEsPadre){
+      const d=await api("/api/padres/login","POST",{cedula:ced,password:pas});
+      if(!d)return;
+      PP = { padre: d.padre, hijos: d.hijos };
+      document.getElementById("login-screen").classList.remove("show");
+      if(d.primer_login){
+        window.esPadreCambioPass = true;
+        document.getElementById("cambiar-pass-screen").classList.add("show");
+      } else {
+        iniciarPortalPadres();
+      }
+      return;
+    }
     const d=await api("/api/auth/login","POST",{cedula:ced,password:pas});
     if(!d)return;
     ME=d.usuario;
@@ -4110,12 +4256,14 @@ async function doCambiarPass(){
   errEl.style.display="none";okEl.style.display="none";
   if(nueva!==conf){errEl.style.display="block";errEl.textContent="Las contraseñas no coinciden.";return;}
   try{
-    await api("/api/auth/cambiar-password","POST",{password_actual:actual,password_nuevo:nueva});
+    const endpoint = window.esPadreCambioPass ? "/api/padres/cambiar-password" : "/api/auth/cambiar-password";
+    await api(endpoint,"POST",{password_actual:actual,password_nuevo:nueva});
     okEl.style.display="block";okEl.textContent="✅ Contraseña cambiada. Ingresando...";
-    ME.primer_login=false;
+    if(!window.esPadreCambioPass && ME) ME.primer_login=false;
     setTimeout(()=>{
       document.getElementById("cambiar-pass-screen").classList.remove("show");
-      iniciarApp();
+      if(window.esPadreCambioPass){ window.esPadreCambioPass=false; iniciarPortalPadres(); }
+      else iniciarApp();
     },1200);
   }catch(e){errEl.style.display="block";errEl.textContent=e.message;}
 }
@@ -4209,6 +4357,7 @@ function goTo(page){
   if(page==="prematricula") iniciarPrematricula();
   if(page==="matricula")    iniciarMatricula();
   if(page==="idiomatec")    iniciarIdiomaTec();
+  if(page==="anuncios")     iniciarAnuncios();
   if(page==="reportes")    initReportes();
   if(page==="cartas")      iniciarCartas();
   if(page==="mensajes")    {initMensajes();cargarMensajes("inbox");}
@@ -4336,6 +4485,11 @@ async function iniciarApp(){
     document.getElementById("nav-idiomatec").style.display="";
   }
 
+  // ── ANUNCIOS (secretarias/admin/administrativos → padres) ────
+  if(esAdmin||esSecretaria||esAdminIst){
+    document.getElementById("nav-anuncios").style.display="";
+  }
+
   // ── MEDIDAS (precautoria, suspensión, ed. híbrida) ───────────────
   // Los profesores también ven estas pestañas, pero solo en modo lectura
   // (no pueden crear, modificar ni eliminar). Esto les permite consultar
@@ -4395,7 +4549,7 @@ async function iniciarApp(){
      'nav-expediente','nav-comedor','nav-consecutivos','nav-constancia',
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
-     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec',
+     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios',
      'nav-horario','nav-permisos','nav-porteria'
     ].forEach(id => {
       const el = document.getElementById(id);
@@ -4422,7 +4576,7 @@ async function iniciarApp(){
      'nav-expediente','nav-comedor','nav-consecutivos','nav-constancia',
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
-     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec',
+     'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios',
      'nav-inventario','nav-horario','nav-permisos'
     ].forEach(id => {
       const el = document.getElementById(id);
@@ -13628,6 +13782,238 @@ async function escanearComedor(){
 
 
 // ════════════════════════════════════
+//  PORTAL DE PADRES
+// ════════════════════════════════════
+let ppHijoActual = null;
+let ppTabActual = 'inicio';
+
+function iniciarPortalPadres(){
+  const p = PP?.padre || {};
+  document.getElementById("pp-nombre").textContent = `${p.nombre||''} ${p.primer_apellido||''}`.trim() || p.cedula;
+  document.getElementById("portal-padres").style.display = "block";
+  const hijos = PP?.hijos || [];
+  if(!hijos.length){
+    document.getElementById("pp-hijos-tabs").innerHTML = '<div class="card" style="width:100%;">No hay estudiantes activos asociados a su cédula.</div>';
+    return;
+  }
+  ppHijoActual = ppHijoActual && hijos.find(h=>h.id===ppHijoActual.id) ? ppHijoActual : hijos[0];
+  ppRenderHijosTabs();
+  ppTab('inicio');
+}
+
+function ppRenderHijosTabs(){
+  const hijos = PP?.hijos || [];
+  document.getElementById("pp-hijos-tabs").innerHTML = hijos.map(h=>`
+    <button onclick="ppSelHijo(${h.id})" style="flex:1;min-width:180px;text-align:left;padding:10px 14px;border-radius:10px;cursor:pointer;
+      border:2px solid ${ppHijoActual&&h.id===ppHijoActual.id?'var(--azul)':'var(--border)'};
+      background:${ppHijoActual&&h.id===ppHijoActual.id?'#eff6ff':'#fff'};">
+      <div style="font-weight:bold;font-size:14px;">🎒 ${h.primer_apellido} ${h.segundo_apellido||''}, ${h.nombre}</div>
+      <div style="font-size:12px;color:var(--muted);">Sección ${h.seccion_nombre||'—'}</div>
+    </button>`).join("");
+}
+
+function ppSelHijo(id){
+  const h = (PP?.hijos||[]).find(x=>x.id===id);
+  if(!h) return;
+  ppHijoActual = h;
+  ppRenderHijosTabs();
+  ppTab(ppTabActual);
+}
+
+function ppTab(tab){
+  ppTabActual = tab;
+  ['inicio','horario','porteria','asistencia','conducta'].forEach(t=>{
+    const c = document.getElementById(`pp-cont-${t}`);
+    if(c) c.style.display = t===tab ? '' : 'none';
+  });
+  document.querySelectorAll('.pp-tab').forEach(b=>{
+    b.style.background = b.dataset.tab===tab ? 'var(--azul)' : '';
+    b.style.color = b.dataset.tab===tab ? '#fff' : '';
+  });
+  if(tab==='inicio')     ppCargarInicio();
+  if(tab==='horario')    ppCargarHorario();
+  if(tab==='porteria')   ppCargarPorteria();
+  if(tab==='asistencia') ppCargarAsistencia();
+  if(tab==='conducta')   ppCargarConducta();
+}
+
+async function ppCargarInicio(){
+  try{
+    const alertas = await api('/api/padres/alertas')||[];
+    const card = document.getElementById('pp-alertas-card');
+    if(alertas.length){
+      card.style.display = '';
+      document.getElementById('pp-alertas').innerHTML = alertas.map(a=>`
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;${a.hoy?'background:#fef2f2;':''}">
+          ${a.hoy?'<span style="background:#dc2626;color:#fff;border-radius:4px;padding:1px 6px;font-size:10.5px;font-weight:bold;margin-right:6px;">HOY</span>':''}
+          <strong>${a.estudiante}</strong> — ${a.detalle}
+          <span style="color:var(--muted);"> · ${a.fecha}</span>
+        </div>`).join("");
+    } else {
+      card.style.display = 'none';
+    }
+  }catch{}
+  try{
+    const anuncios = await api('/api/padres/anuncios')||[];
+    document.getElementById('pp-anuncios').innerHTML = anuncios.length ? anuncios.map(a=>`
+      <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="font-weight:bold;font-size:14px;">${a.titulo}</div>
+        <div style="font-size:13px;margin-top:3px;white-space:pre-wrap;">${a.cuerpo}</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:4px;">${String(a.created_at).slice(0,10)}${a.para_todos?' · Para toda la institución':''}</div>
+      </div>`).join("")
+      : '<div style="color:var(--muted);font-size:13px;">No hay anuncios por el momento.</div>';
+  }catch(e){
+    document.getElementById('pp-anuncios').innerHTML = `<div style="color:#dc2626;font-size:13px;">${e.message}</div>`;
+  }
+}
+
+async function ppCargarHorario(){
+  if(!ppHijoActual) return;
+  try{
+    const r = await api(`/api/padres/hijo/${ppHijoActual.id}/horario`);
+    document.getElementById('pp-hor-seccion').textContent = r.seccion || 'Sin sección';
+    if(!horLecciones.length) horLecciones = r.lecciones || [];
+    const mapa = {};
+    (r.celdas||[]).forEach(c => { mapa[`${c.dia}-${c.leccion}`] = c; });
+    document.getElementById('pp-horario').innerHTML = (r.celdas||[]).length
+      ? horRenderGrid(mapa, false)
+      : '<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">El horario de la sección aún no ha sido cargado por la institución.</div>';
+  }catch(e){ document.getElementById('pp-horario').innerHTML = `<div style="color:#dc2626;">${e.message}</div>`; }
+}
+
+async function ppCargarPorteria(){
+  if(!ppHijoActual) return;
+  const tbody = document.getElementById('pp-porteria-tbody');
+  try{
+    const rows = await api(`/api/padres/hijo/${ppHijoActual.id}/porteria`)||[];
+    tbody.innerHTML = rows.length ? rows.map(r=>`<tr>
+      <td style="white-space:nowrap;">${String(r.fecha).slice(0,10)}</td>
+      <td>${r.hora}</td>
+      <td>${r.tipo==='entrada'?'⬇️ Entrada':'⬆️ Salida'}</td>
+      <td>${r.resultado==='permitido'?'<span style="color:var(--verde);font-weight:bold;">✔ Permitido</span>':'<span style="color:#dc2626;font-weight:bold;">⛔ Denegado</span>'}</td>
+      <td style="font-size:11.5px;color:var(--muted);">${r.detalle||''}</td>
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">Sin registros de portería este año.</td></tr>';
+  }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
+}
+
+async function ppCargarAsistencia(){
+  if(!ppHijoActual) return;
+  const tbody = document.getElementById('pp-asistencia-tbody');
+  try{
+    const r = await api(`/api/padres/hijo/${ppHijoActual.id}/asistencia`);
+    const res = r.resumen||{};
+    document.getElementById('pp-as-aus').textContent = res.ausencias||0;
+    document.getElementById('pp-as-tar').textContent = res.tardias||0;
+    document.getElementById('pp-as-jus').textContent = res.ausencias_just||0;
+    document.getElementById('pp-as-pre').textContent = res.presentes||0;
+    const filas = (r.registros||[]).filter(x=>x.estado!=='P');
+    tbody.innerHTML = filas.length ? filas.map(x=>`<tr>
+      <td style="white-space:nowrap;">${String(x.fecha).slice(0,10)}</td>
+      <td>${x.materia_nombre}</td>
+      <td>${x.estado==='A'?'<span style="color:#dc2626;font-weight:bold;">Ausente</span>':'<span style="color:#ea580c;font-weight:bold;">Tardía</span>'}</td>
+      <td>${x.estado==='A' ? (x.lecciones_ausentes ?? x.lecciones_sesion) : (x.lecciones_tardias ?? '—')}</td>
+      <td>${x.justificada?'✔ Sí':'—'}</td>
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">Sin ausencias ni tardías registradas. 🎉</td></tr>';
+  }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
+}
+
+async function ppCargarConducta(){
+  if(!ppHijoActual) return;
+  const tbody = document.getElementById('pp-conducta-tbody');
+  try{
+    const r = await api(`/api/padres/hijo/${ppHijoActual.id}/conducta`);
+    document.getElementById('pp-con-notaI').textContent = r.notaI;
+    document.getElementById('pp-con-notaII').textContent = r.notaII;
+    const TIPOS = {muy_leve:'Muy leve',leve:'Leve',grave:'Grave',muy_grave:'Muy grave',gravisima:'Gravísima'};
+    tbody.innerHTML = (r.boletas||[]).length ? r.boletas.map(b=>`<tr>
+      <td style="white-space:nowrap;">${String(b.fecha).slice(0,10)}</td>
+      <td style="font-size:11.5px;">${b.descripcion}${b.observacion?`<div style="color:var(--muted);">${b.observacion}</div>`:''}</td>
+      <td>${TIPOS[b.tipo]||b.tipo}</td>
+      <td style="color:#dc2626;font-weight:bold;">-${b.puntos}</td>
+      <td>${b.materia_nombre||'—'}</td>
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">Sin boletas de conducta este año. 🎉</td></tr>';
+  }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
+}
+
+async function ppLogout(){
+  try{ await api('/api/padres/logout','POST'); }catch{}
+  window.location.reload();
+}
+
+// ════════════════════════════════════
+//  ANUNCIOS (secretarias/admin/administrativos)
+// ════════════════════════════════════
+async function iniciarAnuncios(){
+  // Checkboxes de secciones
+  let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
+  if(!secciones.length){ try{ secciones = await api("/api/admin/secciones")||[]; allSecciones=secciones; }catch{} }
+  const cont = document.getElementById("an-secciones");
+  if(cont && !cont.dataset.inited){
+    cont.dataset.inited = "1";
+    cont.innerHTML = secciones.sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}))
+      .map(s=>`<label style="font-size:12px;cursor:pointer;white-space:nowrap;"><input type="checkbox" class="an-sec-chk" value="${s.id}" onchange="anSeccionChk()"/> ${s.nombre}</label>`).join("");
+  }
+  await anCargarLista();
+}
+
+function anParaTodosChk(){
+  const todos = document.getElementById("an-todos").checked;
+  if(todos) document.querySelectorAll(".an-sec-chk").forEach(c=>c.checked=false);
+}
+function anSeccionChk(){
+  const alguna = [...document.querySelectorAll(".an-sec-chk")].some(c=>c.checked);
+  if(alguna) document.getElementById("an-todos").checked = false;
+}
+
+async function anCrear(){
+  const titulo = document.getElementById("an-titulo").value.trim();
+  const cuerpo = document.getElementById("an-cuerpo").value.trim();
+  const todos = document.getElementById("an-todos").checked;
+  const secciones = [...document.querySelectorAll(".an-sec-chk")].filter(c=>c.checked).map(c=>+c.value);
+  if(!titulo){ sa("alert-anuncios","Escribí el título.","danger"); return; }
+  if(!cuerpo){ sa("alert-anuncios","Escribí el contenido del anuncio.","danger"); return; }
+  if(!todos && !secciones.length){ sa("alert-anuncios","Marcá 'Para todos' o al menos una sección.","danger"); return; }
+  try{
+    await api("/api/anuncios","POST",{ titulo, cuerpo, para_todos: todos, secciones });
+    sa("alert-anuncios","✅ Anuncio publicado. Los encargados ya lo pueden ver en su portal.","success");
+    document.getElementById("an-titulo").value="";
+    document.getElementById("an-cuerpo").value="";
+    document.getElementById("an-todos").checked=true;
+    document.querySelectorAll(".an-sec-chk").forEach(c=>c.checked=false);
+    await anCargarLista();
+  }catch(e){ sa("alert-anuncios", e.message, "danger"); }
+}
+
+async function anCargarLista(){
+  const tbody = document.getElementById("an-tbody");
+  try{
+    const rows = await api("/api/anuncios")||[];
+    const secMap = {}; (allSecciones||[]).forEach(s=>{ secMap[s.id]=s.nombre; });
+    tbody.innerHTML = rows.length ? rows.map(a=>`<tr style="${a.activo?'':'opacity:.5;'}">
+      <td style="white-space:nowrap;">${String(a.created_at).slice(0,10)}</td>
+      <td><strong>${a.titulo}</strong><div style="font-size:11.5px;color:var(--muted);max-width:340px;">${a.cuerpo.length>120?a.cuerpo.slice(0,120)+'…':a.cuerpo}</div></td>
+      <td>${a.para_todos?'📣 Todos':(a.secciones||[]).map(id=>secMap[id]||id).join(', ')}</td>
+      <td>${a.creador_ap1||''} ${a.creador_nombre||''}</td>
+      <td>${a.activo?'<span class="badge b-guia">Activo</span>':'<span class="badge" style="background:#f1f5f9;color:#64748b;">Oculto</span>'}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-outline btn-xs" onclick="anToggle(${a.id})" title="${a.activo?'Ocultar':'Mostrar'}">${a.activo?'🙈':'👁️'}</button>
+        <button class="btn btn-danger btn-xs" onclick="anEliminar(${a.id})">🗑️</button>
+      </td>
+    </tr>`).join("") : '<tr><td colspan="6" class="empty">No hay anuncios publicados.</td></tr>';
+  }catch(e){ tbody.innerHTML = `<tr><td colspan="6" class="empty">${e.message}</td></tr>`; }
+}
+
+async function anToggle(id){
+  try{ await api(`/api/anuncios/${id}/toggle`,"PUT"); await anCargarLista(); }
+  catch(e){ sa("alert-anuncios", e.message, "danger"); }
+}
+async function anEliminar(id){
+  if(!confirm("¿Eliminar este anuncio definitivamente?")) return;
+  try{ await api(`/api/anuncios/${id}`,"DELETE"); await anCargarLista(); }
+  catch(e){ sa("alert-anuncios", e.message, "danger"); }
+}
+
+// ════════════════════════════════════
 //  IDIOMA Y TECNOLOGÍA (orientadora 9°)
 // ════════════════════════════════════
 let itData = [];
@@ -16045,6 +16431,21 @@ async function cargarHistorialIntercambios(){
       iniciarApp();
     }
   }else{
+    // ¿Sesión activa del portal de padres?
+    try{
+      const p=await api("/api/padres/me");
+      if(p?.autenticado){
+        PP={ padre: p.padre, hijos: p.hijos };
+        document.getElementById("login-screen").classList.remove("show");
+        if(p.primer_login){
+          window.esPadreCambioPass = true;
+          document.getElementById("cambiar-pass-screen").classList.add("show");
+        } else {
+          iniciarPortalPadres();
+        }
+        return;
+      }
+    }catch{}
     document.getElementById("login-screen").classList.add("show");
     setTimeout(()=>document.getElementById("l-ced").focus(),100);
   }
