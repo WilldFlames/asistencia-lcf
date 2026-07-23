@@ -1365,15 +1365,16 @@ tr:hover td{background:#f8fafc;}
     </div>
     <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Registrá el <strong>idioma</strong> y la <strong>tecnología</strong> que eligió cada estudiante de noveno. Cuando se ratifique la matrícula a décimo, esta información aparece precargada. Se guarda automáticamente al cambiar cada campo. Recordá: Inglés Conversacional = <strong>Grupo A</strong> · Diseño Publicitario y Matem/AMPROSA = <strong>Grupo B</strong>.</p>
     <div id="alert-idiomatec" class="alert"></div>
-    <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+    <div class="stats" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px;">
       <div class="stat"><div class="num" id="it-total">0</div><div class="lbl">Estudiantes 9°</div></div>
       <div class="stat"><div class="num green" id="it-completos">0</div><div class="lbl">Completos</div></div>
       <div class="stat"><div class="num orange" id="it-pendientes">0</div><div class="lbl">Pendientes</div></div>
       <div class="stat"><div class="num" id="it-frances">0</div><div class="lbl">Francés</div></div>
+      <div class="stat"><div class="num green" id="it-boletas">0</div><div class="lbl">Boletas entregadas</div></div>
     </div>
     <div class="table-wrap"><table style="font-size:12.5px;">
-      <thead><tr><th>#</th><th>Estudiante</th><th>Cédula</th><th>Sección</th><th>Idioma</th><th>Tecnología</th></tr></thead>
-      <tbody id="it-tbody"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+      <thead><tr><th>#</th><th>Estudiante</th><th>Cédula</th><th>Sección</th><th>Idioma</th><th>Tecnología</th><th style="text-align:center;" title="Marcar cuando el estudiante entregue la boleta">📄 Boleta</th></tr></thead>
+      <tbody id="it-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -1852,6 +1853,12 @@ tr:hover td{background:#f8fafc;}
       </select>
     </div>
     <div id="asignar-herencia" style="display:none;font-size:12.5px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 10px;margin-bottom:10px;"></div>
+    <div class="fg" style="margin-bottom:8px;">
+      <label style="cursor:pointer;font-weight:normal;display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fafafa;">
+        <input type="checkbox" id="asignar-sec-boleta" style="width:18px;height:18px;cursor:pointer;"/>
+        <span style="font-size:13px;">📄 Entregó boleta de calificaciones</span>
+      </label>
+    </div>
     <div id="alert-asignar-sec" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-asignar-seccion')">Cancelar</button>
@@ -8936,7 +8943,11 @@ function renderMatricula(){
   tbody.innerHTML = lista.length ? lista.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
-    <td><strong>${e.primer_apellido} ${e.segundo_apellido||""}, ${e.nombre}</strong></td>
+    <td><strong>${e.primer_apellido} ${e.segundo_apellido||""}, ${e.nombre}</strong>${
+      e.boleta_entregada
+        ? '<div style="font-size:11px;color:var(--verde);font-weight:bold;margin-top:2px;">📄 ✅ Entregó boleta</div>'
+        : '<div style="font-size:11px;color:#ea580c;font-weight:bold;margin-top:2px;">📄 ⏳ No ha entregado boleta</div>'
+    }</td>
     <td><span class="badge" style="background:${COLORES_TIPO[e.tipo_ingreso]||'#e0f2fe'};color:#374151;">${tipos[e.tipo_ingreso]||e.tipo_ingreso}</span></td>
     <td style="font-weight:bold;">${NIVELES_MAT[e.nivel_matricula]||'—'}</td>
     <td>${matSeccionCelda(e)}
@@ -8989,6 +9000,9 @@ async function abrirAsignarSeccion(id, nombre, nivel){
   const fgIdi = document.getElementById("asignar-fg-idioma");
   const fgTec = document.getElementById("asignar-fg-tec");
   const her   = document.getElementById("asignar-herencia");
+  // Precargar check de boleta con el estado actual del estudiante
+  const chkBoleta = document.getElementById("asignar-sec-boleta");
+  if(chkBoleta) chkBoleta.checked = !!est.boleta_entregada;
   fgIdi.style.display = "";
   document.getElementById("asignar-sec-idioma").value = fut.idioma || est.idioma || "";
   if(parseInt(nivel) === 10){
@@ -9072,6 +9086,13 @@ async function confirmarAsignarSeccion(){
     const r = await api("/api/matricula/asignar","POST",{
       estudiante_id: +id, anio: matAnio, seccion_id: +sid, idioma, tecnologia, forzar
     });
+    // Guardar también el estado de la boleta
+    const chkBoleta = document.getElementById("asignar-sec-boleta");
+    if(chkBoleta){
+      try{
+        await api(`/api/matricula/boleta-entregada/${id}`,"PUT",{ entregada: chkBoleta.checked });
+      }catch{}
+    }
     cerrarModal("modal-asignar-seccion");
     sa("alert-mat", r.aplicado_directo
       ? `✅ Sección ${r.seccion_nombre} asignada (año en curso).`
@@ -14241,6 +14262,7 @@ function itStats(){
   document.getElementById("it-completos").textContent = completos;
   document.getElementById("it-pendientes").textContent = itData.length - completos;
   document.getElementById("it-frances").textContent = itData.filter(e=>e.idioma==='Francés').length;
+  document.getElementById("it-boletas").textContent = itData.filter(e=>e.boleta_entregada).length;
 }
 
 function itRender(){
@@ -14248,7 +14270,7 @@ function itRender(){
   const lista = filtro ? itData.filter(e=>e.seccion_nombre===filtro) : itData;
   itStats();
   const tbody = document.getElementById("it-tbody");
-  if(!lista.length){ tbody.innerHTML = '<tr><td colspan="6" class="empty">No hay estudiantes de noveno en tus secciones.</td></tr>'; return; }
+  if(!lista.length){ tbody.innerHTML = '<tr><td colspan="7" class="empty">No hay estudiantes de noveno en tus secciones.</td></tr>'; return; }
   tbody.innerHTML = lista.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
@@ -14269,7 +14291,38 @@ function itRender(){
         <option value="Matem/AMPROSA" ${e.tecnologia==='Matem/AMPROSA'?'selected':''}>Matem/AMPROSA (Gr. B)</option>
       </select>
     </td>
+    <td style="text-align:center;">
+      <label style="cursor:pointer;font-size:11.5px;white-space:nowrap;">
+        <input type="checkbox" ${e.boleta_entregada?'checked':''} onchange="itBoleta(${e.id}, this)"/>
+        <span style="color:${e.boleta_entregada?'var(--verde)':'var(--muted)'};font-weight:bold;">${e.boleta_entregada?'✅ Entregada':'Pendiente'}</span>
+      </label>
+    </td>
   </tr>`).join("");
+}
+
+async function itBoleta(id, chk){
+  const est = itData.find(e=>e.id===id);
+  if(!est) return;
+  const entregada = chk.checked;
+  est.boleta_entregada = entregada;
+  // Actualizar la etiqueta al lado
+  const span = chk.parentElement.querySelector('span');
+  if(span){
+    span.textContent = entregada ? '✅ Entregada' : 'Pendiente';
+    span.style.color = entregada ? 'var(--verde)' : 'var(--muted)';
+  }
+  try{
+    await api(`/api/matricula/boleta-entregada/${id}`,"PUT",{ entregada });
+    itStats();
+  }catch(e){
+    chk.checked = !entregada;
+    est.boleta_entregada = !entregada;
+    if(span){
+      span.textContent = est.boleta_entregada ? '✅ Entregada' : 'Pendiente';
+      span.style.color = est.boleta_entregada ? 'var(--verde)' : 'var(--muted)';
+    }
+    sa("alert-idiomatec", e.message, "danger");
+  }
 }
 
 async function itGuardar(id, selEl, campo){

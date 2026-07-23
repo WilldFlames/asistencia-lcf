@@ -350,6 +350,8 @@ async function initDB() {
     // idioma: 'Inglés' | 'Francés' · tecnologia: 'Inglés Conversacional' | 'Diseño Publicitario'
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS idioma TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS tecnologia TEXT DEFAULT NULL`);
+    // Marca si el estudiante ya entregó la boleta (usada en Idioma/Tecnología y Matrícula)
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS boleta_entregada BOOLEAN DEFAULT false`);
     // Matrícula del año siguiente: sección futura + idioma/tecnología/subgrupo elegidos
     // (subgrupo: Inglés Conversacional = 'A' · Diseño Publicitario = 'B')
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS idioma TEXT DEFAULT NULL`);

@@ -18,6 +18,7 @@ router.get("/", canAccess, async (req, res) => {
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
       e.tipo_ingreso, e.nivel_matricula, e.matricula_completada, e.idioma, e.tecnologia,
+      e.boleta_entregada,
       e.seccion_id, s.nombre AS seccion_nombre, e.created_at
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
@@ -493,7 +494,7 @@ router.get("/idioma-tecnologia", canIdiomaTec, async (req, res) => {
   }
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
-      e.idioma, e.tecnologia, s.nombre AS seccion_nombre
+      e.idioma, e.tecnologia, e.boleta_entregada, s.nombre AS seccion_nombre
     FROM estudiantes e
     JOIN secciones s ON s.id = e.seccion_id
     WHERE e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
@@ -509,6 +510,14 @@ router.put("/idioma-tecnologia/:id", canIdiomaTec, async (req, res) => {
   await pool.query(`
     UPDATE estudiantes SET idioma=$1, tecnologia=$2 WHERE id=$3
   `, [idioma || null, tecnologia || null, req.params.id]);
+  res.json({ ok: true });
+});
+
+// Marcar/desmarcar boleta entregada (autosave)
+router.put("/boleta-entregada/:id", canIdiomaTec, async (req, res) => {
+  const { entregada } = req.body;
+  await pool.query("UPDATE estudiantes SET boleta_entregada=$1 WHERE id=$2",
+    [entregada ? true : false, req.params.id]);
   res.json({ ok: true });
 });
 
