@@ -1363,7 +1363,7 @@ tr:hover td{background:#f8fafc;}
         <option value="">— Todas las secciones —</option>
       </select>
     </div>
-    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Registrá el <strong>idioma</strong> y la <strong>tecnología</strong> que eligió cada estudiante de noveno. Cuando se ratifique la matrícula a décimo, esta información aparece precargada. Se guarda automáticamente al cambiar cada campo. Recordá: Inglés Conversacional = <strong>Grupo A</strong> · Diseño Publicitario = <strong>Grupo B</strong>.</p>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Registrá el <strong>idioma</strong> y la <strong>tecnología</strong> que eligió cada estudiante de noveno. Cuando se ratifique la matrícula a décimo, esta información aparece precargada. Se guarda automáticamente al cambiar cada campo. Recordá: Inglés Conversacional = <strong>Grupo A</strong> · Diseño Publicitario y Matem/AMPROSA = <strong>Grupo B</strong>.</p>
     <div id="alert-idiomatec" class="alert"></div>
     <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
       <div class="stat"><div class="num" id="it-total">0</div><div class="lbl">Estudiantes 9°</div></div>
@@ -1848,6 +1848,7 @@ tr:hover td{background:#f8fafc;}
         <option value="">— Seleccionar —</option>
         <option value="Inglés Conversacional">Inglés Conversacional — Grupo A</option>
         <option value="Diseño Publicitario">Diseño Publicitario — Grupo B</option>
+        <option value="Matem/AMPROSA">Matem/AMPROSA — Grupo B</option>
       </select>
     </div>
     <div id="asignar-herencia" style="display:none;font-size:12.5px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 10px;margin-bottom:10px;"></div>
@@ -4245,7 +4246,7 @@ function periodoActualODefault(fechaStr) {
 
 // Materias que usan subgrupo A/B
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
-const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario"];
+const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario","Matem/AMPROSA"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
 const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa",seguridad:"Seguridad"};
 const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof",cocinera:"b-orient",secretaria:"b-aux",administrativo:"b-prof",seguridad:"b-aux"};
@@ -9013,6 +9014,7 @@ function subgrupoDeTec(tec){
   if(!tec) return null;
   if(/conversacional/i.test(tec)) return 'A';
   if(/publicitario/i.test(tec)) return 'B';
+  if(/amprosa|matem/i.test(tec)) return 'B';
   return null;
 }
 
@@ -9045,7 +9047,7 @@ async function confirmarAsignarSeccion(){
   const idioma = document.getElementById("asignar-sec-idioma").value || null;
   const tecnologia = nivel === 10 ? (document.getElementById("asignar-sec-tec").value || null) : null;
   if(nivel === 10 && !tecnologia){
-    sa("alert-asignar-sec","Para décimo indicá la tecnología (Inglés Conversacional o Diseño Publicitario).","danger"); return;
+    sa("alert-asignar-sec","Para décimo indicá la tecnología (Inglés Conversacional, Diseño Publicitario o Matem/AMPROSA).","danger"); return;
   }
   // Sección llena → solo admin puede forzar, con confirmación
   let forzar = false;
@@ -14264,6 +14266,7 @@ function itRender(){
         <option value="">—</option>
         <option value="Inglés Conversacional" ${e.tecnologia==='Inglés Conversacional'?'selected':''}>Inglés Conversacional (Gr. A)</option>
         <option value="Diseño Publicitario" ${e.tecnologia==='Diseño Publicitario'?'selected':''}>Diseño Publicitario (Gr. B)</option>
+        <option value="Matem/AMPROSA" ${e.tecnologia==='Matem/AMPROSA'?'selected':''}>Matem/AMPROSA (Gr. B)</option>
       </select>
     </td>
   </tr>`).join("");

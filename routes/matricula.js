@@ -269,11 +269,15 @@ function fechaCR(){
 }
 function anioActualCR(){ return parseInt(fechaCR().slice(0,4)); }
 
-// Subgrupo según tecnología: Inglés Conversacional = A · Diseño Publicitario = B
+// Subgrupo según tecnología:
+//   Inglés Conversacional = A
+//   Diseño Publicitario   = B
+//   Matem/AMPROSA         = B (misma B — por sección se elige UNA de las dos B)
 function subgrupoDeTecnologia(tec){
   if(!tec) return null;
   if(/conversacional/i.test(tec)) return 'A';
   if(/publicitario/i.test(tec)) return 'B';
+  if(/amprosa|matem/i.test(tec)) return 'B';
   return null;
 }
 
