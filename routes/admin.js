@@ -142,6 +142,40 @@ router.get("/secciones", async (req, res) => {
   res.json(r.rows);
 });
 
+// ── DIAGNÓSTICO TEMPORAL: ver TODAS las asignaciones de un profe ──────────
+// GET /api/admin/diagnostico-asignaciones/:profesor_id
+// Devuelve TODAS las filas crudas de la tabla asignaciones para ese profe,
+// SIN filtros de período ni herencia. Solo admin.
+router.get("/diagnostico-asignaciones/:profesor_id", onlyAdmin, async (req, res) => {
+  const r = await pool.query(`
+    SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo,
+      a.lecciones_semana, a.periodo, a.created_at,
+      s.nombre AS seccion_nombre, s.nivel,
+      m.nombre AS materia_nombre,
+      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
+    FROM asignaciones a
+    JOIN secciones s ON s.id = a.seccion_id
+    JOIN materias m ON m.id = a.materia_id
+    JOIN usuarios u ON u.id = a.profesor_id
+    WHERE a.profesor_id = $1
+    ORDER BY s.nombre, m.nombre, a.periodo, a.subgrupo
+  `, [req.params.profesor_id]);
+  res.json(r.rows);
+});
+
+// Búsqueda por nombre para conseguir el profesor_id fácilmente
+router.get("/buscar-profe/:nombre", onlyAdmin, async (req, res) => {
+  const r = await pool.query(`
+    SELECT id, cedula, nombre, primer_apellido, segundo_apellido, rol
+    FROM usuarios
+    WHERE (nombre ILIKE $1 OR primer_apellido ILIKE $1 OR segundo_apellido ILIKE $1)
+      AND rol IN ('profesor','profesor_guia')
+    ORDER BY primer_apellido, nombre
+    LIMIT 20
+  `, [`%${req.params.nombre}%`]);
+  res.json(r.rows);
+});
+
 router.put("/secciones/:id/guia", onlyAdmin, async (req, res) => {
   const { profesor_id } = req.body;
   if (!profesor_id) return res.json({ ok: true });
