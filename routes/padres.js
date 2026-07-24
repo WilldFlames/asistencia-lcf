@@ -240,24 +240,57 @@ router.get("/hijo/:id/asistencia", requirePadre, hijoDelPadre, async (req, res) 
 });
 
 // ── Conducta: boletas + nota por período ──────────────────────────────────
+// USA EL MISMO CÁLCULO que el guía en /api/conducta/estudiante/:id?desde=X&hasta=Y
+// para garantizar que la nota que ve el papá coincida con la que ve el guía.
 router.get("/hijo/:id/conducta", requirePadre, hijoDelPadre, async (req, res) => {
   const anio = anioCR();
   const per = rangosPeriodo(anio);
-  const r = await pool.query(`
-    SELECT b.fecha, b.observacion, i.tipo, i.puntos, i.descripcion,
-      m.nombre AS materia_nombre
-    FROM boletas_conducta b
-    JOIN infracciones i ON i.id = b.infraccion_id
-    LEFT JOIN asignaciones a ON a.id = b.asignacion_id
-    LEFT JOIN materias m ON m.id = a.materia_id
-    WHERE b.estudiante_id = $1 AND b.fecha >= $2
-    ORDER BY b.fecha DESC
-  `, [req.hijo.id, `${anio}-01-01`]);
-  const boletas = r.rows;
-  const enRango = (b, rg) => String(b.fecha).slice(0,10) >= rg.desde && String(b.fecha).slice(0,10) <= rg.hasta;
-  const notaI  = Math.max(0, 100 - boletas.filter(b=>enRango(b, per.I)).reduce((s,b)=>s+(b.puntos||0),0));
-  const notaII = Math.max(0, 100 - boletas.filter(b=>enRango(b, per.II)).reduce((s,b)=>s+(b.puntos||0),0));
-  res.json({ boletas, notaI, notaII });
+
+  // Función interna que replica EXACTAMENTE el endpoint del guía
+  async function traerBoletas(desde, hasta){
+    const params = [req.hijo.id];
+    let sql = `
+      SELECT b.fecha, b.observacion, b.created_at,
+        i.tipo, i.puntos, i.descripcion,
+        m.nombre AS materia_nombre
+      FROM boletas_conducta b
+      JOIN infracciones i ON i.id = b.infraccion_id
+      LEFT JOIN asignaciones a ON a.id = b.asignacion_id
+      LEFT JOIN materias m ON m.id = a.materia_id
+      WHERE b.estudiante_id = $1
+    `;
+    if(desde){ params.push(desde); sql += ` AND b.fecha >= $${params.length}`; }
+    if(hasta){ params.push(hasta); sql += ` AND b.fecha <= $${params.length}`; }
+    sql += " ORDER BY b.fecha DESC, b.created_at DESC";
+    const r = await pool.query(sql, params);
+    const totalRebajado = r.rows.reduce((s, b) => s + (b.puntos || 0), 0);
+    const notaConducta = Math.max(0, 100 - totalRebajado);
+    return { boletas: r.rows, totalRebajado, notaConducta };
+  }
+
+  const [dI, dII] = await Promise.all([
+    traerBoletas(per.I.desde, per.I.hasta),
+    traerBoletas(per.II.desde, per.II.hasta),
+  ]);
+
+  // Nota anual = promedio 50/50 (igual que hace el guía en modo anual)
+  const notaAnual = Math.round((dI.notaConducta * 0.5) + (dII.notaConducta * 0.5));
+
+  // Unificar todas las boletas de ambos períodos para la lista completa
+  const todasBoletas = [...dI.boletas, ...dII.boletas].sort((a,b) =>
+    String(b.fecha).localeCompare(String(a.fecha))
+  );
+
+  res.json({
+    boletas: todasBoletas,
+    boletas_I:  dI.boletas,
+    boletas_II: dII.boletas,
+    notaI:  dI.notaConducta,
+    notaII: dII.notaConducta,
+    notaAnual,
+    totalRebajado_I:  dI.totalRebajado,
+    totalRebajado_II: dII.totalRebajado,
+  });
 });
 
 // ── Anuncios para el padre (todos o secciones de sus hijos) ───────────────

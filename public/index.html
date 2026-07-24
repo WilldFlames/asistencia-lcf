@@ -387,7 +387,14 @@ tr:hover td{background:#f8fafc;}
     <!-- ASISTENCIA -->
     <div id="pp-cont-asistencia" style="display:none;">
       <div class="card">
-        <h2 style="font-size:15px;margin-bottom:10px;">📅 Asistencia del año</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <h2 style="margin:0;font-size:15px;">📅 Asistencia <span id="pp-as-periodo-lbl" style="color:var(--muted);font-weight:normal;font-size:13px;"></span></h2>
+          <div class="pp-per-tabs" data-target="asistencia" style="display:flex;gap:4px;">
+            <button class="btn btn-outline btn-xs pp-per-btn" data-per="I"    onclick="ppSetPeriodo('asistencia','I')">I Período</button>
+            <button class="btn btn-outline btn-xs pp-per-btn" data-per="II"   onclick="ppSetPeriodo('asistencia','II')">II Período</button>
+            <button class="btn btn-outline btn-xs pp-per-btn" data-per="anual" onclick="ppSetPeriodo('asistencia','anual')">Anual</button>
+          </div>
+        </div>
         <div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px;">
           <div class="stat"><div class="num" id="pp-as-aus" style="color:#dc2626;">0</div><div class="lbl">Ausencias</div></div>
           <div class="stat"><div class="num orange" id="pp-as-tar">0</div><div class="lbl">Tardías</div></div>
@@ -405,11 +412,19 @@ tr:hover td{background:#f8fafc;}
     <!-- CONDUCTA -->
     <div id="pp-cont-conducta" style="display:none;">
       <div class="card">
-        <h2 style="font-size:15px;margin-bottom:10px;">📋 Conducta</h2>
-        <div class="stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <h2 style="margin:0;font-size:15px;">📋 Conducta <span id="pp-con-periodo-lbl" style="color:var(--muted);font-weight:normal;font-size:13px;"></span></h2>
+          <div class="pp-per-tabs" data-target="conducta" style="display:flex;gap:4px;">
+            <button class="btn btn-outline btn-xs pp-per-btn" data-per="I"    onclick="ppSetPeriodo('conducta','I')">I Período</button>
+            <button class="btn btn-outline btn-xs pp-per-btn" data-per="II"   onclick="ppSetPeriodo('conducta','II')">II Período</button>
+            <button class="btn btn-outline btn-xs pp-per-btn" data-per="anual" onclick="ppSetPeriodo('conducta','anual')">Anual</button>
+          </div>
+        </div>
+        <div class="stats" id="pp-con-stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px;">
           <div class="stat"><div class="num" id="pp-con-notaI">100</div><div class="lbl">Nota I Período</div></div>
           <div class="stat"><div class="num" id="pp-con-notaII">100</div><div class="lbl">Nota II Período</div></div>
         </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px;" id="pp-con-desc">La nota es la misma que ve el profesor guía en tiempo real.</p>
         <div class="table-wrap"><table style="font-size:12.5px;">
           <thead><tr><th>Fecha</th><th>Falta</th><th>Tipo</th><th>Puntos</th><th>Materia</th></tr></thead>
           <tbody id="pp-conducta-tbody"></tbody>
@@ -14347,11 +14362,45 @@ async function ppCargarPorteria(){
   }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
 }
 
+// ── Estado del filtro de período por cada rubro ──────────────────────────
+// I / II / anual — se inicializa según el mes actual: si estamos en la mitad
+// del año, arranca en I; si estamos en la segunda mitad, arranca en II.
+let ppPeriodoAsist = null, ppPeriodoCond = null;
+
+function ppPeriodoInicial(){
+  const mes = parseInt(fechaHoyCR().slice(5,7));
+  return mes <= 7 ? 'I' : 'II';
+}
+
+function ppRangoPeriodo(per){
+  const anio = matAnioActual();
+  if(per === 'I')  return { desde: `${anio}-02-23`, hasta: `${anio}-07-03`, lbl: `— I Período` };
+  if(per === 'II') return { desde: `${anio}-07-20`, hasta: `${anio}-12-09`, lbl: `— II Período` };
+  return { desde: `${anio}-01-01`, hasta: `${anio}-12-31`, lbl: `— Anual` };
+}
+
+function ppMarcarBtnActivo(target, per){
+  document.querySelectorAll(`.pp-per-tabs[data-target="${target}"] .pp-per-btn`).forEach(b=>{
+    const activo = b.dataset.per === per;
+    b.style.background = activo ? 'var(--azul)' : '';
+    b.style.color      = activo ? '#fff'       : '';
+  });
+}
+
+function ppSetPeriodo(target, per){
+  if(target === 'asistencia'){ ppPeriodoAsist = per; ppCargarAsistencia(); }
+  else if(target === 'conducta'){ ppPeriodoCond = per; ppCargarConducta(); }
+}
+
 async function ppCargarAsistencia(){
   if(!ppHijoActual) return;
+  if(!ppPeriodoAsist) ppPeriodoAsist = ppPeriodoInicial();
+  ppMarcarBtnActivo('asistencia', ppPeriodoAsist);
+  const rango = ppRangoPeriodo(ppPeriodoAsist);
+  document.getElementById('pp-as-periodo-lbl').textContent = rango.lbl;
   const tbody = document.getElementById('pp-asistencia-tbody');
   try{
-    const r = await api(`/api/padres/hijo/${ppHijoActual.id}/asistencia`);
+    const r = await api(`/api/padres/hijo/${ppHijoActual.id}/asistencia?desde=${rango.desde}&hasta=${rango.hasta}`);
     const res = r.resumen||{};
     document.getElementById('pp-as-aus').textContent = res.ausencias||0;
     document.getElementById('pp-as-tar').textContent = res.tardias||0;
@@ -14364,25 +14413,45 @@ async function ppCargarAsistencia(){
       <td>${x.estado==='A'?'<span style="color:#dc2626;font-weight:bold;">Ausente</span>':'<span style="color:#ea580c;font-weight:bold;">Tardía</span>'}</td>
       <td>${x.estado==='A' ? (x.lecciones_ausentes ?? x.lecciones_sesion) : (x.lecciones_tardias ?? '—')}</td>
       <td>${x.justificada?'✔ Sí':'—'}</td>
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">Sin ausencias ni tardías registradas. 🎉</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">Sin ausencias ni tardías registradas en este período. 🎉</td></tr>';
   }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
 }
 
 async function ppCargarConducta(){
   if(!ppHijoActual) return;
+  if(!ppPeriodoCond) ppPeriodoCond = ppPeriodoInicial();
+  ppMarcarBtnActivo('conducta', ppPeriodoCond);
+  const per = ppPeriodoCond;
+  const rango = ppRangoPeriodo(per);
+  document.getElementById('pp-con-periodo-lbl').textContent = rango.lbl;
   const tbody = document.getElementById('pp-conducta-tbody');
+  const statsEl = document.getElementById('pp-con-stats');
   try{
     const r = await api(`/api/padres/hijo/${ppHijoActual.id}/conducta`);
-    document.getElementById('pp-con-notaI').textContent = r.notaI;
-    document.getElementById('pp-con-notaII').textContent = r.notaII;
+    // Stats según selección
+    if(per === 'anual'){
+      statsEl.style.gridTemplateColumns = 'repeat(3,1fr)';
+      statsEl.innerHTML = `
+        <div class="stat"><div class="num">${r.notaI}</div><div class="lbl">Nota I Período</div></div>
+        <div class="stat"><div class="num">${r.notaII}</div><div class="lbl">Nota II Período</div></div>
+        <div class="stat"><div class="num" style="color:var(--azul);">${r.notaAnual}</div><div class="lbl">Nota Anual</div></div>`;
+    } else {
+      statsEl.style.gridTemplateColumns = 'repeat(1,1fr)';
+      const nota = per === 'I' ? r.notaI : r.notaII;
+      const total = per === 'I' ? r.totalRebajado_I : r.totalRebajado_II;
+      statsEl.innerHTML = `
+        <div class="stat"><div class="num" style="color:${nota>=65?'var(--verde)':'#dc2626'};">${nota}</div><div class="lbl">Nota ${per==='I'?'I':'II'} Período · ${total} pts rebajados</div></div>`;
+    }
+    // Boletas según selección
+    const boletas = per === 'I' ? (r.boletas_I||[]) : per === 'II' ? (r.boletas_II||[]) : (r.boletas||[]);
     const TIPOS = {muy_leve:'Muy leve',leve:'Leve',grave:'Grave',muy_grave:'Muy grave',gravisima:'Gravísima'};
-    tbody.innerHTML = (r.boletas||[]).length ? r.boletas.map(b=>`<tr>
+    tbody.innerHTML = boletas.length ? boletas.map(b=>`<tr>
       <td style="white-space:nowrap;">${String(b.fecha).slice(0,10)}</td>
       <td style="font-size:11.5px;">${b.descripcion}${b.observacion?`<div style="color:var(--muted);">${b.observacion}</div>`:''}</td>
       <td>${TIPOS[b.tipo]||b.tipo}</td>
       <td style="color:#dc2626;font-weight:bold;">-${b.puntos}</td>
       <td>${b.materia_nombre||'—'}</td>
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">Sin boletas de conducta este año. 🎉</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">Sin boletas de conducta en este período. 🎉</td></tr>';
   }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
 }
 
