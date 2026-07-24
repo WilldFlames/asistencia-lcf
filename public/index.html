@@ -337,7 +337,11 @@ tr:hover td{background:#f8fafc;}
       <div style="font-weight:bold;font-size:15px;">🏫 Liceo de Calle Fallas</div>
       <div style="font-size:12px;opacity:.85;">Portal de Encargados · <span id="pp-nombre"></span></div>
     </div>
-    <button onclick="ppLogout()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:7px 14px;font-size:13px;cursor:pointer;">Salir</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div id="pp-refresh-lbl" style="font-size:11px;opacity:.75;white-space:nowrap;"></div>
+      <button onclick="ppRefrescarAhora()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:7px 12px;font-size:13px;cursor:pointer;" title="Actualizar información">🔄</button>
+      <button onclick="ppLogout()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:7px 14px;font-size:13px;cursor:pointer;">Salir</button>
+    </div>
   </div>
 
   <div style="max-width:960px;margin:0 auto;padding:14px;">
@@ -14265,6 +14269,7 @@ function iniciarPortalPadres(){
   ppHijoActual = ppHijoActual && hijos.find(h=>h.id===ppHijoActual.id) ? ppHijoActual : hijos[0];
   ppRenderHijosTabs();
   ppTab('inicio');
+  ppIniciarAutoRefresh();
 }
 
 function ppRenderHijosTabs(){
@@ -14340,7 +14345,11 @@ async function ppCargarHorario(){
     document.getElementById('pp-hor-seccion').textContent = r.seccion || 'Sin sección';
     if(!horLecciones.length) horLecciones = r.lecciones || [];
     const mapa = {};
-    (r.celdas||[]).forEach(c => { mapa[`${c.dia}-${c.leccion}`] = c; });
+    (r.celdas||[]).forEach(c => {
+      const k = `${c.dia}-${c.leccion}`;
+      if(!mapa[k]) mapa[k] = [];
+      mapa[k].push(c);
+    });
     document.getElementById('pp-horario').innerHTML = (r.celdas||[]).length
       ? horRenderGrid(mapa, false)
       : '<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">El horario de la sección aún no ha sido cargado por la institución.</div>';
@@ -14455,7 +14464,56 @@ async function ppCargarConducta(){
   }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
 }
 
+// ── Auto-refresh del portal cada 60 segundos ─────────────────────────────
+let ppRefreshTimer = null;
+let ppUltimoRefresh = null;
+
+function ppRefrescarPestaña(){
+  if(!ppTabActual) return;
+  if(ppTabActual==='inicio')     ppCargarInicio();
+  if(ppTabActual==='horario')    ppCargarHorario();
+  if(ppTabActual==='porteria')   ppCargarPorteria();
+  if(ppTabActual==='asistencia') ppCargarAsistencia();
+  if(ppTabActual==='conducta')   ppCargarConducta();
+  ppUltimoRefresh = new Date();
+  ppActualizarLabelRefresh();
+}
+
+function ppRefrescarAhora(){
+  ppRefrescarPestaña();
+  // Reiniciar el ciclo para que el próximo auto sea 60s después
+  if(ppRefreshTimer){ clearInterval(ppRefreshTimer); ppRefreshTimer = setInterval(ppRefrescarPestaña, 60000); }
+}
+
+function ppActualizarLabelRefresh(){
+  const el = document.getElementById('pp-refresh-lbl');
+  if(!el || !ppUltimoRefresh) return;
+  const seg = Math.floor((Date.now() - ppUltimoRefresh.getTime())/1000);
+  el.textContent = seg < 5 ? 'Actualizado ahora' : (seg < 60 ? `Hace ${seg}s` : `Hace ${Math.floor(seg/60)}m`);
+}
+
+function ppIniciarAutoRefresh(){
+  if(ppRefreshTimer) clearInterval(ppRefreshTimer);
+  ppUltimoRefresh = new Date();
+  ppRefreshTimer = setInterval(ppRefrescarPestaña, 60000);
+  // Actualizar el label cada 10s para que el "Hace Xs" tenga sentido
+  setInterval(ppActualizarLabelRefresh, 10000);
+  // Pausar refresh si la pestaña está oculta (ahorra requests)
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      if(ppRefreshTimer){ clearInterval(ppRefreshTimer); ppRefreshTimer = null; }
+    } else {
+      // Al volver, refrescar de una y reiniciar el ciclo
+      if(document.getElementById('portal-padres')?.style.display === 'block'){
+        ppRefrescarPestaña();
+        ppRefreshTimer = setInterval(ppRefrescarPestaña, 60000);
+      }
+    }
+  });
+}
+
 async function ppLogout(){
+  if(ppRefreshTimer){ clearInterval(ppRefreshTimer); ppRefreshTimer = null; }
   try{ await api('/api/padres/logout','POST'); }catch{}
   window.location.reload();
 }
@@ -14939,9 +14997,13 @@ async function horCargarSeccion(){
     const g = r.guia;
     document.getElementById('hor-guia-label').textContent = g
       ? `Profesor(a) guía: ${g.primer_apellido||''} ${g.segundo_apellido||''} ${g.nombre||''}`.trim() : '';
-    // Mapa celdas: "dia-leccion" → celda
+    // Mapa celdas: "dia-leccion" → ARRAY de celdas (pueden ser varias por celda, ej: Hogar+Industriales)
     const mapa = {};
-    (r.celdas||[]).forEach(c => { mapa[`${c.dia}-${c.leccion}`] = c; });
+    (r.celdas||[]).forEach(c => {
+      const k = `${c.dia}-${c.leccion}`;
+      if(!mapa[k]) mapa[k] = [];
+      mapa[k].push(c);
+    });
     wrap.innerHTML = horRenderGrid(mapa, esAdminH);
     document.getElementById('hor-btn-guardar').style.display = esAdminH ? '' : 'none';
     document.getElementById('hor-btn-imprimir').style.display = '';
@@ -14961,21 +15023,40 @@ function horRenderGrid(mapa, editable){
     html += `<tr><td style="text-align:center;font-weight:bold;">${lec.n}</td>` +
       `<td style="white-space:nowrap;">${lec.ini} - ${lec.fin}</td>`;
     for(let dia=1; dia<=5; dia++){
-      const c = mapa[`${dia}-${lec.n}`];
+      const k = `${dia}-${lec.n}`;
+      const celdas = mapa[k] || []; // array de celdas
       if(editable){
-        const opts = ['<option value="">—</option>'].concat(
-          horAsigsSeccion.map(a =>
-            `<option value="${a.id}" ${c && c.asignacion_id==a.id ? 'selected':''}>${horEtiquetaAsig(a)}</option>`)
-        ).join('');
-        const aulaVal = (c && c.aula !== null && c.aula !== undefined) ? c.aula : '';
-        html += `<td style="padding:2px;">
-          <select class="hor-celda" data-dia="${dia}" data-leccion="${lec.n}" style="width:100%;font-size:11.5px;padding:4px;border:1px solid var(--border);border-radius:5px;">${opts}</select>
-          <input type="number" min="0" max="30" class="hor-aula" data-dia="${dia}" data-leccion="${lec.n}" value="${aulaVal}" placeholder="Aula" title="Número de aula (0-30)" style="width:100%;margin-top:2px;font-size:11px;padding:3px 4px;border:1px solid var(--border);border-radius:5px;text-align:center;"/>
+        // Al menos una fila de select siempre; más si hay múltiples
+        const filas = celdas.length ? celdas : [null];
+        let inner = '';
+        filas.forEach((c, idx) => {
+          const opts = ['<option value="">—</option>'].concat(
+            horAsigsSeccion.map(a =>
+              `<option value="${a.id}" ${c && String(c.asignacion_id)===String(a.id) ? 'selected':''}>${horEtiquetaAsig(a)}</option>`)
+          ).join('');
+          const aulaVal = (c && c.aula !== null && c.aula !== undefined) ? c.aula : '';
+          inner += `<div class="hor-fila" data-dia="${dia}" data-leccion="${lec.n}" style="display:flex;gap:2px;margin-bottom:2px;align-items:stretch;">
+            <select class="hor-celda" data-dia="${dia}" data-leccion="${lec.n}" style="flex:1;font-size:11.5px;padding:4px;border:1px solid var(--border);border-radius:5px;">${opts}</select>
+            <input type="number" min="0" max="30" class="hor-aula" data-dia="${dia}" data-leccion="${lec.n}" value="${aulaVal}" placeholder="Aula" title="Aula" style="width:52px;font-size:11px;padding:3px;border:1px solid var(--border);border-radius:5px;text-align:center;"/>
+            ${idx > 0 ? `<button type="button" onclick="horBorrarFila(this)" title="Quitar esta materia" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:5px;padding:0 5px;font-size:11px;cursor:pointer;">✕</button>` : ''}
+          </div>`;
+        });
+        html += `<td style="padding:2px;vertical-align:top;">
+          ${inner}
+          <button type="button" onclick="horAgregarFila(this, ${dia}, ${lec.n})" title="Agregar otra materia a esta celda (ej: Hogar + Industriales)" style="width:100%;font-size:10.5px;padding:2px 4px;background:#f1f5f9;border:1px dashed var(--border);border-radius:4px;color:var(--muted);cursor:pointer;">➕ Otra materia</button>
         </td>`;
       } else {
-        const aulaTxt = (c && c.aula !== null && c.aula !== undefined && c.aula !== '') ? `<br><span style="font-size:10.5px;color:var(--azul);font-weight:bold;">Aula ${c.aula}</span>` : '';
-        const txt = c ? (c.materia_nombre ? `<strong>${c.materia_nombre}</strong><br><span style="color:var(--muted);">${c.prof_ap1||''} ${c.prof_nombre||''}</span>${aulaTxt}` : ((c.materia_texto||'')+aulaTxt)) : '';
-        html += `<td style="text-align:center;">${txt}</td>`;
+        // Vista lectura: mostrar todas las asignaciones apiladas
+        if(!celdas.length){ html += '<td></td>'; continue; }
+        const partes = celdas.map(c => {
+          const aulaTxt = (c.aula !== null && c.aula !== undefined && c.aula !== '')
+            ? `<br><span style="font-size:10.5px;color:var(--azul);font-weight:bold;">Aula ${c.aula}</span>` : '';
+          if(c.materia_nombre){
+            return `<div style="padding:2px 0;${celdas.length>1?'border-bottom:1px dashed #cbd5e1;':''}"><strong>${c.materia_nombre}</strong><br><span style="color:var(--muted);font-size:11px;">${c.prof_ap1||''} ${c.prof_nombre||''}</span>${aulaTxt}</div>`;
+          }
+          return `<div style="padding:2px 0;">${(c.materia_texto||'')}${aulaTxt}</div>`;
+        }).join('');
+        html += `<td style="text-align:center;font-size:11px;">${partes}</td>`;
       }
     }
     html += '</tr>';
@@ -14988,21 +15069,43 @@ function horRenderGrid(mapa, editable){
   return html + '</tbody></table>';
 }
 
+// Botón "➕ Otra materia" en modo edición
+function horAgregarFila(btn, dia, leccion){
+  const td = btn.parentElement;
+  const opts = ['<option value="">—</option>'].concat(
+    horAsigsSeccion.map(a => `<option value="${a.id}">${horEtiquetaAsig(a)}</option>`)
+  ).join('');
+  const fila = document.createElement('div');
+  fila.className = 'hor-fila';
+  fila.dataset.dia = dia;
+  fila.dataset.leccion = leccion;
+  fila.style.cssText = 'display:flex;gap:2px;margin-bottom:2px;align-items:stretch;';
+  fila.innerHTML = `
+    <select class="hor-celda" data-dia="${dia}" data-leccion="${leccion}" style="flex:1;font-size:11.5px;padding:4px;border:1px solid var(--border);border-radius:5px;">${opts}</select>
+    <input type="number" min="0" max="30" class="hor-aula" data-dia="${dia}" data-leccion="${leccion}" placeholder="Aula" title="Aula" style="width:52px;font-size:11px;padding:3px;border:1px solid var(--border);border-radius:5px;text-align:center;"/>
+    <button type="button" onclick="horBorrarFila(this)" title="Quitar esta materia" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:5px;padding:0 5px;font-size:11px;cursor:pointer;">✕</button>
+  `;
+  td.insertBefore(fila, btn);
+}
+
+function horBorrarFila(btn){ btn.parentElement.remove(); }
+
 async function horGuardar(){
   const secId = document.getElementById('hor-seccion').value;
   const anio = parseInt(document.getElementById('hor-anio').value) || parseInt(fechaHoyCR().slice(0,4));
   if(!secId){ sa('alert-horario','Seleccioná una sección.','danger'); return; }
   const celdas = [];
-  document.querySelectorAll('.hor-celda').forEach(sel => {
-    if(sel.value){
-      const aulaInp = document.querySelector(`.hor-aula[data-dia="${sel.dataset.dia}"][data-leccion="${sel.dataset.leccion}"]`);
-      celdas.push({
-        dia: parseInt(sel.dataset.dia),
-        leccion: parseInt(sel.dataset.leccion),
-        asignacion_id: parseInt(sel.value),
-        aula: aulaInp && aulaInp.value !== '' ? aulaInp.value : null
-      });
-    }
+  // Recorrer cada .hor-fila (que agrupa 1 select + 1 aula en su propia fila)
+  document.querySelectorAll('.hor-fila').forEach(fila => {
+    const sel = fila.querySelector('.hor-celda');
+    if(!sel || !sel.value) return;
+    const aulaInp = fila.querySelector('.hor-aula');
+    celdas.push({
+      dia: parseInt(fila.dataset.dia),
+      leccion: parseInt(fila.dataset.leccion),
+      asignacion_id: parseInt(sel.value),
+      aula: aulaInp && aulaInp.value !== '' ? aulaInp.value : null
+    });
   });
   try{
     await api(`/api/horarios/${secId}`,'PUT',{ anio, celdas });
@@ -15020,7 +15123,9 @@ async function horVerMiHorario(){
     const r = await api(`/api/horarios/mi-horario?anio=${anio}`);
     const mapa = {};
     (r.celdas||[]).forEach(c => {
-      mapa[`${c.dia}-${c.leccion}`] = { materia_nombre: c.materia_nombre, prof_ap1: `(${c.seccion_nombre})`, prof_nombre: '', aula: c.aula };
+      const k = `${c.dia}-${c.leccion}`;
+      if(!mapa[k]) mapa[k] = [];
+      mapa[k].push({ materia_nombre: c.materia_nombre, prof_ap1: `(${c.seccion_nombre})`, prof_nombre: '', aula: c.aula });
     });
     document.getElementById('hor-grid-wrap').innerHTML =
       '<div style="font-size:13px;font-weight:bold;margin-bottom:8px;">👤 Mi horario personal — cada celda muestra materia y sección</div>' +
@@ -15038,19 +15143,22 @@ function horImprimir(){
   // lectura desde los valores ACTUALES del DOM (el atributo selected no se
   // actualiza al cambiar el select, así que no sirve regexear el innerHTML).
   let grid;
-  const selects = document.querySelectorAll('.hor-celda');
-  if(selects.length){
+  const filas = document.querySelectorAll('.hor-fila');
+  if(filas.length){
     const mapa = {};
-    selects.forEach(s=>{
-      if(!s.value) return;
+    filas.forEach(fila=>{
+      const s = fila.querySelector('.hor-celda');
+      if(!s || !s.value) return;
       const a = horAsigsSeccion.find(x=>String(x.id)===String(s.value));
       if(a){
-        const aulaInp = document.querySelector(`.hor-aula[data-dia="${s.dataset.dia}"][data-leccion="${s.dataset.leccion}"]`);
-        mapa[`${s.dataset.dia}-${s.dataset.leccion}`] = {
+        const aulaInp = fila.querySelector('.hor-aula');
+        const k = `${fila.dataset.dia}-${fila.dataset.leccion}`;
+        if(!mapa[k]) mapa[k] = [];
+        mapa[k].push({
           materia_nombre: a.materia_nombre + (a.subgrupo?` [${a.subgrupo}]`:''),
           prof_ap1: a.prof_ap1, prof_nombre: a.prof_nombre,
           aula: aulaInp && aulaInp.value !== '' ? aulaInp.value : null
-        };
+        });
       }
     });
     grid = horRenderGrid(mapa, false);
