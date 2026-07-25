@@ -67,7 +67,7 @@ router.get("/", requireAuth, async (req, res) => {
   if(!seccionId) return res.status(400).json({ error: "seccion_id requerido" });
 
   const celdas = await pool.query(`
-    SELECT h.dia, h.leccion, h.asignacion_id, h.materia_texto, h.aula,
+    SELECT h.id, h.dia, h.leccion, h.asignacion_id, h.materia_texto, h.aula,
       m.nombre AS materia_nombre,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
     FROM horarios h
@@ -75,7 +75,7 @@ router.get("/", requireAuth, async (req, res) => {
     LEFT JOIN materias m ON m.id = a.materia_id
     LEFT JOIN usuarios u ON u.id = a.profesor_id
     WHERE h.seccion_id = $1 AND h.anio = $2
-    ORDER BY h.dia, h.leccion
+    ORDER BY h.dia, h.leccion, h.id
   `, [seccionId, anio]);
 
   const guiaR = await pool.query(`
@@ -113,8 +113,6 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
       await client.query(`
         INSERT INTO horarios (anio, seccion_id, dia, leccion, asignacion_id, materia_texto, aula)
         VALUES ($1,$2,$3,$4,$5,$6,$7)
-        ON CONFLICT (anio, seccion_id, dia, leccion) DO UPDATE
-          SET asignacion_id = EXCLUDED.asignacion_id, materia_texto = EXCLUDED.materia_texto, aula = EXCLUDED.aula
       `, [a, seccionId, c.dia, c.leccion, c.asignacion_id || null, c.materia_texto || null, aula]);
     }
     await client.query("COMMIT");

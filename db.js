@@ -1718,30 +1718,35 @@ async function initDB() {
     `);
     // El UNIQUE viejo restringía a una única asignación por celda. Se elimina
     // para permitir combinaciones tipo Hogar+Industriales en la misma hora.
-    await client.query(`
-      DO $$ BEGIN
-        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'horarios_anio_seccion_id_dia_leccion_key') THEN
-          ALTER TABLE horarios DROP CONSTRAINT horarios_anio_seccion_id_dia_leccion_key;
-        END IF;
-      END $$;
-    `);
+    // Permitir múltiples asignaciones en la misma celda (Hogar+Industriales, etc.)
+    // Se quita CUALQUIER constraint UNIQUE/EXCLUSION que impida tener más de una
+    // fila por (anio, seccion_id, dia, leccion). Se hace por dos vías:
+    // 1) nombre autogenerado típico de Postgres
+    // 2) búsqueda por definición en pg_constraint
+    // 3) por si acaso, drop de índices UNIQUE que apunten al mismo grupo de columnas
+    await client.query(`DO $$
+      DECLARE r RECORD;
+      BEGIN
+        -- Drop de constraints UNIQUE / EXCLUDE en la tabla horarios
+        FOR r IN
+          SELECT conname FROM pg_constraint
+          WHERE conrelid = 'horarios'::regclass
+            AND contype IN ('u','x')
+        LOOP
+          EXECUTE format('ALTER TABLE horarios DROP CONSTRAINT %I', r.conname);
+        END LOOP;
+        -- Drop de índices UNIQUE que no sean el de la clave primaria
+        FOR r IN
+          SELECT indexname FROM pg_indexes
+          WHERE tablename = 'horarios'
+            AND indexdef ILIKE '%UNIQUE%'
+            AND indexname <> 'horarios_pkey'
+        LOOP
+          EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
+        END LOOP;
+      END $$`);
     // Migración aditiva por si la tabla ya existía sin la columna
     await client.query(`ALTER TABLE horarios ADD COLUMN IF NOT EXISTS aula INTEGER DEFAULT NULL`);
-    // Permitir múltiples asignaciones en la misma celda (Hogar+Industriales, etc.)
-    // Se quita el UNIQUE viejo (anio, seccion_id, dia, leccion) porque ahora
-    // puede haber más de una fila por celda. Se busca por nombre exacto del
-    // constraint (Postgres lo autonombra distinto según cuándo se creó).
-    await client.query(`DO $$
-      DECLARE cname TEXT;
-      BEGIN
-        SELECT conname INTO cname FROM pg_constraint
-        WHERE conrelid = 'horarios'::regclass
-          AND contype = 'u'
-          AND pg_get_constraintdef(oid) ILIKE '%(anio, seccion_id, dia, leccion)%';
-        IF cname IS NOT NULL THEN
-          EXECUTE format('ALTER TABLE horarios DROP CONSTRAINT %I', cname);
-        END IF;
-      END $$`);
 
     // ── PERMISOS DE SALIDA (auxiliares) ──────────────────────────────────
     // Consecutivo interno por año (numero + anio). Individual o por sección.
