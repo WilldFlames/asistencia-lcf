@@ -277,6 +277,19 @@ router.get("/:id", requireAuth, async (req, res) => {
     ORDER BY t.id
   `, [req.params.id]);
 
+  // Ofendidos (uno o varios estudiantes). Trae también los encargados de cada uno
+  // para que las citas y declaraciones puedan autorrellenar el representante legal.
+  const ofenR = await pool.query(`
+    SELECT o.id, o.estudiante_id, o.paso_cita_id, o.paso_decl_id,
+           e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+           s.nombre AS seccion_nombre, s.id AS seccion_id
+    FROM dp_ofendidos o
+    JOIN estudiantes e ON e.id = o.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE o.proceso_id = $1
+    ORDER BY o.id
+  `, [req.params.id]);
+
   // Aprobaciones del orientador
   const aprobR = await pool.query(`
     SELECT a.*, u.primer_apellido AS orient_ap1, u.segundo_apellido AS orient_ap2, u.nombre AS orient_nombre
@@ -304,6 +317,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     proceso: dp,
     pasos: pasosR.rows,
     testigos: testR.rows,
+    ofendidos: ofenR.rows,
     aprobaciones: aprobR.rows,
     encargados
   });
@@ -582,6 +596,106 @@ router.delete("/:id/testigos/:testigo_id", requireAuth, async (req, res) => {
     if (t.rows[0].paso_decl_id) await pool.query("DELETE FROM dp_pasos WHERE id=$1", [t.rows[0].paso_decl_id]);
   }
   await pool.query("DELETE FROM dp_testigos WHERE id=$1", [req.params.testigo_id]);
+  res.json({ ok: true });
+});
+
+// ── AGREGAR OFENDIDO ──────────────────────────────────────────────────
+// Igual que testigos pero para ofendidos (víctimas). Cuando el ofendido es
+// de otra sección, la cita y declaración se asignan al guía de esa sección.
+router.post("/:id/ofendidos", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const procesoId = req.params.id;
+  const { estudiante_id } = req.body;
+  if (!estudiante_id) return res.status(400).json({ error: "Falta estudiante_id del ofendido" });
+
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Solo el guía del proceso puede agregar ofendidos." });
+  }
+
+  // No permitir agregar ofendidos si el proceso ya está cerrado
+  if (['archivado','resuelto','desestimado'].includes(dp.estado)) {
+    return res.status(400).json({ error: "No se pueden agregar ofendidos: el proceso ya está cerrado (" + dp.estado + ")." });
+  }
+
+  // No agregar al mismo ofensor como ofendido
+  if (parseInt(estudiante_id) === dp.estudiante_id) {
+    return res.status(400).json({ error: "El ofensor no puede ser también ofendido en el mismo proceso." });
+  }
+
+  // No duplicar (además del UNIQUE en BD, avisamos amable)
+  const dup = await pool.query("SELECT id FROM dp_ofendidos WHERE proceso_id=$1 AND estudiante_id=$2", [procesoId, estudiante_id]);
+  if (dup.rows.length) return res.status(409).json({ error: "Ese estudiante ya está agregado como ofendido." });
+
+  const estR = await pool.query("SELECT id, seccion_id, primer_apellido, nombre FROM estudiantes WHERE id=$1 AND activo=true", [estudiante_id]);
+  if (!estR.rows.length) return res.status(404).json({ error: "Estudiante ofendido no encontrado o no activo" });
+  const est = estR.rows[0];
+
+  // Si el ofendido es de otra sección, la cita y declaración se asignan al guía de esa sección
+  const guiaOfendido = await getGuiaDeSeccion(est.seccion_id);
+  const esOtraSeccion = guiaOfendido && guiaOfendido !== dp.guia_a_cargo;
+  const asignadoA = esOtraSeccion ? guiaOfendido : null;
+
+  // Orden: 1, 2, 3... basado en cuántos ofendidos hay
+  const cont = await pool.query("SELECT COUNT(*)::int AS n FROM dp_ofendidos WHERE proceso_id=$1", [procesoId]);
+  const ordenOfendido = cont.rows[0].n + 1;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const citaR = await client.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, asignado_a, contenido)
+      VALUES ($1, 'cita_ofendido', $2, $3, $4::jsonb) RETURNING id
+    `, [procesoId, ordenOfendido, asignadoA, JSON.stringify({ ofendido_estudiante_id: estudiante_id })]);
+    const declR = await client.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, asignado_a, contenido)
+      VALUES ($1, 'decl_ofendido', $2, $3, $4::jsonb) RETURNING id
+    `, [procesoId, ordenOfendido, asignadoA, JSON.stringify({ ofendido_estudiante_id: estudiante_id })]);
+    await client.query(`
+      INSERT INTO dp_ofendidos (proceso_id, estudiante_id, paso_cita_id, paso_decl_id)
+      VALUES ($1, $2, $3, $4)
+    `, [procesoId, estudiante_id, citaR.rows[0].id, declR.rows[0].id]);
+    await client.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [procesoId]);
+    await client.query("COMMIT");
+
+    if (asignadoA) {
+      await notificar(asignadoA, "debido_proceso_pendiente",
+        `📋 Tenés una declaración de ofendido pendiente en el debido proceso N°${dp.numero}-${dp.anio} (ofendido: ${est.primer_apellido} ${est.nombre}).`);
+    }
+
+    res.json({ ok: true, paso_cita_id: citaR.rows[0].id, paso_decl_id: declR.rows[0].id, asignado_a: asignadoA });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("Agregar ofendido:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ── ELIMINAR OFENDIDO ─────────────────────────────────────────────────
+router.delete("/:id/ofendidos/:ofendido_id", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const procesoId = req.params.id;
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Sin permisos" });
+  }
+
+  const o = await pool.query("SELECT paso_cita_id, paso_decl_id FROM dp_ofendidos WHERE id=$1 AND proceso_id=$2", [req.params.ofendido_id, procesoId]);
+  if (o.rows.length) {
+    if (o.rows[0].paso_cita_id) await pool.query("DELETE FROM dp_pasos WHERE id=$1", [o.rows[0].paso_cita_id]);
+    if (o.rows[0].paso_decl_id) await pool.query("DELETE FROM dp_pasos WHERE id=$1", [o.rows[0].paso_decl_id]);
+  }
+  await pool.query("DELETE FROM dp_ofendidos WHERE id=$1", [req.params.ofendido_id]);
   res.json({ ok: true });
 });
 
@@ -917,6 +1031,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     await client.query("DELETE FROM dp_historial_cambios WHERE proceso_id=$1", [dp.id]);
     await client.query("DELETE FROM dp_aprobaciones_orientador WHERE proceso_id=$1", [dp.id]);
     await client.query("DELETE FROM dp_testigos WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_ofendidos WHERE proceso_id=$1", [dp.id]);
     await client.query("DELETE FROM dp_pasos WHERE proceso_id=$1", [dp.id]);
     await client.query("DELETE FROM debidos_procesos WHERE id=$1", [dp.id]);
     // Liberar el consecutivo asociado

@@ -2626,6 +2626,28 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- Modal: Agregar testigo -->
+<div class="modal-overlay" id="modal-dp-ofendido">
+  <div class="modal" style="max-width:560px;">
+    <h3>🎯 Agregar Ofendido</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Buscá al estudiante ofendido por cédula o nombre. Si es de otra sección, el sistema le notificará al guía correspondiente para que tome la declaración del ofendido y cite a su encargado.
+    </p>
+    <div class="fg" style="grid-column:1/-1;">
+      <label>Buscar estudiante por cédula o nombre</label>
+      <input type="text" id="dpo-buscar" placeholder="Cédula o nombre..." oninput="dpBuscarOfendido()" style="width:100%;"/>
+    </div>
+    <div class="fg" style="margin-top:8px;">
+      <label>Estudiante</label>
+      <select id="dpo-estudiante-id" style="width:100%;"><option value="">— Buscá primero —</option></select>
+    </div>
+    <div id="alert-dpo" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-dp-ofendido')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarOfendidoDP()">➕ Agregar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-dp-testigo">
   <div class="modal" style="max-width:560px;">
     <h3>➕ Agregar Testigo</h3>
@@ -10036,17 +10058,27 @@ function renderDPPasos(d){
   // Lista lineal de pasos a mostrar
   const pasosSecuencia = [
     { tipo:'acta_apertura', orden:1 },
-    { tipo:'cita_ofendido', orden:2 },
-    { tipo:'decl_ofendido', orden:3 },
-    { tipo:'cita_ofensor', orden:4 },
-    { tipo:'decl_ofensor', orden:5 },
   ];
+  // Ofendidos: si no hay ninguno agregado, mostrar los pasos "genéricos" con orden 1
+  // Si hay uno o más, replicar por cada uno (igual que testigos)
+  const ofendidos = d.ofendidos || [];
+  if(!ofendidos.length){
+    pasosSecuencia.push({ tipo:'cita_ofendido', orden:1 });
+    pasosSecuencia.push({ tipo:'decl_ofendido', orden:1 });
+  } else {
+    ofendidos.forEach((o, idx) => {
+      pasosSecuencia.push({ tipo:'cita_ofendido', orden:idx+1, ofendido:o });
+      pasosSecuencia.push({ tipo:'decl_ofendido', orden:idx+1, ofendido:o });
+    });
+  }
+  pasosSecuencia.push({ tipo:'cita_ofensor', orden:1 });
+  pasosSecuencia.push({ tipo:'decl_ofensor', orden:1 });
   // Testigos: agregar dinámicamente
   d.testigos.forEach((t, idx) => {
     pasosSecuencia.push({ tipo:'cita_testigo', orden:idx+1, testigo:t });
     pasosSecuencia.push({ tipo:'decl_testigo', orden:idx+1, testigo:t });
   });
-  // Paso 8
+  // Paso 8: acta de sesión (independiente del número de ofendidos y testigos)
   pasosSecuencia.push({ tipo:'acta_sesion', orden:8 });
   // Según decisión, paso 9-10 o 11
   if(dp.decision_sesion === 'continuar'){
@@ -10078,11 +10110,15 @@ function renderDPPasos(d){
       estadoColor = '#94a3b8';
     }
 
-    // Etiqueta de testigo
+    // Etiqueta de testigo o ofendido
     let extraLabel = '';
     if(ps.testigo){
       extraLabel = ` — ${ps.testigo.primer_apellido} ${ps.testigo.segundo_apellido||''} ${ps.testigo.nombre}`.replace(/\s+/g,' ');
       if(ps.testigo.seccion_nombre) extraLabel += ` (${ps.testigo.seccion_nombre})`;
+    }
+    if(ps.ofendido){
+      extraLabel = ` — ${ps.ofendido.primer_apellido} ${ps.ofendido.segundo_apellido||''} ${ps.ofendido.nombre}`.replace(/\s+/g,' ');
+      if(ps.ofendido.seccion_nombre) extraLabel += ` (${ps.ofendido.seccion_nombre})`;
     }
 
     // Botones según estado y rol
@@ -10133,7 +10169,7 @@ function renderDPPasos(d){
         // Pasos normales
         const puedeEditar = esGuia || meAsignado;
         if(puedeEditar){
-          acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden}${ps.testigo?`,${ps.testigo.id}`:''})'>${reg?'✏️ Ver / Editar':'📝 Llenar'}</button>`);
+          acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden}${ps.testigo?`,${ps.testigo.id},null`:''}${ps.ofendido?`,null,${ps.ofendido.id}`:''})'>${reg?'✏️ Ver / Editar':'📝 Llenar'}</button>`);
         }
         // Botón de imprimir:
         // - Para las declaraciones (decl_ofendido, decl_ofensor, decl_testigo),
@@ -10165,6 +10201,40 @@ function renderDPPasos(d){
     </div>`;
   });
 
+  // Sección de ofendidos (víctimas). Igual que testigos: se pueden agregar
+  // varios y quitar. Los estudiantes ofendidos no aparecen en la portada del
+  // proceso (esa es del ofensor), sino en las citas y declaraciones ofendido.
+  // Se muestra al guía/sustituto (o admin/auxiliar/administrativo) siempre
+  // que el proceso NO esté archivado ni resuelto — así podés corregir
+  // ofendidos aunque estés en la mitad del flujo.
+  let ofendidosBtn = '';
+  const puedeEditarOfendidos = esGuia && !['archivado','resuelto','desestimado'].includes(dp.estado);
+  if(puedeEditarOfendidos || ofendidos.length){
+    const listaOfen = ofendidos.length
+      ? ofendidos.map((o, i) => {
+          const nomO = `${o.primer_apellido||''} ${o.segundo_apellido||''} ${o.nombre||''}`.replace(/\s+/g,' ').trim();
+          const secO = o.seccion_nombre ? ` (${o.seccion_nombre})` : '';
+          const btnQuitar = puedeEditarOfendidos
+            ? `<button class="btn btn-danger btn-xs" onclick="quitarOfendidoDP(${o.id}, '${nomO.replace(/'/g,"\\'")}')">🗑️ Quitar</button>`
+            : '';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-top:6px;">
+            <span style="font-size:12.5px;"><strong>Ofendido ${i+1}:</strong> ${nomO}${secO}</span>
+            ${btnQuitar}
+          </div>`;
+        }).join('')
+      : '<div style="font-size:12px;color:var(--muted);margin-top:6px;">(ningún ofendido agregado — buscá por cédula para agregar)</div>';
+    const btnAgregar = puedeEditarOfendidos
+      ? `<button class="btn btn-outline btn-sm" onclick="abrirAgregarOfendido()">➕ Agregar ofendido</button>`
+      : '';
+    ofendidosBtn = `<div style="margin:14px 0;padding:10px;background:#fef3c7;border-radius:8px;border-left:3px solid #f59e0b;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <strong style="font-size:12.5px;">🎯 Ofendidos registrados: ${ofendidos.length}</strong>
+        ${btnAgregar}
+      </div>
+      ${listaOfen}
+    </div>`;
+  }
+
   // Sección de testigos (lista + botón agregar). Permite quitar testigos
   // que se hayan agregado por error, siempre que el proceso esté en curso.
   let testigosBtn = '';
@@ -10195,22 +10265,22 @@ function renderDPPasos(d){
       </div>`
     : '';
 
-  wrap.innerHTML = items.join('') + testigosBtn + btnCerrar;
+  wrap.innerHTML = items.join('') + ofendidosBtn + testigosBtn + btnCerrar;
 }
 
 // ── ABRIR Y EDITAR UN PASO ────────────────────────────────────────────
-function abrirPasoDP(tipo, orden, testigoId){
+function abrirPasoDP(tipo, orden, testigoId, ofendidoId){
   const reg = (dpProcesoActual?.pasos || []).find(p => p.tipo === tipo && Number(p.orden) === Number(orden));
   const info = DP_TIPOS_PASO[tipo];
-  dpPasoEnEdicion = { tipo, orden, contenido: reg?.contenido || {}, testigo_id: testigoId };
+  dpPasoEnEdicion = { tipo, orden, contenido: reg?.contenido || {}, testigo_id: testigoId, ofendido_id: ofendidoId };
   document.getElementById('dpp-titulo').textContent = `${info.icono} ${info.nombre}`;
   document.getElementById('dpp-subtitulo').textContent = reg?.completado_en ? `Última edición: ${new Date(reg.completado_en).toLocaleString('es-CR')}` : 'Sin completar todavía';
   document.getElementById('alert-dpp').className = 'alert';
-  renderFormularioPaso(tipo, dpPasoEnEdicion.contenido, testigoId);
+  renderFormularioPaso(tipo, dpPasoEnEdicion.contenido, testigoId, ofendidoId);
   document.getElementById('modal-dp-paso').classList.add('show');
 }
 
-function renderFormularioPaso(tipo, c, testigoId){
+function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
   const form = document.getElementById('dpp-form');
   c = c || {};
   // Base común
@@ -10617,6 +10687,18 @@ function imprimirPasoDPDirecto(tipo, orden){
       if (idx >= 0 && dpProcesoActual.testigos[idx]) testigo = dpProcesoActual.testigos[idx];
     }
   }
+  // Buscar ofendido si aplica (igual que testigo)
+  let ofendido = null;
+  const ofArr = dpProcesoActual.ofendidos || [];
+  if((tipo === 'cita_ofendido' || tipo === 'decl_ofendido') && ofArr.length){
+    if (reg) {
+      ofendido = ofArr.find(o => o.paso_cita_id === reg.id || o.paso_decl_id === reg.id);
+    }
+    if (!ofendido) {
+      const idx = Number(orden) - 1;
+      if (idx >= 0 && ofArr[idx]) ofendido = ofArr[idx];
+    }
+  }
 
   if(tipo === 'acta_apertura'){
     const hechosTxt = (c.hechos || '').trim();
@@ -10647,9 +10729,21 @@ function imprimirPasoDPDirecto(tipo, orden){
       </div>`;
   } else if(tipo.startsWith('cita_')){
     const tipoF = c.tipo_falta || 'grave';
+    // Determinar de quién es la cita: testigo, ofendido u ofensor (default)
+    let nombreConvocado, seccionConvocado;
+    if(testigo){
+      nombreConvocado = `${testigo.primer_apellido} ${testigo.segundo_apellido||''} ${testigo.nombre}`.replace(/\s+/g,' ').trim();
+      seccionConvocado = testigo.seccion_nombre || dp.seccion_nombre;
+    } else if(ofendido){
+      nombreConvocado = `${ofendido.primer_apellido} ${ofendido.segundo_apellido||''} ${ofendido.nombre}`.replace(/\s+/g,' ').trim();
+      seccionConvocado = ofendido.seccion_nombre || dp.seccion_nombre;
+    } else {
+      nombreConvocado = estudiante;
+      seccionConvocado = dp.seccion_nombre;
+    }
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p><strong>Fecha:</strong> ${c.fecha_notificacion || '____________'}</p>
-      <p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong> encargado(a) legal del estudiante: <strong>${testigo ? `${testigo.primer_apellido} ${testigo.segundo_apellido||''} ${testigo.nombre}`.replace(/\s+/g,' ').trim() : estudiante}</strong>, sección: <strong>${dp.seccion_nombre||'___'}</strong>.</p>
+      <p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong> encargado(a) legal del estudiante: <strong>${nombreConvocado}</strong>, sección: <strong>${seccionConvocado||'___'}</strong>.</p>
       <p>Saludo cordial,</p>
       <p>Le informo que el Centro Educativo está realizando una investigación para determinar la posible comisión de la falta <strong>${tipoF}</strong>, de una persona estudiante. De conformidad con el debido proceso y las normas del Código de la Niñez y la Adolescencia, se le convoca el día <strong>${c.fecha_cita||'____'}</strong> a las <strong>${c.hora_cita||'____'}</strong> horas para que represente a su hijo(a) en la audiencia que se efectuará en dicha fecha para recibir su testimonio.</p>
       <p>Cordialmente,</p>
@@ -10673,9 +10767,15 @@ function imprimirPasoDPDirecto(tipo, orden){
       // guardados en el DP (no del estudiante del expediente).
       nombreDeclarante = dp.ofendido_docente_nombre || '__________';
       cedulaDeclarante = dp.ofendido_docente_cedula || '____';
+    } else if (testigo){
+      nombreDeclarante = `${testigo.primer_apellido} ${testigo.segundo_apellido||''}, ${testigo.nombre}`;
+      cedulaDeclarante = testigo.cedula;
+    } else if (ofendido){
+      nombreDeclarante = `${ofendido.primer_apellido} ${ofendido.segundo_apellido||''}, ${ofendido.nombre}`;
+      cedulaDeclarante = ofendido.cedula;
     } else {
-      nombreDeclarante = testigo ? `${testigo.primer_apellido} ${testigo.segundo_apellido||''}, ${testigo.nombre}` : estudiante;
-      cedulaDeclarante = testigo ? testigo.cedula : dp.cedula;
+      nombreDeclarante = estudiante;
+      cedulaDeclarante = dp.cedula;
     }
     const declTexto = (c.declaracion || '').trim();
 
@@ -10812,6 +10912,51 @@ function imprimirPasoDPDirecto(tipo, orden){
   document.head.appendChild(style);
   if(typeof imprimirConEncabezado === 'function') imprimirConEncabezado(printArea, style);
   else window.print();
+}
+
+// ── OFENDIDO ──────────────────────────────────────────────────────────
+function abrirAgregarOfendido(){
+  document.getElementById('dpo-buscar').value = '';
+  document.getElementById('dpo-estudiante-id').innerHTML = '<option value="">— Buscá primero —</option>';
+  document.getElementById('alert-dpo').className = 'alert';
+  document.getElementById('modal-dp-ofendido').classList.add('show');
+}
+
+let _dpoTimer = null;
+function dpBuscarOfendido(){
+  clearTimeout(_dpoTimer);
+  _dpoTimer = setTimeout(async ()=>{
+    const q = document.getElementById('dpo-buscar').value.trim();
+    const sel = document.getElementById('dpo-estudiante-id');
+    if(q.length < 2){ sel.innerHTML = '<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
+    try {
+      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
+      sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
+        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+      ).join('');
+    } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
+  }, 300);
+}
+
+async function guardarOfendidoDP(){
+  const eid = document.getElementById('dpo-estudiante-id').value;
+  if(!eid){ sa('alert-dpo','Buscá y seleccioná un estudiante.','danger'); return; }
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/ofendidos`,'POST', { estudiante_id: +eid });
+    cerrarModal('modal-dp-ofendido');
+    sa('alert-dpd','✅ Ofendido agregado.','success');
+    await abrirDPDetalle(dpProcesoActual.proceso.id);
+  } catch(e){ sa('alert-dpo', e.message, 'danger'); }
+}
+
+async function quitarOfendidoDP(ofendidoId, nombreOfendido){
+  if(!confirm(`¿Quitar a "${nombreOfendido}" como ofendido?\n\nEsto eliminará también la cita y declaración asociadas.`)) return;
+  try {
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/ofendidos/${ofendidoId}`,'DELETE');
+    sa('alert-dpd','✅ Ofendido eliminado.','success');
+    await abrirDPDetalle(dpProcesoActual.proceso.id);
+  } catch(e){ sa('alert-dpd', e.message, 'danger'); }
 }
 
 // ── TESTIGO ───────────────────────────────────────────────────────────
