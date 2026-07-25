@@ -304,7 +304,9 @@ router.get("/:id", requireAuth, async (req, res) => {
   let encargados = [];
   try {
     const encR = await pool.query(`
-      SELECT nombre_completo, cedula, telefono, parentesco, es_principal
+      SELECT
+        TRIM(CONCAT_WS(' ', primer_apellido, segundo_apellido, nombre)) AS nombre_completo,
+        cedula, telefono, parentesco, es_principal
       FROM encargados WHERE estudiante_id = $1
       ORDER BY es_principal DESC NULLS LAST, id
     `, [dp.estudiante_id]);
