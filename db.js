@@ -812,6 +812,23 @@ async function initDB() {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dpt_proceso ON dp_testigos(proceso_id)`);
       console.log("✅ DP: tabla dp_testigos lista");
 
+      // Ofendidos (víctimas) — pueden ser varios estudiantes. Se maneja igual
+      // que los testigos: se agregan uno a uno buscando por cédula. El paso
+      // cita_ofendido / decl_ofendido se replica N veces (uno por cada ofendido).
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS dp_ofendidos (
+          id              SERIAL PRIMARY KEY,
+          proceso_id      INTEGER NOT NULL REFERENCES debidos_procesos(id) ON DELETE CASCADE,
+          estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+          paso_cita_id    INTEGER REFERENCES dp_pasos(id) ON DELETE SET NULL,
+          paso_decl_id    INTEGER REFERENCES dp_pasos(id) ON DELETE SET NULL,
+          agregado_en     TIMESTAMP DEFAULT NOW(),
+          UNIQUE(proceso_id, estudiante_id)
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dpo_proceso ON dp_ofendidos(proceso_id)`);
+      console.log("✅ DP: tabla dp_ofendidos lista");
+
       await client.query(`
         CREATE TABLE IF NOT EXISTS dp_aprobaciones_orientador (
           id              SERIAL PRIMARY KEY,
