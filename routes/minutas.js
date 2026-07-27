@@ -31,6 +31,23 @@ function esStaff(rol){ return ["admin","administrativo"].includes(rol); }
 // ───────────────────────────────────────────────────────────────────────
 //  GET /  — lista de minutas
 // ───────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────
+//  Reglas de privacidad de minutas:
+//  - Cada minuta la ven SOLO el usuario que la inició (iniciada_por) y los
+//    usuarios marcados como PRESENTES (minuta_asistentes.tipo='presente'
+//    con usuario_id conocido).
+//  - Cualquier otro rol NO puede verla, ni siquiera admin, para proteger
+//    información delicada (Junta, Personal, casos de conducta, etc.).
+// ───────────────────────────────────────────────────────────────────────
+function filtroVisibilidadSQL(paramIndexStart){
+  // Devuelve la condición SQL y el índice del parámetro donde se coloca u.id
+  const idx = paramIndexStart;
+  return `(m.iniciada_por = $${idx} OR EXISTS (
+    SELECT 1 FROM minuta_asistentes ma
+    WHERE ma.minuta_id = m.id AND ma.tipo = 'presente' AND ma.usuario_id = $${idx}
+  ))`;
+}
+
 router.get("/", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   const { estado, anio, mias } = req.query;
@@ -41,6 +58,9 @@ router.get("/", requireAuth, async (req, res) => {
     params.push(u.id);
     where.push(`m.iniciada_por = $${params.length}`);
   }
+  // Filtro de privacidad: solo iniciador + presentes
+  params.push(u.id);
+  where.push(filtroVisibilidadSQL(params.length));
   const w = where.length ? `WHERE ${where.join(" AND ")}` : "";
   try {
     const r = await pool.query(`
@@ -64,8 +84,29 @@ router.get("/", requireAuth, async (req, res) => {
 // ───────────────────────────────────────────────────────────────────────
 //  GET /:id  — detalle con asistentes
 // ───────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────
+//  Helper: verificar que el usuario tiene acceso a la minuta
+//  (es el iniciador o es un presente). Devuelve true/false.
+// ───────────────────────────────────────────────────────────────────────
+async function puedeVerMinuta(minutaId, usuarioId){
+  const r = await pool.query(`
+    SELECT 1 FROM minutas m
+    WHERE m.id = $1 AND (
+      m.iniciada_por = $2 OR EXISTS (
+        SELECT 1 FROM minuta_asistentes ma
+        WHERE ma.minuta_id = m.id AND ma.tipo='presente' AND ma.usuario_id = $2
+      )
+    )
+    LIMIT 1
+  `, [minutaId, usuarioId]);
+  return r.rows.length > 0;
+}
+
 router.get("/:id", requireAuth, async (req, res) => {
   try {
+    // Verificar acceso antes de devolver la data
+    const puede = await puedeVerMinuta(req.params.id, req.session.usuario.id);
+    if(!puede) return res.status(403).json({ error: "No tenés acceso a esta minuta. Solo el iniciador y las personas marcadas como presentes pueden verla." });
     const mR = await pool.query(`
       SELECT m.*,
         u.primer_apellido AS ini_ap1, u.segundo_apellido AS ini_ap2,
@@ -154,11 +195,13 @@ router.put("/:id", requireAuth, async (req, res) => {
     const mR = await pool.query("SELECT iniciada_por, estado FROM minutas WHERE id=$1", [req.params.id]);
     if (!mR.rows.length) return res.status(404).json({ error:"Minuta no encontrada" });
     const m = mR.rows[0];
-    if (m.estado === 'finalizada' && !esStaff(u.rol)) {
-      return res.status(403).json({ error:"La minuta está finalizada. Solo admin/administrativo puede editar." });
+    // Solo el creador puede editar. Por privacidad, ni siquiera admin
+    // puede tocar minutas ajenas — pueden contener información sensible.
+    if (m.iniciada_por !== u.id) {
+      return res.status(403).json({ error:"Solo la persona que inició la minuta puede editarla." });
     }
-    if (m.iniciada_por !== u.id && !esStaff(u.rol)) {
-      return res.status(403).json({ error:"Sin permisos para editar." });
+    if (m.estado === 'finalizada') {
+      return res.status(403).json({ error:"La minuta está finalizada. Reabrila si necesitás editar." });
     }
 
     const {
@@ -206,12 +249,12 @@ router.post("/:id/asistentes", requireAuth, async (req, res) => {
   try {
     const mR = await pool.query("SELECT estado, iniciada_por FROM minutas WHERE id=$1", [req.params.id]);
     if (!mR.rows.length) return res.status(404).json({ error:"Minuta no encontrada" });
-    if (mR.rows[0].estado === 'finalizada' && !esStaff(u.rol)) {
-      return res.status(403).json({ error:"Minuta finalizada. Solo admin/administrativo puede agregar." });
+    // Solo el creador puede modificar asistentes
+    if (mR.rows[0].iniciada_por !== u.id) {
+      return res.status(403).json({ error:"Solo la persona que inició la minuta puede modificar asistentes." });
     }
-    // Permisos: creador, admin, administrativo
-    if (mR.rows[0].iniciada_por !== u.id && !esStaff(u.rol)) {
-      return res.status(403).json({ error:"Sin permisos para modificar asistentes." });
+    if (mR.rows[0].estado === 'finalizada') {
+      return res.status(403).json({ error:"Minuta finalizada. Reabrila si necesitás modificar asistentes." });
     }
 
     // Si es del sistema, traer nombre y puesto reales (snapshot)
@@ -260,11 +303,11 @@ router.delete("/:id/asistentes/:aid", requireAuth, async (req, res) => {
   try {
     const mR = await pool.query("SELECT estado, iniciada_por FROM minutas WHERE id=$1", [req.params.id]);
     if (!mR.rows.length) return res.status(404).json({ error:"Minuta no encontrada" });
-    if (mR.rows[0].estado === 'finalizada' && !esStaff(u.rol)) {
-      return res.status(403).json({ error:"Minuta finalizada." });
+    if (mR.rows[0].iniciada_por !== u.id) {
+      return res.status(403).json({ error:"Solo la persona que inició la minuta puede quitar asistentes." });
     }
-    if (mR.rows[0].iniciada_por !== u.id && !esStaff(u.rol)) {
-      return res.status(403).json({ error:"Sin permisos." });
+    if (mR.rows[0].estado === 'finalizada') {
+      return res.status(403).json({ error:"Minuta finalizada. Reabrila si necesitás modificar asistentes." });
     }
     await pool.query("DELETE FROM minuta_asistentes WHERE id=$1 AND minuta_id=$2",
       [req.params.aid, req.params.id]);
@@ -286,8 +329,8 @@ router.post("/:id/finalizar", requireAuth, async (req, res) => {
     if (mR.rows[0].estado === 'finalizada') {
       return res.status(400).json({ error:"La minuta ya está finalizada" });
     }
-    if (mR.rows[0].iniciada_por !== u.id && !esStaff(u.rol)) {
-      return res.status(403).json({ error:"Sin permisos para finalizar." });
+    if (mR.rows[0].iniciada_por !== u.id) {
+      return res.status(403).json({ error:"Solo la persona que inició la minuta puede finalizarla." });
     }
     await pool.query(
       "UPDATE minutas SET estado='finalizada', updated_at=NOW() WHERE id=$1",
@@ -301,12 +344,16 @@ router.post("/:id/finalizar", requireAuth, async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────────────────
-//  POST /:id/reabrir  — reabrir minuta (solo admin/administrativo)
+//  POST /:id/reabrir  — reabrir minuta (solo el creador)
 // ───────────────────────────────────────────────────────────────────────
 router.post("/:id/reabrir", requireAuth, async (req, res) => {
   const u = req.session.usuario;
-  if (!esStaff(u.rol)) return res.status(403).json({ error:"Solo admin/administrativo." });
   try {
+    const mR = await pool.query("SELECT iniciada_por FROM minutas WHERE id=$1", [req.params.id]);
+    if (!mR.rows.length) return res.status(404).json({ error:"Minuta no encontrada" });
+    if (mR.rows[0].iniciada_por !== u.id) {
+      return res.status(403).json({ error:"Solo la persona que inició la minuta puede reabrirla." });
+    }
     await pool.query(
       "UPDATE minutas SET estado='en_curso', updated_at=NOW() WHERE id=$1",
       [req.params.id]
@@ -330,8 +377,8 @@ router.delete("/:id", requireAuth, async (req, res) => {
     );
     if (!mR.rows.length) return res.status(404).json({ error:"Minuta no encontrada" });
     const m = mR.rows[0];
-    if (m.iniciada_por !== u.id && !esStaff(u.rol)) {
-      return res.status(403).json({ error:"Sin permisos para eliminar." });
+    if (m.iniciada_por !== u.id) {
+      return res.status(403).json({ error:"Solo la persona que inició la minuta puede eliminarla." });
     }
     // Borrar la minuta. El consecutivo se marca como eliminado para liberar el número.
     await pool.query("DELETE FROM minutas WHERE id=$1", [req.params.id]);
