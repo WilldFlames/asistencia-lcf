@@ -103,15 +103,25 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
     page-break-inside:avoid;
     page-break-before:avoid;
   }
-  /* Footer fijo SOLO en print para que aparezca al pie de cada página */
-  @media print {
-    .print-page-footer{
-      position:fixed;bottom:0;left:0;right:0;
-      background:#fff;margin-top:0;
-    }
-    #print-boleta-area > div{padding-bottom:60px;}
-    #reporte-contenido .card{padding-bottom:60px;}
-  }
+  /* Reglas de paginación para todos los documentos impresos:
+     - Las filas de tabla NO se cortan por la mitad entre páginas
+     - Los <thead> se repiten arriba en cada página nueva
+     - Los <tfoot> se repiten abajo en cada página (así viaja el pie MEP)
+     El pie de página (.print-page-footer) queda dentro del <tfoot> de la
+     tabla page-wrap. NO usamos position:fixed porque en print rompe la
+     paginación en varios navegadores. */
+  #print-boleta-area table,
+  #print-boleta-area-lista table,
+  #reporte-contenido table { page-break-inside: auto; }
+  #print-boleta-area tr,
+  #print-boleta-area-lista tr,
+  #reporte-contenido tr { page-break-inside: avoid; page-break-after: auto; }
+  #print-boleta-area thead,
+  #print-boleta-area-lista thead,
+  #reporte-contenido thead { display: table-header-group; }
+  #print-boleta-area tfoot,
+  #print-boleta-area-lista tfoot,
+  #reporte-contenido tfoot { display: table-footer-group; }
   #print-boleta-area *{font-size:12px!important;}
   #print-boleta-area h2,#print-boleta-area .big-num{font-size:15px!important;}
   #print-boleta-area h3{font-size:13px!important;}
@@ -270,15 +280,25 @@ tr:hover td{background:#f8fafc;}
     page-break-inside:avoid;
     page-break-before:avoid;
   }
-  /* Footer fijo SOLO en print para que aparezca al pie de cada página */
-  @media print {
-    .print-page-footer{
-      position:fixed;bottom:0;left:0;right:0;
-      background:#fff;margin-top:0;
-    }
-    #print-boleta-area > div{padding-bottom:60px;}
-    #reporte-contenido .card{padding-bottom:60px;}
-  }
+  /* Reglas de paginación para todos los documentos impresos:
+     - Las filas de tabla NO se cortan por la mitad entre páginas
+     - Los <thead> se repiten arriba en cada página nueva
+     - Los <tfoot> se repiten abajo en cada página (así viaja el pie MEP)
+     El pie de página (.print-page-footer) queda dentro del <tfoot> de la
+     tabla page-wrap. NO usamos position:fixed porque en print rompe la
+     paginación en varios navegadores. */
+  #print-boleta-area table,
+  #print-boleta-area-lista table,
+  #reporte-contenido table { page-break-inside: auto; }
+  #print-boleta-area tr,
+  #print-boleta-area-lista tr,
+  #reporte-contenido tr { page-break-inside: avoid; page-break-after: auto; }
+  #print-boleta-area thead,
+  #print-boleta-area-lista thead,
+  #reporte-contenido thead { display: table-header-group; }
+  #print-boleta-area tfoot,
+  #print-boleta-area-lista tfoot,
+  #reporte-contenido tfoot { display: table-footer-group; }
   #print-boleta-area *{font-size:12px!important;}
   #print-boleta-area h2,#print-boleta-area .big-num{font-size:15px!important;}
   #print-boleta-area h3{font-size:13px!important;}
@@ -14244,16 +14264,16 @@ async function imprimirReporteComedor(){
   if(!printArea){ printArea=document.createElement('div'); printArea.id='print-boleta-area'; document.body.appendChild(printArea); }
   printArea.style.cssText='position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
 
-  const rowHtml = (r,i) => `<tr>
-    <td style="padding:3px 6px;text-align:center;">${i+1}</td>
-    <td style="padding:3px 6px;"><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong></td>
-    <td style="padding:3px 6px;">${r.cedula}</td>
-    <td style="padding:3px 6px;">${r.seccion_nombre||'—'}</td>
-    <td style="padding:3px 6px;text-align:center;">${r.hora||'—'}</td>
+  const rowHtml = (r,i) => `<tr style="page-break-inside:avoid;">
+    <td style="padding:4px 6px;text-align:center;">${i+1}</td>
+    <td style="padding:4px 6px;"><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong></td>
+    <td style="padding:4px 6px;">${r.cedula}</td>
+    <td style="padding:4px 6px;">${r.seccion_nombre||'—'}</td>
+    <td style="padding:4px 6px;text-align:center;">${r.hora||'—'}</td>
   </tr>`;
 
   printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;">
+  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;font-size:12px;">
     ${encabezadoMEP('REPORTE DIARIO DE COMEDOR ESCOLAR')}
 
     <div style="display:flex;justify-content:space-between;margin:14px 0;font-size:12px;">
@@ -14262,7 +14282,7 @@ async function imprimirReporteComedor(){
     </div>
 
     <!-- Menú del día -->
-    <div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:14px;background:#f8fafc;">
+    <div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:14px;background:#f8fafc;page-break-inside:avoid;">
       <div style="font-weight:bold;margin-bottom:6px;">🍽️ Menú del Día</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
         <div><strong>Plato:</strong> ${plato}</div>
@@ -14272,7 +14292,7 @@ async function imprimirReporteComedor(){
     </div>
 
     <!-- Resumen -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;page-break-inside:avoid;">
       <div style="border:1px solid #86efac;border-radius:6px;padding:8px;background:#f0fdf4;">
         <div style="font-size:22px;font-weight:bold;color:#166534;">${rows.length}</div>
         <div style="font-size:11px;">Total</div>
@@ -14289,34 +14309,34 @@ async function imprimirReporteComedor(){
 
     <!-- Tabla becados -->
     ${becados.length?`
-    <div style="font-weight:bold;font-size:12px;color:#166534;margin-bottom:4px;">🎓 Becados (${becados.length})</div>
+    <div style="font-weight:bold;font-size:12px;color:#166534;margin-bottom:4px;page-break-after:avoid;">🎓 Becados (${becados.length})</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;">
-      <thead><tr style="background:#f0fdf4;">
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Apellidos, Nombre</th>
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Cédula</th>
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Sección</th>
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
+      <thead style="display:table-header-group;"><tr style="background:#f0fdf4;">
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th>
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;">Cédula</th>
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;">Sección</th>
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
       </tr></thead>
       <tbody>${becados.map(rowHtml).join('')}</tbody>
     </table>`:''}
 
     <!-- Tabla no becados -->
     ${regulares.length?`
-    <div style="font-weight:bold;font-size:12px;color:#374151;margin-bottom:4px;">👤 No Becados (${regulares.length})</div>
+    <div style="font-weight:bold;font-size:12px;color:#374151;margin-bottom:4px;page-break-after:avoid;">👤 No Becados (${regulares.length})</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;">
-      <thead><tr style="background:#f8fafc;">
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Apellidos, Nombre</th>
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Cédula</th>
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;">Sección</th>
-        <th style="padding:4px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
+      <thead style="display:table-header-group;"><tr style="background:#f8fafc;">
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th>
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;">Cédula</th>
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;">Sección</th>
+        <th style="padding:5px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
       </tr></thead>
       <tbody>${regulares.map(rowHtml).join('')}</tbody>
     </table>`:''}
 
     <!-- Firma -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;page-break-inside:avoid;">
       <div style="text-align:center;">
         <div style="border-top:1px solid #374151;padding-top:8px;">
           <div style="font-size:12px;">Firma Encargada de Comedor</div>
@@ -14334,7 +14354,15 @@ async function imprimirReporteComedor(){
   </div>`;
 
   const style=document.createElement('style');
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  style.innerHTML=`
+    @media print{
+      body>*:not(#print-boleta-area){display:none!important;}
+      #print-boleta-area{display:block!important;}
+      #print-boleta-area table{page-break-inside:auto;}
+      #print-boleta-area tr{page-break-inside:avoid;page-break-after:auto;}
+      #print-boleta-area thead{display:table-header-group;}
+      #print-boleta-area tfoot{display:table-footer-group;}
+    }`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea, style);
 }
