@@ -462,6 +462,8 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    // Columna telefono agregada después de la creación inicial (aditivo)
+    await client.query(`ALTER TABLE prematricula_encargado ADD COLUMN IF NOT EXISTS telefono TEXT DEFAULT ''`);
 
     // ── MATRICULA (extiende estudiantes con campos 2027) ──────────────
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS sexo TEXT DEFAULT NULL`);

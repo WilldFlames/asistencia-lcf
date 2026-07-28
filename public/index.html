@@ -2066,6 +2066,7 @@ tr:hover td{background:#f8fafc;}
             <option value="Otra">Otra</option>
           </select>
         </div>
+        <div class="fg"><label>Teléfono</label><input type="tel" id="pm-enc-tel" placeholder="8888-8888"/></div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-outline" onclick="pmPaso(1)">← Atrás</button>
@@ -17651,7 +17652,7 @@ function filtrarPremat(){ renderPremat(); }
 function abrirNuevaPrematricula(){
   pmId = null; pmData = null;
   ["pm-cedula","pm-nombre","pm-ap1","pm-ap2","pm-centro",
-   "pm-enc-cedula","pm-enc-nombre","pm-enc-ap1","pm-enc-ap2"].forEach(id=>{
+   "pm-enc-cedula","pm-enc-nombre","pm-enc-ap1","pm-enc-ap2","pm-enc-tel"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value="";
   });
   document.getElementById("pm-fnac").value="";
@@ -17705,7 +17706,8 @@ async function guardarPM2(){
     primer_apellido:document.getElementById("pm-enc-ap1").value.trim(),
     segundo_apellido:document.getElementById("pm-enc-ap2").value.trim(),
     fecha_nacimiento:document.getElementById("pm-enc-fnac").value,
-    nacionalidad:document.getElementById("pm-enc-nac").value
+    nacionalidad:document.getElementById("pm-enc-nac").value,
+    telefono:document.getElementById("pm-enc-tel")?.value?.trim()||""
   };
   if(!body.parentesco||!body.cedula||!body.nombre||!body.primer_apellido||!body.fecha_nacimiento){
     sa("alert-premat-modal","Todos los campos son obligatorios.","danger"); return;
@@ -17723,7 +17725,8 @@ async function guardarPM2(){
     document.getElementById("pm-res-consec").textContent="(se asigna al imprimir)";
     sa("alert-premat-modal","","");
     pmPaso(3);
-    iniciarPrematricula();
+    // Recargar el listado en segundo plano (no bloquea el flujo si falla)
+    iniciarPrematricula().catch(err => console.warn("recargar prematrículas:", err));
   }catch(e){ sa("alert-premat-modal",e.message,"danger"); }
 }
 

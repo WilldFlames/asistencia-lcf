@@ -68,7 +68,7 @@ router.post("/paso1", canAccess, async (req, res) => {
 router.post("/paso2/:prematricula_id", canAccess, async (req, res) => {
   const pid = req.params.prematricula_id;
   const { parentesco, cedula, nombre, primer_apellido, segundo_apellido,
-          fecha_nacimiento, nacionalidad } = req.body;
+          fecha_nacimiento, nacionalidad, telefono } = req.body;
   if(!parentesco||!cedula||!nombre||!primer_apellido||!fecha_nacimiento||!nacionalidad)
     return res.status(400).json({ error:"Todos los campos son obligatorios." });
 
@@ -79,10 +79,10 @@ router.post("/paso2/:prematricula_id", canAccess, async (req, res) => {
   await pool.query("DELETE FROM prematricula_encargado WHERE prematricula_id=$1", [pid]);
   await pool.query(`
     INSERT INTO prematricula_encargado
-      (prematricula_id, parentesco, cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, nacionalidad)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      (prematricula_id, parentesco, cedula, nombre, primer_apellido, segundo_apellido, fecha_nacimiento, nacionalidad, telefono)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
   `, [pid, parentesco, cedula.trim(), nombre.trim(), primer_apellido.trim(),
-      segundo_apellido?.trim()||null, fecha_nacimiento, nacionalidad]);
+      segundo_apellido?.trim()||null, fecha_nacimiento, nacionalidad, (telefono||'').trim()]);
 
   res.json({ ok:true });
 });
