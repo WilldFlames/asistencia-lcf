@@ -1086,7 +1086,12 @@ tr:hover td{background:#f8fafc;}
 
 <div class="modal-overlay" id="modal-evaluacion">
   <div class="modal" style="max-width:640px;">
-    <h3 id="ev-titulo-mod">Nueva evaluación</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <h3 id="ev-titulo-mod" style="margin:0;">Nueva evaluación</h3>
+      <button class="btn btn-outline btn-sm" id="ev-btn-copiar" onclick="abrirCopiarEvaluacion()" style="display:none;">
+        📋 Copiar de otra sección
+      </button>
+    </div>
     <input type="hidden" id="ev-id"/>
     <input type="hidden" id="ev-tipo"/>
     <div class="fg">
@@ -1138,6 +1143,23 @@ tr:hover td{background:#f8fafc;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-evaluacion')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarEvaluacion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Elegir evaluación existente para copiar -->
+<div class="modal-overlay" id="modal-copiar-ev">
+  <div class="modal" style="max-width:640px;">
+    <h3 style="margin-top:0;">📋 Copiar evaluación existente</h3>
+    <p style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">
+      Elegí una evaluación del mismo tipo y materia que ya tenés hecha. Se copiará el <strong>nombre</strong>, los <strong>indicadores</strong> y los <strong>puntajes por indicador</strong>. La fecha la ponés vos después.
+    </p>
+    <div id="copiar-ev-lista" style="max-height:400px;overflow-y:auto;">
+      <div style="text-align:center;color:var(--muted);padding:20px;">Cargando...</div>
+    </div>
+    <div id="alert-copiar-ev" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-copiar-ev')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -19110,6 +19132,9 @@ function renderEvaluaciones(){
 function nuevaEvaluacion(tipo){
   document.getElementById("ev-id").value = "";
   document.getElementById("ev-tipo").value = tipo;
+  // El botón "📋 Copiar de otra sección" solo aplica al crear (no al editar)
+  const btnCop = document.getElementById("ev-btn-copiar");
+  if(btnCop) btnCop.style.display = "";
   const tipoLbl = {examen:'examen',tarea:'tarea',cotidiano:'cotidiano',proyecto:'proyecto'}[tipo];
   document.getElementById("ev-titulo-mod").textContent = `Nuevo ${tipoLbl}`;
   document.getElementById("ev-nombre").value = "";
@@ -19166,6 +19191,9 @@ async function editarEvaluacion(evalId){
 
     document.getElementById("ev-id").value = ev.id;
     document.getElementById("ev-tipo").value = ev.tipo;
+    // En modo edición no aplica "Copiar de otra sección"
+    const btnCop = document.getElementById("ev-btn-copiar");
+    if(btnCop) btnCop.style.display = "none";
     const tipoLbl = {examen:'examen',tarea:'tarea',cotidiano:'cotidiano',proyecto:'proyecto'}[ev.tipo];
     document.getElementById("ev-titulo-mod").textContent = `Editar ${tipoLbl}`;
     document.getElementById("ev-nombre").value = ev.nombre || "";
@@ -19247,6 +19275,84 @@ function renumerarIndicadores(){
   Array.from(list.children).forEach((row,i)=>{
     row.firstElementChild.textContent = `${i+1}.`;
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Copiar evaluación de otra sección: abrir modal secundario con opciones
+// ─────────────────────────────────────────────────────────────────────────
+async function abrirCopiarEvaluacion(){
+  if(!evalAsigActual){ sa("alert-ev","No hay asignación seleccionada.","danger"); return; }
+  const tipo = document.getElementById("ev-tipo").value;
+  const cont = document.getElementById("copiar-ev-lista");
+  cont.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">Cargando evaluaciones para copiar...</div>';
+  document.getElementById("modal-copiar-ev").classList.add("show");
+  try{
+    const rows = await api(`/api/calificaciones/evaluaciones-copiables?asignacion_id=${evalAsigActual.asignacion_id}&tipo=${tipo}`);
+    if(!rows || !rows.length){
+      cont.innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px;">
+        <div style="font-size:32px;margin-bottom:10px;">📭</div>
+        No hay evaluaciones de este tipo en otras secciones para copiar.
+      </div>`;
+      return;
+    }
+    // Agrupar por período
+    const grupos = {};
+    rows.forEach(r => {
+      const key = `${r.periodo} — ${r.seccion_nombre}${r.subgrupo?` (Gr. ${r.subgrupo})`:''}`;
+      if(!grupos[key]) grupos[key] = [];
+      grupos[key].push(r);
+    });
+    cont.innerHTML = Object.entries(grupos).map(([grupo, evals])=>`
+      <div style="margin-bottom:12px;">
+        <div style="font-weight:bold;font-size:12px;color:var(--azul);border-bottom:1px solid var(--border);padding-bottom:3px;margin-bottom:6px;">
+          ${grupo}
+        </div>
+        ${evals.map(e => `
+          <div style="border:1px solid var(--border);border-radius:7px;padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <div style="font-weight:bold;font-size:13px;">${e.nombre}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">
+                📅 ${(e.fecha||'').slice(0,10)} · ${e.cant_indicadores||0} indicador(es)${e.puntaje_total?` · ${e.puntaje_total} pts`:''}
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="aplicarCopiaEvaluacion(${e.id})">📋 Copiar</button>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }catch(e){
+    cont.innerHTML = `<div style="color:#dc2626;padding:20px;">${e.message}</div>`;
+  }
+}
+
+async function aplicarCopiaEvaluacion(evalId){
+  try{
+    const r = await api(`/api/calificaciones/evaluaciones/${evalId}`);
+    if(!r || !r.evaluacion){ sa("alert-copiar-ev","No se pudo cargar la evaluación.","danger"); return; }
+    const ev = r.evaluacion;
+    const inds = r.indicadores || [];
+
+    // Copiar nombre y descripción, MANTENER la fecha del modal actual (no la original)
+    document.getElementById("ev-nombre").value = ev.nombre || "";
+    document.getElementById("ev-descripcion").value = ev.descripcion || "";
+
+    // Si es examen: copiar puntaje total. El valor porcentual NO se copia
+    // porque cada asignación puede tener % disponibles distintos.
+    if(ev.tipo === 'examen'){
+      document.getElementById("ev-puntaje").value = ev.puntaje_total || "";
+    } else {
+      // Reemplazar indicadores por los copiados
+      const list = document.getElementById("ev-indicadores-list");
+      list.innerHTML = "";
+      inds.forEach(i => agregarIndicador(i.descripcion || "", i.max_puntaje || 3));
+      if(!inds.length) agregarIndicador();
+    }
+
+    cerrarModal("modal-copiar-ev");
+    sa("alert-ev", `✅ Datos copiados de "${ev.nombre}". Revisá la fecha y ajustá lo que necesités antes de guardar.`, "success");
+  }catch(e){
+    sa("alert-copiar-ev", e.message, "danger");
+  }
 }
 
 // Actualiza el texto debajo del campo "valor porcentual" para indicar

@@ -1501,6 +1501,51 @@ router.get("/mis-evaluaciones-misma-materia", requireAuth, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+//  GET /evaluaciones-copiables?asignacion_id=X&tipo=cotidiano
+//
+//  Devuelve las evaluaciones del MISMO PROFE + MISMA MATERIA, pero de OTRAS
+//  secciones/subgrupos/períodos. Sirve para el botón "Copiar de otra sección"
+//  en el modal de crear evaluación, así el profe no tiene que reescribir el
+//  cotidiano/tarea/prueba/proyecto cuando lo aplica a varios grupos.
+// ─────────────────────────────────────────────────────────────────────────
+router.get("/evaluaciones-copiables", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const { asignacion_id, tipo } = req.query;
+  if (!asignacion_id || !tipo) return res.status(400).json({ error: "asignacion_id y tipo requeridos" });
+  try {
+    const aR = await pool.query(
+      `SELECT profesor_id, seccion_id, materia_id, subgrupo, periodo
+       FROM asignaciones WHERE id = $1`, [asignacion_id]
+    );
+    if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
+    const a = aR.rows[0];
+    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+    if (!esStaff && a.profesor_id !== u.id) return res.status(403).json({ error: "Sin permisos." });
+
+    // Buscar evaluaciones del mismo profe + misma materia + mismo tipo
+    // pero de OTRAS asignaciones (secciones/subgrupos distintos).
+    const r = await pool.query(`
+      SELECT e.id, e.tipo, e.nombre, e.fecha, e.fecha_asignacion, e.puntaje_total,
+        e.descripcion, e.valor_porcentual, e.periodo, e.subgrupo,
+        s.nombre AS seccion_nombre,
+        (SELECT COUNT(*) FROM indicadores i WHERE i.evaluacion_id = e.id) AS cant_indicadores
+      FROM evaluaciones e
+      JOIN secciones s ON s.id = e.seccion_id
+      WHERE e.profesor_id = $1
+        AND e.materia_id = $2
+        AND e.tipo = $3
+        AND NOT (e.seccion_id = $4 AND COALESCE(e.subgrupo,'') = COALESCE($5,'') AND e.periodo = $6)
+      ORDER BY e.periodo DESC, e.fecha DESC, s.nombre
+      LIMIT 50
+    `, [a.profesor_id, a.materia_id, tipo, a.seccion_id, a.subgrupo, a.periodo]);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET evaluaciones-copiables:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
 
 // Helper para archivado por "Aplicar Matrículas": calcula promedios sin validar
