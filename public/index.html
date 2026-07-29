@@ -1563,12 +1563,13 @@ tr:hover td{background:#f8fafc;}
         <label>Sección</label>
         <select id="hor-seccion" onchange="horCargarSeccion()"></select>
       </div>
-      <div class="fg" style="width:110px;">
-        <label>Año</label>
-        <input type="number" id="hor-anio" onchange="horCargarSeccion()"/>
+      <div class="fg" style="width:130px;">
+        <label>Año lectivo</label>
+        <select id="hor-anio" onchange="horCargarSeccion()" style="padding:6px 8px;font-weight:bold;"></select>
       </div>
       <div id="hor-guia-label" style="font-size:13px;color:var(--muted);padding-bottom:8px;"></div>
     </div>
+    <div id="hor-aviso-anio" style="display:none;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:7px;padding:8px 12px;font-size:12.5px;margin-bottom:12px;"></div>
     <div id="hor-grid-wrap" class="table-wrap"></div>
   </div>
 </div>
@@ -9170,7 +9171,8 @@ async function matAplicarAnio(){
     `   • Sesiones de asistencia diarias\n` +
     `   • Evaluaciones, exámenes y notas del ${anioAnt}\n` +
     `   • Boletas de conducta\n` +
-    `   • Asignaciones viejas de profes (los usuarios se mantienen)\n\n` +
+    `   • Asignaciones viejas de profes (los usuarios se mantienen)\n` +
+    `   • Horario del ${anioAnt} (el horario ${matAnio} que hayas preparado queda intacto)\n\n` +
     `📋 Cambios:\n` +
     `   • ${conSec} estudiantes pasan a su sección nueva (con idioma, tecnología y subgrupo)\n` +
     `   • Los activos SIN matrícula ${matAnio} quedan SIN SECCIÓN\n` +
@@ -9185,7 +9187,7 @@ async function matAplicarAnio(){
       `✅ Cierre completado. Año ${matAnio} listo para arrancar.\n` +
       `📚 ${r.resumenes_archivados} resúmenes académicos archivados (${r.resumenes_saltados} saltados)\n` +
       `🎓 ${r.aplicados} estudiantes en sección nueva · ${r.sin_seccion} sin sección\n` +
-      `🗑️ ${r.asignaciones_borradas} asignaciones, ${r.boletas_borradas} boletas de conducta borradas\n` +
+      `🗑️ ${r.asignaciones_borradas} asignaciones, ${r.boletas_borradas} boletas, ${r.horarios_borrados||0} celdas de horario borradas\n` +
       `🧹 ${r.guias_limpiadas} guías y ${r.orientadores_limpiados} orientadores limpiados\n\n` +
       `Ahora asigná guías, orientadores y materias desde Admin → Asignaciones.`,
       "success");
@@ -15206,8 +15208,26 @@ async function iniciarHorario(){
   const esDocenteH = tieneAlgunRol('profesor','profesor_guia','orientador');
   document.getElementById('hor-btn-mi').style.display = esDocenteH ? '' : 'none';
   const anioInput = document.getElementById('hor-anio');
-  if(!anioInput.value) anioInput.value = fechaHoyCR().slice(0,4);
+  // Poblar dropdown: año actual y siguiente (para preparar el nuevo año antes de aplicar)
+  const actual = parseInt(fechaHoyCR().slice(0,4));
+  if(!anioInput.options.length){
+    anioInput.innerHTML = `
+      <option value="${actual}">${actual} (actual)</option>
+      <option value="${actual+1}">${actual+1} (próximo)</option>
+    `;
+  }
+  if(!anioInput.value) anioInput.value = String(actual);
   document.getElementById('hor-anio-label').textContent = anioInput.value;
+  // Mostrar aviso si es año futuro
+  const aviso = document.getElementById('hor-aviso-anio');
+  if(aviso){
+    if(parseInt(anioInput.value) > actual){
+      aviso.style.display = '';
+      aviso.innerHTML = `📅 <strong>Estás editando el horario del ${anioInput.value}.</strong> Podés dejar todo listo desde ahora. Al presionar "Aplicar Matrículas ${anioInput.value}", el horario del ${actual} se borra y este queda activo.`;
+    } else {
+      aviso.style.display = 'none';
+    }
+  }
   // Poblar secciones desde el catálogo global
   const sel = document.getElementById('hor-seccion');
   if(sel && !sel.options.length){
@@ -15227,6 +15247,17 @@ async function horCargarSeccion(){
   const secId = document.getElementById('hor-seccion').value;
   const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
   document.getElementById('hor-anio-label').textContent = anio;
+  // Refrescar aviso de año futuro
+  const actual = parseInt(fechaHoyCR().slice(0,4));
+  const aviso = document.getElementById('hor-aviso-anio');
+  if(aviso){
+    if(parseInt(anio) > actual){
+      aviso.style.display = '';
+      aviso.innerHTML = `📅 <strong>Estás editando el horario del ${anio}.</strong> Podés dejar todo listo desde ahora. Al presionar "Aplicar Matrículas ${anio}", el horario del ${actual} se borra y este queda activo.`;
+    } else {
+      aviso.style.display = 'none';
+    }
+  }
   const wrap = document.getElementById('hor-grid-wrap');
   document.getElementById('hor-btn-guardar').style.display = 'none';
   document.getElementById('hor-btn-imprimir').style.display = 'none';

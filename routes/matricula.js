@@ -599,6 +599,13 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
     const guiaClean = await client.query("DELETE FROM seccion_guia RETURNING seccion_id");
     const oriClean  = await client.query("DELETE FROM seccion_orientador RETURNING seccion_id");
 
+    // ── 5.b. Borrar horarios del año anterior (los del año nuevo, si el
+    //         admin ya los creó por adelantado, quedan intactos) ─────────
+    const horBorrados = await client.query(
+      "DELETE FROM horarios WHERE anio = $1 OR anio IS NULL RETURNING id",
+      [anioAnt]
+    );
+
     // ── 6. BORRAR asignaciones (cascade borra sesiones, notas, evaluaciones) ──
     const asigBorradas = await client.query("DELETE FROM asignaciones RETURNING id");
 
@@ -611,6 +618,7 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       orientadores_limpiados: oriClean.rows.length,
       asignaciones_borradas: asigBorradas.rows.length,
       boletas_borradas: boletasBorradas.rows.length,
+      horarios_borrados: horBorrados.rows.length,
       resumenes_archivados: archivadas,
       resumenes_saltados: saltadas,
       anio,
