@@ -110,20 +110,22 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
      El pie de página (.print-page-footer) queda dentro del <tfoot> de la
      tabla page-wrap. NO usamos position:fixed porque en print rompe la
      paginación en varios navegadores. */
-  /* El área de impresión ocupa toda la altura de la página impresa,
-     así el pie de página (<tfoot> de .page-wrap) se pega abajo aunque
-     el contenido sea corto en documentos de una sola página. */
-  html, body { height: 100%; }
+  /* Pie de página anclado al fondo del papel en modo print. Al ser
+     position:fixed;bottom:0, el navegador lo dibuja en el margen inferior
+     de cada hoja impresa. El @page margin:2cm bottom deja el espacio. */
+  .print-page-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+    z-index: 1000;
+  }
+  /* Espacio inferior en el contenedor para que el contenido no quede
+     debajo del pie. */
   #print-boleta-area, #print-boleta-area-lista, #reporte-contenido {
-    min-height: 100vh;
+    padding-bottom: 100px !important;
   }
-  #print-boleta-area > div,
-  #print-boleta-area-lista > div,
-  #reporte-contenido > div {
-    min-height: calc(100vh - 40px);
-    display: block;
-  }
-  .page-wrap { height: 100%; }
   #print-boleta-area table,
   #print-boleta-area-lista table,
   #reporte-contenido table { page-break-inside: auto; }
@@ -301,20 +303,22 @@ tr:hover td{background:#f8fafc;}
      El pie de página (.print-page-footer) queda dentro del <tfoot> de la
      tabla page-wrap. NO usamos position:fixed porque en print rompe la
      paginación en varios navegadores. */
-  /* El área de impresión ocupa toda la altura de la página impresa,
-     así el pie de página (<tfoot> de .page-wrap) se pega abajo aunque
-     el contenido sea corto en documentos de una sola página. */
-  html, body { height: 100%; }
+  /* Pie de página anclado al fondo del papel en modo print. Al ser
+     position:fixed;bottom:0, el navegador lo dibuja en el margen inferior
+     de cada hoja impresa. El @page margin:2cm bottom deja el espacio. */
+  .print-page-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+    z-index: 1000;
+  }
+  /* Espacio inferior en el contenedor para que el contenido no quede
+     debajo del pie. */
   #print-boleta-area, #print-boleta-area-lista, #reporte-contenido {
-    min-height: 100vh;
+    padding-bottom: 100px !important;
   }
-  #print-boleta-area > div,
-  #print-boleta-area-lista > div,
-  #reporte-contenido > div {
-    min-height: calc(100vh - 40px);
-    display: block;
-  }
-  .page-wrap { height: 100%; }
   #print-boleta-area table,
   #print-boleta-area-lista table,
   #reporte-contenido table { page-break-inside: auto; }
@@ -1151,7 +1155,7 @@ tr:hover td{background:#f8fafc;}
 <div class="modal-overlay" id="modal-copiar-ev">
   <div class="modal" style="max-width:640px;">
     <h3 style="margin-top:0;">📋 Copiar evaluación existente</h3>
-    <p style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">
+    <p id="copiar-ev-msg" style="color:var(--muted);font-size:12.5px;margin-bottom:10px;">
       Elegí una evaluación del mismo tipo y materia que ya tenés hecha. Se copiará el <strong>nombre</strong>, los <strong>indicadores</strong> y los <strong>puntajes por indicador</strong>. La fecha la ponés vos después.
     </p>
     <div id="copiar-ev-lista" style="max-height:400px;overflow-y:auto;">
@@ -17010,25 +17014,19 @@ function encabezadoMEP(titulo){
 }
 
 function piePaginaMEP(){
-  // Cierra el <tbody> abierto en encabezadoMEP() y agrega el pie como <tfoot>.
-  // El navegador repetirá automáticamente este pie al final de cada página
-  // al imprimir, sin importar cuánto contenido haya en el documento.
-  // Pie de página oficial: franja azul oscuro (#1F3864) con texto blanco
-  // centrado en 3 líneas: dirección física, teléfonos, correo + web.
+  // Cierra el <tbody> abierto en encabezadoMEP() y cierra la tabla.
+  // El pie va como un div SEPARADO con position:fixed;bottom:0 SOLO en
+  // @media print. Así el navegador lo pega al margen inferior del papel
+  // sin importar cuánto contenido tenga arriba. Fuera de print no se ve
+  // (display:none), y en modo print aparece pegado abajo en cada página.
   return `
         </td></tr></tbody>
-      <tfoot style="display:table-footer-group;">
-        <tr><td style="padding:0;border:0;">
-          <div class="print-page-footer" style="margin-top:14px;">
-            <div style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
-              <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
-              <div>Teléfono 2250-0590 / 2250-0614</div>
-              <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
-            </div>
-          </div>
-        </td></tr>
-      </tfoot>
-    </table>`;
+    </table>
+    <div class="print-page-footer print-only-block" style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
+      <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+      <div>Teléfono 2250-0590 / 2250-0614</div>
+      <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
+    </div>`;
 }
 
 // ════════════════════════════════════
@@ -19283,22 +19281,33 @@ function renumerarIndicadores(){
 async function abrirCopiarEvaluacion(){
   if(!evalAsigActual){ sa("alert-ev","No hay asignación seleccionada.","danger"); return; }
   const tipo = document.getElementById("ev-tipo").value;
+  const periodo = document.getElementById("calif-periodo")?.value || '';
   const cont = document.getElementById("copiar-ev-lista");
   cont.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">Cargando evaluaciones para copiar...</div>';
   document.getElementById("modal-copiar-ev").classList.add("show");
+  // Actualizar mensaje explicativo con el período actual
+  const msg = document.getElementById("copiar-ev-msg");
+  if(msg){
+    msg.innerHTML = `Elegí una evaluación del mismo tipo y materia que ya tenés hecha en <strong>${periodo || 'este período'}</strong>. Se copiará el <strong>nombre</strong>, los <strong>indicadores</strong> y los <strong>puntajes por indicador</strong>. La fecha la ponés vos después.`;
+  }
   try{
-    const rows = await api(`/api/calificaciones/evaluaciones-copiables?asignacion_id=${evalAsigActual.asignacion_id}&tipo=${tipo}`);
+    const params = new URLSearchParams({
+      asignacion_id: evalAsigActual.asignacion_id,
+      tipo,
+      ...(periodo ? { periodo } : {})
+    });
+    const rows = await api(`/api/calificaciones/evaluaciones-copiables?${params.toString()}`);
     if(!rows || !rows.length){
       cont.innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px;">
         <div style="font-size:32px;margin-bottom:10px;">📭</div>
-        No hay evaluaciones de este tipo en otras secciones para copiar.
+        No hay evaluaciones de este tipo en otras secciones para copiar en el ${periodo || 'período actual'}.
       </div>`;
       return;
     }
-    // Agrupar por período
+    // Agrupar por sección (dentro del mismo período no tiene sentido agrupar por período)
     const grupos = {};
     rows.forEach(r => {
-      const key = `${r.periodo} — ${r.seccion_nombre}${r.subgrupo?` (Gr. ${r.subgrupo})`:''}`;
+      const key = `${r.seccion_nombre}${r.subgrupo?` (Gr. ${r.subgrupo})`:''}`;
       if(!grupos[key]) grupos[key] = [];
       grupos[key].push(r);
     });

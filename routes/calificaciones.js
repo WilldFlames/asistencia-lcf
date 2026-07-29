@@ -1511,7 +1511,7 @@ router.get("/mis-evaluaciones-misma-materia", requireAuth, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────
 router.get("/evaluaciones-copiables", requireAuth, async (req, res) => {
   const u = req.session.usuario;
-  const { asignacion_id, tipo } = req.query;
+  const { asignacion_id, tipo, periodo } = req.query;
   if (!asignacion_id || !tipo) return res.status(400).json({ error: "asignacion_id y tipo requeridos" });
   try {
     const aR = await pool.query(
@@ -1525,6 +1525,14 @@ router.get("/evaluaciones-copiables", requireAuth, async (req, res) => {
 
     // Buscar evaluaciones del mismo profe + misma materia + mismo tipo
     // pero de OTRAS asignaciones (secciones/subgrupos distintos).
+    // Si viene ?periodo, se filtra solo a ese período (típico: profe copiando
+    // dentro del mismo período lectivo — el de II no aplica al de I y viceversa).
+    const params = [a.profesor_id, a.materia_id, tipo, a.seccion_id, a.subgrupo, a.periodo];
+    let filtroPeriodo = "";
+    if (periodo) {
+      params.push(periodo);
+      filtroPeriodo = ` AND e.periodo = $${params.length}`;
+    }
     const r = await pool.query(`
       SELECT e.id, e.tipo, e.nombre, e.fecha, e.fecha_asignacion, e.puntaje_total,
         e.descripcion, e.valor_porcentual, e.periodo, e.subgrupo,
@@ -1536,9 +1544,10 @@ router.get("/evaluaciones-copiables", requireAuth, async (req, res) => {
         AND e.materia_id = $2
         AND e.tipo = $3
         AND NOT (e.seccion_id = $4 AND COALESCE(e.subgrupo,'') = COALESCE($5,'') AND e.periodo = $6)
+        ${filtroPeriodo}
       ORDER BY e.periodo DESC, e.fecha DESC, s.nombre
       LIMIT 50
-    `, [a.profesor_id, a.materia_id, tipo, a.seccion_id, a.subgrupo, a.periodo]);
+    `, params);
     res.json(r.rows);
   } catch (e) {
     console.error("GET evaluaciones-copiables:", e);
