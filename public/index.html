@@ -2036,7 +2036,7 @@ tr:hover td{background:#f8fafc;}
       </select>
     </div>
     <div id="asignar-herencia" style="display:none;font-size:12.5px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 10px;margin-bottom:10px;"></div>
-    <div class="fg" style="margin-bottom:8px;">
+    <div class="fg" id="asignar-sec-boleta-wrap" style="margin-bottom:8px;display:none;">
       <label style="cursor:pointer;font-weight:normal;display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fafafa;">
         <input type="checkbox" id="asignar-sec-boleta" style="width:18px;height:18px;cursor:pointer;"/>
         <span style="font-size:13px;">📄 Entregó boleta de calificaciones</span>
@@ -9225,14 +9225,21 @@ function renderMatricula(){
   const lista = matNivelFiltro===0 ? matData : matData.filter(e=>e.nivel_matricula==matNivelFiltro);
   const tbody = document.getElementById("mat-tbody");
   if(!tbody) return;
-  tbody.innerHTML = lista.length ? lista.map((e,i)=>`<tr>
+  tbody.innerHTML = lista.length ? lista.map((e,i)=>{
+    // La "boleta de calificaciones" solo aplica para los estudiantes que van
+    // de 9° actual a 10° en el año siguiente (nivel_matricula === 10).
+    // Los demás niveles no requieren boleta porque no cambian de institución
+    // o son estudiantes nuevos que ingresan a 7°.
+    const requiereBoleta = parseInt(e.nivel_matricula) === 10;
+    const badgeBoleta = requiereBoleta
+      ? (e.boleta_entregada
+          ? '<div style="font-size:11px;color:var(--verde);font-weight:bold;margin-top:2px;">📄 ✅ Entregó boleta</div>'
+          : '<div style="font-size:11px;color:#ea580c;font-weight:bold;margin-top:2px;">📄 ⏳ No ha entregado boleta</div>')
+      : '';
+    return `<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
-    <td><strong>${e.primer_apellido} ${e.segundo_apellido||""}, ${e.nombre}</strong>${
-      e.boleta_entregada
-        ? '<div style="font-size:11px;color:var(--verde);font-weight:bold;margin-top:2px;">📄 ✅ Entregó boleta</div>'
-        : '<div style="font-size:11px;color:#ea580c;font-weight:bold;margin-top:2px;">📄 ⏳ No ha entregado boleta</div>'
-    }</td>
+    <td><strong>${e.primer_apellido} ${e.segundo_apellido||""}, ${e.nombre}</strong>${badgeBoleta}</td>
     <td><span class="badge" style="background:${COLORES_TIPO[e.tipo_ingreso]||'#e0f2fe'};color:#374151;">${tipos[e.tipo_ingreso]||e.tipo_ingreso}</span></td>
     <td style="font-weight:bold;">${NIVELES_MAT[e.nivel_matricula]||'—'}</td>
     <td>${matSeccionCelda(e)}
@@ -9244,7 +9251,8 @@ function renderMatricula(){
       <button class="btn btn-outline btn-xs" onclick="continuarMatricula(${e.id},'${e.cedula}')">✏️</button>
       <button class="btn btn-danger btn-xs" onclick="eliminarMatricula(${e.id},'${(e.primer_apellido+' '+e.nombre).replace(/'/g,"\'")}')">🗑️</button>
     </td>
-  </tr>`).join("")
+  </tr>`;
+  }).join("")
   : `<tr><td colspan="8" class="empty">No hay matrículas${matNivelFiltro?' en '+NIVELES_MAT[matNivelFiltro]:''} registradas.</td></tr>`;
 }
 
@@ -9347,8 +9355,12 @@ async function abrirAsignarSeccion(id, nombre, nivel){
   const fgIdi = document.getElementById("asignar-fg-idioma");
   const fgTec = document.getElementById("asignar-fg-tec");
   const her   = document.getElementById("asignar-herencia");
-  // Precargar check de boleta con el estado actual del estudiante
+  // Precargar check de boleta con el estado actual del estudiante.
+  // La boleta solo aplica al matricular en 10° (estudiantes que vienen de 9°),
+  // así que ocultamos el wrapper para otros niveles.
   const chkBoleta = document.getElementById("asignar-sec-boleta");
+  const wrapBoleta = document.getElementById("asignar-sec-boleta-wrap");
+  if(wrapBoleta) wrapBoleta.style.display = (parseInt(nivel) === 10) ? "" : "none";
   if(chkBoleta) chkBoleta.checked = !!est.boleta_entregada;
   fgIdi.style.display = "";
   document.getElementById("asignar-sec-idioma").value = fut.idioma || est.idioma || "";
