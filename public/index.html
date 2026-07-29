@@ -110,6 +110,20 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
      El pie de página (.print-page-footer) queda dentro del <tfoot> de la
      tabla page-wrap. NO usamos position:fixed porque en print rompe la
      paginación en varios navegadores. */
+  /* El área de impresión ocupa toda la altura de la página impresa,
+     así el pie de página (<tfoot> de .page-wrap) se pega abajo aunque
+     el contenido sea corto en documentos de una sola página. */
+  html, body { height: 100%; }
+  #print-boleta-area, #print-boleta-area-lista, #reporte-contenido {
+    min-height: 100vh;
+  }
+  #print-boleta-area > div,
+  #print-boleta-area-lista > div,
+  #reporte-contenido > div {
+    min-height: calc(100vh - 40px);
+    display: block;
+  }
+  .page-wrap { height: 100%; }
   #print-boleta-area table,
   #print-boleta-area-lista table,
   #reporte-contenido table { page-break-inside: auto; }
@@ -287,6 +301,20 @@ tr:hover td{background:#f8fafc;}
      El pie de página (.print-page-footer) queda dentro del <tfoot> de la
      tabla page-wrap. NO usamos position:fixed porque en print rompe la
      paginación en varios navegadores. */
+  /* El área de impresión ocupa toda la altura de la página impresa,
+     así el pie de página (<tfoot> de .page-wrap) se pega abajo aunque
+     el contenido sea corto en documentos de una sola página. */
+  html, body { height: 100%; }
+  #print-boleta-area, #print-boleta-area-lista, #reporte-contenido {
+    min-height: 100vh;
+  }
+  #print-boleta-area > div,
+  #print-boleta-area-lista > div,
+  #reporte-contenido > div {
+    min-height: calc(100vh - 40px);
+    display: block;
+  }
+  .page-wrap { height: 100%; }
   #print-boleta-area table,
   #print-boleta-area-lista table,
   #reporte-contenido table { page-break-inside: auto; }
@@ -16926,7 +16954,7 @@ function encabezadoMEP(titulo){
   // azules: "Dirección Regional Desamparados" | "Supervisión Educativa
   // Circuito 07" | "Liceo de Calle Fallas".
   return `
-    <table class="page-wrap" style="width:100%;border-collapse:collapse;">
+    <table class="page-wrap" style="width:100%;border-collapse:collapse;height:100%;">
       <thead style="display:table-header-group;">
         <tr><td style="padding:0;border:0;">
           <div style="font-family:Arial,sans-serif;margin-bottom:14px;background:#fff;">
@@ -16956,7 +16984,7 @@ function encabezadoMEP(titulo){
           </div>
         </td></tr>
       </thead>
-      <tbody><tr><td style="padding:0;border:0;">`;
+      <tbody><tr style="height:100%;"><td style="padding:0;border:0;vertical-align:top;">`;
 }
 
 function piePaginaMEP(){
