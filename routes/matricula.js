@@ -606,8 +606,19 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       [anioAnt]
     );
 
-    // ── 6. BORRAR asignaciones (cascade borra sesiones, notas, evaluaciones) ──
-    const asigBorradas = await client.query("DELETE FROM asignaciones RETURNING id");
+    // ── 6. BORRAR asignaciones del año anterior (cascade borra sesiones,
+    //         notas, evaluaciones ligadas). Las del año NUEVO que el admin
+    //         haya preparado quedan intactas para que los profes arranquen
+    //         febrero con todo listo. ─────────────────────────────────────
+    const asigBorradas = await client.query(
+      "DELETE FROM asignaciones WHERE COALESCE(anio, $1) = $1 RETURNING id",
+      [anioAnt]
+    );
+
+    // Contar cuántas asignaciones del año nuevo ya estaban preparadas
+    const asigNuevas = await client.query(
+      "SELECT COUNT(*)::int AS c FROM asignaciones WHERE anio = $1", [anio]
+    );
 
     await client.query("COMMIT");
     res.json({
@@ -617,6 +628,7 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       guias_limpiadas: guiaClean.rows.length,
       orientadores_limpiados: oriClean.rows.length,
       asignaciones_borradas: asigBorradas.rows.length,
+      asignaciones_nuevas_preparadas: asigNuevas.rows[0].c,
       boletas_borradas: boletasBorradas.rows.length,
       horarios_borrados: horBorrados.rows.length,
       resumenes_archivados: archivadas,

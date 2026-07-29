@@ -13,21 +13,16 @@ function periodoActualNombre() {
 router.get("/mis-asignaciones", requireDocente, async (req, res) => {
   const uid = req.session.usuario.id;
   const periodo = periodoActualNombre();
+  // Año en curso: los profes solo ven asignaciones del año actual. Las del
+  // año siguiente (preparadas por adelantado) no se cargan hasta que se
+  // aplique "Aplicar Matrículas" y las viejas se borren.
+  const anioCR = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - 360);
+    return d.getFullYear();
+  };
+  const anio = anioCR();
 
-  // Traemos las asignaciones del profe. Un profe puede tener:
-  //  1) Una asignación creada específicamente para el período actual
-  //     (ej: Industriales para el II Período)
-  //  2) Una del período anterior que NO tiene equivalente en el actual
-  //     (ej: Matemática del I Período — no cambia, sigue valiendo en II)
-  //
-  // La regla de negocio: si NO existe una asignación nueva para el período
-  // actual con la misma sección+materia, la del período anterior "hereda"
-  // automáticamente. Esto refleja la realidad del liceo: la mayoría de
-  // materias son anuales (no cambian entre períodos), solo algunas como
-  // los talleres semestrales rotan (Hogar ↔ Industriales).
-  //
-  // Prioridad: si existe una asignación del período actual, se usa esa.
-  // Si no, se cae al período anterior.
   const r = await pool.query(`
     WITH mis_asig AS (
       SELECT a.*,
@@ -38,6 +33,7 @@ router.get("/mis-asignaciones", requireDocente, async (req, res) => {
       JOIN materias m ON m.id=a.materia_id
       WHERE a.profesor_id=$1
         AND COALESCE(a.periodo,'I Período') IN ('I Período', $2)
+        AND COALESCE(a.anio, $3) = $3
     ),
     -- Para cada sección+materia, priorizamos la del período actual.
     -- ROW_NUMBER con ORDER BY (periodo actual primero) permite quedarnos
@@ -56,7 +52,7 @@ router.get("/mis-asignaciones", requireDocente, async (req, res) => {
     FROM ranked
     WHERE rn = 1
     ORDER BY seccion_nombre, materia_nombre
-  `, [uid, periodo]);
+  `, [uid, periodo, anio]);
   res.json(r.rows);
 });
 

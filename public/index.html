@@ -628,6 +628,10 @@ tr:hover td{background:#f8fafc;}
     </div>
     <div id="alert-asig" class="alert"></div>
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="fg" style="width:130px;">
+        <label>Año lectivo</label>
+        <select id="filtro-anio-asig" onchange="cargarAsignaciones()" style="padding:6px 8px;font-weight:bold;"></select>
+      </div>
       <div class="fg" style="min-width:240px;">
         <label>Filtrar por profesor</label>
         <select id="filtro-prof-asig" onchange="filtrarAsignacionesPorProfesor()">
@@ -636,6 +640,7 @@ tr:hover td{background:#f8fafc;}
       </div>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('filtro-prof-asig').value='';filtrarAsignacionesPorProfesor()">Limpiar filtro</button>
     </div>
+    <div id="asig-aviso-anio" style="display:none;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:7px;padding:8px 12px;font-size:12.5px;margin-bottom:10px;"></div>
     <div class="table-wrap"><table>
       <thead><tr><th>Profesor</th><th>Rol</th><th>Sección</th><th>Materia</th><th>Lecc/sem</th><th style="text-align:center;">Modo</th><th></th></tr></thead>
       <tbody id="asig-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
@@ -5950,7 +5955,27 @@ async function guardarSec(id){
 // ════════════════════════════════════
 let asigData = [];
 async function cargarAsignaciones(){
-  const rows=await api("/api/admin/asignaciones");
+  // Poblar selector de año si está vacío
+  const selAnio = document.getElementById("filtro-anio-asig");
+  const actual = parseInt(fechaHoyCR().slice(0,4));
+  if(selAnio && !selAnio.options.length){
+    selAnio.innerHTML = `
+      <option value="${actual}">${actual} (actual)</option>
+      <option value="${actual+1}">${actual+1} (próximo)</option>
+    `;
+  }
+  const anio = selAnio?.value || String(actual);
+  // Aviso si es año futuro
+  const aviso = document.getElementById("asig-aviso-anio");
+  if(aviso){
+    if(parseInt(anio) > actual){
+      aviso.style.display = "";
+      aviso.innerHTML = `📅 <strong>Estás preparando las asignaciones del ${anio}.</strong> Los profes NO ven estas asignaciones hasta que se aplique "▶️ Aplicar Matrículas ${anio}" desde el módulo de Matrícula. Podés armar todo con calma desde ya.`;
+    } else {
+      aviso.style.display = "none";
+    }
+  }
+  const rows=await api(`/api/admin/asignaciones?anio=${anio}`);
   if(!rows)return;
   asigData = rows;
   // Llenar dropdown de profesores únicos (preservar la selección actual)
@@ -6124,7 +6149,8 @@ async function guardarAsignacion(){
   const lecc=document.getElementById("ma-lecciones").value;
   const subgrupo=document.getElementById("ma-subgrupo").value||null;
   if(!pid||!sid||!mid){sa("alert-ma","Todos los campos son requeridos.","danger");return;}
-  try{await api("/api/admin/asignaciones","POST",{profesor_id:+pid,seccion_id:+sid,materia_id:+mid,lecciones_semana:+lecc,subgrupo});cerrarModal("modal-asignacion");cargarAsignaciones();}
+  const anio = document.getElementById("filtro-anio-asig")?.value || fechaHoyCR().slice(0,4);
+  try{await api("/api/admin/asignaciones","POST",{profesor_id:+pid,seccion_id:+sid,materia_id:+mid,lecciones_semana:+lecc,subgrupo,anio:+anio});cerrarModal("modal-asignacion");cargarAsignaciones();}
   catch(e){sa("alert-ma",e.message,"danger");}
 }
 async function eliminarAsig(id){

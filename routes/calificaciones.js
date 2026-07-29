@@ -2,6 +2,13 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 
+// Año actual en zona horaria de Costa Rica (UTC-6)
+function anioCR(){
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - 360);
+  return d.getFullYear();
+}
+
 // ── Política de acceso del módulo de Calificaciones ────────────────────
 // SOLO el profesor que enseña una asignación puede ver/manipular sus notas.
 // Ni admin, ni guía, ni orientador, ni auxiliar tienen acceso.
@@ -59,6 +66,7 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
       LEFT JOIN materia_evaluacion_oficial regla
         ON regla.id = mre.regla_id
       WHERE a.profesor_id = $1
+        AND COALESCE(a.anio, $3) = $3
         -- Mostrar asignaciones del período pedido O las del I Período que
         -- NO tienen una versión más nueva en el II Período (herencia
         -- automática — la mayoría de materias son anuales y no cambian
@@ -74,12 +82,13 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
                 AND a2.materia_id = a.materia_id
                 AND COALESCE(a2.subgrupo,'') = COALESCE(a.subgrupo,'')
                 AND a2.periodo = $2
+                AND COALESCE(a2.anio, $3) = $3
             )
           )
         )
         AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
       ORDER BY s.nombre, m.nombre, a.subgrupo NULLS FIRST
-    `, [u.id, periodo]);
+    `, [u.id, periodo, anioCR()]);
 
     res.json(r.rows);
   } catch (e) {

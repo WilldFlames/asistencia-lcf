@@ -396,15 +396,15 @@ function periodoActualAdmin() {
 router.get("/asignaciones", onlyAdmin, async (req, res) => {
   const todas = req.query.todas === '1';
   const periodo = periodoActualAdmin();
-  // a.* ya trae a.modo_simplificado. También exponemos el de la materia
-  // para que el frontend muestre "(toda la materia simplificada)" cuando
-  // aplique y deshabilite el toggle individual.
-  //
-  // Cuando el admin filtra por período actual (default), aplicamos herencia:
-  // muestra las asignaciones creadas específicamente para el período pedido
-  // MÁS las del I Período que no tienen versión en el período pedido. Esto
-  // refleja la realidad: la mayoría de materias son anuales, solo algunas
-  // (como talleres semestrales) cambian entre períodos.
+  // Año lectivo: default = actual. Permite preparar el año siguiente sin
+  // afectar el año en curso. Las asignaciones del año siguiente conviven con
+  // las del actual en la misma tabla, filtradas por la columna `anio`.
+  const anioCR = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - 360); // UTC-6
+    return d.getFullYear();
+  };
+  const anio = parseInt(req.query.anio) || anioCR();
   const sqlTodas = `
     SELECT a.*, COALESCE(a.periodo,'I Período') AS periodo,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol AS prof_rol,
@@ -414,6 +414,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id
     JOIN materias m ON m.id=a.materia_id
+    WHERE COALESCE(a.anio, $1) = $1
     ORDER BY u.primer_apellido, s.nombre, m.nombre
   `;
   const sqlPeriodo = `
@@ -425,7 +426,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id
     JOIN materias m ON m.id=a.materia_id
-    WHERE (
+    WHERE COALESCE(a.anio, $2) = $2 AND (
       COALESCE(a.periodo,'I Período') = $1
       OR (
         COALESCE(a.periodo,'I Período') = 'I Período'
@@ -436,21 +437,28 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
             AND a2.materia_id = a.materia_id
             AND COALESCE(a2.subgrupo,'') = COALESCE(a.subgrupo,'')
             AND COALESCE(a2.periodo,'I Período') = $1
+            AND COALESCE(a2.anio, $2) = $2
         )
       )
     )
     ORDER BY u.primer_apellido, s.nombre, m.nombre
   `;
-  const r = await pool.query(todas ? sqlTodas : sqlPeriodo, todas ? [] : [periodo]);
+  const r = await pool.query(todas ? sqlTodas : sqlPeriodo, todas ? [anio] : [periodo, anio]);
   res.json(r.rows);
 });
 
 router.post("/asignaciones", onlyAdmin, async (req, res) => {
-  const { profesor_id, seccion_id, materia_id, lecciones_semana, subgrupo, periodo } = req.body;
+  const { profesor_id, seccion_id, materia_id, lecciones_semana, subgrupo, periodo, anio } = req.body;
   if (!profesor_id||!seccion_id||!materia_id) return res.status(400).json({ error: "Datos incompletos" });
+  const anioCR = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - 360);
+    return d.getFullYear();
+  };
+  const anioFinal = parseInt(anio) || anioCR();
   try {
-    const r = await pool.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo,periodo) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-      [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupo||null,periodo||periodoActualAdmin()]);
+    const r = await pool.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo,periodo,anio) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupo||null,periodo||periodoActualAdmin(), anioFinal]);
     res.json({ ok:true, id:r.rows[0].id });
   } catch(e) {
     if (e.message.includes("unique")) return res.status(409).json({ error: "Asignación ya existe" });
