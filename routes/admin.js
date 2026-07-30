@@ -399,12 +399,16 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
   // Año lectivo: default = actual. Permite preparar el año siguiente sin
   // afectar el año en curso. Las asignaciones del año siguiente conviven con
   // las del actual en la misma tabla, filtradas por la columna `anio`.
+  // Las asignaciones legacy (anio IS NULL) se consideran del año ACTUAL
+  // (no del año pedido), para que al filtrar por 2027 no aparezcan las
+  // viejas del 2026 que no tenían anio registrado.
   const anioCR = () => {
     const d = new Date();
     d.setMinutes(d.getMinutes() - 360); // UTC-6
     return d.getFullYear();
   };
   const anio = parseInt(req.query.anio) || anioCR();
+  const anioActual = anioCR();
   const sqlTodas = `
     SELECT a.*, COALESCE(a.periodo,'I Período') AS periodo,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol AS prof_rol,
@@ -414,7 +418,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id
     JOIN materias m ON m.id=a.materia_id
-    WHERE COALESCE(a.anio, $1) = $1
+    WHERE COALESCE(a.anio, $1) = $2
     ORDER BY u.primer_apellido, s.nombre, m.nombre
   `;
   const sqlPeriodo = `
@@ -426,7 +430,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id
     JOIN materias m ON m.id=a.materia_id
-    WHERE COALESCE(a.anio, $2) = $2 AND (
+    WHERE COALESCE(a.anio, $3) = $2 AND (
       COALESCE(a.periodo,'I Período') = $1
       OR (
         COALESCE(a.periodo,'I Período') = 'I Período'
@@ -437,13 +441,16 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
             AND a2.materia_id = a.materia_id
             AND COALESCE(a2.subgrupo,'') = COALESCE(a.subgrupo,'')
             AND COALESCE(a2.periodo,'I Período') = $1
-            AND COALESCE(a2.anio, $2) = $2
+            AND COALESCE(a2.anio, $3) = $2
         )
       )
     )
     ORDER BY u.primer_apellido, s.nombre, m.nombre
   `;
-  const r = await pool.query(todas ? sqlTodas : sqlPeriodo, todas ? [anio] : [periodo, anio]);
+  const r = await pool.query(
+    todas ? sqlTodas : sqlPeriodo,
+    todas ? [anioActual, anio] : [periodo, anio, anioActual]
+  );
   res.json(r.rows);
 });
 
