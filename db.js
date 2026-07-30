@@ -1039,6 +1039,23 @@ async function initDB() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_minasis_minuta ON minuta_asistentes(minuta_id)`);
 
+      // Auditoría de accesos de admin/administrativo a minutas ajenas.
+      // Se registra:
+      //  - accion = 'ver'       → cuando abren el detalle
+      //  - accion = 'reabrir'   → cuando reabren una minuta finalizada
+      // La reapertura requiere justificación escrita obligatoria.
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS minuta_accesos_admin (
+          id           SERIAL PRIMARY KEY,
+          minuta_id    INTEGER NOT NULL REFERENCES minutas(id) ON DELETE CASCADE,
+          usuario_id   INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          accion       TEXT NOT NULL CHECK(accion IN ('ver','reabrir')),
+          justificacion TEXT,
+          fecha        TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_min_acc_minuta ON minuta_accesos_admin(minuta_id)`);
+
       console.log("✅ Tablas de Minutas listas");
     } catch (errMin) {
       console.error("❌❌❌ ERROR CREANDO TABLAS MINUTAS ❌❌❌");

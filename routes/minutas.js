@@ -33,15 +33,21 @@ function esStaff(rol){ return ["admin","administrativo"].includes(rol); }
 // ───────────────────────────────────────────────────────────────────────
 // ───────────────────────────────────────────────────────────────────────
 //  Reglas de privacidad de minutas:
-//  - Cada minuta la ven SOLO el usuario que la inició (iniciada_por) y los
-//    usuarios marcados como PRESENTES (minuta_asistentes.tipo='presente'
-//    con usuario_id conocido).
-//  - Cualquier otro rol NO puede verla, ni siquiera admin, para proteger
-//    información delicada (Junta, Personal, casos de conducta, etc.).
+//  - Cada minuta la ven quien la inició (iniciada_por) + los usuarios
+//    marcados como PRESENTES (minuta_asistentes.tipo='presente' con
+//    usuario_id conocido).
+//  - Excepción de supervisión: los roles 'admin' y 'administrativo'
+//    pueden ver TODAS las minutas para propósitos de auditoría, pero
+//    cada acceso queda registrado en minuta_accesos_admin y se notifica
+//    al creador.
+//  - Cualquier otro rol NO puede verla.
 // ───────────────────────────────────────────────────────────────────────
+function esStaffSupervisor(rol){ return ["admin","administrativo"].includes(rol); }
+
 function filtroVisibilidadSQL(paramIndexStart){
-  // Devuelve la condición SQL y el índice del parámetro donde se coloca u.id
   const idx = paramIndexStart;
+  // Nota: si el usuario es admin/administrativo, el listado devuelve todas
+  // las minutas (esto se maneja en el endpoint saltando este filtro).
   return `(m.iniciada_por = $${idx} OR EXISTS (
     SELECT 1 FROM minuta_asistentes ma
     WHERE ma.minuta_id = m.id AND ma.tipo = 'presente' AND ma.usuario_id = $${idx}
@@ -58,9 +64,11 @@ router.get("/", requireAuth, async (req, res) => {
     params.push(u.id);
     where.push(`m.iniciada_por = $${params.length}`);
   }
-  // Filtro de privacidad: solo iniciador + presentes
-  params.push(u.id);
-  where.push(filtroVisibilidadSQL(params.length));
+  // Filtro de privacidad: admin y administrativo ven todas
+  if (!esStaffSupervisor(u.rol)) {
+    params.push(u.id);
+    where.push(filtroVisibilidadSQL(params.length));
+  }
   const w = where.length ? `WHERE ${where.join(" AND ")}` : "";
   try {
     const r = await pool.query(`
@@ -88,7 +96,25 @@ router.get("/", requireAuth, async (req, res) => {
 //  Helper: verificar que el usuario tiene acceso a la minuta
 //  (es el iniciador o es un presente). Devuelve true/false.
 // ───────────────────────────────────────────────────────────────────────
-async function puedeVerMinuta(minutaId, usuarioId){
+async function puedeVerMinuta(minutaId, usuarioId, rol){
+  // admin/administrativo tienen acceso de supervisión a todas las minutas
+  if (esStaffSupervisor(rol)) return true;
+  const r = await pool.query(`
+    SELECT 1 FROM minutas m
+    WHERE m.id = $1 AND (
+      m.iniciada_por = $2 OR EXISTS (
+        SELECT 1 FROM minuta_asistentes ma
+        WHERE ma.minuta_id = m.id AND ma.tipo='presente' AND ma.usuario_id = $2
+      )
+    )
+    LIMIT 1
+  `, [minutaId, usuarioId]);
+  return r.rows.length > 0;
+}
+
+// Detecta si el usuario es el iniciador o un presente (para saltarnos la
+// auditoría cuando accede legítimamente, aunque tenga rol de supervisor).
+async function esParteDeLaMinuta(minutaId, usuarioId){
   const r = await pool.query(`
     SELECT 1 FROM minutas m
     WHERE m.id = $1 AND (
@@ -104,9 +130,36 @@ async function puedeVerMinuta(minutaId, usuarioId){
 
 router.get("/:id", requireAuth, async (req, res) => {
   try {
-    // Verificar acceso antes de devolver la data
-    const puede = await puedeVerMinuta(req.params.id, req.session.usuario.id);
+    const u = req.session.usuario;
+    const puede = await puedeVerMinuta(req.params.id, u.id, u.rol);
     if(!puede) return res.status(403).json({ error: "No tenés acceso a esta minuta. Solo el iniciador y las personas marcadas como presentes pueden verla." });
+
+    // Si es supervisor y NO es parte legítima → auditar y notificar al creador
+    if (esStaffSupervisor(u.rol)) {
+      const esParte = await esParteDeLaMinuta(req.params.id, u.id);
+      if (!esParte) {
+        try {
+          await pool.query(
+            "INSERT INTO minuta_accesos_admin (minuta_id, usuario_id, accion) VALUES ($1,$2,'ver')",
+            [req.params.id, u.id]
+          );
+          // Notificar al creador
+          const creadorR = await pool.query("SELECT iniciada_por, numero, anio FROM minutas WHERE id=$1", [req.params.id]);
+          const creadorId = creadorR.rows[0]?.iniciada_por;
+          if (creadorId && creadorId !== u.id) {
+            const nomAcceso = `${u.primer_apellido || ''} ${u.nombre || ''}`.trim();
+            const rolAcceso = u.rol === 'admin' ? 'Administrador' : 'Administrativo';
+            await pool.query(
+              "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
+              [creadorId,
+                `👁️ ${rolAcceso} ${nomAcceso} consultó tu minuta MIN-${String(creadorR.rows[0].numero).padStart(3,'0')}-${creadorR.rows[0].anio}.`,
+                "minuta_acceso_admin"]
+            );
+          }
+        } catch(e){ console.warn("Auditoría acceso minuta:", e.message); }
+      }
+    }
+
     const mR = await pool.query(`
       SELECT m.*,
         u.primer_apellido AS ini_ap1, u.segundo_apellido AS ini_ap2,
@@ -344,16 +397,52 @@ router.post("/:id/finalizar", requireAuth, async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────────────────
-//  POST /:id/reabrir  — reabrir minuta (solo el creador)
+//  POST /:id/reabrir  — reabrir minuta
+//  - Creador: puede reabrir directamente sin justificación
+//  - Admin/Administrativo: pueden reabrir con justificación escrita
+//    obligatoria. La justificación queda registrada y se notifica al creador.
 // ───────────────────────────────────────────────────────────────────────
 router.post("/:id/reabrir", requireAuth, async (req, res) => {
   const u = req.session.usuario;
+  const { justificacion } = req.body || {};
   try {
-    const mR = await pool.query("SELECT iniciada_por FROM minutas WHERE id=$1", [req.params.id]);
+    const mR = await pool.query("SELECT iniciada_por, numero, anio FROM minutas WHERE id=$1", [req.params.id]);
     if (!mR.rows.length) return res.status(404).json({ error:"Minuta no encontrada" });
-    if (mR.rows[0].iniciada_por !== u.id) {
-      return res.status(403).json({ error:"Solo la persona que inició la minuta puede reabrirla." });
+    const m = mR.rows[0];
+    const esCreador = m.iniciada_por === u.id;
+    const esSupervisor = esStaffSupervisor(u.rol);
+
+    if (!esCreador && !esSupervisor) {
+      return res.status(403).json({ error:"Solo la persona que inició la minuta o admin/administrativo pueden reabrirla." });
     }
+
+    // Si es supervisor (no creador) → exigir justificación
+    if (!esCreador && esSupervisor) {
+      const just = (justificacion || '').trim();
+      if (just.length < 10) {
+        return res.status(400).json({
+          error: "Se requiere una justificación escrita de al menos 10 caracteres para reabrir una minuta ajena.",
+          requiere_justificacion: true
+        });
+      }
+      // Registrar el acceso administrativo
+      await pool.query(
+        "INSERT INTO minuta_accesos_admin (minuta_id, usuario_id, accion, justificacion) VALUES ($1,$2,'reabrir',$3)",
+        [req.params.id, u.id, just]
+      );
+      // Notificar al creador
+      try {
+        const nomAcceso = `${u.primer_apellido || ''} ${u.nombre || ''}`.trim();
+        const rolAcceso = u.rol === 'admin' ? 'Administrador' : 'Administrativo';
+        await pool.query(
+          "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
+          [m.iniciada_por,
+            `🔓 ${rolAcceso} ${nomAcceso} reabrió tu minuta MIN-${String(m.numero).padStart(3,'0')}-${m.anio}. Justificación: "${just}"`,
+            "minuta_reabierta_admin"]
+        );
+      } catch(e){ console.warn("Notif reapertura minuta:", e.message); }
+    }
+
     await pool.query(
       "UPDATE minutas SET estado='en_curso', updated_at=NOW() WHERE id=$1",
       [req.params.id]

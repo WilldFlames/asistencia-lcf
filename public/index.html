@@ -2920,7 +2920,7 @@ tr:hover td{background:#f8fafc;}
   </p>
 
   <div style="background:#fef9c3;border:1px solid #fde047;color:#713f12;border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:14px;">
-    🔒 <strong>Privacidad:</strong> cada minuta la ven <strong>únicamente</strong> quien la creó y las personas marcadas como <strong>presentes</strong>. Ningún otro usuario del sistema —ni siquiera admin/administrativo— puede acceder al contenido. Si necesitás que alguien pueda verla, agregala como asistente presente al crear o editar la minuta.
+    🔒 <strong>Privacidad:</strong> cada minuta la ven quien la creó y las personas marcadas como <strong>presentes</strong>. Admin y Administrativo pueden acceder para supervisión — cada consulta queda registrada y se notifica al creador. Para reabrir una minuta ajena, se requiere justificación escrita.
   </div>
 
   <div id="alert-min" class="alert"></div>
@@ -11443,14 +11443,16 @@ async function abrirMinutaDetalle(id){
     document.getElementById('mind-subtitulo').innerHTML =
       `Creada por ${(m.ini_ap1||'')} ${(m.ini_nombre||'')} · ${fmtTS(m.created_at)} · Estado: ${m.estado === 'en_curso' ? '<strong style="color:#1e40af;">En curso</strong>' : '<strong style="color:#16a34a;">Finalizada</strong>'}`;
 
-    // Botones según estado y permisos
+    // Botones según estado y permisos:
+    //  - Editar / Finalizar / Añadir asistentes / Eliminar → solo el creador
+    //  - Reabrir → creador (directo) o admin/administrativo (con justificación)
     const esCreador = m.iniciada_por === ME.id;
     const esStaff = ['admin','administrativo'].includes(ME.rol);
-    const puedeEditar = (esCreador || esStaff) && m.estado === 'en_curso';
+    const puedeEditar = esCreador && m.estado === 'en_curso';
     document.getElementById('btn-min-editar').style.display     = puedeEditar ? '' : 'none';
     document.getElementById('btn-min-finalizar').style.display  = puedeEditar ? '' : 'none';
-    document.getElementById('btn-min-reabrir').style.display    = (esStaff && m.estado === 'finalizada') ? '' : 'none';
-    document.getElementById('btn-min-eliminar').style.display   = (esCreador || esStaff) ? '' : 'none';
+    document.getElementById('btn-min-reabrir').style.display    = ((esCreador || esStaff) && m.estado === 'finalizada') ? '' : 'none';
+    document.getElementById('btn-min-eliminar').style.display   = esCreador ? '' : 'none';
     document.getElementById('btn-min-add-presente').style.display = puedeEditar ? '' : 'none';
     document.getElementById('btn-min-add-ausente').style.display  = puedeEditar ? '' : 'none';
 
@@ -11667,11 +11669,39 @@ async function finalizarMinuta(){
 
 async function reabrirMinuta(){
   if(!minActual) return;
-  if(!confirm('¿Reabrir esta minuta para edición?')) return;
+  const m = minActual.minuta;
+  const esMia = m.iniciada_por === ME.id;
+  const esSup = ['admin','administrativo'].includes(ME.rol);
+
+  let justificacion = null;
+  if (esMia) {
+    // Creador: solo confirmación simple
+    if(!confirm('¿Reabrir esta minuta para edición?')) return;
+  } else if (esSup) {
+    // Admin/Administrativo reabriendo minuta ajena: pedir justificación
+    const nomCreador = `${m.ini_ap1||''} ${m.ini_nombre||''}`.trim();
+    justificacion = prompt(
+      `🔓 Reapertura de minuta ajena\n\n` +
+      `Vas a reabrir la minuta MIN-${String(m.numero).padStart(3,'0')}-${m.anio} creada por ${nomCreador}.\n\n` +
+      `Esta acción quedará REGISTRADA y se le notificará al creador con tu justificación.\n\n` +
+      `Escribí una justificación clara (mínimo 10 caracteres):`,
+      ''
+    );
+    if (justificacion === null) return; // canceló
+    if (justificacion.trim().length < 10) {
+      sa('alert-mind', 'La justificación debe tener al menos 10 caracteres.', 'danger');
+      return;
+    }
+  } else {
+    sa('alert-mind','Solo el creador o admin/administrativo pueden reabrir.','danger');
+    return;
+  }
+
   try {
-    await api(`/api/minutas/${minActual.minuta.id}/reabrir`, 'POST');
+    const body = justificacion ? { justificacion: justificacion.trim() } : {};
+    await api(`/api/minutas/${minActual.minuta.id}/reabrir`, 'POST', body);
     await abrirMinutaDetalle(minActual.minuta.id);
-    sa('alert-mind','✅ Minuta reabierta.','success');
+    sa('alert-mind', esMia ? '✅ Minuta reabierta.' : '✅ Minuta reabierta. Se notificó al creador con tu justificación.', 'success');
   } catch(e){
     sa('alert-mind', e.message, 'danger');
   }
@@ -15293,7 +15323,7 @@ async function horCargarSeccion(){
   try{
     const r = await api(`/api/horarios/?seccion_id=${secId}&anio=${anio}`);
     if(esAdminH){
-      horAsigsSeccion = await api(`/api/horarios/asignaciones/${secId}`)||[];
+      horAsigsSeccion = await api(`/api/horarios/asignaciones/${secId}?anio=${anio}`)||[];
     }
     const g = r.guia;
     document.getElementById('hor-guia-label').textContent = g
