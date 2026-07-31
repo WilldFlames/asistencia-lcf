@@ -14397,9 +14397,32 @@ async function imprimirReporteComedor(){
     <td style="padding:4px 6px;text-align:center;">${r.hora||'—'}</td>
   </tr>`;
 
+  // NOTA: NO usamos encabezadoMEP()/piePaginaMEP() aquí porque envuelven todo
+  // en una <table> con thead/tfoot repetitivo, y las tablas anidadas de
+  // becados/regulares dentro de ese <tbody> hacen que los navegadores rompan
+  // el paginado (nombres cortados, saltos de página incorrectos).
+  // En su lugar, encabezado plano al inicio + pie con position:fixed en
+  // print (que ya está definido globalmente en el CSS).
   printArea.innerHTML=`
   <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;font-size:12px;">
-    ${encabezadoMEP('REPORTE DIARIO DE COMEDOR ESCOLAR')}
+    <!-- Encabezado MEP plano (no dentro de tabla) -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
+      <tr>
+        <td style="width:23%;vertical-align:middle;padding:0 8px 0 0;">
+          <img src="${MEP_LOGO}" style="width:100%;height:auto;max-height:70px;display:block;object-fit:contain;"/>
+        </td>
+        <td style="width:25%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Dirección Regional<br/>Desamparados</div>
+        </td>
+        <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Supervisión Educativa<br/>Circuito 07</div>
+        </td>
+        <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Liceo de Calle<br/>Fallas</div>
+        </td>
+      </tr>
+    </table>
+    <div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:10px;">REPORTE DIARIO DE COMEDOR ESCOLAR</div>
 
     <div style="display:flex;justify-content:space-between;margin:14px 0;font-size:12px;">
       <div><strong>Fecha:</strong> ${fechaLarga}</div>
@@ -14475,7 +14498,13 @@ async function imprimirReporteComedor(){
         </div>
       </div>
     </div>
-    ${piePaginaMEP()}
+
+    <!-- Pie de página (con position:fixed en @media print, definido en CSS global) -->
+    <div class="print-page-footer print-only-block" style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
+      <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+      <div>Teléfono 2250-0590 / 2250-0614</div>
+      <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
+    </div>
   </div>`;
 
   const style=document.createElement('style');
@@ -14486,7 +14515,6 @@ async function imprimirReporteComedor(){
       #print-boleta-area table{page-break-inside:auto;}
       #print-boleta-area tr{page-break-inside:avoid;page-break-after:auto;}
       #print-boleta-area thead{display:table-header-group;}
-      #print-boleta-area tfoot{display:table-footer-group;}
     }`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea, style);
