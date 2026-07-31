@@ -95,37 +95,16 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
   .print-page-footer{
     display:block;
     width:100%;
-    border-top:1.5px solid #1F3864;
-    padding:5px 16px;
     text-align:center;
-    font-size:10px;color:#555;font-family:Arial,sans-serif;
-    margin-top:24px;
+    font-size:10px;color:#fff;font-family:Arial,sans-serif;
     page-break-inside:avoid;
-    page-break-before:avoid;
   }
   /* Reglas de paginación para todos los documentos impresos:
      - Las filas de tabla NO se cortan por la mitad entre páginas
      - Los <thead> se repiten arriba en cada página nueva
      - Los <tfoot> se repiten abajo en cada página (así viaja el pie MEP)
-     El pie de página (.print-page-footer) queda dentro del <tfoot> de la
-     tabla page-wrap. NO usamos position:fixed porque en print rompe la
-     paginación en varios navegadores. */
-  /* Pie de página anclado al fondo del papel en modo print. Al ser
-     position:fixed;bottom:0, el navegador lo dibuja en el margen inferior
-     de cada hoja impresa. El @page margin:2cm bottom deja el espacio. */
-  .print-page-footer {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    margin: 0 !important;
-    z-index: 1000;
-  }
-  /* Espacio inferior en el contenedor para que el contenido no quede
-     debajo del pie. */
-  #print-boleta-area, #print-boleta-area-lista, #reporte-contenido {
-    padding-bottom: 100px !important;
-  }
+     El pie de página va dentro del <tfoot> de la tabla envolvente. NO
+     usamos position:fixed porque tapa contenido y rompe la paginación. */
   #print-boleta-area table,
   #print-boleta-area-lista table,
   #reporte-contenido table { page-break-inside: auto; }
@@ -288,37 +267,16 @@ tr:hover td{background:#f8fafc;}
   .print-page-footer{
     display:block;
     width:100%;
-    border-top:1.5px solid #1F3864;
-    padding:5px 16px;
     text-align:center;
-    font-size:10px;color:#555;font-family:Arial,sans-serif;
-    margin-top:24px;
+    font-size:10px;color:#fff;font-family:Arial,sans-serif;
     page-break-inside:avoid;
-    page-break-before:avoid;
   }
   /* Reglas de paginación para todos los documentos impresos:
      - Las filas de tabla NO se cortan por la mitad entre páginas
      - Los <thead> se repiten arriba en cada página nueva
      - Los <tfoot> se repiten abajo en cada página (así viaja el pie MEP)
-     El pie de página (.print-page-footer) queda dentro del <tfoot> de la
-     tabla page-wrap. NO usamos position:fixed porque en print rompe la
-     paginación en varios navegadores. */
-  /* Pie de página anclado al fondo del papel en modo print. Al ser
-     position:fixed;bottom:0, el navegador lo dibuja en el margen inferior
-     de cada hoja impresa. El @page margin:2cm bottom deja el espacio. */
-  .print-page-footer {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    margin: 0 !important;
-    z-index: 1000;
-  }
-  /* Espacio inferior en el contenedor para que el contenido no quede
-     debajo del pie. */
-  #print-boleta-area, #print-boleta-area-lista, #reporte-contenido {
-    padding-bottom: 100px !important;
-  }
+     El pie de página va dentro del <tfoot> de la tabla envolvente. NO
+     usamos position:fixed porque tapa contenido y rompe la paginación. */
   #print-boleta-area table,
   #print-boleta-area-lista table,
   #reporte-contenido table { page-break-inside: auto; }
@@ -14397,46 +14355,52 @@ async function imprimirReporteComedor(){
     <td style="padding:4px 6px;text-align:center;">${r.hora||'—'}</td>
   </tr>`;
 
-  // NOTA: envolvemos TODO en una <table> con <tfoot> que contiene el pie MEP.
-  // El navegador reserva espacio al pie en cada página y NO tapa contenido.
-  // Las tablas internas (becados/no-becados) van dentro del <tbody> pero
-  // NO como tablas anidadas: usamos divs con display:table-row-group + role.
+  // NOTA: envolvemos TODO en una <table>:
+  //  - <thead> con encabezado MEP + menú del día → se repite en CADA página
+  //  - <tbody> con resumen + tablas de becados/regulares → contenido paginable
+  //  - <tfoot> con pie MEP → se repite abajo en CADA página
+  // Los navegadores tienen soporte nativo para thead/tfoot repetitivos en
+  // print, y RESERVAN el espacio automáticamente (no tapan contenido).
   printArea.innerHTML=`
   <table style="width:100%;max-width:720px;margin:0 auto;border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;">
-    <tbody><tr><td style="padding:20px;border:0;">
-      <!-- Encabezado MEP plano -->
-      <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-        <tr>
-          <td style="width:23%;vertical-align:middle;padding:0 8px 0 0;">
-            <img src="${MEP_LOGO}" style="width:100%;height:auto;max-height:70px;display:block;object-fit:contain;"/>
-          </td>
-          <td style="width:25%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-            <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Dirección Regional<br/>Desamparados</div>
-          </td>
-          <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-            <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Supervisión Educativa<br/>Circuito 07</div>
-          </td>
-          <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-            <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Liceo de Calle<br/>Fallas</div>
-          </td>
-        </tr>
-      </table>
-      <div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:10px;">REPORTE DIARIO DE COMEDOR ESCOLAR</div>
+    <thead style="display:table-header-group;">
+      <tr><td style="padding:20px 20px 0 20px;border:0;">
+        <!-- Encabezado MEP oficial -->
+        <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
+          <tr>
+            <td style="width:23%;vertical-align:middle;padding:0 8px 0 0;">
+              <img src="${MEP_LOGO}" style="width:100%;height:auto;max-height:70px;display:block;object-fit:contain;"/>
+            </td>
+            <td style="width:25%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+              <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Dirección Regional<br/>Desamparados</div>
+            </td>
+            <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+              <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Supervisión Educativa<br/>Circuito 07</div>
+            </td>
+            <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+              <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Liceo de Calle<br/>Fallas</div>
+            </td>
+          </tr>
+        </table>
+        <div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:8px;">REPORTE DIARIO DE COMEDOR ESCOLAR</div>
 
-      <div style="display:flex;justify-content:space-between;margin:14px 0;font-size:12px;">
-        <div><strong>Fecha:</strong> ${fechaLarga}</div>
-        <div><strong>Total atendidos:</strong> ${rows.length} estudiantes</div>
-      </div>
-
-      <!-- Menú del día -->
-      <div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:14px;background:#f8fafc;page-break-inside:avoid;">
-        <div style="font-weight:bold;margin-bottom:6px;">🍽️ Menú del Día</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
-          <div><strong>Plato:</strong> ${plato}</div>
-          <div><strong>Ensalada:</strong> ${ensalada}</div>
-          <div><strong>Fruta:</strong> ${fruta}</div>
+        <div style="display:flex;justify-content:space-between;margin:8px 0;font-size:12px;">
+          <div><strong>Fecha:</strong> ${fechaLarga}</div>
+          <div><strong>Total atendidos:</strong> ${rows.length} estudiantes</div>
         </div>
-      </div>
+
+        <!-- Menú del día (también se repite en cada página) -->
+        <div style="border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;margin-bottom:10px;background:#f8fafc;">
+          <div style="font-weight:bold;margin-bottom:4px;font-size:11.5px;">🍽️ Menú del Día</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11.5px;">
+            <div><strong>Plato:</strong> ${plato}</div>
+            <div><strong>Ensalada:</strong> ${ensalada}</div>
+            <div><strong>Fruta:</strong> ${fruta}</div>
+          </div>
+        </div>
+      </td></tr>
+    </thead>
+    <tbody><tr><td style="padding:0 20px;border:0;">
 
       <!-- Resumen -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;page-break-inside:avoid;">
