@@ -14397,124 +14397,127 @@ async function imprimirReporteComedor(){
     <td style="padding:4px 6px;text-align:center;">${r.hora||'—'}</td>
   </tr>`;
 
-  // NOTA: NO usamos encabezadoMEP()/piePaginaMEP() aquí porque envuelven todo
-  // en una <table> con thead/tfoot repetitivo, y las tablas anidadas de
-  // becados/regulares dentro de ese <tbody> hacen que los navegadores rompan
-  // el paginado (nombres cortados, saltos de página incorrectos).
-  // En su lugar, encabezado plano al inicio + pie con position:fixed en
-  // print (que ya está definido globalmente en el CSS).
+  // NOTA: envolvemos TODO en una <table> con <tfoot> que contiene el pie MEP.
+  // El navegador reserva espacio al pie en cada página y NO tapa contenido.
+  // Las tablas internas (becados/no-becados) van dentro del <tbody> pero
+  // NO como tablas anidadas: usamos divs con display:table-row-group + role.
   printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;font-size:12px;">
-    <!-- Encabezado MEP plano (no dentro de tabla) -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-      <tr>
-        <td style="width:23%;vertical-align:middle;padding:0 8px 0 0;">
-          <img src="${MEP_LOGO}" style="width:100%;height:auto;max-height:70px;display:block;object-fit:contain;"/>
-        </td>
-        <td style="width:25%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Dirección Regional<br/>Desamparados</div>
-        </td>
-        <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Supervisión Educativa<br/>Circuito 07</div>
-        </td>
-        <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Liceo de Calle<br/>Fallas</div>
-        </td>
-      </tr>
-    </table>
-    <div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:10px;">REPORTE DIARIO DE COMEDOR ESCOLAR</div>
+  <table style="width:100%;max-width:720px;margin:0 auto;border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;">
+    <tbody><tr><td style="padding:20px;border:0;">
+      <!-- Encabezado MEP plano -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
+        <tr>
+          <td style="width:23%;vertical-align:middle;padding:0 8px 0 0;">
+            <img src="${MEP_LOGO}" style="width:100%;height:auto;max-height:70px;display:block;object-fit:contain;"/>
+          </td>
+          <td style="width:25%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+            <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Dirección Regional<br/>Desamparados</div>
+          </td>
+          <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+            <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Supervisión Educativa<br/>Circuito 07</div>
+          </td>
+          <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+            <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Liceo de Calle<br/>Fallas</div>
+          </td>
+        </tr>
+      </table>
+      <div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:10px;">REPORTE DIARIO DE COMEDOR ESCOLAR</div>
 
-    <div style="display:flex;justify-content:space-between;margin:14px 0;font-size:12px;">
-      <div><strong>Fecha:</strong> ${fechaLarga}</div>
-      <div><strong>Total atendidos:</strong> ${rows.length} estudiantes</div>
-    </div>
-
-    <!-- Menú del día -->
-    <div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:14px;background:#f8fafc;page-break-inside:avoid;">
-      <div style="font-weight:bold;margin-bottom:6px;">🍽️ Menú del Día</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
-        <div><strong>Plato:</strong> ${plato}</div>
-        <div><strong>Ensalada:</strong> ${ensalada}</div>
-        <div><strong>Fruta:</strong> ${fruta}</div>
+      <div style="display:flex;justify-content:space-between;margin:14px 0;font-size:12px;">
+        <div><strong>Fecha:</strong> ${fechaLarga}</div>
+        <div><strong>Total atendidos:</strong> ${rows.length} estudiantes</div>
       </div>
-    </div>
 
-    <!-- Resumen -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;page-break-inside:avoid;">
-      <div style="border:1px solid #86efac;border-radius:6px;padding:8px;background:#f0fdf4;">
-        <div style="font-size:22px;font-weight:bold;color:#166534;">${rows.length}</div>
-        <div style="font-size:11px;">Total</div>
-      </div>
-      <div style="border:1px solid #fde047;border-radius:6px;padding:8px;background:#fefce8;">
-        <div style="font-size:22px;font-weight:bold;color:#854d0e;">${becados.length}</div>
-        <div style="font-size:11px;">Becados</div>
-      </div>
-      <div style="border:1px solid #bfdbfe;border-radius:6px;padding:8px;background:#eff6ff;">
-        <div style="font-size:22px;font-weight:bold;color:#1d4ed8;">${regulares.length}</div>
-        <div style="font-size:11px;">No Becados</div>
-      </div>
-    </div>
-
-    <!-- Tabla becados -->
-    ${becados.length?`
-    <div style="font-weight:bold;font-size:12px;color:#166534;margin-bottom:4px;page-break-after:avoid;">🎓 Becados (${becados.length})</div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;">
-      <thead style="display:table-header-group;"><tr style="background:#f0fdf4;">
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th>
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;">Cédula</th>
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;">Sección</th>
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
-      </tr></thead>
-      <tbody>${becados.map(rowHtml).join('')}</tbody>
-    </table>`:''}
-
-    <!-- Tabla no becados -->
-    ${regulares.length?`
-    <div style="font-weight:bold;font-size:12px;color:#374151;margin-bottom:4px;page-break-after:avoid;">👤 No Becados (${regulares.length})</div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;">
-      <thead style="display:table-header-group;"><tr style="background:#f8fafc;">
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th>
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;">Cédula</th>
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;">Sección</th>
-        <th style="padding:5px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
-      </tr></thead>
-      <tbody>${regulares.map(rowHtml).join('')}</tbody>
-    </table>`:''}
-
-    <!-- Firma -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;page-break-inside:avoid;">
-      <div style="text-align:center;">
-        <div style="border-top:1px solid #374151;padding-top:8px;">
-          <div style="font-size:12px;">Firma Encargada de Comedor</div>
-          <div style="font-size:12px;margin-top:4px;">(Sello)</div>
+      <!-- Menú del día -->
+      <div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:14px;background:#f8fafc;page-break-inside:avoid;">
+        <div style="font-weight:bold;margin-bottom:6px;">🍽️ Menú del Día</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
+          <div><strong>Plato:</strong> ${plato}</div>
+          <div><strong>Ensalada:</strong> ${ensalada}</div>
+          <div><strong>Fruta:</strong> ${fruta}</div>
         </div>
       </div>
-      <div style="text-align:center;">
-        <div style="border-top:1px solid #374151;padding-top:8px;">
-          <div style="font-size:12px;">Firma Director(a)</div>
-          <div style="font-size:12px;margin-top:4px;">(Sello)</div>
+
+      <!-- Resumen -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;page-break-inside:avoid;">
+        <div style="border:1px solid #86efac;border-radius:6px;padding:8px;background:#f0fdf4;">
+          <div style="font-size:22px;font-weight:bold;color:#166534;">${rows.length}</div>
+          <div style="font-size:11px;">Total</div>
+        </div>
+        <div style="border:1px solid #fde047;border-radius:6px;padding:8px;background:#fefce8;">
+          <div style="font-size:22px;font-weight:bold;color:#854d0e;">${becados.length}</div>
+          <div style="font-size:11px;">Becados</div>
+        </div>
+        <div style="border:1px solid #bfdbfe;border-radius:6px;padding:8px;background:#eff6ff;">
+          <div style="font-size:22px;font-weight:bold;color:#1d4ed8;">${regulares.length}</div>
+          <div style="font-size:11px;">No Becados</div>
         </div>
       </div>
-    </div>
 
-    <!-- Pie de página (con position:fixed en @media print, definido en CSS global) -->
-    <div class="print-page-footer print-only-block" style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
-      <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
-      <div>Teléfono 2250-0590 / 2250-0614</div>
-      <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
-    </div>
-  </div>`;
+      <!-- Tabla becados -->
+      ${becados.length?`
+      <div style="font-weight:bold;font-size:12px;color:#166534;margin-bottom:4px;page-break-after:avoid;">🎓 Becados (${becados.length})</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;">
+        <thead style="display:table-header-group;"><tr style="background:#f0fdf4;">
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th>
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;">Cédula</th>
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;">Sección</th>
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
+        </tr></thead>
+        <tbody>${becados.map(rowHtml).join('')}</tbody>
+      </table>`:''}
+
+      <!-- Tabla no becados -->
+      ${regulares.length?`
+      <div style="font-weight:bold;font-size:12px;color:#374151;margin-bottom:4px;page-break-after:avoid;">👤 No Becados (${regulares.length})</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;">
+        <thead style="display:table-header-group;"><tr style="background:#f8fafc;">
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;width:30px;">#</th>
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th>
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;">Cédula</th>
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;">Sección</th>
+          <th style="padding:5px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th>
+        </tr></thead>
+        <tbody>${regulares.map(rowHtml).join('')}</tbody>
+      </table>`:''}
+
+      <!-- Firma -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;page-break-inside:avoid;">
+        <div style="text-align:center;">
+          <div style="border-top:1px solid #374151;padding-top:8px;">
+            <div style="font-size:12px;">Firma Encargada de Comedor</div>
+            <div style="font-size:12px;margin-top:4px;">(Sello)</div>
+          </div>
+        </div>
+        <div style="text-align:center;">
+          <div style="border-top:1px solid #374151;padding-top:8px;">
+            <div style="font-size:12px;">Firma Director(a)</div>
+            <div style="font-size:12px;margin-top:4px;">(Sello)</div>
+          </div>
+        </div>
+      </div>
+    </td></tr></tbody>
+    <tfoot style="display:table-footer-group;">
+      <tr><td style="padding:0;border:0;">
+        <div style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
+          <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+          <div>Teléfono 2250-0590 / 2250-0614</div>
+          <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
+        </div>
+      </td></tr>
+    </tfoot>
+  </table>`;
 
   const style=document.createElement('style');
   style.innerHTML=`
     @media print{
       body>*:not(#print-boleta-area){display:none!important;}
-      #print-boleta-area{display:block!important;}
+      #print-boleta-area{display:block!important;padding-bottom:0!important;}
       #print-boleta-area table{page-break-inside:auto;}
       #print-boleta-area tr{page-break-inside:avoid;page-break-after:auto;}
       #print-boleta-area thead{display:table-header-group;}
+      #print-boleta-area tfoot{display:table-footer-group;}
     }`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea, style);
