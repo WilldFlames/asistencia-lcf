@@ -18084,10 +18084,9 @@ async function imprimirConstanciaPremat(){
   if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
   printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;">
     ${encabezadoMEP()}
     <h2 style="text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE PREMATRÍCULA</h2>
-    <div style="font-size:13px;line-height:2;text-align:justify;">
+    <div style="font-size:13px;line-height:2;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
       <p style="text-indent:2em;">El suscrito(a), funcionario(a) administrativo(a) del Liceo de Calle Fallas, hace constar que el(la) señor(a)
       <strong>${encNombre}</strong>, portador(a) de la cédula de identidad número <strong>${encCed||'_______________'}</strong>,
       en calidad de encargado(a) legal, ha solicitado el proceso de prematrícula para el(la) estudiante
@@ -18131,7 +18130,7 @@ async function imprimirConstanciaPremat(){
       </div>
     </div>
     ${piePaginaMEP()}
-  </div>`;
+  `;
   const style=document.createElement("style");
   style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
   document.head.appendChild(style);
