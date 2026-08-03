@@ -98,17 +98,7 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
      de la interfaz (filtros, alertas, tabs, botones) y solo mostrar el
      contenido del reporte. La lógica: si existe #reporte-contenido con hijos,
      ocultar los HERMANOS que no sean el propio reporte. */
-  /* Al imprimir el reporte de asistencia: ocultamos todo excepto los
-     ancestros directos de #reporte-contenido y su contenido. */
-  body.print-reporte .sidebar,
-  body.print-reporte .topbar,
-  body.print-reporte #alert-rep,
-  body.print-reporte #rep-panel-activos,
-  body.print-reporte #rep-panel-retirados,
-  body.print-reporte .consec-tabs,
-  body.print-reporte #page-reportes > .card:first-child { display: none !important; }
-  body.print-reporte #reporte-contenido { padding: 0 !important; margin: 0 !important; }
-  body.print-reporte .main-content { padding: 0 !important; }
+
   .main-content{padding:0;}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px!important;}
   .print-header{text-align:center;margin-bottom:20px;}
@@ -302,17 +292,7 @@ tr:hover td{background:#f8fafc;}
      de la interfaz (filtros, alertas, tabs, botones) y solo mostrar el
      contenido del reporte. La lógica: si existe #reporte-contenido con hijos,
      ocultar los HERMANOS que no sean el propio reporte. */
-  /* Al imprimir el reporte de asistencia: ocultamos todo excepto los
-     ancestros directos de #reporte-contenido y su contenido. */
-  body.print-reporte .sidebar,
-  body.print-reporte .topbar,
-  body.print-reporte #alert-rep,
-  body.print-reporte #rep-panel-activos,
-  body.print-reporte #rep-panel-retirados,
-  body.print-reporte .consec-tabs,
-  body.print-reporte #page-reportes > .card:first-child { display: none !important; }
-  body.print-reporte #reporte-contenido { padding: 0 !important; margin: 0 !important; }
-  body.print-reporte .main-content { padding: 0 !important; }
+
   .main-content{padding:0;}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px!important;}
   .print-header{text-align:center;margin-bottom:20px;}
@@ -7774,21 +7754,33 @@ async function generarReporte(){
   `;
 }
 
-// Imprimir el reporte de asistencia: agrega clase al body para que el CSS
-// oculte filtros/tabs/botones, imprime, y limpia la clase después.
-function imprimirReporteAsistencia(){
+// Imprimir el reporte de asistencia: clona el contenido en el área de
+// impresión estándar (#print-boleta-area) y usa la misma técnica que los
+// demás documentos (boletas, constancias, etc), que sí funciona bien.
+async function imprimirReporteAsistencia(){
   const cont = document.getElementById("reporte-contenido");
   if(!cont || !cont.innerHTML.trim()){
     alert("Primero generá el reporte con el botón 🔍 Ver.");
     return;
   }
-  document.body.classList.add("print-reporte");
-  // Esperar un tick para que el navegador aplique los estilos
-  setTimeout(()=>{
-    window.print();
-    // Limpiar la clase después de imprimir (o cancelar)
-    setTimeout(()=>document.body.classList.remove("print-reporte"), 500);
-  }, 100);
+  let printArea = document.getElementById("print-boleta-area");
+  if(!printArea){
+    printArea = document.createElement("div");
+    printArea.id = "print-boleta-area";
+    document.body.appendChild(printArea);
+  }
+  // Clonar el HTML del reporte (para no romper la vista original)
+  printArea.innerHTML = cont.innerHTML;
+
+  // Estilo local que oculta TODO lo que no sea el área de impresión
+  const style = document.createElement('style');
+  style.innerHTML = `@media print{
+    body>*:not(#print-boleta-area){display:none!important;}
+    #print-boleta-area{display:block!important;padding:0!important;margin:0!important;}
+  }`;
+  document.head.appendChild(style);
+
+  await imprimirConEncabezado(printArea, style);
 }
 
 async function enviarEmailReporte(){
