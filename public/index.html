@@ -110,7 +110,18 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
      - Los <thead> se repiten arriba en cada página nueva
      - Los <tfoot> se repiten abajo en cada página (así viaja el pie MEP)
      El pie de página va dentro del <tfoot> de la tabla envolvente. NO
-     usamos position:fixed porque tapa contenido y rompe la paginación. */
+     usamos position:fixed porque tapa contenido y rompe la paginación.
+     Las tablas envolventes (page-wrap, #reporte-contenido > table) ocupan
+     el 100% del alto del papel para que el <tfoot> quede pegado abajo
+     aunque el contenido sea corto en la última página. */
+  html, body { height: 100%; }
+  #reporte-contenido, #print-boleta-area, #print-boleta-area-lista {
+    min-height: calc(100vh - 3.5cm);
+  }
+  #reporte-contenido > table,
+  #print-boleta-area > table {
+    height: 100%;
+  }
   #print-boleta-area table,
   #print-boleta-area-lista table,
   #reporte-contenido table { page-break-inside: auto; }
@@ -288,7 +299,18 @@ tr:hover td{background:#f8fafc;}
      - Los <thead> se repiten arriba en cada página nueva
      - Los <tfoot> se repiten abajo en cada página (así viaja el pie MEP)
      El pie de página va dentro del <tfoot> de la tabla envolvente. NO
-     usamos position:fixed porque tapa contenido y rompe la paginación. */
+     usamos position:fixed porque tapa contenido y rompe la paginación.
+     Las tablas envolventes (page-wrap, #reporte-contenido > table) ocupan
+     el 100% del alto del papel para que el <tfoot> quede pegado abajo
+     aunque el contenido sea corto en la última página. */
+  html, body { height: 100%; }
+  #reporte-contenido, #print-boleta-area, #print-boleta-area-lista {
+    min-height: calc(100vh - 3.5cm);
+  }
+  #reporte-contenido > table,
+  #print-boleta-area > table {
+    height: 100%;
+  }
   #print-boleta-area table,
   #print-boleta-area-lista table,
   #reporte-contenido table { page-break-inside: auto; }
@@ -7598,13 +7620,13 @@ async function generarReporte(){
   const totalTeqA = Math.floor(totalT / 2);
   const totalAusenciasEfectivas = totalA + totalTeqA;
   document.getElementById("reporte-contenido").innerHTML=`
-    <table style="width:100%;max-width:720px;margin:0 auto;border-collapse:collapse;font-family:Arial,sans-serif;">
+    <table style="width:100%;max-width:720px;margin:0 auto;border-collapse:collapse;font-family:Arial,sans-serif;min-height:100vh;">
       <thead class="print-only-header" style="display:table-header-group;">
         <tr><td style="padding:0 0 14px 0;border:0;">
           <div id="print-header-mep"></div>
         </td></tr>
       </thead>
-      <tbody><tr><td style="padding:0;border:0;">
+      <tbody style="vertical-align:top;"><tr><td style="padding:0;border:0;vertical-align:top;">
     <div class="card">
       <div style="margin-bottom:14px;">
         <div style="font-size:17px;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
@@ -7612,7 +7634,7 @@ async function generarReporte(){
         <div style="font-size:13px;color:var(--azul);font-weight:bold;">${detectarPeriodo(hasta||desde||null)}</div>
         ${desde||hasta?`<div style="font-size:12px;color:var(--muted);">Período: ${desde?fmtF(desde):"inicio"} al ${hasta?fmtF(hasta):"hoy"}</div>`:""}
       </div>
-      <div class="stats" style="margin-bottom:14px;">
+      <div class="stats" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px;">
         <div class="stat"><div class="num">${totalL}</div><div class="lbl">Lecciones</div></div>
         <div class="stat"><div class="num red">${totalA}</div><div class="lbl">Ausencias</div></div>
         <div class="stat"><div class="num green">${totalJ}</div><div class="lbl">Justificadas</div></div>
