@@ -98,9 +98,17 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
      de la interfaz (filtros, alertas, tabs, botones) y solo mostrar el
      contenido del reporte. La lógica: si existe #reporte-contenido con hijos,
      ocultar los HERMANOS que no sean el propio reporte. */
-  body.print-reporte > *:not(#page-reportes) { display: none !important; }
-  body.print-reporte #page-reportes > *:not(#reporte-contenido) { display: none !important; }
+  /* Al imprimir el reporte de asistencia: ocultamos todo excepto los
+     ancestros directos de #reporte-contenido y su contenido. */
+  body.print-reporte .sidebar,
+  body.print-reporte .topbar,
+  body.print-reporte #alert-rep,
+  body.print-reporte #rep-panel-activos,
+  body.print-reporte #rep-panel-retirados,
+  body.print-reporte .consec-tabs,
+  body.print-reporte #page-reportes > .card:first-child { display: none !important; }
   body.print-reporte #reporte-contenido { padding: 0 !important; margin: 0 !important; }
+  body.print-reporte .main-content { padding: 0 !important; }
   .main-content{padding:0;}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px!important;}
   .print-header{text-align:center;margin-bottom:20px;}
@@ -294,9 +302,17 @@ tr:hover td{background:#f8fafc;}
      de la interfaz (filtros, alertas, tabs, botones) y solo mostrar el
      contenido del reporte. La lógica: si existe #reporte-contenido con hijos,
      ocultar los HERMANOS que no sean el propio reporte. */
-  body.print-reporte > *:not(#page-reportes) { display: none !important; }
-  body.print-reporte #page-reportes > *:not(#reporte-contenido) { display: none !important; }
+  /* Al imprimir el reporte de asistencia: ocultamos todo excepto los
+     ancestros directos de #reporte-contenido y su contenido. */
+  body.print-reporte .sidebar,
+  body.print-reporte .topbar,
+  body.print-reporte #alert-rep,
+  body.print-reporte #rep-panel-activos,
+  body.print-reporte #rep-panel-retirados,
+  body.print-reporte .consec-tabs,
+  body.print-reporte #page-reportes > .card:first-child { display: none !important; }
   body.print-reporte #reporte-contenido { padding: 0 !important; margin: 0 !important; }
+  body.print-reporte .main-content { padding: 0 !important; }
   .main-content{padding:0;}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px!important;}
   .print-header{text-align:center;margin-bottom:20px;}
