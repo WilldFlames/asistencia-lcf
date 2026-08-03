@@ -94,6 +94,13 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
+  /* Al imprimir desde la página Reportes de Asistencia, ocultar TODO el resto
+     de la interfaz (filtros, alertas, tabs, botones) y solo mostrar el
+     contenido del reporte. La lógica: si existe #reporte-contenido con hijos,
+     ocultar los HERMANOS que no sean el propio reporte. */
+  body.print-reporte > *:not(#page-reportes) { display: none !important; }
+  body.print-reporte #page-reportes > *:not(#reporte-contenido) { display: none !important; }
+  body.print-reporte #reporte-contenido { padding: 0 !important; margin: 0 !important; }
   .main-content{padding:0;}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px!important;}
   .print-header{text-align:center;margin-bottom:20px;}
@@ -283,6 +290,13 @@ tr:hover td{background:#f8fafc;}
 }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
+  /* Al imprimir desde la página Reportes de Asistencia, ocultar TODO el resto
+     de la interfaz (filtros, alertas, tabs, botones) y solo mostrar el
+     contenido del reporte. La lógica: si existe #reporte-contenido con hijos,
+     ocultar los HERMANOS que no sean el propio reporte. */
+  body.print-reporte > *:not(#page-reportes) { display: none !important; }
+  body.print-reporte #page-reportes > *:not(#reporte-contenido) { display: none !important; }
+  body.print-reporte #reporte-contenido { padding: 0 !important; margin: 0 !important; }
   .main-content{padding:0;}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px!important;}
   .print-header{text-align:center;margin-bottom:20px;}
@@ -755,7 +769,7 @@ tr:hover td{background:#f8fafc;}
         <div class="fg"><label>Desde</label><input type="date" id="rep-desde"/></div>
         <div class="fg"><label>Hasta</label><input type="date" id="rep-hasta"/></div>
         <button class="btn btn-primary" onclick="generarReporte()">🔍 Ver</button>
-        <button class="btn btn-success no-print" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn btn-success no-print" onclick="imprimirReporteAsistencia()">🖨️ Imprimir</button>
         <button class="btn btn-orange no-print" id="btn-enviar-email" onclick="enviarEmailReporte()" style="display:none">📧 Enviar a Encargado</button>
       </div>
     </div>
@@ -777,7 +791,7 @@ tr:hover td{background:#f8fafc;}
         <div class="fg"><label>Desde</label><input type="date" id="rep-desde-arch"/></div>
         <div class="fg"><label>Hasta</label><input type="date" id="rep-hasta-arch"/></div>
         <button class="btn btn-primary" onclick="generarReporteArchivado()">🔍 Ver</button>
-        <button class="btn btn-success no-print" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn btn-success no-print" onclick="imprimirReporteAsistencia()">🖨️ Imprimir</button>
       </div>
     </div>
     <div id="alert-rep" class="alert"></div>
@@ -7742,6 +7756,23 @@ async function generarReporte(){
     </table>
     <div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:6px;">REPORTE DE ASISTENCIA</div>
   `;
+}
+
+// Imprimir el reporte de asistencia: agrega clase al body para que el CSS
+// oculte filtros/tabs/botones, imprime, y limpia la clase después.
+function imprimirReporteAsistencia(){
+  const cont = document.getElementById("reporte-contenido");
+  if(!cont || !cont.innerHTML.trim()){
+    alert("Primero generá el reporte con el botón 🔍 Ver.");
+    return;
+  }
+  document.body.classList.add("print-reporte");
+  // Esperar un tick para que el navegador aplique los estilos
+  setTimeout(()=>{
+    window.print();
+    // Limpiar la clase después de imprimir (o cancelar)
+    setTimeout(()=>document.body.classList.remove("print-reporte"), 500);
+  }, 100);
 }
 
 async function enviarEmailReporte(){
