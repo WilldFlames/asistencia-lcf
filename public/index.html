@@ -87,10 +87,16 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .print-only-block { display: none !important; }
 .print-only-header { display: none !important; }
 .print-only-footer { display: none !important; }
+.print-only-spacer { display: none !important; }
 @media print {
   .print-only-block { display: block !important; }
   .print-only-header { display: table-header-group !important; }
   .print-only-footer { display: table-footer-group !important; }
+  .print-only-spacer { display: table-row !important; }
+  .print-only-spacer td { height: 100vh !important; }
+  /* Tabla envolvente del reporte ocupa 100% del alto del papel, así el
+     <tfoot> queda pegado al margen inferior aunque el contenido sea corto. */
+  #print-boleta-area > table { height: 100vh; }
 }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
@@ -281,10 +287,16 @@ tr:hover td{background:#f8fafc;}
 .print-only-block { display: none !important; }
 .print-only-header { display: none !important; }
 .print-only-footer { display: none !important; }
+.print-only-spacer { display: none !important; }
 @media print {
   .print-only-block { display: block !important; }
   .print-only-header { display: table-header-group !important; }
   .print-only-footer { display: table-footer-group !important; }
+  .print-only-spacer { display: table-row !important; }
+  .print-only-spacer td { height: 100vh !important; }
+  /* Tabla envolvente del reporte ocupa 100% del alto del papel, así el
+     <tfoot> queda pegado al margen inferior aunque el contenido sea corto. */
+  #print-boleta-area > table { height: 100vh; }
 }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
@@ -7689,8 +7701,10 @@ async function generarReporte(){
         Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
       </div>
     </div>
-      </td></tr></tbody>
-      <tfoot class="print-only-footer" style="display:none;">
+      </td></tr>
+      <tr class="print-only-spacer"><td style="padding:0;border:0;height:100%;"></td></tr>
+      </tbody>
+      <tfoot class="print-only-footer">
         <tr><td style="padding:14px 0 0 0;border:0;">
           <div style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
             <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
