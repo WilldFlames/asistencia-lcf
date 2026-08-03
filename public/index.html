@@ -85,7 +85,13 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 @page { margin: 1.5cm 1cm 2cm 1cm; size: auto; }
 /* Visible SOLO al imprimir */
 .print-only-block { display: none !important; }
-@media print { .print-only-block { display: block !important; } }
+.print-only-header { display: none !important; }
+.print-only-footer { display: none !important; }
+@media print {
+  .print-only-block { display: block !important; }
+  .print-only-header { display: table-header-group !important; }
+  .print-only-footer { display: table-footer-group !important; }
+}
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
   .main-content{padding:0;}
@@ -257,7 +263,13 @@ tr:hover td{background:#f8fafc;}
 @page { margin: 1.5cm 1cm 2cm 1cm; size: auto; }
 /* Visible SOLO al imprimir */
 .print-only-block { display: none !important; }
-@media print { .print-only-block { display: block !important; } }
+.print-only-header { display: none !important; }
+.print-only-footer { display: none !important; }
+@media print {
+  .print-only-block { display: block !important; }
+  .print-only-header { display: table-header-group !important; }
+  .print-only-footer { display: table-footer-group !important; }
+}
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
   .main-content{padding:0;}
@@ -7586,9 +7598,13 @@ async function generarReporte(){
   const totalTeqA = Math.floor(totalT / 2);
   const totalAusenciasEfectivas = totalA + totalTeqA;
   document.getElementById("reporte-contenido").innerHTML=`
-    <div id="print-header" class="print-only-block" style="margin-bottom:16px;max-width:720px;margin-left:auto;margin-right:auto;">
-      <div id="print-header-mep"></div>
-    </div>
+    <table style="width:100%;max-width:720px;margin:0 auto;border-collapse:collapse;font-family:Arial,sans-serif;">
+      <thead class="print-only-header" style="display:table-header-group;">
+        <tr><td style="padding:0 0 14px 0;border:0;">
+          <div id="print-header-mep"></div>
+        </td></tr>
+      </thead>
+      <tbody><tr><td style="padding:0;border:0;">
     <div class="card">
       <div style="margin-bottom:14px;">
         <div style="font-size:17px;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
@@ -7640,9 +7656,20 @@ async function generarReporte(){
       <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:12px;">
         Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
       </div>
-    </div>`;
+    </div>
+      </td></tr></tbody>
+      <tfoot class="print-only-footer" style="display:none;">
+        <tr><td style="padding:14px 0 0 0;border:0;">
+          <div style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
+            <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+            <div>Teléfono 2250-0590 / 2250-0614</div>
+            <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
+          </div>
+        </td></tr>
+      </tfoot>
+    </table>`;
 
-  // Agregar firmas y pie para impresión
+  // Agregar firmas antes del pie (el pie ya está en el <tfoot> de la tabla)
   setTimeout(async ()=>{
     const card = document.querySelector("#reporte-contenido .card");
     if(card){
@@ -7658,7 +7685,7 @@ async function generarReporte(){
       }catch{}
 
       const firmas = document.createElement("div");
-      firmas.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;";
+      firmas.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;page-break-inside:avoid;";
       firmas.innerHTML=`
         <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:12px;color:#555;">
           Firma del Profesor Guía / Orientador
@@ -7669,16 +7696,30 @@ async function generarReporte(){
           Firma del Encargado Legal
         </div>`;
       card.appendChild(firmas);
-
-      // Pie de página fijo
-      const pie = document.createElement("div");
-      pie.innerHTML = piePaginaMEP();
-      card.appendChild(pie);
     }
   }, 100);
-  // Inyectar encabezado MEP oficial (solo visible en impresión via CSS)
+  // Inyectar encabezado MEP oficial DIRECTAMENTE en el thead (encabezado plano
+  // sin usar encabezadoMEP() para evitar tabla anidada y su tbody sin cerrar).
   const mepDiv = document.getElementById("print-header-mep");
-  if(mepDiv) mepDiv.innerHTML = encabezadoMEP("REPORTE DE ASISTENCIA");
+  if(mepDiv) mepDiv.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+      <tr>
+        <td style="width:23%;vertical-align:middle;padding:0 8px 0 0;">
+          <img src="${MEP_LOGO}" style="width:100%;height:auto;max-height:70px;display:block;object-fit:contain;"/>
+        </td>
+        <td style="width:25%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Dirección Regional<br/>Desamparados</div>
+        </td>
+        <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Supervisión Educativa<br/>Circuito 07</div>
+        </td>
+        <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Liceo de Calle<br/>Fallas</div>
+        </td>
+      </tr>
+    </table>
+    <div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:6px;">REPORTE DE ASISTENCIA</div>
+  `;
 }
 
 async function enviarEmailReporte(){
