@@ -93,6 +93,19 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
     margin-top: 24px;
     page-break-inside: avoid;
   }
+  /* Que el área de impresión ocupe la altura completa del papel para que
+     la tabla .page-wrap con height:100% se estire y el pie MEP quede
+     empujado al final de la hoja. */
+  html, body { height: 100%; }
+  #print-boleta-area, #print-boleta-area-lista {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #print-boleta-area > table.page-wrap,
+  #print-boleta-area-lista > table.page-wrap {
+    flex: 1;
+  }
 }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
@@ -288,6 +301,19 @@ tr:hover td{background:#f8fafc;}
     width: 100%;
     margin-top: 24px;
     page-break-inside: avoid;
+  }
+  /* Que el área de impresión ocupe la altura completa del papel para que
+     la tabla .page-wrap con height:100% se estire y el pie MEP quede
+     empujado al final de la hoja. */
+  html, body { height: 100%; }
+  #print-boleta-area, #print-boleta-area-lista {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #print-boleta-area > table.page-wrap,
+  #print-boleta-area-lista > table.page-wrap {
+    flex: 1;
   }
 }
 @media print{
