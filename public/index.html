@@ -90,8 +90,17 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
   .print-page-footer {
     display: block;
     width: 100%;
-    margin-top: 24px;
     page-break-inside: avoid;
+  }
+  html, body { height: 100%; }
+  #print-boleta-area, #print-boleta-area-lista {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #print-boleta-area > table.page-wrap,
+  #print-boleta-area-lista > table.page-wrap {
+    flex: 1;
   }
 }
 @media print{
@@ -286,8 +295,17 @@ tr:hover td{background:#f8fafc;}
   .print-page-footer {
     display: block;
     width: 100%;
-    margin-top: 24px;
     page-break-inside: avoid;
+  }
+  html, body { height: 100%; }
+  #print-boleta-area, #print-boleta-area-lista {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #print-boleta-area > table.page-wrap,
+  #print-boleta-area-lista > table.page-wrap {
+    flex: 1;
   }
 }
 @media print{
@@ -17144,7 +17162,7 @@ function encabezadoMEP(titulo){
   // azules: "Dirección Regional Desamparados" | "Supervisión Educativa
   // Circuito 07" | "Liceo de Calle Fallas".
   return `
-    <table class="page-wrap" style="width:100%;border-collapse:collapse;">
+    <table class="page-wrap" style="width:100%;border-collapse:collapse;height:100%;">
       <thead style="display:table-header-group;">
         <tr><td style="padding:0;border:0;">
           <div style="font-family:Arial,sans-serif;margin-bottom:14px;background:#fff;">
@@ -17174,24 +17192,22 @@ function encabezadoMEP(titulo){
           </div>
         </td></tr>
       </thead>
-      <tbody><tr><td style="padding:0;border:0;">`;
+      <tbody><tr><td style="padding:0;border:0;vertical-align:top;">`;
 }
 
 function piePaginaMEP(){
   // Cierra el <tbody> abierto en encabezadoMEP() y cierra la tabla.
-  // El pie va como un div SEPARADO con position:fixed;bottom:0 en print.
-  // El @page global reserva 3cm de margen inferior para que el pie tenga
-  // su espacio sin tapar contenido.
+  // El pie va como un div separado DESPUÉS de la tabla. Con el CSS de
+  // print (#print-boleta-area como flex column + tabla con flex:1), el
+  // pie queda pegado al margen inferior del papel automáticamente.
   return `
         </td></tr>
       </tbody>
     </table>
-    <div class="print-page-footer print-only-block">
-      <div style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
-        <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
-        <div>Teléfono 2250-0590 / 2250-0614</div>
-        <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
-      </div>
+    <div class="print-page-footer print-only-block" style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
+      <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+      <div>Teléfono 2250-0590 / 2250-0614</div>
+      <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
     </div>`;
 }
 
