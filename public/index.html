@@ -7660,7 +7660,6 @@ async function generarReporte(){
   const totalTeqA = Math.floor(totalT / 2);
   const totalAusenciasEfectivas = totalA + totalTeqA;
   document.getElementById("reporte-contenido").innerHTML=`
-    <div id="print-header-mep" class="print-only-block" style="max-width:720px;margin:0 auto 14px;font-family:Arial,sans-serif;"></div>
     <div class="card" style="max-width:720px;margin:0 auto;">
       <div style="margin-bottom:14px;">
         <div style="font-size:17px;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
@@ -7712,13 +7711,6 @@ async function generarReporte(){
       <div style="text-align:right;font-size:11px;color:var(--muted);margin-top:12px;">
         Generado el ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"})}
       </div>
-    </div>
-    <div class="print-page-footer print-only-block">
-      <div style="background:#1F3864;color:#fff;padding:10px 14px;font-family:Arial,sans-serif;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;">
-        <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
-        <div>Teléfono 2250-0590 / 2250-0614</div>
-        <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
-      </div>
     </div>`;
 
   // Agregar firmas después de generar el HTML
@@ -7750,28 +7742,6 @@ async function generarReporte(){
       card.appendChild(firmas);
     }
   }, 100);
-  // Inyectar encabezado MEP oficial DIRECTAMENTE en el thead (encabezado plano
-  // sin usar encabezadoMEP() para evitar tabla anidada y su tbody sin cerrar).
-  const mepDiv = document.getElementById("print-header-mep");
-  if(mepDiv) mepDiv.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
-      <tr>
-        <td style="width:23%;vertical-align:middle;padding:0 8px 0 0;">
-          <img src="${MEP_LOGO}" style="width:100%;height:auto;max-height:70px;display:block;object-fit:contain;"/>
-        </td>
-        <td style="width:25%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Dirección Regional<br/>Desamparados</div>
-        </td>
-        <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Supervisión Educativa<br/>Circuito 07</div>
-        </td>
-        <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
-          <div style="font-weight:bold;font-size:11.5px;color:#1F3864;line-height:1.25;">Liceo de Calle<br/>Fallas</div>
-        </td>
-      </tr>
-    </table>
-    <div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:6px;">REPORTE DE ASISTENCIA</div>
-  `;
 }
 
 // Imprimir el reporte de asistencia: clona el contenido en el área de
@@ -7789,14 +7759,21 @@ async function imprimirReporteAsistencia(){
     printArea.id = "print-boleta-area";
     document.body.appendChild(printArea);
   }
-  // Clonar el HTML del reporte (para no romper la vista original)
-  printArea.innerHTML = cont.innerHTML;
+  // Envolver el reporte con encabezadoMEP()/piePaginaMEP() que crean una
+  // tabla .page-wrap con <thead> (encabezado MEP) y div-pie después. En
+  // print, el <thead> se repite en cada página; el pie MEP con flex:1 en
+  // el contenedor queda pegado al margen inferior del papel.
+  printArea.innerHTML =
+    encabezadoMEP("REPORTE DE ASISTENCIA") +
+    cont.innerHTML +
+    piePaginaMEP();
 
   // Estilo local que oculta TODO lo que no sea el área de impresión
   const style = document.createElement('style');
   style.innerHTML = `@media print{
     body>*:not(#print-boleta-area){display:none!important;}
-    #print-boleta-area{display:block!important;padding:0!important;margin:0!important;}
+    #print-boleta-area{display:flex!important;flex-direction:column;min-height:100vh;padding:0!important;margin:0!important;}
+    #print-boleta-area > table.page-wrap{flex:1;}
   }`;
   document.head.appendChild(style);
 
