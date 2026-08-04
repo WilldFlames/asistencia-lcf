@@ -93,19 +93,6 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
     margin-top: 24px;
     page-break-inside: avoid;
   }
-  /* Que el área de impresión ocupe la altura completa del papel para que
-     la tabla .page-wrap con height:100% se estire y el pie MEP quede
-     empujado al final de la hoja. */
-  html, body { height: 100%; }
-  #print-boleta-area, #print-boleta-area-lista {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-  #print-boleta-area > table.page-wrap,
-  #print-boleta-area-lista > table.page-wrap {
-    flex: 1;
-  }
 }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
@@ -301,19 +288,6 @@ tr:hover td{background:#f8fafc;}
     width: 100%;
     margin-top: 24px;
     page-break-inside: avoid;
-  }
-  /* Que el área de impresión ocupe la altura completa del papel para que
-     la tabla .page-wrap con height:100% se estire y el pie MEP quede
-     empujado al final de la hoja. */
-  html, body { height: 100%; }
-  #print-boleta-area, #print-boleta-area-lista {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-  #print-boleta-area > table.page-wrap,
-  #print-boleta-area-lista > table.page-wrap {
-    flex: 1;
   }
 }
 @media print{
@@ -7759,21 +7733,18 @@ async function imprimirReporteAsistencia(){
     printArea.id = "print-boleta-area";
     document.body.appendChild(printArea);
   }
-  // Envolver el reporte con encabezadoMEP()/piePaginaMEP() que crean una
-  // tabla .page-wrap con <thead> (encabezado MEP) y div-pie después. En
-  // print, el <thead> se repite en cada página; el pie MEP con flex:1 en
-  // el contenedor queda pegado al margen inferior del papel.
+  // Encabezado MEP repetitivo (thead) + contenido + pie MEP al final.
+  // El encabezadoMEP() abre la tabla .page-wrap y la deja abierta;
+  // piePaginaMEP() la cierra. En print, el <thead> se repite en cada página.
   printArea.innerHTML =
     encabezadoMEP("REPORTE DE ASISTENCIA") +
     cont.innerHTML +
     piePaginaMEP();
 
-  // Estilo local que oculta TODO lo que no sea el área de impresión
   const style = document.createElement('style');
   style.innerHTML = `@media print{
     body>*:not(#print-boleta-area){display:none!important;}
-    #print-boleta-area{display:flex!important;flex-direction:column;min-height:100vh;padding:0!important;margin:0!important;}
-    #print-boleta-area > table.page-wrap{flex:1;}
+    #print-boleta-area{display:block!important;padding:0!important;margin:0!important;}
   }`;
   document.head.appendChild(style);
 
@@ -17173,7 +17144,7 @@ function encabezadoMEP(titulo){
   // azules: "Dirección Regional Desamparados" | "Supervisión Educativa
   // Circuito 07" | "Liceo de Calle Fallas".
   return `
-    <table class="page-wrap" style="width:100%;border-collapse:collapse;height:100%;">
+    <table class="page-wrap" style="width:100%;border-collapse:collapse;">
       <thead style="display:table-header-group;">
         <tr><td style="padding:0;border:0;">
           <div style="font-family:Arial,sans-serif;margin-bottom:14px;background:#fff;">
@@ -17203,7 +17174,7 @@ function encabezadoMEP(titulo){
           </div>
         </td></tr>
       </thead>
-      <tbody><tr><td style="padding:0;border:0;vertical-align:top;">`;
+      <tbody><tr><td style="padding:0;border:0;">`;
 }
 
 function piePaginaMEP(){
