@@ -18001,7 +18001,7 @@ async function verPremat(id){
   if(!p){ sa("alert-premat","No se pudo cargar.","danger"); return; }
   const enc=p.encargado||{};
   const estados={pendiente:"⏳ Pendiente",prematriculado:"✅ Listo para matrícula",matriculado:"🎓 Matriculado",retirado:"❌ Retirado"};
-  alert(`📋 PREMATRÍCULA — ${estados[p.estado]||p.estado}\n\n👤 ESTUDIANTE\nNombre: ${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}\nCédula: ${p.cedula}\nNacimiento: ${p.fecha_nacimiento?.slice(0,10)||'—'}\nNacionalidad: ${p.nacionalidad||'—'}\nCentro procedencia: ${p.centro_procedencia||'—'}\n\n👨‍👩‍👧 ENCARGADO\nParentesco: ${enc.parentesco||'—'}\nNombre: ${enc.primer_apellido||''} ${enc.segundo_apellido||''}, ${enc.nombre||'—'}\nCédula: ${enc.cedula||'—'}\n\n📄 Consecutivo: ${p.consecutivo_prematricula?String(p.consecutivo_prematricula).padStart(3,'0'):'Sin asignar'}`);
+  alert(`📋 PREMATRÍCULA — ${estados[p.estado]||p.estado}\n\n👤 ESTUDIANTE\nNombre: ${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}\nCédula: ${p.cedula}\nNacimiento: ${p.fecha_nacimiento?.slice(0,10)||'—'}\nNacionalidad: ${p.nacionalidad||'—'}\nCentro procedencia: ${p.centro_procedencia||'—'}\n\n👨‍👩‍👧 ENCARGADO\nParentesco: ${enc.parentesco||'—'}\nNombre: ${enc.primer_apellido||''} ${enc.segundo_apellido||''}, ${enc.nombre||'—'}\nCédula: ${enc.cedula||'—'}\nTeléfono: ${enc.telefono||'—'}\n\n📄 Consecutivo: ${p.consecutivo_prematricula?String(p.consecutivo_prematricula).padStart(3,'0'):'Sin asignar'}`);
 }
 
 async function reimprimir(id){
