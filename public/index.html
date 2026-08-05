@@ -7754,7 +7754,7 @@ async function imprimirReporteAsistencia(){
   const style = document.createElement('style');
   style.innerHTML = `@media print{
     body>*:not(#print-boleta-area){display:none!important;}
-    #print-boleta-area{display:block!important;padding:0!important;margin:0!important;}
+    #print-boleta-area{padding:0!important;margin:0!important;}
   }`;
   document.head.appendChild(style);
 
@@ -8429,7 +8429,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA")}
   // Usar print area para imprimir
   const style = document.createElement("style");
   style.id = "print-style-conducta";
-  style.innerHTML = `@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { display:block!important; } }`;
+  style.innerHTML = `@media print { body > *:not(#print-boleta-area) { display:none!important; } #print-boleta-area { } }`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea, style);
 }
@@ -8519,7 +8519,7 @@ ${encabezadoMEP("INFORME DE RENDIMIENTO ACADÉMICO — "+periodo)}
     @page { size: A4 portrait; margin: 12mm; }
     @media print {
       body > *:not(#print-boleta-area) { display:none!important; }
-      #print-boleta-area { display:block!important; }
+      #print-boleta-area { }
       table, tr, div { page-break-inside: avoid; break-inside: avoid; }
     }
   `;
@@ -8865,7 +8865,7 @@ ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
   printArea.innerHTML = html;
   const style = document.createElement("style");
   style.id="print-style-lista";
-  style.innerHTML=`@media print { body > *:not(#print-boleta-area){display:none!important;} #print-boleta-area{display:block!important;} }`;
+  style.innerHTML=`@media print { body > *:not(#print-boleta-area){display:none!important;} #print-boleta-area{} }`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea, document.getElementById("print-style-lista"));
 }
@@ -14557,7 +14557,7 @@ async function imprimirReporteComedor(){
   style.innerHTML=`
     @media print{
       body>*:not(#print-boleta-area){display:none!important;}
-      #print-boleta-area{display:block!important;padding-bottom:0!important;}
+      #print-boleta-area{padding-bottom:0!important;}
       #print-boleta-area table{page-break-inside:auto;}
       #print-boleta-area tr{page-break-inside:avoid;page-break-after:auto;}
       #print-boleta-area thead{display:table-header-group;}
@@ -16062,7 +16062,7 @@ async function generarConstanciaRetiro(){
     ${piePaginaMEP()}
   `;
   const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
   document.head.appendChild(style);
   cerrarModal("modal-retiro");
   await imprimirConEncabezado(printArea,style);
@@ -16632,7 +16632,7 @@ async function imprimirFichaMatricula(datos){
     ${piePaginaMEP()}
   </div>`;
   const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
 }
@@ -16698,7 +16698,7 @@ async function imprimirCompromiso(){
     ${piePaginaMEP()}
   </div>`;
   const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
 }
@@ -16760,7 +16760,7 @@ async function imprimirFormBeca(resultado,datos){
     ${piePaginaMEP()}
   </div>`;
   const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
 }
@@ -16799,7 +16799,7 @@ async function imprimirAdecuacion(motivo){
     ${piePaginaMEP()}
   </div>`;
   const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
 }
@@ -16918,7 +16918,7 @@ async function generarConstancia(){
       ${piePaginaMEP()}
   `;
   const style=document.createElement("style");style.id="print-style-constancia";
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
 }
@@ -17118,7 +17118,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+nombreSec)}
   style.innerHTML=`@media print {
     @page { size: A4 portrait; margin: 10mm; }
     body > *:not(#print-boleta-area) { display:none!important; }
-    #print-boleta-area { display:block!important; }
+    #print-boleta-area { }
     #print-boleta-area table { page-break-inside: avoid; }
     #print-boleta-area tr { page-break-inside: avoid; }
   }`;
@@ -18065,7 +18065,7 @@ async function imprimirConstanciaPremat(){
     ${piePaginaMEP()}
   `;
   const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{display:block!important;}}`;
+  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
   document.head.appendChild(style);
   await imprimirConEncabezado(printArea,style);
 }
@@ -20220,7 +20220,7 @@ ${encabezadoMEP(`${tipoLbl}: ${ev.nombre}`)}
     @page { size: A4 portrait; margin: 10mm; }
     @media print {
       body > *:not(#print-boleta-area) { display:none!important; }
-      #print-boleta-area { display:block!important; }
+      #print-boleta-area { }
       table, tr { page-break-inside: avoid; break-inside: avoid; }
     }
   `;
@@ -20807,7 +20807,7 @@ ${encabezadoMEP(titulo)}
     @page { size: A4 portrait; margin: 10mm; }
     @media print {
       body > *:not(#print-boleta-area) { display:none!important; }
-      #print-boleta-area { display:block!important; }
+      #print-boleta-area { }
       table, tr { page-break-inside: avoid; break-inside: avoid; }
     }
   `;
@@ -20953,7 +20953,7 @@ function prom_imprimirBoletas(){
     @page { size: A4 portrait; margin: 8mm; }
     @media print {
       body > *:not(#print-boleta-area) { display:none!important; }
-      #print-boleta-area { display:block!important; }
+      #print-boleta-area { }
       .boleta-individual { page-break-inside: avoid; break-inside: avoid; }
     }
   `;
