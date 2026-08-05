@@ -88,16 +88,20 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 @media print {
   .print-only-block { display: block !important; }
   .print-page-footer { page-break-inside: avoid; }
-  /* La tabla envolvente ocupa toda la altura del papel para que el <tfoot>
-     con el pie MEP quede pegado al margen inferior. Combinado con el
-     vertical-align:top del <td>, el contenido queda arriba y el pie abajo. */
+  /* Técnica de ayer (que funcionaba perfecto en la constancia de prematrícula):
+     - #print-boleta-area como flex column min-height 100vh
+     - Tabla .page-wrap con flex:1 se estira hasta empujar el pie abajo
+     - <td> con vertical-align:top mantiene el contenido pegado arriba
+     - El @page margin bottom:0 hace que el pie quede pegado al borde del papel */
   html, body { height: 100%; }
   #print-boleta-area, #print-boleta-area-lista {
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     padding: 0 15px !important;
   }
   #print-boleta-area > table.page-wrap,
-  #print-boleta-area-lista > table.page-wrap { height: 100vh; }
+  #print-boleta-area-lista > table.page-wrap { flex: 1; height: 100%; }
 }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
@@ -289,16 +293,20 @@ tr:hover td{background:#f8fafc;}
 @media print {
   .print-only-block { display: block !important; }
   .print-page-footer { page-break-inside: avoid; }
-  /* La tabla envolvente ocupa toda la altura del papel para que el <tfoot>
-     con el pie MEP quede pegado al margen inferior. Combinado con el
-     vertical-align:top del <td>, el contenido queda arriba y el pie abajo. */
+  /* Técnica de ayer (que funcionaba perfecto en la constancia de prematrícula):
+     - #print-boleta-area como flex column min-height 100vh
+     - Tabla .page-wrap con flex:1 se estira hasta empujar el pie abajo
+     - <td> con vertical-align:top mantiene el contenido pegado arriba
+     - El @page margin bottom:0 hace que el pie quede pegado al borde del papel */
   html, body { height: 100%; }
   #print-boleta-area, #print-boleta-area-lista {
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     padding: 0 15px !important;
   }
   #print-boleta-area > table.page-wrap,
-  #print-boleta-area-lista > table.page-wrap { height: 100vh; }
+  #print-boleta-area-lista > table.page-wrap { flex: 1; height: 100%; }
 }
 @media print{
   .sidebar,.topbar,.no-print,#login-screen,#cambiar-pass-screen{display:none!important;}
@@ -17186,11 +17194,10 @@ function encabezadoMEP(titulo){
 }
 
 function piePaginaMEP(){
-  // Cierra el <tbody> abierto en encabezadoMEP() y agrega el pie MEP dentro
-  // de un <tfoot>. Los navegadores repiten <tfoot> en cada página impresa
-  // igual que hacen con <thead>, así el pie sale abajo en TODAS las páginas.
-  // Con la tabla en height:100vh y td con vertical-align:top, el pie queda
-  // pegado al margen inferior del papel.
+  // Pie MEP como <tfoot> de la tabla envolvente. Los navegadores repiten
+  // <tfoot> en cada página impresa igual que hacen con <thead>. Con la
+  // tabla en flex:1 + height:100% y td con vertical-align:top, el pie
+  // queda pegado al margen inferior del papel en cada página, como Word.
   return `
         </td></tr>
       </tbody>
