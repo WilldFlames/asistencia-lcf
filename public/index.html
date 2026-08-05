@@ -17254,12 +17254,12 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
     // ANTES de guardar.
     const opt = {
       // Márgenes: top 28mm (encabezado), left/right 15mm (aire lateral),
-      // bottom 25mm (pie). Total útil: 180mm ancho, con contenido de 720px.
+      // bottom 25mm (pie). Papel: Carta (letter), que es el estándar CR.
       margin:       [28, 15, 25, 15],
       filename:     nombreArchivo,
       image:        { type: 'jpeg', quality: 0.95 },
       html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#fff', logging: false },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
       pagebreak:    { mode: ['css', 'legacy'], avoid: '.reporte-materia' }
     };
 
