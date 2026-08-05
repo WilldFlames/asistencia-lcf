@@ -12,6 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 :root{--azul:#1a3a5c;--azul2:#2563a8;--verde:#16a34a;--rojo:#dc2626;--naranja:#d97706;--morado:#7c3aed;--bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--r:10px;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -7745,28 +7746,13 @@ async function imprimirReporteAsistencia(){
     alert("Primero generá el reporte con el botón 🔍 Ver.");
     return;
   }
-  let printArea = document.getElementById("print-boleta-area");
-  if(!printArea){
-    printArea = document.createElement("div");
-    printArea.id = "print-boleta-area";
-    document.body.appendChild(printArea);
-  }
-  // Encabezado MEP repetitivo (thead) + contenido + pie MEP al final.
-  // El encabezadoMEP() abre la tabla .page-wrap y la deja abierta;
-  // piePaginaMEP() la cierra. En print, el <thead> se repite en cada página.
-  printArea.innerHTML =
-    encabezadoMEP("REPORTE DE ASISTENCIA") +
-    cont.innerHTML +
-    piePaginaMEP();
+  // Generar nombre del archivo con nombre del estudiante y fecha
+  const nomEst = document.getElementById("rep-estudiante")?.options?.[document.getElementById("rep-estudiante").selectedIndex]?.text || "estudiante";
+  const nomLimpio = nomEst.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 40);
+  const fecha = fechaHoyCR();
+  const nombreArchivo = `reporte_asistencia_${nomLimpio}_${fecha}.pdf`;
 
-  const style = document.createElement('style');
-  style.innerHTML = `@media print{
-    body>*:not(#print-boleta-area){display:none!important;}
-    #print-boleta-area{padding:0!important;margin:0!important;}
-  }`;
-  document.head.appendChild(style);
-
-  await imprimirConEncabezado(printArea, style);
+  await imprimirPDFMEP("REPORTE DE ASISTENCIA", cont.innerHTML, nombreArchivo);
 }
 
 async function enviarEmailReporte(){
@@ -16035,11 +16021,7 @@ async function generarConstanciaRetiro(){
   const hoyDiaT=dias[hoy.getDate()]||hoy.getDate();
   const hoyMesT=meses[hoy.getMonth()];
   const hoyAnioT=anioLetra[hoy.getFullYear()]||hoy.getFullYear();
-  let printArea=document.getElementById("print-boleta-area");
-  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
-  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
-  printArea.innerHTML=`
-    ${encabezadoMEP()}
+  const contenidoHTML = `
     <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;">CONSTANCIA DE RETIRO DE ESTUDIANTE</h2>
     <div style="font-size:16px;line-height:1.8;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
       <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
@@ -16067,13 +16049,9 @@ async function generarConstanciaRetiro(){
         <div style="font-size:14px;">Encargado(a) Legal</div>
       </div></div>
     </div>
-    ${piePaginaMEP()}
   `;
-  const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
-  document.head.appendChild(style);
   cerrarModal("modal-retiro");
-  await imprimirConEncabezado(printArea,style);
+  await imprimirPDFMEP(null, contenidoHTML, `constancia_retiro_${est.cedula}.pdf`);
   setTimeout(()=>{
     document.getElementById("archivar-retiro-est-id").value=retiroEstId;
     document.getElementById("archivar-retiro-nombre").textContent=retiroEstNombre;
@@ -16897,11 +16875,7 @@ async function generarConstancia(){
   const mesTexto=meses[hoy.getMonth()];
   const anio=hoy.getFullYear();
   const anioTexto=anioLetra[anio]||anio;
-  let printArea=document.getElementById("print-boleta-area");
-  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
-  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
-  printArea.innerHTML=`
-      ${encabezadoMEP()}
+  const contenidoHTML = `
       <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE ESTUDIANTE</h2>
       <div style="font-size:16px;line-height:1.8;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
         <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
@@ -16923,12 +16897,8 @@ async function generarConstancia(){
           <div style="font-size:14px;color:#555;">Liceo de Calle Fallas</div>
         </div>
       </div>
-      ${piePaginaMEP()}
   `;
-  const style=document.createElement("style");style.id="print-style-constancia";
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
-  document.head.appendChild(style);
-  await imprimirConEncabezado(printArea,style);
+  await imprimirPDFMEP(null, contenidoHTML, `constancia_estudiante_${est.cedula}.pdf`);
 }
 
 
@@ -17215,6 +17185,128 @@ function piePaginaMEP(){
 
 // ════════════════════════════════════
 //  UTILS
+
+// ────────────────────────────────────────────────────────────────────────
+//  imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo)
+//
+//  Genera un PDF con encabezado MEP y pie MEP oficiales que se REPITEN en
+//  cada página automáticamente. El contenido se pagina solo cuando se
+//  llena la hoja. Usa html2pdf.js (html2canvas + jsPDF).
+//
+//  El resultado es idéntico en cualquier navegador y se comporta como un
+//  documento de Word: encabezado arriba, pie abajo, contenido en el medio.
+//
+//  Parámetros:
+//    - titulo:        texto que va debajo del logo MEP (ej: "REPORTE DE ASISTENCIA")
+//    - contenidoHTML: HTML del contenido central (sin encabezado ni pie)
+//    - nombreArchivo: nombre del PDF descargado (ej: "constancia_estudiante.pdf")
+// ────────────────────────────────────────────────────────────────────────
+async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
+  // 1. Construir el HTML del contenedor con encabezado + contenido
+  const encabezadoHTML = `
+    <div style="font-family:Arial,sans-serif;background:#fff;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+        <tr>
+          <td style="width:23%;vertical-align:middle;padding:0 8px 0 0;">
+            <img src="${MEP_LOGO}" style="width:100%;height:auto;max-height:60px;display:block;object-fit:contain;"/>
+          </td>
+          <td style="width:25%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+            <div style="font-weight:bold;font-size:11px;color:#1F3864;line-height:1.25;">Dirección Regional<br/>Desamparados</div>
+          </td>
+          <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+            <div style="font-weight:bold;font-size:11px;color:#1F3864;line-height:1.25;">Supervisión Educativa<br/>Circuito 07</div>
+          </td>
+          <td style="width:26%;vertical-align:middle;border-left:2px solid #1F3864;padding:4px 10px;">
+            <div style="font-weight:bold;font-size:11px;color:#1F3864;line-height:1.25;">Liceo de Calle<br/>Fallas</div>
+          </td>
+        </tr>
+      </table>
+      ${titulo?`<div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:10px;">${titulo}</div>`:''}
+    </div>`;
+
+  // 2. Crear el elemento oculto que html2pdf va a renderizar
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "position:fixed;left:-9999px;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;";
+  wrap.innerHTML = `<div style="padding:0 15px;">${contenidoHTML}</div>`;
+  document.body.appendChild(wrap);
+
+  // 3. Esperar a que las imágenes carguen
+  const imgs = wrap.querySelectorAll("img");
+  await Promise.all(Array.from(imgs).map(img => {
+    if(img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 3000); });
+  }));
+
+  try {
+    // 4. Configurar html2pdf con encabezado + pie repetitivos
+    // Estrategia: generar el PDF sin encabezado/pie con html2pdf, y luego
+    // agregar el encabezado + pie MEP en cada página con jsPDF puro
+    // ANTES de guardar.
+    const opt = {
+      margin:       [25, 12, 25, 12], // top, left, bottom, right (mm) — deja espacio para encabezado y pie
+      filename:     nombreArchivo,
+      image:        { type: 'jpeg', quality: 0.95 },
+      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#fff' },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    // 5. Generar el PDF pero interceptar antes de guardar para agregar
+    //    encabezado y pie MEP en cada página
+    const worker = html2pdf().set(opt).from(wrap);
+    const pdf = await worker.toPdf().get('pdf');
+    const totalPages = pdf.internal.getNumberOfPages();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    // Convertir el encabezado a imagen para meterla como header
+    const headerDiv = document.createElement("div");
+    headerDiv.style.cssText = "position:fixed;left:-9999px;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;padding:0 15px;";
+    headerDiv.innerHTML = encabezadoHTML;
+    document.body.appendChild(headerDiv);
+    const hImgs = headerDiv.querySelectorAll("img");
+    await Promise.all(Array.from(hImgs).map(img => {
+      if(img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 3000); });
+    }));
+    const headerCanvas = await html2canvas(headerDiv, { scale: 2, useCORS: true, backgroundColor: '#fff' });
+    const headerData = headerCanvas.toDataURL('image/jpeg', 0.95);
+    const headerHmm = (headerCanvas.height * pageWidth) / headerCanvas.width;
+    document.body.removeChild(headerDiv);
+
+    // Convertir el pie a imagen
+    const footerDiv = document.createElement("div");
+    footerDiv.style.cssText = "position:fixed;left:-9999px;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;";
+    footerDiv.innerHTML = `
+      <div style="background:#1F3864;color:#fff;padding:10px 14px;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;font-family:Arial,sans-serif;">
+        <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
+        <div>Teléfono 2250-0590 / 2250-0614</div>
+        <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
+      </div>`;
+    document.body.appendChild(footerDiv);
+    const footerCanvas = await html2canvas(footerDiv, { scale: 2, useCORS: true, backgroundColor: '#fff' });
+    const footerData = footerCanvas.toDataURL('image/jpeg', 0.95);
+    const footerHmm = (footerCanvas.height * pageWidth) / footerCanvas.width;
+    document.body.removeChild(footerDiv);
+
+    // Agregar encabezado y pie en cada página
+    for(let i = 1; i <= totalPages; i++){
+      pdf.setPage(i);
+      // Encabezado en la parte superior
+      pdf.addImage(headerData, 'JPEG', 0, 3, pageWidth, headerHmm);
+      // Pie de página anclado abajo
+      pdf.addImage(footerData, 'JPEG', 0, pageHeight - footerHmm - 3, pageWidth, footerHmm);
+    }
+
+    // 6. Guardar el PDF (dispara la descarga)
+    pdf.save(nombreArchivo);
+  } catch(e) {
+    console.error("Error generando PDF:", e);
+    alert("Error generando PDF: " + e.message);
+  } finally {
+    document.body.removeChild(wrap);
+  }
+}
 
 // Imprime esperando que carguen las imágenes del encabezado MEP
 async function imprimirConEncabezado(area, styleEl){
@@ -18020,11 +18112,7 @@ async function imprimirConstanciaPremat(){
   const encPar = enc.parentesco || pmData.enc_parentesco || pmData.parentesco || '';
   const encTel = enc.telefono || pmData.enc_telefono || '';
   const encNombre = `${encAp1} ${encAp2}, ${encNom}`.replace(/\s+/g,' ').replace(/^,\s*/,'').replace(/,\s*$/,'').trim();
-  let printArea=document.getElementById("print-boleta-area");
-  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
-  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
-  printArea.innerHTML=`
-    ${encabezadoMEP()}
+  const contenidoHTML = `
     <h2 style="text-align:center;font-size:15px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE PREMATRÍCULA</h2>
     <div style="font-size:13px;line-height:2;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
       <p style="text-indent:2em;">El suscrito(a), funcionario(a) administrativo(a) del Liceo de Calle Fallas, hace constar que el(la) señor(a)
@@ -18043,7 +18131,6 @@ async function imprimirConstanciaPremat(){
       a los <strong>${diaT}</strong> días del mes de <strong>${mesT}</strong> del año dos mil veintiséis.</p>
     </div>
     <div style="margin-top:50px;display:flex;gap:40px;justify-content:space-between;flex-wrap:wrap;">
-      <!-- Firma del funcionario(a) que atiende el trámite -->
       <div style="flex:1;min-width:280px;max-width:340px;">
         <div style="border-top:1px solid #374151;padding-top:8px;">
           <div style="font-size:13px;">Firma del funcionario(a)</div>
@@ -18055,9 +18142,6 @@ async function imprimirConstanciaPremat(){
           <div style="font-size:13px;margin-top:8px;">(Sello del centro educativo)</div>
         </div>
       </div>
-      <!-- Firma del encargado(a) legal que solicita la prematrícula.
-           Los datos vienen precargados desde el registro de la prematrícula
-           (encargado que se completó en el paso 1). -->
       <div style="flex:1;min-width:280px;max-width:340px;">
         <div style="border-top:1px solid #374151;padding-top:8px;">
           <div style="font-size:13px;">Firma del encargado(a) legal</div>
@@ -18069,12 +18153,8 @@ async function imprimirConstanciaPremat(){
         </div>
       </div>
     </div>
-    ${piePaginaMEP()}
   `;
-  const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
-  document.head.appendChild(style);
-  await imprimirConEncabezado(printArea,style);
+  await imprimirPDFMEP(null, contenidoHTML, `constancia_prematricula_${consec}.pdf`);
 }
 
 function abrirEliminarPremat(id){
