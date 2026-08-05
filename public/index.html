@@ -17225,13 +17225,12 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
     </div>`;
 
   // 2. Crear el elemento oculto que html2pdf va a renderizar
-  // Nota: NO usar position:fixed;left:-9999px porque html2canvas a veces
-  // no captura bien elementos fuera del viewport. Lo dejamos visible pero
-  // detrás del contenido de la página con opacity:0 + pointer-events:none.
+  // Truco: lo ponemos absoluto MUY arriba (top:-20000px) para que quede
+  // fuera de la vista pero VISIBLE (no display:none ni opacity:0, porque
+  // html2canvas necesita el elemento visible para capturar bien colores,
+  // fondos, imágenes y texto).
   const wrap = document.createElement("div");
-  wrap.style.cssText = "position:absolute;left:0;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;color:#333;opacity:0;pointer-events:none;z-index:-1;";
-  // Envolver el contenido con estilos base explícitos (sin var CSS) para
-  // que html2canvas capture todo correctamente aunque no herede del body.
+  wrap.style.cssText = "position:absolute;left:0;top:-20000px;width:750px;background:#fff;font-family:Arial,sans-serif;color:#333;";
   wrap.innerHTML = `<div style="padding:0 15px;color:#333;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;">${contenidoHTML}</div>`;
   document.body.appendChild(wrap);
 
@@ -17266,7 +17265,7 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
 
     // Convertir el encabezado a imagen para meterla como header
     const headerDiv = document.createElement("div");
-    headerDiv.style.cssText = "position:absolute;left:0;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;padding:0 15px;opacity:0;pointer-events:none;z-index:-1;";
+    headerDiv.style.cssText = "position:absolute;left:0;top:-20000px;width:750px;background:#fff;font-family:Arial,sans-serif;padding:0 15px;";
     headerDiv.innerHTML = encabezadoHTML;
     document.body.appendChild(headerDiv);
     const hImgs = headerDiv.querySelectorAll("img");
@@ -17281,7 +17280,7 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
 
     // Convertir el pie a imagen
     const footerDiv = document.createElement("div");
-    footerDiv.style.cssText = "position:absolute;left:0;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;opacity:0;pointer-events:none;z-index:-1;";
+    footerDiv.style.cssText = "position:absolute;left:0;top:-20000px;width:750px;background:#fff;font-family:Arial,sans-serif;";
     footerDiv.innerHTML = `
       <div style="background:#1F3864;color:#fff;padding:10px 14px;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;font-family:Arial,sans-serif;">
         <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
