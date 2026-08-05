@@ -17225,9 +17225,14 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
     </div>`;
 
   // 2. Crear el elemento oculto que html2pdf va a renderizar
+  // Nota: NO usar position:fixed;left:-9999px porque html2canvas a veces
+  // no captura bien elementos fuera del viewport. Lo dejamos visible pero
+  // detrás del contenido de la página con opacity:0 + pointer-events:none.
   const wrap = document.createElement("div");
-  wrap.style.cssText = "position:fixed;left:-9999px;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;";
-  wrap.innerHTML = `<div style="padding:0 15px;">${contenidoHTML}</div>`;
+  wrap.style.cssText = "position:absolute;left:0;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;color:#333;opacity:0;pointer-events:none;z-index:-1;";
+  // Envolver el contenido con estilos base explícitos (sin var CSS) para
+  // que html2canvas capture todo correctamente aunque no herede del body.
+  wrap.innerHTML = `<div style="padding:0 15px;color:#333;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;">${contenidoHTML}</div>`;
   document.body.appendChild(wrap);
 
   // 3. Esperar a que las imágenes carguen
@@ -17246,9 +17251,9 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
       margin:       [25, 12, 25, 12], // top, left, bottom, right (mm) — deja espacio para encabezado y pie
       filename:     nombreArchivo,
       image:        { type: 'jpeg', quality: 0.95 },
-      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#fff' },
+      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#fff', logging: false },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      pagebreak:    { mode: ['css', 'legacy'], avoid: '.reporte-materia' }
     };
 
     // 5. Generar el PDF pero interceptar antes de guardar para agregar
@@ -17261,7 +17266,7 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
 
     // Convertir el encabezado a imagen para meterla como header
     const headerDiv = document.createElement("div");
-    headerDiv.style.cssText = "position:fixed;left:-9999px;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;padding:0 15px;";
+    headerDiv.style.cssText = "position:absolute;left:0;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;padding:0 15px;opacity:0;pointer-events:none;z-index:-1;";
     headerDiv.innerHTML = encabezadoHTML;
     document.body.appendChild(headerDiv);
     const hImgs = headerDiv.querySelectorAll("img");
@@ -17276,7 +17281,7 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
 
     // Convertir el pie a imagen
     const footerDiv = document.createElement("div");
-    footerDiv.style.cssText = "position:fixed;left:-9999px;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;";
+    footerDiv.style.cssText = "position:absolute;left:0;top:0;width:750px;background:#fff;font-family:Arial,sans-serif;opacity:0;pointer-events:none;z-index:-1;";
     footerDiv.innerHTML = `
       <div style="background:#1F3864;color:#fff;padding:10px 14px;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;font-family:Arial,sans-serif;">
         <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
