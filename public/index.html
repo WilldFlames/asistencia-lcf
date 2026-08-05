@@ -17224,15 +17224,18 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
       ${titulo?`<div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:10px;">${titulo}</div>`:''}
     </div>`;
 
-  // 2. Crear el elemento oculto que html2pdf va a renderizar
-  // Truco: lo ponemos absoluto MUY arriba (top:-20000px) para que quede
-  // fuera de la vista pero VISIBLE (no display:none ni opacity:0, porque
-  // html2canvas necesita el elemento visible para capturar bien colores,
-  // fondos, imágenes y texto).
+  // 2. Crear el elemento oculto que html2pdf va a renderizar.
+  // Truco confiable: contenedor con height:0 + overflow:hidden que envuelve
+  // el div de renderizado. El navegador renderiza el contenido (necesario
+  // para que html2canvas lo capture) pero el usuario no lo ve porque el
+  // contenedor tiene altura 0.
+  const outer = document.createElement("div");
+  outer.style.cssText = "height:0;overflow:hidden;";
   const wrap = document.createElement("div");
-  wrap.style.cssText = "position:absolute;left:0;top:-20000px;width:750px;background:#fff;font-family:Arial,sans-serif;color:#333;";
+  wrap.style.cssText = "width:750px;background:#fff;font-family:Arial,sans-serif;color:#333;";
   wrap.innerHTML = `<div style="padding:0 15px;color:#333;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;">${contenidoHTML}</div>`;
-  document.body.appendChild(wrap);
+  outer.appendChild(wrap);
+  document.body.appendChild(outer);
 
   // 3. Esperar a que las imágenes carguen
   const imgs = wrap.querySelectorAll("img");
@@ -17264,10 +17267,13 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
     const pageHeight = pdf.internal.pageSize.getHeight();
 
     // Convertir el encabezado a imagen para meterla como header
+    const headerOuter = document.createElement("div");
+    headerOuter.style.cssText = "height:0;overflow:hidden;";
     const headerDiv = document.createElement("div");
-    headerDiv.style.cssText = "position:absolute;left:0;top:-20000px;width:750px;background:#fff;font-family:Arial,sans-serif;padding:0 15px;";
+    headerDiv.style.cssText = "width:750px;background:#fff;font-family:Arial,sans-serif;padding:0 15px;";
     headerDiv.innerHTML = encabezadoHTML;
-    document.body.appendChild(headerDiv);
+    headerOuter.appendChild(headerDiv);
+    document.body.appendChild(headerOuter);
     const hImgs = headerDiv.querySelectorAll("img");
     await Promise.all(Array.from(hImgs).map(img => {
       if(img.complete && img.naturalWidth > 0) return Promise.resolve();
@@ -17276,22 +17282,25 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
     const headerCanvas = await html2canvas(headerDiv, { scale: 2, useCORS: true, backgroundColor: '#fff' });
     const headerData = headerCanvas.toDataURL('image/jpeg', 0.95);
     const headerHmm = (headerCanvas.height * pageWidth) / headerCanvas.width;
-    document.body.removeChild(headerDiv);
+    document.body.removeChild(headerOuter);
 
     // Convertir el pie a imagen
+    const footerOuter = document.createElement("div");
+    footerOuter.style.cssText = "height:0;overflow:hidden;";
     const footerDiv = document.createElement("div");
-    footerDiv.style.cssText = "position:absolute;left:0;top:-20000px;width:750px;background:#fff;font-family:Arial,sans-serif;";
+    footerDiv.style.cssText = "width:750px;background:#fff;font-family:Arial,sans-serif;";
     footerDiv.innerHTML = `
       <div style="background:#1F3864;color:#fff;padding:10px 14px;text-align:center;font-size:10.5px;font-weight:bold;line-height:1.5;font-family:Arial,sans-serif;">
         <div>San José Desamparados, 1km al sur del Multicentro Desamparados</div>
         <div>Teléfono 2250-0590 / 2250-0614</div>
         <div>lic.callefallas@mep.go.cr / www.mep.go.cr</div>
       </div>`;
-    document.body.appendChild(footerDiv);
+    footerOuter.appendChild(footerDiv);
+    document.body.appendChild(footerOuter);
     const footerCanvas = await html2canvas(footerDiv, { scale: 2, useCORS: true, backgroundColor: '#fff' });
     const footerData = footerCanvas.toDataURL('image/jpeg', 0.95);
     const footerHmm = (footerCanvas.height * pageWidth) / footerCanvas.width;
-    document.body.removeChild(footerDiv);
+    document.body.removeChild(footerOuter);
 
     // Agregar encabezado y pie en cada página
     for(let i = 1; i <= totalPages; i++){
@@ -17308,7 +17317,7 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
     console.error("Error generando PDF:", e);
     alert("Error generando PDF: " + e.message);
   } finally {
-    document.body.removeChild(wrap);
+    document.body.removeChild(outer);
   }
 }
 
