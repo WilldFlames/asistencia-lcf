@@ -17235,8 +17235,8 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
   const outer = document.createElement("div");
   outer.style.cssText = "height:0;overflow:hidden;";
   const wrap = document.createElement("div");
-  wrap.style.cssText = "width:720px;background:#fff;font-family:Arial,sans-serif;color:#333;";
-  wrap.innerHTML = `<div style="padding:0;color:#333;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;">${contenidoHTML}</div>`;
+  wrap.style.cssText = "width:680px;background:#fff;font-family:Arial,sans-serif;color:#333;";
+  wrap.innerHTML = `<div style="padding:0;color:#333;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;box-sizing:border-box;max-width:680px;overflow-wrap:break-word;">${contenidoHTML}</div>`;
   outer.appendChild(wrap);
   document.body.appendChild(outer);
 
@@ -17321,8 +17321,25 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
       pdf.addImage(footerData, 'JPEG', marginX, pageHeight - footerScaled - 8, contentWidth, footerScaled);
     }
 
-    // 6. Guardar el PDF (dispara la descarga)
-    pdf.save(nombreArchivo);
+    // 6. Abrir el PDF en una pestaña nueva y disparar el diálogo de impresión
+    // (en vez de descargarlo). El usuario puede imprimir directo o cerrar.
+    const pdfBlob = pdf.output('blob');
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    const printWindow = window.open(blobUrl, '_blank');
+    if(printWindow){
+      // Esperar a que el PDF se cargue y disparar el diálogo de imprimir
+      printWindow.addEventListener('load', () => {
+        setTimeout(() => {
+          try { printWindow.print(); } catch(e){ console.warn(e); }
+        }, 500);
+      });
+    } else {
+      // Si el navegador bloqueó la ventana emergente, caer a descarga
+      pdf.save(nombreArchivo);
+      alert("El navegador bloqueó la ventana emergente. Se descargó el PDF en su lugar.");
+    }
+    // Liberar la URL del blob después de un tiempo prudente
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   } catch(e) {
     console.error("Error generando PDF:", e);
     alert("Error generando PDF: " + e.message);
