@@ -140,7 +140,7 @@ router.post("/", canManage, async (req, res) => {
   async function notificarProfesoresDeSeccion(seccionId, mensaje, tipo) {
     if (!seccionId) return;
     const profs = await pool.query(`
-      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND profesor_id IS NOT NULL
+      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND profesor_id IS NOT NULL AND COALESCE(anio, EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int) = EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int
       UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
     `, [seccionId]);
     for (const p of profs.rows) {
@@ -381,7 +381,7 @@ router.put("/:id/seccion", canManage, async (req, res) => {
   // Notificar profesores de la sección ANTERIOR
   if (seccionAnteriorId) {
     const profsAnt = await pool.query(`
-      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1
+      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND COALESCE(anio, EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int) = EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int
       UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
     `, [seccionAnteriorId]);
     for (const p of profsAnt.rows) {
@@ -392,7 +392,7 @@ router.put("/:id/seccion", canManage, async (req, res) => {
   // Notificar profesores de la sección NUEVA
   if (seccion_id) {
     const profsNueva = await pool.query(`
-      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1
+      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND COALESCE(anio, EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int) = EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int
       UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
     `, [seccion_id]);
     for (const p of profsNueva.rows) {
@@ -422,8 +422,11 @@ router.delete("/:id", canManage, async (req, res) => {
   const est = estR.rows[0];
   const nombreEst = est ? `${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre} (${est.cedula})` : `ID ${req.params.id}`;
 
-  // Desactivar estudiante
-  await pool.query("UPDATE estudiantes SET activo=false WHERE id=$1", [req.params.id]);
+  // Desactivar estudiante y guardar auditoría del retiro
+  await pool.query(
+    "UPDATE estudiantes SET activo=false, retirado_por=$2, fecha_retiro=NOW(), motivo_retiro=$3 WHERE id=$1",
+    [req.params.id, u.id, justificacion.trim()]
+  );
 
   // Notificar a todos los admins
   const admins = await pool.query(
@@ -485,9 +488,14 @@ router.put("/:id/foto", canManage, async (req, res) => {
 router.get("/archivados", canManage, async (req, res) => {
   const r = await pool.query(`
     SELECT e.*,
-      s.nombre AS seccion_nombre
+      s.nombre AS seccion_nombre,
+      u.nombre AS retirado_por_nombre,
+      u.primer_apellido AS retirado_por_ap1,
+      u.segundo_apellido AS retirado_por_ap2,
+      u.rol AS retirado_por_rol
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
+    LEFT JOIN usuarios u ON u.id=e.retirado_por
     WHERE e.archivado=true
     ORDER BY e.primer_apellido, e.nombre
   `);
@@ -534,6 +542,8 @@ router.post("/:id/archivar", canManage, async (req, res) => {
       SELECT DISTINCT a.profesor_id
       FROM asignaciones a
       WHERE a.seccion_id=$1
+        AND COALESCE(a.anio, EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int)
+            = EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int
     `, [est.sec_id]);
 
     const msg = `El estudiante ${nombreEst} (Sección: ${est.seccion_nombre||''}) ha sido retirado del Liceo de Calle Fallas. Registrado por: ${nombreUsuario}.${motivo?' Motivo: '+motivo:''}`;
@@ -623,7 +633,7 @@ router.post("/:id/reactivar", canManage, async (req, res) => {
   // Si tiene sección, notificar a los profesores de esa sección
   if (secNueva) {
     const profR = await pool.query(`
-      SELECT DISTINCT a.profesor_id FROM asignaciones a WHERE a.seccion_id=$1
+      SELECT DISTINCT a.profesor_id FROM asignaciones a WHERE a.seccion_id=$1 AND COALESCE(a.anio, EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int) = EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int
     `, [secNueva.id]);
     for (const p of profR.rows) {
       if (p.profesor_id !== u.id) {
@@ -831,7 +841,7 @@ router.post("/importar", canManage, async (req, res) => {
         const secNombre = sec.rows[0]?.nombre || `ID ${seccionId}`;
         const msg = `🆕 Ingresaron ${cantidad} estudiante${cantidad>1?'s':''} a la sección ${secNombre} (importación masiva).`;
         const profs = await pool.query(`
-          SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND profesor_id IS NOT NULL
+          SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND profesor_id IS NOT NULL AND COALESCE(anio, EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int) = EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int
           UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
         `, [seccionId]);
         for(const p of profs.rows){

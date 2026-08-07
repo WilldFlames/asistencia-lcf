@@ -16174,10 +16174,19 @@ async function verDetalleArchivado(id){
 
     let html = '';
 
-    // Aviso de archivado
+    // Aviso de archivado con datos completos: quién retiró, cuándo y por qué
+    const retiradoPor = e.retirado_por_nombre
+      ? `${e.retirado_por_ap1||''} ${e.retirado_por_nombre}`.trim()
+      : null;
+    const rolCap = e.retirado_por_rol
+      ? e.retirado_por_rol.charAt(0).toUpperCase() + e.retirado_por_rol.slice(1).replace('_',' ')
+      : '';
     html += `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:6px;margin-bottom:12px;font-size:13px;color:#78350f;">
       📁 <strong>Estudiante archivado.</strong>
-      ${e.fecha_archivo ? ' Fecha de retiro: <strong>'+fmtF(e.fecha_archivo)+'</strong>.' : ''}
+      ${e.fecha_archivo ? ' Fecha de archivo: <strong>'+fmtF(e.fecha_archivo)+'</strong>.' : ''}
+      ${e.fecha_retiro && !e.fecha_archivo ? ' Fecha de retiro: <strong>'+fmtF(e.fecha_retiro)+'</strong>.' : ''}
+      ${retiradoPor ? '<br/>👤 Retirado por: <strong>'+retiradoPor+'</strong>'+(rolCap?' ('+rolCap+')':'')+'.' : ''}
+      ${e.motivo_retiro ? '<br/>📝 Motivo: <em>'+e.motivo_retiro+'</em>' : (e.motivo_archivo ? '<br/>📝 Motivo: <em>'+e.motivo_archivo+'</em>' : '')}
     </div>`;
 
     // Información personal
