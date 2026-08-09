@@ -36,3 +36,8 @@ test("los documentos de debido proceso usan imprimirPDFMEP", () => {
   assert.match(frontend, /imprimirPDFMEP\('PORTADA DEL EXPEDIENTE'/);
   assert.match(frontend, /await imprimirPDFMEP\(tituloOficial, contenidoHTML, archivo\)/);
 });
+
+test("la ventana de sustituto se muestra por encima del detalle del proceso", () => {
+  assert.match(frontend, /id="modal-dp-sustituto" style="z-index:260;"/);
+  assert.match(frontend, /id="modal-dp-detalle"/);
+});
