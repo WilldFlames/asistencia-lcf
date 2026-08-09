@@ -2393,6 +2393,14 @@ tr:hover td{background:#f8fafc;}
           </div>
           <button class="btn btn-outline btn-sm" onclick="imprimirCompromisoFuera()">🖨️ Imprimir</button>
         </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);">
+          <span style="font-size:20px;">📷</span>
+          <div style="flex:1;">
+            <strong style="font-size:13px;">Autorización de Uso de Imagen</strong>
+            <div style="font-size:12px;color:var(--muted);">Para que el encargado autorice o rechace el uso institucional</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="imprimirAutorizacionImagenFuera()">🖨️ Imprimir</button>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-primary" onclick="matPaso(3)">Continuar → Beca</button>
@@ -16411,35 +16419,39 @@ const CICLO_MAT = {7:"III Ciclo de la Educación General Básica",
                    10:"Educación Diversificada",11:"Educación Diversificada"};
 let matEstId = null, matEncIdx = 0, matDatosGuardados = null;
 
-// Imprimir FUERA del modal (cierra modal → imprime → reabre)
+// Los datos escritos por las personas se insertan dentro del documento PDF.
+// Escaparlos evita que símbolos como <, > o & alteren el formato.
+function pdfTexto(valor, vacio="—"){
+  const texto = String(valor ?? "").trim();
+  if(!texto) return vacio;
+  return texto.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+// Generar los documentos sin cerrar el asistente de matrícula. El PDF se
+// abre en otra pestaña, por lo que los datos y el paso actual permanecen
+// visibles aunque el usuario vuelva a la ventana del sistema.
 async function imprimirFichaFuera(){
   if(!matDatosGuardados){ alert("Guardá los datos primero."); return; }
-  cerrarModal("modal-matricula");
-  await new Promise(r=>setTimeout(r,300));
   await imprimirFichaMatricula(matDatosGuardados);
-  document.getElementById("modal-matricula").classList.add("show");
 }
 
 async function imprimirCompromisoFuera(){
-  cerrarModal("modal-matricula");
-  await new Promise(r=>setTimeout(r,300));
   await imprimirCompromiso();
-  document.getElementById("modal-matricula").classList.add("show");
+}
+
+async function imprimirAutorizacionImagenFuera(){
+  if(!matDatosGuardados){ alert("Guardá los datos primero."); return; }
+  await imprimirAutorizacionImagen();
 }
 
 async function imprimirBecaFuera(resultado, datos){
-  cerrarModal("modal-matricula");
-  await new Promise(r=>setTimeout(r,300));
   await imprimirFormBeca(resultado, datos);
-  document.getElementById("modal-matricula").classList.add("show");
   document.getElementById("mat-btn-paso3-next").style.display="";
 }
 
 async function imprimirAdecuacionFuera(motivo){
-  cerrarModal("modal-matricula");
-  await new Promise(r=>setTimeout(r,300));
   await imprimirAdecuacion(motivo);
-  document.getElementById("modal-matricula").classList.add("show");
   document.getElementById("mat-btn-paso4-next").style.display="";
 }
 
@@ -16625,97 +16637,87 @@ async function guardarMat1(){
   };
   sa("alert-mat-modal","","");
   matPaso(2);
+  await imprimirFichaMatricula(matDatosGuardados);
 }
 
 async function imprimirFichaMatricula(datos){
   const nivelNum=datos.nivel_matricula;
   const nivelNom=NIVELES_MAT[nivelNum]||"";
   const ciclo=CICLO_MAT[nivelNum]||"";
-  const encs=getEncargados(); const enc1=encs[0]||{};
+  const encs=datos.encargados||getEncargados(); const enc1=encs[0]||{};
   let auxNom=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
   let auxCed=ME.cedula||"";
   if(!auxCed){try{const m=await api("/api/auth/me");auxCed=m?.usuario?.cedula||"";}catch{}}
   const hoy=new Date();
   const tipoLabel={regular:"Estudiante regular",prematricula:"Estudiante de primer ingreso",nuevo:"Estudiante de primer ingreso"}[datos.tipo_ingreso]||"";
-  let printArea=document.getElementById("print-boleta-area");
-  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
-  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
-  printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.7;">
-    ${encabezadoMEP("FICHA DE MATRÍCULA 2027")}
+  const contenidoHTML=`
+  <div style="font-size:12px;line-height:1.65;">
     <h2 style="text-align:center;font-size:14px;font-weight:bold;margin:16px 0;border-bottom:2px solid #374151;padding-bottom:6px;">DATOS DEL ESTUDIANTE</h2>
     <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-      <tr><td style="padding:3px 6px;width:50%;"><strong>Nombre:</strong> ${datos.primer_apellido} ${datos.segundo_apellido||''}, ${datos.nombre}</td>
+      <tr><td style="padding:3px 6px;width:50%;"><strong>Nombre:</strong> ${pdfTexto(datos.primer_apellido," ")} ${pdfTexto(datos.segundo_apellido," ")}, ${pdfTexto(datos.nombre)}</td>
           <td style="padding:3px 6px;"><strong>Sexo:</strong> ${datos.sexo==="F"?"Femenino":datos.sexo==="M"?"Masculino":"—"}</td></tr>
-      <tr><td style="padding:3px 6px;"><strong>Cédula:</strong> ${datos.cedula}</td>
-          <td style="padding:3px 6px;"><strong>Nacionalidad:</strong> ${datos.nacionalidad||"—"}</td></tr>
-      <tr><td style="padding:3px 6px;"><strong>Fecha nacimiento:</strong> ${datos.fecha_nacimiento||"—"}</td>
-          <td style="padding:3px 6px;"><strong>Correo:</strong> ${datos.correo||"—"}</td></tr>
-      <tr><td colspan="2" style="padding:3px 6px;"><strong>Institución procedencia:</strong> ${datos.institucion_procedencia||"—"}</td></tr>
-      <tr><td colspan="2" style="padding:3px 6px;"><strong>Dirección:</strong> ${datos.provincia||"—"}, ${datos.canton||"—"}, ${datos.distrito||"—"}. ${datos.direccion_exacta||""}</td></tr>
-      <tr><td style="padding:3px 6px;"><strong>Habita con:</strong> ${datos.habita_con||"—"}</td>
-          <td style="padding:3px 6px;"><strong>Adecuación:</strong> ${datos.adecuacion==="ninguna"?"No":datos.adecuacion}</td></tr>
-      <tr><td style="padding:3px 6px;"><strong>Enfermedad:</strong> ${datos.enfermedad||"Ninguna"}</td>
-          <td style="padding:3px 6px;"><strong>Medicamento:</strong> ${datos.medicamento||"—"}</td></tr>
-      <tr><td colspan="2" style="padding:3px 6px;"><strong>Tels. emergencia:</strong> ${datos.telefonos_emergencia||"—"}</td></tr>
+      <tr><td style="padding:3px 6px;"><strong>Cédula:</strong> ${pdfTexto(datos.cedula)}</td>
+          <td style="padding:3px 6px;"><strong>Nacionalidad:</strong> ${pdfTexto(datos.nacionalidad)}</td></tr>
+      <tr><td style="padding:3px 6px;"><strong>Fecha nacimiento:</strong> ${pdfTexto(datos.fecha_nacimiento)}</td>
+          <td style="padding:3px 6px;"><strong>Correo:</strong> ${pdfTexto(datos.correo)}</td></tr>
+      <tr><td colspan="2" style="padding:3px 6px;"><strong>Institución procedencia:</strong> ${pdfTexto(datos.institucion_procedencia)}</td></tr>
+      <tr><td colspan="2" style="padding:3px 6px;"><strong>Dirección:</strong> ${pdfTexto(datos.provincia)}, ${pdfTexto(datos.canton)}, ${pdfTexto(datos.distrito)}. ${pdfTexto(datos.direccion_exacta," ")}</td></tr>
+      <tr><td style="padding:3px 6px;"><strong>Habita con:</strong> ${pdfTexto(datos.habita_con)}</td>
+          <td style="padding:3px 6px;"><strong>Adecuación:</strong> ${datos.adecuacion==="ninguna"?"No":pdfTexto(datos.adecuacion)}</td></tr>
+      <tr><td style="padding:3px 6px;"><strong>Enfermedad:</strong> ${pdfTexto(datos.enfermedad,"Ninguna")}</td>
+          <td style="padding:3px 6px;"><strong>Medicamento:</strong> ${pdfTexto(datos.medicamento)}</td></tr>
+      <tr><td colspan="2" style="padding:3px 6px;"><strong>Tels. emergencia:</strong> ${pdfTexto(datos.telefonos_emergencia)}</td></tr>
     </table>
     <div style="padding:6px;background:#f8fafc;border-radius:4px;margin-bottom:14px;">
-      <strong>Nivel 2027:</strong> ${nivelNom} — ${ciclo} &nbsp;|&nbsp; <strong>Tipo:</strong> ${tipoLabel}
+      <strong>Nivel 2027:</strong> ${pdfTexto(nivelNom)} — ${pdfTexto(ciclo)} &nbsp;|&nbsp; <strong>Tipo:</strong> ${pdfTexto(tipoLabel)}
     </div>
     ${encs.map((e,i)=>`
-    <h2 style="font-size:13px;font-weight:bold;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px;">ENCARGADO ${i===0?"PRINCIPAL":"#"+(i+1)}</h2>
-    <table style="width:100%;border-collapse:collapse;">
-      <tr><td style="padding:2px 6px;width:33%;"><strong>Parentesco:</strong> ${e.parentesco||"—"}</td>
-          <td style="padding:2px 6px;width:33%;"><strong>Cédula:</strong> ${e.cedula||"—"}</td>
-          <td style="padding:2px 6px;"><strong>Nac.:</strong> ${e.nacionalidad||"—"}</td></tr>
-      <tr><td colspan="3" style="padding:2px 6px;"><strong>Nombre:</strong> ${e.primer_apellido||""} ${e.segundo_apellido||""}, ${e.nombre||""}</td></tr>
-      <tr><td style="padding:2px 6px;"><strong>Tel. 1:</strong> ${e.telefono||"—"}</td>
-          <td style="padding:2px 6px;"><strong>Tel. 2:</strong> ${e.celular||"—"}</td>
-          <td style="padding:2px 6px;"><strong>Tel. 3:</strong> ${e.telefono_trabajo||"—"}</td></tr>
-      <tr><td style="padding:2px 6px;"><strong>Profesión:</strong> ${e.profesion||"—"}</td>
-          <td colspan="2" style="padding:2px 6px;"><strong>Trabajo:</strong> ${e.lugar_trabajo||"—"}</td></tr>
-    </table>`).join("")}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
+    <div class="reporte-materia">
+      <h2 style="font-size:13px;font-weight:bold;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px;">ENCARGADO ${i===0?"PRINCIPAL":"#"+(i+1)}</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:2px 6px;width:33%;"><strong>Parentesco:</strong> ${pdfTexto(e.parentesco)}</td>
+            <td style="padding:2px 6px;width:33%;"><strong>Cédula:</strong> ${pdfTexto(e.cedula)}</td>
+            <td style="padding:2px 6px;"><strong>Nac.:</strong> ${pdfTexto(e.nacionalidad)}</td></tr>
+        <tr><td colspan="3" style="padding:2px 6px;"><strong>Nombre:</strong> ${pdfTexto(e.primer_apellido," ")} ${pdfTexto(e.segundo_apellido," ")}, ${pdfTexto(e.nombre)}</td></tr>
+        <tr><td style="padding:2px 6px;"><strong>Tel. 1:</strong> ${pdfTexto(e.telefono)}</td>
+            <td style="padding:2px 6px;"><strong>Tel. 2:</strong> ${pdfTexto(e.celular)}</td>
+            <td style="padding:2px 6px;"><strong>Tel. 3:</strong> ${pdfTexto(e.telefono_trabajo)}</td></tr>
+        <tr><td style="padding:2px 6px;"><strong>Profesión:</strong> ${pdfTexto(e.profesion)}</td>
+            <td colspan="2" style="padding:2px 6px;"><strong>Trabajo:</strong> ${pdfTexto(e.lugar_trabajo)}</td></tr>
+      </table>
+    </div>`).join("")}
+    <div class="reporte-materia" style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>${enc1.primer_apellido||""} ${enc1.nombre||""}</div><div>Firma del encargado</div>
+        <div>${pdfTexto(enc1.primer_apellido," ")} ${pdfTexto(enc1.nombre," ")}</div><div>Firma del encargado</div>
         <div>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
       </div>
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>${auxNom}</div><div>Auxiliar Administrativo / Funcionario autorizado</div>
-        <div>Cédula: ${auxCed} &nbsp; Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
+        <div>${pdfTexto(auxNom)}</div><div>Auxiliar Administrativo / Funcionario autorizado</div>
+        <div>Cédula: ${pdfTexto(auxCed)} &nbsp; Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
       </div>
     </div>
-    ${piePaginaMEP()}
   </div>`;
-  const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
-  document.head.appendChild(style);
-  await imprimirConEncabezado(printArea,style);
+  await imprimirPDFMEP("FICHA DE MATRÍCULA 2027", contenidoHTML, `ficha_matricula_${datos.cedula||"estudiante"}.pdf`);
 }
 
 async function imprimirCompromiso(){
   if(!matDatosGuardados){ sa("alert-mat-modal","Completá los datos del paso 1 primero.","danger"); return; }
   const d = matDatosGuardados;
   const enc1 = (d.encargados&&d.encargados.length) ? d.encargados[0] : {};
-  const nombre=`${d.primer_apellido||""} ${d.segundo_apellido||""}, ${d.nombre||""}`.trim();
-  const cedEst=d.cedula||"";
+  const nombre=`${pdfTexto(d.primer_apellido," ")} ${pdfTexto(d.segundo_apellido," ")}, ${pdfTexto(d.nombre)}`.trim();
+  const cedEst=pdfTexto(d.cedula);
   const nivelNom=NIVELES_MAT[d.nivel_matricula]||"";
-  const encNom=`${enc1.primer_apellido||""} ${enc1.segundo_apellido||""}, ${enc1.nombre||""}`.trim();
-  const encCed=enc1.cedula||"";
-  const encTel=enc1.telefono||enc1.celular||"";
-  const auxNom=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  const encNom=`${pdfTexto(enc1.primer_apellido," ")} ${pdfTexto(enc1.segundo_apellido," ")}, ${pdfTexto(enc1.nombre)}`.trim();
+  const encCed=pdfTexto(enc1.cedula);
+  const encTel=pdfTexto(enc1.telefono||enc1.celular);
+  const auxNom=pdfTexto(`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`);
 
-  let printArea=document.getElementById("print-boleta-area");
-  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
-  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
-  printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.8;">
-    ${encabezadoMEP("Declaración de Compromiso de Matrícula Periodo Lectivo 2027")}
-
+  const contenidoHTML=`
+  <div style="font-size:12px;line-height:1.75;text-align:justify;">
     <p>Yo <strong>${encNom}</strong>, cédula <strong>${encCed}</strong>,
     teléfono <strong>${encTel}</strong>, Representante legal del estudiante
     <strong>${nombre}</strong>, cédula <strong>${cedEst}</strong>,
-    nivel educativo a matricular <strong>${nivelNom}</strong>,
+    nivel educativo a matricular <strong>${pdfTexto(nivelNom)}</strong>,
     declaro mi compromiso de cumplir los lineamientos institucionales y del Ministerio de Educación Pública de Costa Rica:</p>
 
     <p><strong>1. NORMAS GENERALES DE SEGURIDAD</strong><br/>
@@ -16736,7 +16738,7 @@ async function imprimirCompromiso(){
 
     <p>Firmo conforme en el Liceo de Calle Fallas &nbsp;&nbsp;&nbsp; día _______ mes _________________ 2027</p>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:50px;">
+    <div class="reporte-materia" style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:50px;">
       <div style="text-align:center;">
         <div style="border-top:1px solid #374151;padding-top:8px;">
           <div style="font-weight:bold;">${encNom}</div>
@@ -16751,12 +16753,48 @@ async function imprimirCompromiso(){
         <div style="margin-top:4px;font-weight:bold;">${auxNom}</div>
       </div>
     </div>
-    ${piePaginaMEP()}
   </div>`;
-  const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
-  document.head.appendChild(style);
-  await imprimirConEncabezado(printArea,style);
+  await imprimirPDFMEP("DECLARACIÓN DE COMPROMISO DE MATRÍCULA · PERIODO LECTIVO 2027", contenidoHTML, `compromiso_matricula_${d.cedula||"estudiante"}.pdf`);
+}
+
+async function imprimirAutorizacionImagen(){
+  if(!matDatosGuardados){ sa("alert-mat-modal","Completá los datos del paso 1 primero.","danger"); return; }
+  const d=matDatosGuardados;
+  const enc1=(d.encargados&&d.encargados.length)?d.encargados[0]:{};
+  const estudiante=`${pdfTexto(d.primer_apellido," ")} ${pdfTexto(d.segundo_apellido," ")}, ${pdfTexto(d.nombre)}`.trim();
+  const encargado=`${pdfTexto(enc1.primer_apellido," ")} ${pdfTexto(enc1.segundo_apellido," ")}, ${pdfTexto(enc1.nombre)}`.trim();
+  const contenidoHTML=`
+  <div style="font-size:13px;line-height:1.8;text-align:justify;">
+    <p>Yo, <strong>${encargado}</strong>, portador(a) de la cédula de identidad
+    <strong>${pdfTexto(enc1.cedula)}</strong>, en calidad de encargado(a) legal del estudiante
+    <strong>${estudiante}</strong>, cédula <strong>${pdfTexto(d.cedula)}</strong>, matriculado(a) en el nivel
+    <strong>${pdfTexto(NIVELES_MAT[d.nivel_matricula])}</strong>, manifiesto mi decisión respecto al uso de su imagen:</p>
+
+    <div style="margin:24px 0;padding:16px;border:1px solid #94a3b8;border-radius:6px;line-height:2;">
+      <div>☐ <strong>AUTORIZO</strong> la captura y utilización de fotografías o videos del estudiante.</div>
+      <div>☐ <strong>NO AUTORIZO</strong> la captura ni utilización de fotografías o videos del estudiante.</div>
+    </div>
+
+    <p>En caso de autorizar, el material podrá utilizarse únicamente con fines educativos, informativos e
+    institucionales del Liceo de Calle Fallas y del Ministerio de Educación Pública, incluyendo actividades
+    académicas, culturales, deportivas y comunicaciones institucionales. Esta autorización no permite usos
+    comerciales ni ajenos a las funciones educativas.</p>
+
+    <p>La persona encargada podrá comunicar por escrito a la institución cualquier cambio posterior en esta decisión.</p>
+
+    <div class="reporte-materia" style="margin-top:55px;display:grid;grid-template-columns:1fr 1fr;gap:45px;">
+      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
+        <div>${encargado}</div>
+        <div>Nombre y firma del encargado(a) legal</div>
+        <div>Cédula: ${pdfTexto(enc1.cedula)}</div>
+      </div>
+      <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
+        <div>Fecha: ______ / ______ / __________</div>
+        <div style="margin-top:18px;">Teléfono: ${pdfTexto(enc1.telefono||enc1.celular,"________________")}</div>
+      </div>
+    </div>
+  </div>`;
+  await imprimirPDFMEP("AUTORIZACIÓN PARA EL USO DE IMAGEN", contenidoHTML, `autorizacion_imagen_${d.cedula||"estudiante"}.pdf`);
 }
 
 function mostrarFormBeca(){
@@ -16788,37 +16826,29 @@ async function guardarBecaMatricula(){
 }
 
 async function imprimirFormBeca(resultado,datos){
-  const nombre=`${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
-  const cedEst=document.getElementById("mat-cedula").value;
+  const nombre=`${pdfTexto(document.getElementById("mat-ap1").value," ")} ${pdfTexto(document.getElementById("mat-ap2").value," ")}, ${pdfTexto(document.getElementById("mat-nombre").value)}`;
+  const cedEst=pdfTexto(document.getElementById("mat-cedula").value);
   const nivelNom=NIVELES_MAT[parseInt(document.getElementById("mat-nivel").value)||7]||"";
   const encs=getEncargados(); const enc1=encs[0]||{};
-  const auxNom=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
-  let printArea=document.getElementById("print-boleta-area");
-  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
-  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
-  printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:12px;line-height:1.7;">
-    ${encabezadoMEP("FORMULARIO PARA SOLICITUD DE BECA DE COMEDOR 2027")}
+  const auxNom=pdfTexto(`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`);
+  const contenidoHTML=`
+  <div style="font-size:12px;line-height:1.7;">
     <h3 style="text-align:center;font-size:13px;margin:10px 0;">SOLICITUD DE BENEFICIO DE COMEDOR – 2027 · Liceo de Calle Fallas</h3>
-    <p><strong>ESTUDIANTE:</strong> ${nombre} &nbsp; Cédula: ${cedEst} &nbsp; Nivel: ${nivelNom}</p>
-    <p><strong>ENCARGADO:</strong> ${enc1.primer_apellido||""} ${enc1.nombre||""} — Cédula: ${enc1.cedula||"—"} — Tel: ${enc1.telefono||"—"} — ${enc1.parentesco||""}</p>
-    <p><strong>FAMILIA:</strong> Personas: ${datos.personas_hogar} &nbsp; Vivienda: ${datos.tipo_vivienda||"—"} &nbsp; Vive con: ${datos.vive_con||"—"}</p>
-    <p><strong>ECONÓMICO:</strong> Ingreso: ₡${Math.round(datos.ingreso_mensual).toLocaleString()} &nbsp; Avancemos: ${datos.recibe_avancemos?"Sí":"No"} &nbsp; Otros: ${datos.otros_ingresos||"—"}</p>
-    <p><strong>MOTIVO:</strong> ${datos.motivos||"—"}</p>
+    <p><strong>ESTUDIANTE:</strong> ${nombre} &nbsp; Cédula: ${cedEst} &nbsp; Nivel: ${pdfTexto(nivelNom)}</p>
+    <p><strong>ENCARGADO:</strong> ${pdfTexto(enc1.primer_apellido," ")} ${pdfTexto(enc1.nombre," ")} — Cédula: ${pdfTexto(enc1.cedula)} — Tel: ${pdfTexto(enc1.telefono)} — ${pdfTexto(enc1.parentesco," ")}</p>
+    <p><strong>FAMILIA:</strong> Personas: ${pdfTexto(datos.personas_hogar)} &nbsp; Vivienda: ${pdfTexto(datos.tipo_vivienda)} &nbsp; Vive con: ${pdfTexto(datos.vive_con)}</p>
+    <p><strong>ECONÓMICO:</strong> Ingreso: ₡${Math.round(datos.ingreso_mensual).toLocaleString()} &nbsp; Avancemos: ${datos.recibe_avancemos?"Sí":"No"} &nbsp; Otros: ${pdfTexto(datos.otros_ingresos)}</p>
+    <p><strong>MOTIVO:</strong> ${pdfTexto(datos.motivos)}</p>
     <p>Declaro bajo juramento que la información es verídica.</p>
     <div style="margin-top:16px;border-top:2px solid #374151;padding-top:10px;background:#f8fafc;padding:10px;border-radius:4px;">
-      <strong>USO INTERNO:</strong> Per cápita: ₡${Math.round(resultado.percapita).toLocaleString()} — ${resultado.clasificacion} — ${resultado.resolucion==="aprobado"?"✅ APROBADO":"⏳ PENDIENTE"}
+      <strong>USO INTERNO:</strong> Per cápita: ₡${Math.round(resultado.percapita).toLocaleString()} — ${pdfTexto(resultado.clasificacion)} — ${resultado.resolucion==="aprobado"?"APROBADO":"PENDIENTE"}
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
+    <div class="reporte-materia" style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:45px;">
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;"><div>Firma del encargado</div></div>
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;"><div>${auxNom}</div><div>Sello: ___________</div></div>
     </div>
-    ${piePaginaMEP()}
   </div>`;
-  const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
-  document.head.appendChild(style);
-  await imprimirConEncabezado(printArea,style);
+  await imprimirPDFMEP("FORMULARIO PARA SOLICITUD DE BECA DE COMEDOR 2027", contenidoHTML, `solicitud_beca_comedor_${document.getElementById("mat-cedula").value||"estudiante"}.pdf`);
 }
 
 async function guardarAdecuacion(){
@@ -16831,33 +16861,25 @@ async function guardarAdecuacion(){
 }
 
 async function imprimirAdecuacion(motivo){
-  const nombre=`${document.getElementById("mat-ap1").value} ${document.getElementById("mat-ap2").value}, ${document.getElementById("mat-nombre").value}`;
-  const cedEst=document.getElementById("mat-cedula").value;
+  const nombre=`${pdfTexto(document.getElementById("mat-ap1").value," ")} ${pdfTexto(document.getElementById("mat-ap2").value," ")}, ${pdfTexto(document.getElementById("mat-nombre").value)}`;
+  const cedEst=pdfTexto(document.getElementById("mat-cedula").value);
   const encs=getEncargados(); const enc1=encs[0]||{};
-  const auxNom=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  const auxNom=pdfTexto(`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`);
   const hoy=new Date();
-  let printArea=document.getElementById("print-boleta-area");
-  if(!printArea){printArea=document.createElement("div");printArea.id="print-boleta-area";document.body.appendChild(printArea);}
-  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
-  printArea.innerHTML=`
-  <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:20px;padding-bottom:80px;font-size:13px;">
-    ${encabezadoMEP("SOLICITUD DE VALORACIÓN DE ADECUACIÓN CURRICULAR")}
+  const contenidoHTML=`
+  <div style="font-size:13px;line-height:1.7;">
     <p>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</p>
     <p>Estudiante: <strong>${nombre}</strong> &nbsp; Cédula: <strong>${cedEst}</strong></p>
-    <p>Encargado(a): <strong>${enc1.nombre||""} ${enc1.primer_apellido||""}</strong> &nbsp; Tel: ${enc1.telefono||"—"}</p>
-    <p><strong>Motivo:</strong><br/>${motivo}</p>
-    <p><strong>Antecedentes:</strong><br/>${document.getElementById("adec-antecedentes").value||"N/A"}</p>
+    <p>Encargado(a): <strong>${pdfTexto(enc1.nombre," ")} ${pdfTexto(enc1.primer_apellido," ")}</strong> &nbsp; Tel: ${pdfTexto(enc1.telefono)}</p>
+    <p><strong>Motivo:</strong><br/>${pdfTexto(motivo)}</p>
+    <p><strong>Antecedentes:</strong><br/>${pdfTexto(document.getElementById("adec-antecedentes").value,"N/A")}</p>
     <p>Se solicita valoración para determinar necesidad de adecuación curricular, conforme a los lineamientos del MEP.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;">
-      <div style="border-top:1px solid #374151;padding-top:8px;"><div>Firma del solicitante: _______________</div><div>${enc1.nombre||""} ${enc1.primer_apellido||""}</div></div>
+    <div class="reporte-materia" style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:55px;">
+      <div style="border-top:1px solid #374151;padding-top:8px;"><div>Firma del solicitante: _______________</div><div>${pdfTexto(enc1.nombre," ")} ${pdfTexto(enc1.primer_apellido," ")}</div></div>
       <div style="border-top:1px solid #374151;padding-top:8px;"><div>Recibido por: ${auxNom}</div><div>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div></div>
     </div>
-    ${piePaginaMEP()}
   </div>`;
-  const style=document.createElement("style");
-  style.innerHTML=`@media print{body>*:not(#print-boleta-area){display:none!important;}#print-boleta-area{}}`;
-  document.head.appendChild(style);
-  await imprimirConEncabezado(printArea,style);
+  await imprimirPDFMEP("SOLICITUD DE VALORACIÓN DE ADECUACIÓN CURRICULAR", contenidoHTML, `solicitud_valoracion_${document.getElementById("mat-cedula").value||"estudiante"}.pdf`);
 }
 
 async function finalizarMatricula(){
@@ -17457,9 +17479,9 @@ function fechaHoyCR(){
 }
 
 function cerrarModal(id){document.getElementById(id).classList.remove("show");}
-document.querySelectorAll(".modal-overlay").forEach(o=>{
-  o.addEventListener("click",e=>{if(e.target===o)o.classList.remove("show");});
-});
+// Las ventanas solo se cierran mediante sus botones explícitos. Antes se
+// cerraban al hacer clic en el fondo; al seleccionar texto con el mouse era
+// posible soltar el botón fuera del cuadro y perder todo el avance.
 
 // ════════════════════════════════════
 //  CARTAS DE AUSENTISMO
