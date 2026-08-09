@@ -18125,9 +18125,18 @@ async function imprimirConstanciaPremat(){
   if(!pmData?.consecutivo_prematricula){
     try{
       const r = await api(`/api/prematricula/paso3/${pmId}`,"POST",{});
+      // Usar los datos que devuelve el POST directamente. NO llamar a
+      // iniciarPrematricula() aquí porque es async, hace fetch nuevo y
+      // sobrescribe pmData en paralelo, dejando la constancia sin
+      // consecutivo la primera vez que se imprime.
       pmData = r.prematricula;
-      document.getElementById("pm-res-consec").textContent = String(r.consecutivo).padStart(3,'0');
-      iniciarPrematricula();
+      // Asegurar que el consecutivo quede en pmData aunque el backend lo
+      // devuelva en otro campo por retrocompatibilidad
+      if(!pmData.consecutivo_prematricula && r.consecutivo){
+        pmData.consecutivo_prematricula = r.consecutivo;
+      }
+      const consecUI = document.getElementById("pm-res-consec");
+      if(consecUI) consecUI.textContent = String(pmData.consecutivo_prematricula).padStart(3,'0');
     }catch(e){
       sa("alert-premat-modal", "Error asignando consecutivo: "+e.message, "danger");
       return;
@@ -18204,6 +18213,10 @@ async function imprimirConstanciaPremat(){
     </div>
   `;
   await imprimirPDFMEP(null, contenidoHTML, `constancia_prematricula_${consec}.pdf`);
+  // Refrescar la lista de prematrículas EN BACKGROUND para que el UI se
+  // actualice (consecutivo asignado). No usamos await para no bloquear el
+  // return de esta función después de imprimir.
+  iniciarPrematricula().catch(()=>{});
 }
 
 function abrirEliminarPremat(id){
