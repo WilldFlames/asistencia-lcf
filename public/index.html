@@ -238,6 +238,49 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{background:var(--bg);padding:8px 11px;text-align:left;font-size:11px;color:var(--muted);border-bottom:2px solid var(--border);}
 td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle;}
+
+/* HORARIO — grilla compacta, alineada y legible */
+.hor-toolbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:10px;}
+.hor-guide-chip{font-size:12px;color:#334155;background:#fff;border:1px solid var(--border);border-radius:999px;padding:7px 12px;margin-bottom:1px;}
+#hor-grid-wrap{border:1px solid var(--border);border-radius:12px;overflow:auto;background:#fff;box-shadow:0 3px 12px rgba(15,23,42,.06);}
+.hor-table{width:100%;min-width:940px;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px;}
+.hor-table col.hor-col-num{width:44px;}
+.hor-table col.hor-col-time{width:108px;}
+.hor-table thead th{position:sticky;top:0;z-index:3;height:42px;padding:8px 6px;background:#1a3a5c;color:#fff;border:0;border-right:1px solid rgba(255,255,255,.12);text-align:center!important;font-size:11px;font-weight:800;letter-spacing:.45px;vertical-align:middle;}
+.hor-table thead th:first-child{border-radius:10px 0 0 0;}
+.hor-table thead th:last-child{border-radius:0 10px 0 0;border-right:0;}
+.hor-table .hor-lesson-row:nth-child(even) td{background:#fbfdff;}
+.hor-table .hor-lesson-row:hover td{background:#f3f8ff;}
+.hor-table td{height:70px;padding:5px 7px;border-bottom:1px solid #dbe4ee;border-right:1px solid #e7edf4;vertical-align:middle;transition:background .15s;}
+.hor-table td:last-child{border-right:0;}
+.hor-lesson-index{text-align:center;background:#f8fafc!important;}
+.hor-lesson-badge{display:inline-flex;width:27px;height:27px;align-items:center;justify-content:center;border-radius:50%;background:#e7eef8;color:#1a3a5c;font-weight:800;font-size:11px;}
+.hor-time{text-align:center;white-space:nowrap;background:#f8fafc!important;color:#475569;font-size:11px;font-variant-numeric:tabular-nums;line-height:1.35;}
+.hor-time strong{display:block;color:#0f172a;font-size:11.5px;}
+.hor-slot{position:relative;text-align:center;}
+.hor-slot.hor-today{background:#fffbeb!important;box-shadow:inset 3px 0 0 #f59e0b;}
+.hor-empty{color:#cbd5e1;font-size:15px;}
+.hor-class-card{position:relative;display:flex;min-height:56px;flex-direction:column;align-items:center;justify-content:center;padding:5px 7px;border-radius:8px;background:#f4f8fd;border:1px solid #dbe7f4;line-height:1.2;}
+.hor-class-card+.hor-class-card{margin-top:4px;}
+.hor-class-card.hor-day-2{background:#f6f5ff;border-color:#e2defc;}
+.hor-class-card.hor-day-3{background:#f1faf6;border-color:#d6eee2;}
+.hor-class-card.hor-day-4{background:#fff8ed;border-color:#f5e3c5;}
+.hor-class-card.hor-day-5{background:#fff4f6;border-color:#f3dbe1;}
+.hor-subject{color:#172554;font-weight:800;font-size:11.5px;overflow-wrap:anywhere;}
+.hor-teacher{margin-top:2px;color:#64748b;font-size:10.5px;overflow-wrap:anywhere;}
+.hor-room{display:inline-block;margin-top:4px;padding:2px 7px;border-radius:999px;background:#fff;color:#1d4ed8;border:1px solid #cbdcf7;font-size:9.5px;font-weight:800;}
+.hor-break-row td{height:auto!important;padding:0!important;background:#e8eef6!important;border:0!important;}
+.hor-break-band{display:flex;align-items:center;justify-content:center;gap:9px;height:27px;color:#334155;font-size:10px;font-weight:800;letter-spacing:.65px;text-transform:uppercase;}
+.hor-break-time{color:#64748b;font-weight:600;letter-spacing:0;text-transform:none;}
+.hor-break-row.hor-lunch td{background:#e7f5ec!important;}
+.hor-break-row.hor-lunch .hor-break-band{color:#166534;height:31px;}
+.hor-editor-row{display:flex;gap:4px;margin-bottom:4px;align-items:stretch;}
+.hor-editor-select{min-width:0;flex:1;font-size:10.5px;padding:5px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;}
+.hor-editor-room{width:48px;font-size:10.5px;padding:4px 2px;border:1px solid #cbd5e1;border-radius:6px;text-align:center;}
+.hor-editor-remove{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;border-radius:6px;padding:0 6px;font-size:11px;cursor:pointer;}
+.hor-editor-add{width:100%;font-size:10px;padding:3px 5px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:5px;color:#64748b;cursor:pointer;}
+.hor-editor-add:hover{background:#eff6ff;color:#1d4ed8;border-color:#93c5fd;}
+@media(max-width:900px){.hor-table{min-width:820px}.hor-toolbar{padding:10px}.hor-guide-chip{width:100%;border-radius:7px}.hor-table td{height:64px}}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:#f8fafc;}
 .empty{text-align:center;padding:32px;color:var(--muted);}
@@ -1588,7 +1631,7 @@ tr:hover td{background:#f8fafc;}
       </div>
     </div>
     <div id="alert-horario" class="alert"></div>
-    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+    <div class="hor-toolbar">
       <div class="fg" style="min-width:180px;">
         <label>Sección</label>
         <select id="hor-seccion" onchange="horCargarSeccion()"></select>
@@ -1597,7 +1640,7 @@ tr:hover td{background:#f8fafc;}
         <label>Año lectivo</label>
         <select id="hor-anio" onchange="horCargarSeccion()" style="padding:6px 8px;font-weight:bold;"></select>
       </div>
-      <div id="hor-guia-label" style="font-size:13px;color:var(--muted);padding-bottom:8px;"></div>
+      <div id="hor-guia-label" class="hor-guide-chip" style="display:none;"></div>
     </div>
     <div id="hor-aviso-anio" style="display:none;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:7px;padding:8px 12px;font-size:12.5px;margin-bottom:12px;"></div>
     <div id="hor-grid-wrap" class="table-wrap"></div>
@@ -15324,8 +15367,13 @@ let horLecciones = [];     // catálogo [{n,ini,fin}]
 let horAsigsSeccion = [];  // asignaciones de la sección seleccionada (admin)
 let horModo = 'seccion';   // 'seccion' | 'mio'
 const HOR_DIAS = ['','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES'];
-// Filas decorativas entre lecciones (igual a la boleta oficial)
-const HOR_SEPARADORES = { 2:'RECREO', 4:'RECREO', 6:'ALMUERZO', 8:'RECREO', 10:'RECREO' };
+const HOR_SEPARADORES = {
+  2:  { tipo:'recreo',  icono:'☕', etiqueta:'Recreo',   inicio:'08:20', fin:'08:35' },
+  4:  { tipo:'recreo',  icono:'☕', etiqueta:'Recreo',   inicio:'09:55', fin:'10:00' },
+  6:  { tipo:'almuerzo', icono:'🍽️', etiqueta:'Almuerzo', inicio:'11:20', fin:'12:00' },
+  8:  { tipo:'recreo',  icono:'☕', etiqueta:'Recreo',   inicio:'13:20', fin:'13:30' },
+  10: { tipo:'recreo',  icono:'☕', etiqueta:'Recreo',   inicio:'14:50', fin:'14:55' }
+};
 
 async function iniciarHorario(){
   horModo = 'seccion';
@@ -15386,7 +15434,9 @@ async function horCargarSeccion(){
   const wrap = document.getElementById('hor-grid-wrap');
   document.getElementById('hor-btn-guardar').style.display = 'none';
   document.getElementById('hor-btn-imprimir').style.display = 'none';
-  document.getElementById('hor-guia-label').textContent = '';
+  const guiaLabel = document.getElementById('hor-guia-label');
+  guiaLabel.textContent = '';
+  guiaLabel.style.display = 'none';
   if(!secId){ wrap.innerHTML=''; return; }
   const esAdminH = ME.rol === 'admin';
   try{
@@ -15395,8 +15445,9 @@ async function horCargarSeccion(){
       horAsigsSeccion = await api(`/api/horarios/asignaciones/${secId}?anio=${anio}`)||[];
     }
     const g = r.guia;
-    document.getElementById('hor-guia-label').textContent = g
-      ? `Profesor(a) guía: ${g.primer_apellido||''} ${g.segundo_apellido||''} ${g.nombre||''}`.trim() : '';
+    guiaLabel.textContent = g
+      ? `👤 Profesor(a) guía: ${g.primer_apellido||''} ${g.segundo_apellido||''} ${g.nombre||''}`.trim() : '';
+    guiaLabel.style.display = g ? '' : 'none';
     // Mapa celdas: "dia-leccion" → ARRAY de celdas (pueden ser varias por celda, ej: Hogar+Industriales)
     const mapa = {};
     (r.celdas||[]).forEach(c => {
@@ -15416,15 +15467,19 @@ function horEtiquetaAsig(a){
 }
 
 function horRenderGrid(mapa, editable){
-  let html = '<table style="font-size:12px;min-width:760px;"><thead><tr>' +
-    '<th style="width:34px;">#</th><th style="width:92px;">Hora</th>' +
-    HOR_DIAS.slice(1).map(d=>`<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+  const diaHoy = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).getDay();
+  let html = '<table class="hor-table"><colgroup><col class="hor-col-num"><col class="hor-col-time">' +
+    HOR_DIAS.slice(1).map(()=>'<col class="hor-col-day">').join('') +
+    '</colgroup><thead><tr><th>#</th><th>HORA</th>' +
+    HOR_DIAS.slice(1).map((d,i)=>`<th data-dia="${i+1}" class="${diaHoy===i+1?'hor-today':''}">${d}</th>`).join('') +
+    '</tr></thead><tbody>';
   for(const lec of horLecciones){
-    html += `<tr><td style="text-align:center;font-weight:bold;">${lec.n}</td>` +
-      `<td style="white-space:nowrap;">${lec.ini} - ${lec.fin}</td>`;
+    html += `<tr class="hor-lesson-row"><td class="hor-lesson-index"><span class="hor-lesson-badge">${lec.n}</span></td>` +
+      `<td class="hor-time"><strong>${lec.ini}</strong>${lec.fin}</td>`;
     for(let dia=1; dia<=5; dia++){
       const k = `${dia}-${lec.n}`;
       const celdas = mapa[k] || []; // array de celdas
+      const hoyClass = diaHoy===dia ? ' hor-today' : '';
       if(editable){
         // Al menos una fila de select siempre; más si hay múltiples
         const filas = celdas.length ? celdas : [null];
@@ -15435,35 +15490,34 @@ function horRenderGrid(mapa, editable){
               `<option value="${a.id}" ${c && String(c.asignacion_id)===String(a.id) ? 'selected':''}>${horEtiquetaAsig(a)}</option>`)
           ).join('');
           const aulaVal = (c && c.aula !== null && c.aula !== undefined) ? c.aula : '';
-          inner += `<div class="hor-fila" data-dia="${dia}" data-leccion="${lec.n}" style="display:flex;gap:2px;margin-bottom:2px;align-items:stretch;">
-            <select class="hor-celda" data-dia="${dia}" data-leccion="${lec.n}" style="flex:1;font-size:11.5px;padding:4px;border:1px solid var(--border);border-radius:5px;">${opts}</select>
-            <input type="number" min="0" max="30" class="hor-aula" data-dia="${dia}" data-leccion="${lec.n}" value="${aulaVal}" placeholder="Aula" title="Aula" style="width:52px;font-size:11px;padding:3px;border:1px solid var(--border);border-radius:5px;text-align:center;"/>
-            ${idx > 0 ? `<button type="button" onclick="horBorrarFila(this)" title="Quitar esta materia" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:5px;padding:0 5px;font-size:11px;cursor:pointer;">✕</button>` : ''}
+          inner += `<div class="hor-fila hor-editor-row" data-dia="${dia}" data-leccion="${lec.n}">
+            <select class="hor-celda hor-editor-select" data-dia="${dia}" data-leccion="${lec.n}">${opts}</select>
+            <input type="number" min="0" max="30" class="hor-aula hor-editor-room" data-dia="${dia}" data-leccion="${lec.n}" value="${aulaVal}" placeholder="Aula" title="Aula"/>
+            ${idx > 0 ? `<button type="button" class="hor-editor-remove" onclick="horBorrarFila(this)" title="Quitar esta materia">✕</button>` : ''}
           </div>`;
         });
-        html += `<td style="padding:2px;vertical-align:top;">
+        html += `<td class="hor-slot hor-slot-editable${hoyClass}" data-dia="${dia}">
           ${inner}
-          <button type="button" onclick="horAgregarFila(this, ${dia}, ${lec.n})" title="Agregar otra materia a esta celda (ej: Hogar + Industriales)" style="width:100%;font-size:10.5px;padding:2px 4px;background:#f1f5f9;border:1px dashed var(--border);border-radius:4px;color:var(--muted);cursor:pointer;">➕ Otra materia</button>
+          <button type="button" class="hor-editor-add" onclick="horAgregarFila(this, ${dia}, ${lec.n})" title="Agregar otra materia a esta celda (ej: Hogar + Industriales)">＋ Otra materia</button>
         </td>`;
       } else {
         // Vista lectura: mostrar todas las asignaciones apiladas
-        if(!celdas.length){ html += '<td></td>'; continue; }
+        if(!celdas.length){ html += `<td class="hor-slot hor-empty${hoyClass}" data-dia="${dia}">—</td>`; continue; }
         const partes = celdas.map(c => {
           const aulaTxt = (c.aula !== null && c.aula !== undefined && c.aula !== '')
-            ? `<br><span style="font-size:10.5px;color:var(--azul);font-weight:bold;">Aula ${c.aula}</span>` : '';
+            ? `<span class="hor-room">Aula ${c.aula}</span>` : '';
           if(c.materia_nombre){
-            return `<div style="padding:2px 0;${celdas.length>1?'border-bottom:1px dashed #cbd5e1;':''}"><strong>${c.materia_nombre}</strong><br><span style="color:var(--muted);font-size:11px;">${c.prof_ap1||''} ${c.prof_nombre||''}</span>${aulaTxt}</div>`;
+            return `<div class="hor-class-card hor-day-${dia}"><div class="hor-subject">${c.materia_nombre}</div><div class="hor-teacher">${c.prof_ap1||''} ${c.prof_nombre||''}</div>${aulaTxt}</div>`;
           }
-          return `<div style="padding:2px 0;">${(c.materia_texto||'')}${aulaTxt}</div>`;
+          return `<div class="hor-class-card hor-day-${dia}"><div class="hor-subject">${c.materia_texto||''}</div>${aulaTxt}</div>`;
         }).join('');
-        html += `<td style="text-align:center;font-size:11px;">${partes}</td>`;
+        html += `<td class="hor-slot${hoyClass}" data-dia="${dia}">${partes}</td>`;
       }
     }
     html += '</tr>';
     const sep = HOR_SEPARADORES[lec.n];
     if(sep){
-      html += `<tr style="background:#f1f5f9;font-weight:bold;font-size:11px;"><td></td><td>${sep}</td>` +
-        [1,2,3,4,5].map(()=>`<td style="text-align:center;">${sep}</td>`).join('') + '</tr>';
+      html += `<tr class="hor-break-row ${sep.tipo==='almuerzo'?'hor-lunch':''}"><td colspan="7"><div class="hor-break-band"><span>${sep.icono}</span><span>${sep.etiqueta}</span><span class="hor-break-time">${sep.inicio} – ${sep.fin}</span></div></td></tr>`;
     }
   }
   return html + '</tbody></table>';
@@ -15476,14 +15530,13 @@ function horAgregarFila(btn, dia, leccion){
     horAsigsSeccion.map(a => `<option value="${a.id}">${horEtiquetaAsig(a)}</option>`)
   ).join('');
   const fila = document.createElement('div');
-  fila.className = 'hor-fila';
+  fila.className = 'hor-fila hor-editor-row';
   fila.dataset.dia = dia;
   fila.dataset.leccion = leccion;
-  fila.style.cssText = 'display:flex;gap:2px;margin-bottom:2px;align-items:stretch;';
   fila.innerHTML = `
-    <select class="hor-celda" data-dia="${dia}" data-leccion="${leccion}" style="flex:1;font-size:11.5px;padding:4px;border:1px solid var(--border);border-radius:5px;">${opts}</select>
-    <input type="number" min="0" max="30" class="hor-aula" data-dia="${dia}" data-leccion="${leccion}" placeholder="Aula" title="Aula" style="width:52px;font-size:11px;padding:3px;border:1px solid var(--border);border-radius:5px;text-align:center;"/>
-    <button type="button" onclick="horBorrarFila(this)" title="Quitar esta materia" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:5px;padding:0 5px;font-size:11px;cursor:pointer;">✕</button>
+    <select class="hor-celda hor-editor-select" data-dia="${dia}" data-leccion="${leccion}">${opts}</select>
+    <input type="number" min="0" max="30" class="hor-aula hor-editor-room" data-dia="${dia}" data-leccion="${leccion}" placeholder="Aula" title="Aula"/>
+    <button type="button" class="hor-editor-remove" onclick="horBorrarFila(this)" title="Quitar esta materia">✕</button>
   `;
   td.insertBefore(fila, btn);
 }
@@ -15518,6 +15571,7 @@ async function horVerMiHorario(){
   const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
   document.getElementById('hor-btn-guardar').style.display = 'none';
   document.getElementById('hor-guia-label').textContent = '';
+  document.getElementById('hor-guia-label').style.display = 'none';
   try{
     if(!horLecciones.length) horLecciones = await api('/api/horarios/lecciones')||[];
     const r = await api(`/api/horarios/mi-horario?anio=${anio}`);
@@ -15538,7 +15592,7 @@ function horImprimir(){
   const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
   const secSel = document.getElementById('hor-seccion');
   const secNombre = horModo==='mio' ? '' : (secSel.options[secSel.selectedIndex]?.text || '');
-  const guia = document.getElementById('hor-guia-label').textContent.replace('Profesor(a) guía: ','');
+  const guia = document.getElementById('hor-guia-label').textContent.replace('👤 Profesor(a) guía: ','');
   // Si la grilla está en modo edición (selects), construir versión de solo
   // lectura desde los valores ACTUALES del DOM (el atributo selected no se
   // actualiza al cambiar el select, así que no sirve regexear el innerHTML).
@@ -15568,13 +15622,20 @@ function horImprimir(){
   const w = window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>Horario ${secNombre} ${anio}</title>
     <style>
-      body{font-family:Arial,sans-serif;font-size:11px;margin:20px;}
-      h1{text-align:center;font-size:16px;margin-bottom:14px;}
-      .meta{display:flex;gap:60px;font-size:13px;font-weight:bold;margin-bottom:12px;}
-      table{border-collapse:collapse;width:100%;}
-      th,td{border:1px solid #000;padding:4px 5px;text-align:center;}
-      th{background:#fff;}
-      @media print{ button{display:none} }
+      @page{size:landscape;margin:8mm;}
+      body{font-family:Arial,sans-serif;font-size:10px;margin:0;color:#172554;}
+      h1{text-align:center;font-size:16px;margin:0 0 10px;}
+      .meta{display:flex;justify-content:space-between;gap:30px;font-size:11px;font-weight:bold;margin-bottom:10px;padding:7px 10px;border:1px solid #cbd5e1;border-radius:7px;}
+      .hor-table{border-collapse:collapse;width:100%;table-layout:fixed;}
+      .hor-table col.hor-col-num{width:28px}.hor-table col.hor-col-time{width:72px}
+      .hor-table th,.hor-table td{border:1px solid #94a3b8;padding:3px 4px;text-align:center;vertical-align:middle;}
+      .hor-table th{background:#1a3a5c!important;color:#fff;font-size:9px;letter-spacing:.35px;}
+      .hor-lesson-badge{font-weight:bold}.hor-time{font-size:8.5px}.hor-time strong{display:block;font-size:9px;}
+      .hor-class-card{padding:2px;line-height:1.15}.hor-class-card+.hor-class-card{border-top:1px dashed #94a3b8;margin-top:2px;padding-top:3px}
+      .hor-subject{font-weight:bold;font-size:9px}.hor-teacher{color:#475569;font-size:8px}.hor-room{display:block;color:#1d4ed8;font-weight:bold;font-size:8px;margin-top:2px}
+      .hor-break-row td{background:#e8eef6!important;padding:2px!important}.hor-break-band{display:flex;justify-content:center;gap:7px;font-size:8px;font-weight:bold}.hor-break-time{font-weight:normal;color:#475569}.hor-lunch td{background:#e7f5ec!important}
+      .hor-empty{color:#cbd5e1}
+      @media print{button{display:none}}
     <\/style></head><body>
     <h1>CURSO LECTIVO ${anio}</h1>
     <div class="meta"><span>SECCIÓN: ${horModo==='mio' ? '' : secNombre}</span><span>PROFESOR GUÍA: ${horModo==='mio' ? (ME.primer_apellido+' '+ME.nombre) : guia}</span></div>
