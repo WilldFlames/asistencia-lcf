@@ -2007,6 +2007,58 @@ async function initDB() {
       )
     `);
 
+    // ── CITAS ENCARGADOS ↔ DOCENTES ─────────────────────────────────────
+    // Cada docente publica bloques semanales disponibles. El portal genera
+    // las horas posibles dentro de esos bloques y evita reservar dos citas
+    // para el mismo docente a la misma hora.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS citas_disponibilidad (
+        id            SERIAL PRIMARY KEY,
+        profesor_id   INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        anio          INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        dia_semana    INTEGER NOT NULL CHECK(dia_semana BETWEEN 1 AND 5),
+        hora_inicio   TIME NOT NULL,
+        hora_fin      TIME NOT NULL,
+        duracion_min  INTEGER NOT NULL DEFAULT 20 CHECK(duracion_min BETWEEN 10 AND 120),
+        activa        BOOLEAN NOT NULL DEFAULT true,
+        created_at    TIMESTAMP DEFAULT NOW(),
+        updated_at    TIMESTAMP DEFAULT NOW(),
+        CHECK(hora_fin > hora_inicio),
+        UNIQUE(profesor_id, anio, dia_semana, hora_inicio)
+      );
+
+      CREATE TABLE IF NOT EXISTS citas (
+        id                    SERIAL PRIMARY KEY,
+        anio                  INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE RESTRICT,
+        estudiante_id         INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        profesor_id           INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        asignacion_id         INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        encargado_cedula      TEXT NOT NULL,
+        solicitada_por        TEXT NOT NULL CHECK(solicitada_por IN ('encargado','profesor')),
+        fecha                 DATE NOT NULL,
+        hora                  TIME NOT NULL,
+        duracion_min          INTEGER NOT NULL DEFAULT 20 CHECK(duracion_min BETWEEN 10 AND 120),
+        motivo                TEXT NOT NULL,
+        estado                TEXT NOT NULL DEFAULT 'pendiente'
+                              CHECK(estado IN ('pendiente','confirmada','rechazada','cancelada')),
+        pendiente_de          TEXT CHECK(pendiente_de IN ('encargado','profesor')),
+        es_contrapropuesta    BOOLEAN NOT NULL DEFAULT false,
+        respuesta_mensaje     TEXT DEFAULT '',
+        creada_por_usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at            TIMESTAMP DEFAULT NOW(),
+        updated_at            TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_citas_profesor_fecha
+      ON citas(profesor_id, fecha, hora)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_citas_encargado
+      ON citas(encargado_cedula, fecha)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_citas_estudiante
+      ON citas(estudiante_id, fecha)`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS citas_profesor_hora_activa_uq
+      ON citas(profesor_id, fecha, hora)
+      WHERE estado IN ('pendiente','confirmada')`);
+
     // ── ANUNCIOS (secretarias/admin/administrativos → padres) ────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS anuncios (

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
@@ -162,7 +162,7 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
   .reporte-materia{page-break-inside:avoid;}
 }
 /* ═══════════ RESPONSIVE ═══════════ */
-@media(max-width:768px){
+@media(max-width:1024px){
   /* Hamburger visible */
   .hamburger{display:block;}
   /* Sidebar oculto por defecto en móvil */
@@ -656,24 +656,46 @@ tr:hover td{background:#f8fafc;}
   #hor-grid-wrap{border-radius:14px;box-shadow:var(--shadow-sm);}
 }
 
-@media screen and (min-width:769px){
+@media screen and (min-width:1025px){
   .main-content{margin-left:252px;}
 }
 
-@media screen and (max-width:768px){
+@media screen and (max-width:1024px){
+  html,body{width:100%;max-width:100%;height:100%;overflow:hidden;overscroll-behavior:none;}
+  body{min-height:100dvh;}
+  .app-body{width:100%;max-width:100vw;min-height:100dvh;}
   .topbar{left:0;height:64px;padding:0 12px;}
   .topbar-page-title{display:none;}
   .topbar-school{display:block;font-size:13px;font-weight:800;color:var(--azul);white-space:nowrap;}
   .topbar .sub{font-size:9.5px;}
   .sidebar{left:-266px;width:252px;padding-bottom:22px;transition:left .24s ease;}
   .sidebar.open{left:0;}
-  .main-content{height:100vh;margin-left:0;padding:82px 11px 26px;}
+  .topbar{
+    height:calc(64px + env(safe-area-inset-top));
+    padding-top:env(safe-area-inset-top);
+    padding-left:calc(12px + env(safe-area-inset-left));
+    padding-right:calc(12px + env(safe-area-inset-right));
+  }
+  .main-content{
+    width:100%;max-width:100vw;height:100dvh;margin-left:0;
+    padding-top:calc(82px + env(safe-area-inset-top));
+    padding-right:calc(11px + env(safe-area-inset-right));
+    padding-bottom:calc(26px + env(safe-area-inset-bottom));
+    padding-left:calc(11px + env(safe-area-inset-left));
+    -webkit-overflow-scrolling:touch;
+  }
+  .page,.card,.form-grid,.search-bar{min-width:0;max-width:100%;}
+  .main-content .fg{min-width:0!important;width:100%!important;flex:1 1 100%!important;}
+  .main-content input,.main-content select,.main-content textarea{max-width:100%;min-width:0;}
+  .table-wrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .sidebar-overlay{z-index:149;background:rgba(4,25,44,.55);backdrop-filter:blur(2px);}
   #usuario-label{display:none;}
   .btn-logout{padding:6px 9px;min-height:34px;}
   .notif-wrap{width:35px;height:35px;}
   .card{padding:15px;border-radius:12px;}
-  .modal{border-radius:18px 18px 0 0;padding:19px 14px;}
+  .modal-overlay{height:100dvh;padding-top:env(safe-area-inset-top);}
+  .modal{width:100%;max-height:calc(100dvh - env(safe-area-inset-top));border-radius:18px 18px 0 0;padding:19px 14px calc(19px + env(safe-area-inset-bottom));}
+  .modal-actions{position:sticky;bottom:calc(-19px - env(safe-area-inset-bottom));background:#fff;padding-bottom:env(safe-area-inset-bottom);}
   .stats{gap:9px;}
   .stat{min-height:91px;padding:13px;}
   .stat .num{font-size:25px;}
@@ -684,13 +706,29 @@ tr:hover td{background:#f8fafc;}
   #dash-profesor-content .card[style*="grid-column:span 2"]{grid-column:span 1!important;}
 }
 
-@media screen and (max-width:430px){
+@media screen and (max-width:500px){
   .auth-box{margin:12px;padding:30px 22px 26px;border-radius:20px;}
   .auth-box > img{width:82px!important;height:82px!important;}
   .topbar-right{gap:6px;}
   .btn-logout{font-size:11px;}
   .stats{grid-template-columns:1fr 1fr;}
   .form-actions .btn{flex:1 1 auto;}
+  .modal-actions{display:grid;grid-template-columns:1fr 1fr;}
+  .modal-actions .btn{width:100%;margin:0;}
+}
+@media screen and (max-width:1024px) and (max-height:600px){
+  .fullscreen.show{align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .auth-box{margin:12px auto!important;padding:18px 28px 16px;border-radius:18px;}
+  .auth-box > img{width:62px!important;height:62px!important;margin-bottom:5px!important;}
+  .auth-box h2{font-size:17px;margin-bottom:1px;}
+  .auth-sub{margin-bottom:10px;line-height:1.25;}
+  .auth-fg{margin-bottom:8px;}
+  .auth-fg input{padding:10px 12px;}
+}
+@media screen and (hover:none) and (pointer:coarse){
+  input,select,textarea{font-size:16px!important;}
+  .fullscreen{padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);}
+  button,.btn,.nav-btn{-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 }
 </style>
 </head>
@@ -734,47 +772,105 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- PORTAL DE PADRES / ENCARGADOS -->
-<div id="portal-padres" style="display:none;position:fixed;inset:0;z-index:9000;background:#f1f5f9;overflow:auto;">
-  <div style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10;">
-    <div>
-      <div style="font-weight:bold;font-size:15px;">🏫 Liceo de Calle Fallas</div>
-      <div style="font-size:12px;opacity:.85;">Portal de Encargados · <span id="pp-nombre"></span></div>
+<style>
+  #portal-padres{display:none;position:fixed;inset:0;width:100%;height:100dvh;z-index:9000;background:#f4f7fb;overflow:auto;overflow-x:hidden;color:#17324d;-webkit-overflow-scrolling:touch;}
+  #portal-padres *{box-sizing:border-box;}
+  .pp-header{background:linear-gradient(120deg,#08243d,#123f65 68%,#176b72);color:#fff;position:sticky;top:0;z-index:10;box-shadow:0 6px 22px rgba(8,36,61,.18);}
+  .pp-header-inner{max-width:1180px;margin:auto;padding:11px 18px;display:flex;justify-content:space-between;align-items:center;gap:14px;}
+  .pp-brand{display:flex;align-items:center;gap:11px;min-width:0;}
+  .pp-shield{width:46px;height:46px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid rgba(255,255,255,.8);box-shadow:0 3px 12px rgba(0,0,0,.2);}
+  .pp-brand-title{font-size:16px;font-weight:850;letter-spacing:.1px;}
+  .pp-brand-sub{font-size:11.5px;color:#c8dbea;margin-top:2px;}
+  .pp-header-actions{display:flex;align-items:center;gap:8px;}
+  .pp-icon-btn,.pp-exit-btn{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:9px;padding:8px 11px;cursor:pointer;font-size:12.5px;}
+  .pp-main{max-width:1180px;margin:0 auto;padding:18px;}
+  .pp-student-strip{display:flex;gap:10px;overflow-x:auto;padding:1px 1px 12px;scrollbar-width:thin;}
+  .pp-student-card{min-width:245px;text-align:left;padding:13px 15px;border-radius:14px;cursor:pointer;border:1px solid #dbe5ef;background:#fff;box-shadow:0 3px 12px rgba(20,50,80,.05);transition:.18s;}
+  .pp-student-card.active{border-color:#1b6ca8;background:linear-gradient(135deg,#edf7ff,#fff);box-shadow:0 5px 18px rgba(27,108,168,.16);}
+  .pp-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;background:#fff;border:1px solid #e0e8f0;padding:7px;border-radius:13px;box-shadow:0 3px 13px rgba(20,50,80,.05);scrollbar-width:thin;}
+  .pp-tab{border:0!important;background:transparent!important;color:#60758a!important;border-radius:9px!important;padding:9px 12px!important;white-space:nowrap;font-weight:650!important;}
+  .pp-tab.active{background:#eaf4ff!important;color:#125b91!important;box-shadow:inset 0 0 0 1px #cae4f8;}
+  .pp-panel{background:#fff;border:1px solid #e0e8f0;border-radius:15px;padding:17px;box-shadow:0 5px 18px rgba(20,50,80,.06);}
+  .pp-panel h2{color:#173f62;font-weight:800;}
+  .pp-home-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(270px,.8fr);gap:14px;}
+  .pp-section-title{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px;}
+  .pp-section-title h2{font-size:16px;margin:0;}
+  .pp-today-row{display:grid;grid-template-columns:94px minmax(150px,1fr) minmax(135px,.7fr) auto;align-items:center;gap:10px;padding:11px 7px;border-bottom:1px solid #edf1f5;font-size:13px;}
+  .pp-status{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;white-space:nowrap;}
+  .pp-status.ok{background:#dcfce7;color:#167443}.pp-status.bad{background:#fee2e2;color:#b42318}.pp-status.warn{background:#ffedd5;color:#b45309}.pp-status.info{background:#dbeafe;color:#1d4ed8}.pp-status.muted{background:#eef2f6;color:#64748b}
+  .pp-news-item{border-left:4px solid #2c7cb7;background:#f7fbff;border-radius:9px;padding:10px 11px;margin-bottom:9px;font-size:12.5px;line-height:1.4;}
+  .pp-news-item.green{border-color:#16a34a;background:#f0fdf4}.pp-news-item.orange{border-color:#f59e0b;background:#fffaf0}.pp-news-item.purple{border-color:#7c3aed;background:#faf5ff}
+  .pp-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;}
+  .pp-field label{display:block;font-size:11.5px;font-weight:750;color:#536b81;margin-bottom:5px;}
+  .pp-field input,.pp-field select,.pp-field textarea{width:100%;border:1px solid #cfdbe7;border-radius:9px;padding:9px 10px;background:#fff;font:inherit;color:#17324d;}
+  .pp-field.full{grid-column:1/-1}.pp-help{font-size:11.5px;color:#718297;line-height:1.45;}
+  .pp-primary{border:0;border-radius:9px;padding:10px 15px;background:#11689f;color:#fff;font-weight:750;cursor:pointer;}.pp-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .pp-appointment{border:1px solid #dde7f0;border-radius:11px;padding:12px;margin-top:9px;background:#fff;}
+  .pp-appointment-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;}
+  .pp-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}.pp-actions button{border-radius:7px;padding:6px 9px;border:1px solid #cbd8e3;background:#fff;cursor:pointer;font-size:11.5px;font-weight:650;}
+  .pp-actions .yes{border-color:#86d5a5;color:#08783b}.pp-actions .no{border-color:#f1aaa6;color:#b42318}
+  @media(max-width:1024px){
+    .pp-header-inner{padding-top:calc(9px + env(safe-area-inset-top));padding-right:calc(12px + env(safe-area-inset-right));padding-bottom:9px;padding-left:calc(12px + env(safe-area-inset-left));}
+    .pp-brand-sub,#pp-refresh-lbl{display:none}.pp-shield{width:40px;height:40px}.pp-brand-title{font-size:13.5px}.pp-header-actions{gap:5px}.pp-icon-btn{width:38px;height:38px;padding:0;font-size:0}.pp-icon-btn::after{content:"↻";font-size:21px}.pp-exit-btn{height:38px;padding:7px 10px}
+    .pp-main{width:100%;max-width:100vw;padding-top:12px;padding-right:calc(12px + env(safe-area-inset-right));padding-bottom:calc(22px + env(safe-area-inset-bottom));padding-left:calc(12px + env(safe-area-inset-left));}
+    .pp-tabs{max-width:100%;-webkit-overflow-scrolling:touch}.pp-home-grid{grid-template-columns:1fr}.pp-form-grid{grid-template-columns:1fr}.pp-field.full{grid-column:auto}.pp-field input,.pp-field select,.pp-field textarea{max-width:100%;min-width:0}.pp-today-row{grid-template-columns:72px minmax(0,1fr) auto;gap:7px}.pp-today-row .pp-teacher{display:none}.pp-student-card{min-width:min(215px,calc(100vw - 48px))}.pp-panel{min-width:0;padding:13px}.pp-panel .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}#portal-padres .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}.citas-bloque{grid-template-columns:1fr 1fr!important}.citas-bloque button{grid-column:1/-1}
+  }
+  @media(max-width:390px){.pp-brand-title{max-width:125px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-shield{width:36px;height:36px}.pp-main{padding-left:9px;padding-right:9px}.pp-today-row{grid-template-columns:62px minmax(0,1fr)}.pp-today-row .pp-status{grid-column:2;justify-self:start}.pp-exit-btn{font-size:11px}}
+</style>
+<div id="portal-padres">
+  <header class="pp-header"><div class="pp-header-inner">
+    <div class="pp-brand">
+      <img id="pp-shield" class="pp-shield" alt="Escudo del Liceo"/>
+      <div><div class="pp-brand-title">Liceo de Calle Fallas</div><div class="pp-brand-sub">Portal de Encargados · <span id="pp-nombre"></span></div></div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <div id="pp-refresh-lbl" style="font-size:11px;opacity:.75;white-space:nowrap;"></div>
-      <button onclick="ppRefrescarAhora()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:7px 12px;font-size:13px;cursor:pointer;" title="Actualizar información">🔄</button>
-      <button onclick="ppLogout()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:7px;padding:7px 14px;font-size:13px;cursor:pointer;">Salir</button>
+    <div class="pp-header-actions">
+      <span id="pp-refresh-lbl" style="font-size:11px;color:#c8dbea;white-space:nowrap;"></span>
+      <button class="pp-icon-btn" onclick="ppRefrescarAhora()" title="Actualizar información">↻ Actualizar</button>
+      <button class="pp-exit-btn" onclick="ppLogout()">Salir</button>
     </div>
-  </div>
+  </div></header>
 
-  <div style="max-width:960px;margin:0 auto;padding:14px;">
+  <main class="pp-main">
     <!-- Selector de hijo -->
-    <div id="pp-hijos-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+    <div id="pp-hijos-tabs" class="pp-student-strip"></div>
 
     <!-- Tabs de contenido -->
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:8px;">
-      <button class="btn btn-outline btn-sm pp-tab" data-tab="inicio" onclick="ppTab('inicio')">📢 Inicio</button>
-      <button class="btn btn-outline btn-sm pp-tab" data-tab="horario" onclick="ppTab('horario')">🕐 Horario</button>
-      <button class="btn btn-outline btn-sm pp-tab" data-tab="porteria" onclick="ppTab('porteria')">🛂 Entradas/Salidas</button>
-      <button class="btn btn-outline btn-sm pp-tab" data-tab="asistencia" onclick="ppTab('asistencia')">📅 Asistencia</button>
-      <button class="btn btn-outline btn-sm pp-tab" data-tab="conducta" onclick="ppTab('conducta')">📋 Conducta</button>
+    <div class="pp-tabs">
+      <button class="pp-tab" data-tab="inicio" onclick="ppTab('inicio')">🏠 Inicio</button>
+      <button class="pp-tab" data-tab="asistencia" onclick="ppTab('asistencia')">✅ Asistencia</button>
+      <button class="pp-tab" data-tab="conducta" onclick="ppTab('conducta')">🧭 Conducta</button>
+      <button class="pp-tab" data-tab="avisos" onclick="ppTab('avisos')">📣 Avisos</button>
+      <button class="pp-tab" data-tab="porteria" onclick="ppTab('porteria')">🚪 Entradas y salidas</button>
+      <button class="pp-tab" data-tab="permisos" onclick="ppTab('permisos')">🪪 Permisos</button>
+      <button class="pp-tab" data-tab="horario" onclick="ppTab('horario')">🕐 Horario</button>
+      <button class="pp-tab" data-tab="citas" onclick="ppTab('citas')">📅 Solicitar cita</button>
     </div>
 
-    <!-- INICIO: alertas + anuncios -->
+    <!-- INICIO: jornada de hoy + novedades -->
     <div id="pp-cont-inicio">
-      <div class="card" id="pp-alertas-card" style="display:none;margin-bottom:14px;border-left:4px solid #dc2626;">
-        <h2 style="font-size:15px;margin-bottom:10px;">⚠️ Alertas recientes (últimos 7 días)</h2>
-        <div id="pp-alertas"></div>
+      <div class="pp-home-grid">
+        <section class="pp-panel">
+          <div class="pp-section-title"><h2>Jornada de hoy</h2><span id="pp-hoy-fecha" class="pp-help"></span></div>
+          <div id="pp-hoy-list"><div class="pp-help">Cargando horario y asistencia...</div></div>
+        </section>
+        <aside class="pp-panel">
+          <div class="pp-section-title"><h2>Novedades</h2><span style="font-size:20px;">🔔</span></div>
+          <div id="pp-novedades"><div class="pp-help">Cargando...</div></div>
+        </aside>
       </div>
-      <div class="card" style="margin-bottom:14px;">
-        <h2 style="font-size:15px;margin-bottom:10px;">📢 Anuncios de la institución</h2>
-        <div id="pp-anuncios"><div style="color:var(--muted);font-size:13px;">Cargando...</div></div>
+    </div>
+
+    <!-- AVISOS -->
+    <div id="pp-cont-avisos" style="display:none;">
+      <div class="pp-panel">
+        <div class="pp-section-title"><h2>📣 Avisos de la institución</h2></div>
+        <div id="pp-anuncios"><div class="pp-help">Cargando...</div></div>
       </div>
     </div>
 
     <!-- HORARIO -->
     <div id="pp-cont-horario" style="display:none;">
-      <div class="card">
+      <div class="pp-panel">
         <h2 style="font-size:15px;margin-bottom:10px;">🕐 Horario — <span id="pp-hor-seccion"></span></h2>
         <div id="pp-horario" class="table-wrap" style="overflow:auto;"></div>
       </div>
@@ -782,7 +878,7 @@ tr:hover td{background:#f8fafc;}
 
     <!-- PORTERÍA -->
     <div id="pp-cont-porteria" style="display:none;">
-      <div class="card">
+      <div class="pp-panel">
         <h2 style="font-size:15px;margin-bottom:10px;">🛂 Registro de entradas y salidas</h2>
         <div class="table-wrap"><table style="font-size:12.5px;">
           <thead><tr><th>Fecha</th><th>Hora</th><th>Movimiento</th><th>Resultado</th><th>Detalle</th></tr></thead>
@@ -791,9 +887,28 @@ tr:hover td{background:#f8fafc;}
       </div>
     </div>
 
+    <!-- PERMISOS DE SALIDA -->
+    <div id="pp-cont-permisos" style="display:none;">
+      <div class="pp-panel">
+        <div class="pp-section-title"><h2>🪪 Permisos de salida</h2><span class="pp-help">Registrados por el auxiliar</span></div>
+        <div class="table-wrap"><table style="font-size:12.5px;">
+          <thead><tr><th>Fecha</th><th>Hora</th><th>Motivo</th><th>Autoriza</th><th>Estado</th></tr></thead>
+          <tbody id="pp-permisos-tbody"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- ASISTENCIA -->
     <div id="pp-cont-asistencia" style="display:none;">
-      <div class="card">
+      <div class="pp-panel" style="margin-bottom:14px;">
+        <div class="pp-section-title"><h2>Asistencia de un día</h2></div>
+        <div style="display:flex;gap:9px;align-items:end;flex-wrap:wrap;">
+          <div class="pp-field"><label>Seleccione una fecha</label><input type="date" id="pp-as-dia" onchange="ppCargarAsistenciaDia()"/></div>
+          <div class="pp-help" style="padding-bottom:9px;">Puede revisar días anteriores materia por materia.</div>
+        </div>
+        <div id="pp-as-dia-list" style="margin-top:10px;"></div>
+      </div>
+      <div class="pp-panel">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
           <h2 style="margin:0;font-size:15px;">📅 Asistencia <span id="pp-as-periodo-lbl" style="color:var(--muted);font-weight:normal;font-size:13px;"></span></h2>
           <div class="pp-per-tabs" data-target="asistencia" style="display:flex;gap:4px;">
@@ -818,7 +933,7 @@ tr:hover td{background:#f8fafc;}
 
     <!-- CONDUCTA -->
     <div id="pp-cont-conducta" style="display:none;">
-      <div class="card">
+      <div class="pp-panel">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
           <h2 style="margin:0;font-size:15px;">📋 Conducta <span id="pp-con-periodo-lbl" style="color:var(--muted);font-weight:normal;font-size:13px;"></span></h2>
           <div class="pp-per-tabs" data-target="conducta" style="display:flex;gap:4px;">
@@ -838,7 +953,28 @@ tr:hover td{background:#f8fafc;}
         </table></div>
       </div>
     </div>
-  </div>
+
+    <!-- CITAS -->
+    <div id="pp-cont-citas" style="display:none;">
+      <div class="pp-home-grid">
+        <section class="pp-panel">
+          <div class="pp-section-title"><h2>📅 Solicitar una cita</h2></div>
+          <div class="pp-form-grid">
+            <div class="pp-field full"><label>Docente y materia</label><select id="pp-cita-docente" onchange="ppCargarSlots()"><option value="">— Seleccione —</option></select></div>
+            <div class="pp-field full"><label>Motivo</label><textarea id="pp-cita-motivo" rows="3" maxlength="700" placeholder="Explique brevemente qué desea conversar"></textarea></div>
+            <div class="pp-field"><label>Día disponible</label><select id="pp-cita-fecha" onchange="ppRenderHoras()"><option value="">— Primero seleccione docente —</option></select></div>
+            <div class="pp-field"><label>Hora disponible</label><select id="pp-cita-hora"><option value="">— Seleccione día —</option></select></div>
+            <div class="pp-field full"><div id="pp-cita-ayuda" class="pp-help">La solicitud quedará pendiente hasta que el docente la confirme.</div></div>
+            <div class="pp-field full"><button class="pp-primary" id="pp-cita-enviar" onclick="ppSolicitarCita()">Enviar solicitud</button></div>
+          </div>
+        </section>
+        <section class="pp-panel">
+          <div class="pp-section-title"><h2>Mis citas</h2></div>
+          <div id="pp-citas-lista"><div class="pp-help">Cargando...</div></div>
+        </section>
+      </div>
+    </div>
+  </main>
 </div>
 
 <!-- TOPBAR -->
@@ -888,6 +1024,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
   <button class="nav-btn" data-page="horario" id="nav-horario" onclick="goTo('horario')" style="display:none"><span class="icon">🕐</span><span>Horario</span></button>
+  <button class="nav-btn" data-page="citas" id="nav-citas" onclick="goTo('citas')" style="display:none"><span class="icon">📅</span><span>Citas con encargados</span></button>
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
   <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
   <button class="nav-btn" data-page="reportes" id="nav-reportes" onclick="goTo('reportes')" style="display:none"><span class="icon">📊</span><span>Reportes</span></button>
@@ -2875,6 +3012,55 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-primary" onclick="cargarCumplimiento()">🔍 Ver</button>
     </div>
     <div id="cum-contenido"></div>
+  </div>
+</div>
+
+<!-- CITAS CON ENCARGADOS -->
+<div class="page" id="page-citas">
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <div><h2 style="margin:0 0 4px;">📅 Citas con encargados</h2><p style="margin:0;color:var(--muted);font-size:12.5px;">Apruebe solicitudes, proponga otra hora o solicite usted una reunión.</p></div>
+      <button class="btn btn-primary" onclick="citasAbrirNueva()">+ Solicitar cita</button>
+    </div>
+    <div id="alert-citas" class="alert"></div>
+    <div id="citas-doc-lista"><div class="empty">Cargando agenda...</div></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <div><h2 style="margin:0 0 4px;font-size:16px;">🕐 Mis horas disponibles</h2><p style="margin:0;color:var(--muted);font-size:12px;">Estas son las horas que los encargados podrán escoger.</p></div>
+      <button class="btn btn-outline btn-sm" onclick="citasAgregarBloque()">+ Agregar bloque</button>
+    </div>
+    <div id="citas-disponibilidad"></div>
+    <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="citasGuardarDisponibilidad()">💾 Guardar disponibilidad</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cita-docente">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-title">📅 Solicitar cita al encargado</div>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Estudiante *</label><select id="cita-doc-estudiante"><option value="">— Seleccione —</option></select></div>
+      <div class="fg"><label>Fecha propuesta *</label><input type="date" id="cita-doc-fecha"/></div>
+      <div class="fg"><label>Hora propuesta *</label><input type="time" id="cita-doc-hora"/></div>
+      <div class="fg"><label>Duración</label><select id="cita-doc-duracion"><option value="15">15 minutos</option><option value="20" selected>20 minutos</option><option value="30">30 minutos</option><option value="40">40 minutos</option><option value="60">60 minutos</option></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>Motivo *</label><textarea id="cita-doc-motivo" rows="3" maxlength="700"></textarea></div>
+    </div>
+    <div id="alert-cita-doc-modal" class="alert"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-cita-docente')">Cancelar</button><button class="btn btn-primary" onclick="citasDocSolicitar()">Enviar solicitud</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cita-responder">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-title" id="cita-resp-titulo">Responder solicitud</div>
+    <input type="hidden" id="cita-resp-id"/><input type="hidden" id="cita-resp-accion"/>
+    <div id="cita-resp-fecha-wrap" class="form-grid" style="display:none;">
+      <div class="fg"><label>Nueva fecha *</label><input type="date" id="cita-resp-fecha"/></div>
+      <div class="fg"><label>Nueva hora *</label><input type="time" id="cita-resp-hora"/></div>
+    </div>
+    <div class="fg" style="margin-top:10px;"><label>Mensaje (opcional)</label><textarea id="cita-resp-mensaje" rows="3" maxlength="500" placeholder="Puede agregar una aclaración para el encargado"></textarea></div>
+    <div id="alert-cita-resp" class="alert"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-cita-responder')">Cancelar</button><button class="btn btn-primary" onclick="citasDocGuardarRespuesta()">Guardar respuesta</button></div>
   </div>
 </div>
 
@@ -5055,7 +5241,7 @@ function toggleSidebar(){
 }
 
 function closeSidebarMobile(){
-  if(window.innerWidth<=768){
+  if(window.innerWidth<=1024){
     document.getElementById("sidebar").classList.remove("open");
     document.getElementById("sidebar-overlay").classList.remove("show");
   }
@@ -5115,6 +5301,7 @@ function goTo(page){
   if(page==="expediente")  document.getElementById("exp-cedula").focus();
   if(page==="comedor")     iniciarComedor();
   if(page==="horario")     iniciarHorario();
+  if(page==="citas")       iniciarCitasDocente();
   if(page==="permisos")    iniciarPermisos();
   if(page==="porteria")    iniciarPorteria();
   if(page==="carnet")      iniciarCarnet();
@@ -5178,6 +5365,7 @@ async function iniciarApp(){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-calificaciones").style.display="";
     document.getElementById("nav-promedio").style.display="";
+    document.getElementById("nav-citas").style.display="";
   }
   // Admin también puede ver Promedio (para reabrir períodos cerrados)
   if(esAdmin){
@@ -5334,7 +5522,7 @@ async function iniciarApp(){
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
      'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios','nav-config-anio',
-     'nav-horario','nav-permisos','nav-porteria'
+     'nav-horario','nav-citas','nav-permisos','nav-porteria'
     ].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.style.display = "none";
@@ -5361,7 +5549,7 @@ async function iniciarApp(){
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
      'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios','nav-config-anio',
-     'nav-inventario','nav-horario','nav-permisos'
+     'nav-inventario','nav-horario','nav-citas','nav-permisos'
     ].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.style.display = "none";
@@ -15330,15 +15518,119 @@ async function escanearComedor(){
 
 
 // ════════════════════════════════════
+//  CITAS CON ENCARGADOS · VISTA DOCENTE
+// ════════════════════════════════════
+let citasBloques=[];
+const CITAS_DIAS=['','Lunes','Martes','Miércoles','Jueves','Viernes'];
+
+async function iniciarCitasDocente(){
+  try{
+    const [agenda,disp]=await Promise.all([api('/api/citas/mis-citas'),api('/api/citas/disponibilidad')]);
+    citasBloques=(disp?.bloques||[]).map(b=>({...b,hora_inicio:String(b.hora_inicio).slice(0,5),hora_fin:String(b.hora_fin).slice(0,5)}));
+    if(!citasBloques.length)citasBloques=[{dia_semana:1,hora_inicio:'15:00',hora_fin:'16:00',duracion_min:20}];
+    citasRenderDisponibilidad();
+    citasRenderAgenda(agenda||[]);
+  }catch(e){sa('alert-citas',e.message,'danger');}
+}
+
+function citasRenderAgenda(rows){
+  const cont=document.getElementById('citas-doc-lista');
+  const EST={pendiente:['Pendiente','#b45309','#fff7ed'],confirmada:['Confirmada','#08783b','#ecfdf3'],rechazada:['Rechazada','#b42318','#fef2f2'],cancelada:['Cancelada','#64748b','#f1f5f9']};
+  cont.innerHTML=rows.length?rows.map(c=>{
+    const [lbl,color,bg]=EST[c.estado]||[c.estado,'#64748b','#f1f5f9'];
+    const est=nombreDesdeCampos(c.est_nombre,c.est_ap1,c.est_ap2);
+    const enc=nombreDesdeCampos(c.enc_nombre,c.enc_ap1,c.enc_ap2,{vacio:'Encargado'});
+    const pendiente=c.estado==='pendiente'&&c.pendiente_de==='profesor';
+    return `<div style="border:1px solid var(--border);border-radius:11px;padding:13px;margin-bottom:9px;background:#fff;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+        <div><strong style="color:var(--azul);">${htmlSeguro(est)}</strong> <span style="color:var(--muted);">· ${htmlSeguro(c.seccion_nombre||'')}</span><div style="font-size:12px;color:var(--muted);margin-top:2px;">${htmlSeguro(c.materia_nombre||'Materia')} · Encargado: ${htmlSeguro(enc)}</div></div>
+        <span style="background:${bg};color:${color};border-radius:999px;padding:4px 9px;font-size:11px;font-weight:bold;white-space:nowrap;">${lbl}</span>
+      </div>
+      <div style="margin-top:8px;font-size:13px;"><strong>${fmtF(c.fecha)} a las ${String(c.hora).slice(0,5)}</strong> · ${c.duracion_min} min</div>
+      <div style="font-size:12px;margin-top:4px;">${htmlSeguro(c.motivo)}</div>
+      ${c.es_contrapropuesta?'<div style="font-size:11.5px;color:#7c3aed;margin-top:4px;">↪ Horario propuesto como alternativa</div>':''}
+      ${c.respuesta_mensaje?`<div style="font-size:11.5px;color:var(--muted);margin-top:4px;">Mensaje: ${htmlSeguro(c.respuesta_mensaje)}</div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">
+        ${pendiente?`<button class="btn btn-success btn-xs" onclick="citasDocAbrirRespuesta(${c.id},'confirmar')">✓ Confirmar</button><button class="btn btn-danger btn-xs" onclick="citasDocAbrirRespuesta(${c.id},'rechazar')">Rechazar</button><button class="btn btn-outline btn-xs" onclick="citasDocAbrirRespuesta(${c.id},'proponer')">Proponer otra hora</button>`:''}
+        ${['pendiente','confirmada'].includes(c.estado)?`<button class="btn btn-outline btn-xs" onclick="citasDocCancelar(${c.id})">Cancelar cita</button>`:''}
+      </div>
+    </div>`;
+  }).join(''):'<div class="empty">No hay citas registradas en el curso lectivo actual.</div>';
+}
+
+function citasRenderDisponibilidad(){
+  const cont=document.getElementById('citas-disponibilidad');
+  cont.innerHTML=citasBloques.map((b,i)=>`<div style="display:grid;grid-template-columns:minmax(110px,1.2fr) repeat(3,minmax(90px,1fr)) auto;gap:8px;align-items:end;margin-bottom:8px;" class="citas-bloque">
+    <div class="fg"><label>Día</label><select data-k="dia_semana">${[1,2,3,4,5].map(d=>`<option value="${d}" ${Number(b.dia_semana)===d?'selected':''}>${CITAS_DIAS[d]}</option>`).join('')}</select></div>
+    <div class="fg"><label>Desde</label><input type="time" data-k="hora_inicio" value="${b.hora_inicio}"/></div>
+    <div class="fg"><label>Hasta</label><input type="time" data-k="hora_fin" value="${b.hora_fin}"/></div>
+    <div class="fg"><label>Duración</label><select data-k="duracion_min">${[15,20,30,40,60].map(d=>`<option value="${d}" ${Number(b.duracion_min)===d?'selected':''}>${d} min</option>`).join('')}</select></div>
+    <button class="btn btn-danger btn-xs" style="margin-bottom:2px;" onclick="citasQuitarBloque(${i})">✕</button>
+  </div>`).join('');
+}
+
+function citasAgregarBloque(){citasBloques.push({dia_semana:1,hora_inicio:'15:00',hora_fin:'16:00',duracion_min:20});citasRenderDisponibilidad();}
+function citasQuitarBloque(i){citasBloques.splice(i,1);citasRenderDisponibilidad();}
+
+async function citasGuardarDisponibilidad(){
+  const bloques=[...document.querySelectorAll('.citas-bloque')].map(row=>{
+    const o={};row.querySelectorAll('[data-k]').forEach(el=>o[el.dataset.k]=el.value);
+    o.dia_semana=Number(o.dia_semana);o.duracion_min=Number(o.duracion_min);return o;
+  });
+  try{await api('/api/citas/disponibilidad','PUT',{bloques});sa('alert-citas','✅ Horas disponibles guardadas.','success');citasBloques=bloques;}catch(e){sa('alert-citas',e.message,'danger');}
+}
+
+async function citasAbrirNueva(){
+  try{
+    const estudiantes=await api('/api/citas/estudiantes')||[];
+    document.getElementById('cita-doc-estudiante').innerHTML='<option value="">— Seleccione —</option>'+estudiantes.map(e=>`<option value="${e.id}">${htmlSeguro(nombrePersona(e))} · ${htmlSeguro(e.seccion_nombre)} · ${htmlSeguro(e.materias)}</option>`).join('');
+    document.getElementById('cita-doc-fecha').min=fechaHoyCR();document.getElementById('cita-doc-fecha').value='';document.getElementById('cita-doc-hora').value='';document.getElementById('cita-doc-motivo').value='';
+    document.getElementById('modal-cita-docente').classList.add('show');
+  }catch(e){sa('alert-citas',e.message,'danger');}
+}
+
+async function citasDocSolicitar(){
+  const body={estudiante_id:Number(document.getElementById('cita-doc-estudiante').value),fecha:document.getElementById('cita-doc-fecha').value,hora:document.getElementById('cita-doc-hora').value,duracion_min:Number(document.getElementById('cita-doc-duracion').value),motivo:document.getElementById('cita-doc-motivo').value.trim()};
+  try{await api('/api/citas/solicitar','POST',body);cerrarModal('modal-cita-docente');sa('alert-citas','✅ Solicitud enviada al encargado.','success');iniciarCitasDocente();}catch(e){sa('alert-cita-doc-modal',e.message,'danger');}
+}
+
+function citasDocAbrirRespuesta(id,accion){
+  document.getElementById('cita-resp-id').value=id;document.getElementById('cita-resp-accion').value=accion;document.getElementById('cita-resp-mensaje').value='';
+  document.getElementById('cita-resp-titulo').textContent=accion==='confirmar'?'✓ Confirmar cita':accion==='rechazar'?'Rechazar solicitud':'Proponer otra fecha y hora';
+  document.getElementById('cita-resp-fecha-wrap').style.display=accion==='proponer'?'grid':'none';
+  document.getElementById('cita-resp-fecha').min=fechaHoyCR();document.getElementById('cita-resp-fecha').value='';document.getElementById('cita-resp-hora').value='';
+  document.getElementById('modal-cita-responder').classList.add('show');
+}
+
+async function citasDocGuardarRespuesta(){
+  const id=document.getElementById('cita-resp-id').value,accion=document.getElementById('cita-resp-accion').value;
+  const body={accion,mensaje:document.getElementById('cita-resp-mensaje').value.trim()};
+  if(accion==='proponer'){body.fecha=document.getElementById('cita-resp-fecha').value;body.hora=document.getElementById('cita-resp-hora').value;}
+  try{await api(`/api/citas/${id}/responder`,'PUT',body);cerrarModal('modal-cita-responder');sa('alert-citas','✅ Respuesta guardada.','success');iniciarCitasDocente();}catch(e){sa('alert-cita-resp',e.message,'danger');}
+}
+
+async function citasDocCancelar(id){
+  if(!confirm('¿Cancelar esta cita?'))return;
+  try{await api(`/api/citas/${id}/cancelar`,'PUT',{});sa('alert-citas','Cita cancelada.','success');iniciarCitasDocente();}catch(e){sa('alert-citas',e.message,'danger');}
+}
+
+// ════════════════════════════════════
 //  PORTAL DE PADRES
 // ════════════════════════════════════
 let ppHijoActual = null;
 let ppTabActual = 'inicio';
 
-function iniciarPortalPadres(){
+async function iniciarPortalPadres(){
   const p = PP?.padre || {};
   document.getElementById("pp-nombre").textContent = nombrePersona(p,{vacio:p.cedula});
   document.getElementById("portal-padres").style.display = "block";
+  const escudoFuente=document.querySelector("#login-screen .auth-box img");
+  if(escudoFuente) document.getElementById("pp-shield").src=escudoFuente.src;
+  try{
+    const cfg=await api('/api/padres/config');
+    if(cfg?.anio_activo) ANIO_LECTIVO_ACTIVO=Number(cfg.anio_activo);
+    if(cfg?.calendario) CALENDARIO_LECTIVO=cfg.calendario;
+  }catch{}
   const hijos = PP?.hijos || [];
   if(!hijos.length){
     document.getElementById("pp-hijos-tabs").innerHTML = '<div class="card" style="width:100%;">No hay estudiantes activos asociados a su cédula.</div>';
@@ -15353,11 +15645,9 @@ function iniciarPortalPadres(){
 function ppRenderHijosTabs(){
   const hijos = PP?.hijos || [];
   document.getElementById("pp-hijos-tabs").innerHTML = hijos.map(h=>`
-    <button onclick="ppSelHijo(${h.id})" style="flex:1;min-width:180px;text-align:left;padding:10px 14px;border-radius:10px;cursor:pointer;
-      border:2px solid ${ppHijoActual&&h.id===ppHijoActual.id?'var(--azul)':'var(--border)'};
-      background:${ppHijoActual&&h.id===ppHijoActual.id?'#eff6ff':'#fff'};">
-      <div style="font-weight:bold;font-size:14px;">🎒 ${nombrePersona(h)}</div>
-      <div style="font-size:12px;color:var(--muted);">Sección ${h.seccion_nombre||'—'}</div>
+    <button class="pp-student-card ${ppHijoActual&&h.id===ppHijoActual.id?'active':''}" onclick="ppSelHijo(${h.id})">
+      <div style="font-weight:800;font-size:13.5px;">🎒 ${htmlSeguro(nombrePersona(h))}</div>
+      <div style="font-size:11.5px;color:#6b7f92;margin-top:4px;">Sección ${htmlSeguro(h.seccion_nombre||'—')} · Curso lectivo ${ANIO_LECTIVO_ACTIVO}</div>
     </button>`).join("");
 }
 
@@ -15371,49 +15661,60 @@ function ppSelHijo(id){
 
 function ppTab(tab){
   ppTabActual = tab;
-  ['inicio','horario','porteria','asistencia','conducta'].forEach(t=>{
+  ['inicio','horario','porteria','permisos','asistencia','conducta','avisos','citas'].forEach(t=>{
     const c = document.getElementById(`pp-cont-${t}`);
     if(c) c.style.display = t===tab ? '' : 'none';
   });
   document.querySelectorAll('.pp-tab').forEach(b=>{
-    b.style.background = b.dataset.tab===tab ? 'var(--azul)' : '';
-    b.style.color = b.dataset.tab===tab ? '#fff' : '';
+    b.classList.toggle('active',b.dataset.tab===tab);
   });
   if(tab==='inicio')     ppCargarInicio();
+  if(tab==='avisos')     ppCargarAvisos();
   if(tab==='horario')    ppCargarHorario();
   if(tab==='porteria')   ppCargarPorteria();
+  if(tab==='permisos')   ppCargarPermisos();
   if(tab==='asistencia') ppCargarAsistencia();
   if(tab==='conducta')   ppCargarConducta();
+  if(tab==='citas')      ppCargarCitas();
 }
 
 async function ppCargarInicio(){
+  if(!ppHijoActual)return;
+  const hoy=fechaHoyCR();
+  const fechaEl=document.getElementById('pp-hoy-fecha');
+  if(fechaEl) fechaEl.textContent=new Date(hoy+'T12:00:00').toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'});
+  await ppCargarAsistenciaDia(hoy,'pp-hoy-list');
+  const novedades=document.getElementById('pp-novedades');
   try{
-    const alertas = await api('/api/padres/alertas')||[];
-    const card = document.getElementById('pp-alertas-card');
-    if(alertas.length){
-      card.style.display = '';
-      document.getElementById('pp-alertas').innerHTML = alertas.map(a=>`
-        <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;${a.hoy?'background:#fef2f2;':''}">
-          ${a.hoy?'<span style="background:#dc2626;color:#fff;border-radius:4px;padding:1px 6px;font-size:10.5px;font-weight:bold;margin-right:6px;">HOY</span>':''}
-          <strong>${a.estudiante}</strong> — ${a.detalle}
-          <span style="color:var(--muted);"> · ${fmtF(a.fecha)}</span>
-        </div>`).join("");
-    } else {
-      card.style.display = 'none';
-    }
-  }catch{}
+    const [alertas,citas,permisos,anuncios]=await Promise.all([
+      api('/api/padres/alertas'),
+      api(`/api/padres/hijo/${ppHijoActual.id}/citas`),
+      api(`/api/padres/hijo/${ppHijoActual.id}/permisos`),
+      api('/api/padres/anuncios')
+    ]);
+    const items=[];
+    (citas||[]).filter(c=>c.estado==='pendiente').slice(0,2).forEach(c=>items.push(`
+      <div class="pp-news-item purple"><strong>📅 Cita pendiente</strong><br>${htmlSeguro(c.materia_nombre||'Docente')} · ${fmtF(c.fecha)} a las ${String(c.hora).slice(0,5)}<br><a href="#" onclick="ppTab('citas');return false">Revisar solicitud</a></div>`));
+    (permisos||[]).filter(p=>!p.anulado&&!p.utilizado&&p.fecha>=hoy).slice(0,2).forEach(p=>items.push(`
+      <div class="pp-news-item green"><strong>🪪 Permiso de salida</strong><br>${fmtF(p.fecha)}${p.hora_salida?' · '+p.hora_salida:''} · ${htmlSeguro(p.motivo)}</div>`));
+    (alertas||[]).slice(0,3).forEach(a=>items.push(`
+      <div class="pp-news-item orange"><strong>⚠️ ${htmlSeguro(a.estudiante)}</strong><br>${htmlSeguro(a.detalle)} · ${fmtF(a.fecha)}</div>`));
+    (anuncios||[]).slice(0,2).forEach(a=>items.push(`
+      <div class="pp-news-item"><strong>📣 ${htmlSeguro(a.titulo)}</strong><br>${htmlSeguro(String(a.cuerpo||'').slice(0,150))}</div>`));
+    novedades.innerHTML=items.length?items.join(''):'<div class="pp-help" style="text-align:center;padding:24px 4px;">Todo está al día. No hay novedades pendientes.</div>';
+  }catch(e){novedades.innerHTML=`<div class="pp-help">${htmlSeguro(e.message)}</div>`;}
+}
+
+async function ppCargarAvisos(){
   try{
-    const anuncios = await api('/api/padres/anuncios')||[];
-    document.getElementById('pp-anuncios').innerHTML = anuncios.length ? anuncios.map(a=>`
-      <div style="padding:10px 0;border-bottom:1px solid var(--border);">
-        <div style="font-weight:bold;font-size:14px;">${a.titulo}</div>
-        <div style="font-size:13px;margin-top:3px;white-space:pre-wrap;">${a.cuerpo}</div>
-        <div style="font-size:11.5px;color:var(--muted);margin-top:4px;">${String(a.created_at).slice(0,10)}${a.para_todos?' · Para toda la institución':''}</div>
-      </div>`).join("")
-      : '<div style="color:var(--muted);font-size:13px;">No hay anuncios por el momento.</div>';
-  }catch(e){
-    document.getElementById('pp-anuncios').innerHTML = `<div style="color:#dc2626;font-size:13px;">${e.message}</div>`;
-  }
+    const anuncios=await api('/api/padres/anuncios')||[];
+    document.getElementById('pp-anuncios').innerHTML=anuncios.length?anuncios.map(a=>`
+      <article style="padding:14px 2px;border-bottom:1px solid #e8eef4;">
+        <div style="font-weight:800;font-size:14px;color:#173f62;">${htmlSeguro(a.titulo)}</div>
+        <div style="font-size:13px;margin-top:5px;white-space:pre-wrap;line-height:1.55;">${htmlSeguro(a.cuerpo)}</div>
+        <div class="pp-help" style="margin-top:6px;">${fmtF(a.created_at)}${a.para_todos?' · Para toda la institución':''}</div>
+      </article>`).join(''):'<div class="pp-help" style="padding:25px;text-align:center;">No hay avisos por el momento.</div>';
+  }catch(e){document.getElementById('pp-anuncios').innerHTML=`<div class="pp-help">${htmlSeguro(e.message)}</div>`;}
 }
 
 async function ppCargarHorario(){
@@ -15449,6 +15750,53 @@ async function ppCargarPorteria(){
   }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
 }
 
+async function ppCargarPermisos(){
+  if(!ppHijoActual)return;
+  const tbody=document.getElementById('pp-permisos-tbody');
+  try{
+    const rows=await api(`/api/padres/hijo/${ppHijoActual.id}/permisos`)||[];
+    tbody.innerHTML=rows.length?rows.map(p=>{
+      let estado=p.anulado?'<span class="pp-status bad">Anulado</span>':p.utilizado?'<span class="pp-status muted">Utilizado</span>':p.fecha<fechaHoyCR()?'<span class="pp-status muted">Vencido</span>':'<span class="pp-status ok">Vigente</span>';
+      return `<tr><td>${fmtF(p.fecha)}</td><td>${htmlSeguro(p.hora_salida||'—')}</td><td>${htmlSeguro(p.motivo)}</td><td>${htmlSeguro(p.autoriza_nombre)}</td><td>${estado}</td></tr>`;
+    }).join(''):'<tr><td colspan="5" class="empty">No hay permisos de salida registrados este año.</td></tr>';
+  }catch(e){tbody.innerHTML=`<tr><td colspan="5" class="empty">${htmlSeguro(e.message)}</td></tr>`;}
+}
+
+function ppEstadoAsistenciaFila(c){
+  if(c.estado==='P')return ['Presente','ok','●'];
+  if(c.estado==='A')return [c.justificada?'Ausencia justificada':'Ausente','bad','●'];
+  if(c.estado==='T')return ['Tardía','warn','●'];
+  if(c.situacion==='proxima')return ['Próxima','info','○'];
+  if(c.situacion==='en_curso')return ['En curso','info','●'];
+  return ['Sin registrar','muted','○'];
+}
+
+async function ppCargarAsistenciaDia(fecha=null,destinoId='pp-as-dia-list'){
+  if(!ppHijoActual)return;
+  const input=document.getElementById('pp-as-dia');
+  if(!fecha){
+    if(input&&!input.value)input.value=fechaHoyCR();
+    fecha=input?.value||fechaHoyCR();
+  }
+  const cont=document.getElementById(destinoId); if(!cont)return;
+  cont.innerHTML='<div class="pp-help">Cargando...</div>';
+  try{
+    const r=await api(`/api/padres/hijo/${ppHijoActual.id}/asistencia-dia?fecha=${encodeURIComponent(fecha)}`);
+    const clases=r.clases||[];
+    if(!clases.length){cont.innerHTML='<div class="pp-help" style="text-align:center;padding:24px;">No hay lecciones programadas para este día.</div>';return;}
+    cont.innerHTML=clases.map(c=>{
+      const [txt,clase,punto]=ppEstadoAsistenciaFila(c);
+      const prof=nombreDesdeCampos(c.prof_nombre,c.prof_ap1,c.prof_ap2,{vacio:'Profesor por definir'});
+      return `<div class="pp-today-row">
+        <div style="font-weight:750;color:#3f5870;">${c.hora_inicio||'—'}<br><span class="pp-help">${c.hora_fin||''}</span></div>
+        <div><strong>${htmlSeguro(c.materia_nombre||c.materia_texto||'Materia')}</strong>${c.aula?`<div class="pp-help">Aula ${c.aula}</div>`:''}</div>
+        <div class="pp-teacher" style="color:#60758a;font-size:12px;">${htmlSeguro(prof)}</div>
+        <span class="pp-status ${clase}">${punto} ${txt}</span>
+      </div>`;
+    }).join('');
+  }catch(e){cont.innerHTML=`<div class="pp-help">${htmlSeguro(e.message)}</div>`;}
+}
+
 // ── Estado del filtro de período por cada rubro ──────────────────────────
 // I / II / anual — se inicializa según el mes actual: si estamos en la mitad
 // del año, arranca en I; si estamos en la segunda mitad, arranca en II.
@@ -15461,8 +15809,8 @@ function ppPeriodoInicial(){
 
 function ppRangoPeriodo(per){
   const anio = matAnioActual();
-  if(per === 'I')  return { desde: `${anio}-02-23`, hasta: `${anio}-07-03`, lbl: `— I Período` };
-  if(per === 'II') return { desde: `${anio}-07-20`, hasta: `${anio}-12-09`, lbl: `— II Período` };
+  if(per === 'I')  { const r=rangoPeriodoFrontend('I Período'); return {...r,lbl:'— I Período'}; }
+  if(per === 'II') { const r=rangoPeriodoFrontend('II Período'); return {...r,lbl:'— II Período'}; }
   return { desde: `${anio}-01-01`, hasta: `${anio}-12-31`, lbl: `— Anual` };
 }
 
@@ -15481,6 +15829,9 @@ function ppSetPeriodo(target, per){
 
 async function ppCargarAsistencia(){
   if(!ppHijoActual) return;
+  const diaInput=document.getElementById('pp-as-dia');
+  if(diaInput&&!diaInput.value)diaInput.value=fechaHoyCR();
+  ppCargarAsistenciaDia();
   if(!ppPeriodoAsist) ppPeriodoAsist = ppPeriodoInicial();
   ppMarcarBtnActivo('asistencia', ppPeriodoAsist);
   const rango = ppRangoPeriodo(ppPeriodoAsist);
@@ -15542,6 +15893,107 @@ async function ppCargarConducta(){
   }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
 }
 
+let ppCitaSlots=[],ppCitaRespuestaId=null;
+
+async function ppCargarCitas(){
+  if(!ppHijoActual)return;
+  const sel=document.getElementById('pp-cita-docente');
+  const lista=document.getElementById('pp-citas-lista');
+  try{
+    const [docentes,citas]=await Promise.all([
+      api(`/api/padres/hijo/${ppHijoActual.id}/docentes`),
+      api(`/api/padres/hijo/${ppHijoActual.id}/citas`)
+    ]);
+    const seleccionAnterior=sel.value;
+    sel.innerHTML='<option value="">— Seleccione docente y materia —</option>'+(docentes||[]).map(d=>
+      `<option value="${d.profesor_id}|${d.asignacion_id}">${htmlSeguro(d.materia_nombre)} · ${htmlSeguro(nombrePersona(d))}</option>`).join('');
+    if([...sel.options].some(o=>o.value===seleccionAnterior))sel.value=seleccionAnterior;
+    const EST={pendiente:['Pendiente','warn'],confirmada:['Confirmada','ok'],rechazada:['Rechazada','bad'],cancelada:['Cancelada','muted']};
+    lista.innerHTML=(citas||[]).length?citas.map(c=>{
+      const [estado,clase]=EST[c.estado]||[c.estado,'muted'];
+      const requiere=c.estado==='pendiente'&&c.pendiente_de==='encargado';
+      const activa=['pendiente','confirmada'].includes(c.estado);
+      return `<div class="pp-appointment">
+        <div class="pp-appointment-head"><div><strong>${htmlSeguro(c.materia_nombre||'Cita')}</strong><div class="pp-help">${htmlSeguro(nombreDesdeCampos(c.prof_nombre,c.prof_ap1,c.prof_ap2))}</div></div><span class="pp-status ${clase}">${estado}</span></div>
+        <div style="font-size:13px;margin-top:8px;"><strong>${fmtF(c.fecha)} · ${String(c.hora).slice(0,5)}</strong> (${c.duracion_min} min)</div>
+        <div class="pp-help" style="margin-top:4px;">${htmlSeguro(c.motivo)}</div>
+        ${c.es_contrapropuesta?'<div class="pp-help" style="color:#7c3aed;margin-top:4px;">↪ Este horario fue propuesto como alternativa.</div>':''}
+        ${c.respuesta_mensaje?`<div class="pp-help" style="margin-top:4px;">Mensaje: ${htmlSeguro(c.respuesta_mensaje)}</div>`:''}
+        <div class="pp-actions">
+          ${requiere?`<button class="yes" onclick="ppResponderCita(${c.id},'confirmar')">✓ Confirmar</button><button class="no" onclick="ppResponderCita(${c.id},'rechazar')">Rechazar</button><button onclick="ppPrepararPropuesta(${c.id},${c.profesor_id},${c.asignacion_id||0})">Proponer otra hora</button>`:''}
+          ${activa?`<button onclick="ppCancelarCita(${c.id})">Cancelar cita</button>`:''}
+        </div>
+      </div>`;
+    }).join(''):'<div class="pp-help" style="text-align:center;padding:24px;">Todavía no hay citas para este estudiante.</div>';
+  }catch(e){lista.innerHTML=`<div class="pp-help">${htmlSeguro(e.message)}</div>`;}
+}
+
+async function ppCargarSlots(){
+  ppCitaSlots=[];
+  const raw=document.getElementById('pp-cita-docente').value;
+  const fechaSel=document.getElementById('pp-cita-fecha');
+  const horaSel=document.getElementById('pp-cita-hora');
+  if(!raw){fechaSel.innerHTML='<option value="">— Primero seleccione docente —</option>';horaSel.innerHTML='<option value="">— Seleccione día —</option>';return;}
+  const [profesor_id,asignacion_id]=raw.split('|');
+  document.getElementById('pp-cita-ayuda').textContent='Buscando horas disponibles...';
+  try{
+    const r=await api(`/api/padres/hijo/${ppHijoActual.id}/citas/slots?profesor_id=${profesor_id}&asignacion_id=${asignacion_id}`);
+    ppCitaSlots=r.slots||[];
+    const fechas=[...new Set(ppCitaSlots.map(s=>s.fecha))];
+    fechaSel.innerHTML=fechas.length?'<option value="">— Seleccione día —</option>'+fechas.map(f=>`<option value="${f}">${new Date(f+'T12:00:00').toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'})}</option>`).join(''):'<option value="">Sin horas publicadas</option>';
+    horaSel.innerHTML='<option value="">— Seleccione día —</option>';
+    document.getElementById('pp-cita-ayuda').textContent=fechas.length?'La solicitud quedará pendiente hasta que el docente la confirme.':'Este docente todavía no ha publicado horas disponibles.';
+  }catch(e){document.getElementById('pp-cita-ayuda').textContent=e.message;}
+}
+
+function ppRenderHoras(){
+  const fecha=document.getElementById('pp-cita-fecha').value;
+  const slots=ppCitaSlots.filter(s=>s.fecha===fecha);
+  document.getElementById('pp-cita-hora').innerHTML=slots.length?'<option value="">— Seleccione hora —</option>'+slots.map(s=>`<option value="${s.hora}">${s.hora} · ${s.duracion_min} minutos</option>`).join(''):'<option value="">Sin horas</option>';
+}
+
+async function ppSolicitarCita(){
+  const raw=document.getElementById('pp-cita-docente').value;
+  const fecha=document.getElementById('pp-cita-fecha').value,hora=document.getElementById('pp-cita-hora').value;
+  const motivo=document.getElementById('pp-cita-motivo').value.trim();
+  if(!raw||!fecha||!hora){document.getElementById('pp-cita-ayuda').textContent='Seleccione docente, día y hora.';return;}
+  const [profesor_id,asignacion_id]=raw.split('|');
+  const btn=document.getElementById('pp-cita-enviar');btn.disabled=true;
+  try{
+    if(ppCitaRespuestaId){
+      await api(`/api/padres/citas/${ppCitaRespuestaId}/responder`,'PUT',{accion:'proponer',fecha,hora,mensaje:motivo});
+      ppCitaRespuestaId=null;btn.textContent='Enviar solicitud';
+    }else{
+      if(motivo.length<3)throw new Error('Indique brevemente el motivo de la cita.');
+      await api(`/api/padres/hijo/${ppHijoActual.id}/citas`,'POST',{profesor_id:Number(profesor_id),asignacion_id:Number(asignacion_id),fecha,hora,motivo});
+    }
+    document.getElementById('pp-cita-motivo').value='';
+    document.getElementById('pp-cita-ayuda').textContent='✓ Solicitud enviada correctamente.';
+    await ppCargarCitas();
+  }catch(e){document.getElementById('pp-cita-ayuda').textContent=e.message;}finally{btn.disabled=false;}
+}
+
+async function ppResponderCita(id,accion){
+  if(accion==='rechazar'&&!confirm('¿Desea rechazar esta solicitud de cita?'))return;
+  try{await api(`/api/padres/citas/${id}/responder`,'PUT',{accion});await ppCargarCitas();}catch(e){alert(e.message);}
+}
+
+async function ppPrepararPropuesta(id,profesorId,asignacionId){
+  ppCitaRespuestaId=id;
+  const sel=document.getElementById('pp-cita-docente');
+  const opcion=[...sel.options].find(o=>o.value===`${profesorId}|${asignacionId}`)||[...sel.options].find(o=>o.value.startsWith(`${profesorId}|`));
+  if(opcion)sel.value=opcion.value;
+  await ppCargarSlots();
+  document.getElementById('pp-cita-enviar').textContent='Proponer este nuevo horario';
+  document.getElementById('pp-cita-ayuda').textContent='Seleccione una hora diferente. El docente deberá aprobarla.';
+  document.getElementById('pp-cita-docente').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+async function ppCancelarCita(id){
+  if(!confirm('¿Desea cancelar esta cita?'))return;
+  try{await api(`/api/padres/citas/${id}/cancelar`,'PUT',{});await ppCargarCitas();}catch(e){alert(e.message);}
+}
+
 // ── Auto-refresh del portal cada 60 segundos ─────────────────────────────
 let ppRefreshTimer = null;
 let ppUltimoRefresh = null;
@@ -15549,10 +16001,13 @@ let ppUltimoRefresh = null;
 function ppRefrescarPestaña(){
   if(!ppTabActual) return;
   if(ppTabActual==='inicio')     ppCargarInicio();
+  if(ppTabActual==='avisos')     ppCargarAvisos();
   if(ppTabActual==='horario')    ppCargarHorario();
   if(ppTabActual==='porteria')   ppCargarPorteria();
+  if(ppTabActual==='permisos')   ppCargarPermisos();
   if(ppTabActual==='asistencia') ppCargarAsistencia();
   if(ppTabActual==='conducta')   ppCargarConducta();
+  if(ppTabActual==='citas')      ppCargarCitas();
   ppUltimoRefresh = new Date();
   ppActualizarLabelRefresh();
 }

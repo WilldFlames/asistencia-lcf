@@ -3,6 +3,13 @@ const bcrypt = require("bcryptjs");
 const { pool } = require("../db");
 const { LECCIONES } = require("./horarios");
 const {
+  fechaCR,
+  obtenerAnioActivo,
+  obtenerCalendario,
+  obtenerPeriodoActual,
+  obtenerRangoPeriodo,
+} = require("../utils/lectivo");
+const {
   createRateLimiter,
   regenerateSession,
   saveSession,
@@ -15,21 +22,83 @@ const loginPadresLimiter = createRateLimiter({
 });
 
 // ── Helpers Costa Rica ─────────────────────────────────────────────────────
-function fechaCR(){
-  const ahora = new Date();
-  const offsetCR = -6 * 60;
-  const localMs = ahora.getTime() + (ahora.getTimezoneOffset() + offsetCR) * 60000;
-  return new Date(localMs).toISOString().slice(0,10);
-}
-function anioCR(){ return parseInt(fechaCR().slice(0,4)); }
 function limpiarCedula(c){ return String(c||'').replace(/[\s\-.\/\\]/g,''); }
+function horaCR(){
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone:"America/Costa_Rica", hour:"2-digit", minute:"2-digit", hour12:false,
+  }).format(new Date());
+}
+function fechaValida(f){ return /^\d{4}-\d{2}-\d{2}$/.test(String(f||"")); }
+function horaValida(h){ return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(h||"").slice(0,5)); }
+function minutos(h){ const [hh,mm]=String(h).slice(0,5).split(":").map(Number); return hh*60+mm; }
+function horaDeMinutos(n){ return `${String(Math.floor(n/60)).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`; }
 
-// Rangos de período del año (mismas fechas del CONTEXTO)
-function rangosPeriodo(anio){
-  return {
-    I:  { desde: `${anio}-02-23`, hasta: `${anio}-07-03` },
-    II: { desde: `${anio}-07-20`, hasta: `${anio}-12-09` },
-  };
+function validarMomento(fecha, hora){
+  if(!fechaValida(fecha) || !horaValida(hora)) return "Fecha u hora inválida.";
+  const hoy=fechaCR();
+  if(fecha<hoy || (fecha===hoy && hora<=horaCR())) return "La cita debe ser en una fecha y hora futuras.";
+  const limite=new Date(`${hoy}T12:00:00Z`); limite.setUTCDate(limite.getUTCDate()+180);
+  if(fecha>limite.toISOString().slice(0,10)) return "La cita no puede programarse con más de 180 días de anticipación.";
+  return null;
+}
+
+async function docenteDelHijo(hijo, profesorId, asignacionId=null){
+  const anio=await obtenerAnioActivo();
+  const periodo=(await obtenerPeriodoActual()).nombre;
+  const params=[hijo.seccion_id, profesorId, anio, hijo.id, periodo];
+  let extra="";
+  if(asignacionId){ params.push(asignacionId); extra=` AND a.id=$${params.length}`; }
+  const r=await pool.query(`
+    SELECT a.id AS asignacion_id, a.profesor_id, a.subgrupo,
+      m.nombre AS materia_nombre, u.nombre, u.primer_apellido, u.segundo_apellido
+    FROM asignaciones a
+    JOIN materias m ON m.id=a.materia_id
+    JOIN usuarios u ON u.id=a.profesor_id
+    JOIN estudiantes e ON e.id=$4
+    WHERE a.seccion_id=$1 AND a.profesor_id=$2 AND COALESCE(a.anio,$3)=$3
+      AND COALESCE(a.activa,true)=true
+      AND COALESCE(a.periodo,'I Período') IN ('I Período',$5)
+      AND (COALESCE(a.subgrupo,'')='' OR UPPER(a.subgrupo)=UPPER(COALESCE(e.subgrupo,'')))
+      ${extra}
+    ORDER BY CASE WHEN COALESCE(a.periodo,'I Período')=$5 THEN 0 ELSE 1 END, a.id DESC
+    LIMIT 1
+  `,params);
+  return r.rows[0]||null;
+}
+
+async function validarSlotProfesor(profesorId, fecha, hora){
+  const anio=await obtenerAnioActivo();
+  const dia=new Date(`${fecha}T12:00:00Z`).getUTCDay();
+  const r=await pool.query(`
+    SELECT duracion_min, hora_inicio::text, hora_fin::text
+    FROM citas_disponibilidad
+    WHERE profesor_id=$1 AND anio=$2 AND dia_semana=$3 AND activa=true
+  `,[profesorId,anio,dia]);
+  const min=minutos(hora);
+  return r.rows.find(b=>{
+    const inicio=minutos(b.hora_inicio), fin=minutos(b.hora_fin), dur=Number(b.duracion_min);
+    return min>=inicio && min+dur<=fin && (min-inicio)%dur===0;
+  })||null;
+}
+
+async function hayChoqueCita(db, profesorId, estudianteId, fecha, hora, duracion, excluirId=null){
+  const r=await db.query(`
+    SELECT id FROM citas
+    WHERE fecha=$3 AND estado IN ('pendiente','confirmada')
+      AND (profesor_id=$1 OR estudiante_id=$2)
+      AND ($6::int IS NULL OR id<>$6)
+      AND hora < ($4::time + make_interval(mins=>$5::int))
+      AND (hora + make_interval(mins=>duracion_min)) > $4::time
+    LIMIT 1
+  `,[profesorId,estudianteId,fecha,hora,duracion,excluirId]);
+  return r.rows.length>0;
+}
+
+async function notificarDocente(profesorId,mensaje,citaId){
+  await pool.query(
+    "INSERT INTO notificaciones(usuario_id,tipo,mensaje,referencia_id) VALUES($1,'cita',$2,$3)",
+    [profesorId,mensaje,citaId]
+  ).catch(()=>{});
 }
 
 // ── Hijos asociados a una cédula de encargado ─────────────────────────────
@@ -197,7 +266,14 @@ router.get("/me", async (req, res) => {
     return res.json({ autenticado: false });
   }
   const hijos = await hijosDe(p.cedula);
-  res.json({ autenticado: true, padre: p, primer_login: r.rows[0].primer_login, hijos });
+  const anio = await obtenerAnioActivo();
+  const calendario = await obtenerCalendario(anio);
+  res.json({ autenticado: true, padre: p, primer_login: r.rows[0].primer_login, hijos, anio_activo:anio, calendario });
+});
+
+router.get("/config", requirePadre, async (req,res)=>{
+  const anio=await obtenerAnioActivo();
+  res.json({ anio_activo:anio, calendario:await obtenerCalendario(anio) });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -206,11 +282,11 @@ router.get("/me", async (req, res) => {
 
 // ── Horario del hijo (grilla del año actual) ──────────────────────────────
 router.get("/hijo/:id/horario", requirePadre, hijoDelPadre, async (req, res) => {
-  const anio = anioCR();
+  const anio = await obtenerAnioActivo();
   if(!req.hijo.seccion_id) return res.json({ lecciones: LECCIONES, celdas: [], seccion: null });
   const celdas = await pool.query(`
-    SELECT h.dia, h.leccion, h.aula, m.nombre AS materia_nombre,
-      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
+    SELECT h.dia, h.leccion, h.aula, h.materia_texto, m.nombre AS materia_nombre,
+      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.segundo_apellido AS prof_ap2
     FROM horarios h
     LEFT JOIN asignaciones a ON a.id = h.asignacion_id
     LEFT JOIN materias m ON m.id = a.materia_id
@@ -224,7 +300,8 @@ router.get("/hijo/:id/horario", requirePadre, hijoDelPadre, async (req, res) => 
 // ── Entradas/salidas de portería ──────────────────────────────────────────
 router.get("/hijo/:id/porteria", requirePadre, hijoDelPadre, async (req, res) => {
   const hasta = req.query.hasta || fechaCR();
-  const desde = req.query.desde || `${anioCR()}-01-01`;
+  const anio = await obtenerAnioActivo();
+  const desde = req.query.desde || `${anio}-01-01`;
   const r = await pool.query(`
     SELECT fecha, hora, tipo, resultado, detalle
     FROM porteria_registros
@@ -238,7 +315,8 @@ router.get("/hijo/:id/porteria", requirePadre, hijoDelPadre, async (req, res) =>
 // ── Asistencia por día y materia ──────────────────────────────────────────
 router.get("/hijo/:id/asistencia", requirePadre, hijoDelPadre, async (req, res) => {
   const hasta = req.query.hasta || fechaCR();
-  const desde = req.query.desde || `${anioCR()}-01-01`;
+  const anio = await obtenerAnioActivo();
+  const desde = req.query.desde || `${anio}-01-01`;
   const r = await pool.query(`
     SELECT sa.fecha, sa.lecciones AS lecciones_sesion, m.nombre AS materia_nombre,
       a.estado, a.lecciones_ausentes, a.lecciones_tardias, a.justificada, a.motivo
@@ -260,12 +338,228 @@ router.get("/hijo/:id/asistencia", requirePadre, hijoDelPadre, async (req, res) 
   res.json({ registros: rows, resumen });
 });
 
+// ── Asistencia de un día según el horario ────────────────────────────────
+// También devuelve clases aún sin registrar, para que el encargado vea la
+// jornada completa y no solamente las ausencias ya guardadas.
+router.get("/hijo/:id/asistencia-dia", requirePadre, hijoDelPadre, async (req,res)=>{
+  const fecha=String(req.query.fecha||fechaCR()).slice(0,10);
+  if(!fechaValida(fecha)) return res.status(400).json({error:"Fecha inválida."});
+  const dia=new Date(`${fecha}T12:00:00Z`).getUTCDay();
+  const anio=await obtenerAnioActivo();
+  if(dia<1||dia>5||!req.hijo.seccion_id) return res.json({fecha,anio,clases:[]});
+  const r=await pool.query(`
+    SELECT h.leccion, h.aula, h.asignacion_id, h.materia_texto,
+      m.nombre AS materia_nombre,
+      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.segundo_apellido AS prof_ap2,
+      ast.estado, ast.justificada, ast.lecciones_ausentes, ast.lecciones_tardias,
+      sa.id AS sesion_id
+    FROM horarios h
+    LEFT JOIN asignaciones a ON a.id=h.asignacion_id
+    LEFT JOIN materias m ON m.id=a.materia_id
+    LEFT JOIN usuarios u ON u.id=a.profesor_id
+    LEFT JOIN sesiones_asistencia sa ON sa.asignacion_id=h.asignacion_id AND sa.fecha=$4
+    LEFT JOIN asistencia ast ON ast.sesion_id=sa.id AND ast.estudiante_id=$3
+    LEFT JOIN estudiantes e ON e.id=$3
+    WHERE h.seccion_id=$1 AND h.anio=$2 AND h.dia=$5
+      AND (h.asignacion_id IS NULL OR COALESCE(a.subgrupo,'')=''
+        OR UPPER(a.subgrupo)=UPPER(COALESCE(e.subgrupo,'')))
+    ORDER BY h.leccion, h.id
+  `,[req.hijo.seccion_id,anio,req.hijo.id,fecha,dia]);
+  const ahora=horaCR(), hoy=fechaCR();
+  const clases=r.rows.map(x=>{
+    const leccion=LECCIONES.find(l=>l.n===Number(x.leccion));
+    let situacion="sin_registrar";
+    if(x.estado) situacion="registrada";
+    else if(fecha>hoy || (fecha===hoy && leccion && ahora<leccion.ini)) situacion="proxima";
+    else if(fecha===hoy && leccion && ahora>=leccion.ini && ahora<=leccion.fin) situacion="en_curso";
+    return {...x,hora_inicio:leccion?.ini||null,hora_fin:leccion?.fin||null,situacion};
+  });
+  res.json({fecha,anio,clases});
+});
+
+// ── Permisos de salida del estudiante ────────────────────────────────────
+router.get("/hijo/:id/permisos", requirePadre, hijoDelPadre, async (req,res)=>{
+  const anio=await obtenerAnioActivo();
+  const r=await pool.query(`
+    SELECT p.id,p.numero,p.anio,p.tipo,p.fecha::text,p.hora_salida,p.motivo,
+      p.autoriza_nombre,p.anulado,p.created_at,
+      EXISTS(SELECT 1 FROM permisos_salida_usos u
+        WHERE u.permiso_id=p.id AND u.estudiante_id=$1) AS utilizado
+    FROM permisos_salida p
+    WHERE p.anio=$2 AND (p.estudiante_id=$1 OR (p.tipo='seccion' AND p.seccion_id=$3))
+    ORDER BY p.fecha DESC,p.numero DESC LIMIT 100
+  `,[req.hijo.id,anio,req.hijo.seccion_id||0]);
+  res.json(r.rows);
+});
+
+// ── Docentes que actualmente le dan clase al hijo ────────────────────────
+router.get("/hijo/:id/docentes", requirePadre, hijoDelPadre, async (req,res)=>{
+  const anio=await obtenerAnioActivo();
+  const periodo=(await obtenerPeriodoActual()).nombre;
+  const r=await pool.query(`
+    SELECT DISTINCT ON(a.profesor_id,a.materia_id)
+      a.profesor_id,a.id AS asignacion_id,m.nombre AS materia_nombre,
+      u.nombre,u.primer_apellido,u.segundo_apellido
+    FROM asignaciones a
+    JOIN materias m ON m.id=a.materia_id
+    JOIN usuarios u ON u.id=a.profesor_id
+    JOIN estudiantes e ON e.id=$1
+    WHERE a.seccion_id=$2 AND COALESCE(a.anio,$3)=$3 AND COALESCE(a.activa,true)=true
+      AND COALESCE(a.periodo,'I Período') IN ('I Período',$4)
+      AND (COALESCE(a.subgrupo,'')='' OR UPPER(a.subgrupo)=UPPER(COALESCE(e.subgrupo,'')))
+      AND m.nombre NOT IN ('Guía','Orientación')
+    ORDER BY a.profesor_id,a.materia_id,
+      CASE WHEN COALESCE(a.periodo,'I Período')=$4 THEN 0 ELSE 1 END,a.id DESC
+  `,[req.hijo.id,req.hijo.seccion_id||0,anio,periodo]);
+  res.json(r.rows);
+});
+
+// Horas libres publicadas por un docente para los próximos 60 días.
+router.get("/hijo/:id/citas/slots", requirePadre, hijoDelPadre, async (req,res)=>{
+  const profesorId=Number(req.query.profesor_id);
+  const asignacionId=Number(req.query.asignacion_id)||null;
+  const docente=await docenteDelHijo(req.hijo,profesorId,asignacionId);
+  if(!docente) return res.status(403).json({error:"Ese docente no imparte clases al estudiante."});
+  const anio=await obtenerAnioActivo();
+  const bloquesR=await pool.query(`SELECT dia_semana,hora_inicio::text,hora_fin::text,duracion_min
+    FROM citas_disponibilidad WHERE profesor_id=$1 AND anio=$2 AND activa=true
+    ORDER BY dia_semana,hora_inicio`,[profesorId,anio]);
+  const hasta=new Date(`${fechaCR()}T12:00:00Z`); hasta.setUTCDate(hasta.getUTCDate()+60);
+  const ocupadasR=await pool.query(`SELECT fecha::text,hora::text,duracion_min FROM citas
+    WHERE profesor_id=$1 AND estado IN ('pendiente','confirmada')
+      AND fecha BETWEEN $2 AND $3`,[profesorId,fechaCR(),hasta.toISOString().slice(0,10)]);
+  const ocupadas=ocupadasR.rows.map(x=>({fecha:String(x.fecha).slice(0,10),inicio:minutos(x.hora),fin:minutos(x.hora)+Number(x.duracion_min)}));
+  const slots=[];
+  const d=new Date(`${fechaCR()}T12:00:00Z`);
+  while(d<=hasta){
+    const fecha=d.toISOString().slice(0,10), dia=d.getUTCDay();
+    for(const b of bloquesR.rows.filter(x=>Number(x.dia_semana)===dia)){
+      const ini=minutos(b.hora_inicio),fin=minutos(b.hora_fin),dur=Number(b.duracion_min);
+      for(let m=ini;m+dur<=fin;m+=dur){
+        const hora=horaDeMinutos(m);
+        if(fecha===fechaCR()&&hora<=horaCR()) continue;
+        const choca=ocupadas.some(o=>o.fecha===fecha&&m<o.fin&&m+dur>o.inicio);
+        if(!choca) slots.push({fecha,hora,duracion_min:dur});
+      }
+    }
+    d.setUTCDate(d.getUTCDate()+1);
+  }
+  res.json({profesor_id:profesorId,slots});
+});
+
+router.get("/hijo/:id/citas", requirePadre, hijoDelPadre, async (req,res)=>{
+  const ced=limpiarCedula(req.session.padre.cedula);
+  const anio=await obtenerAnioActivo();
+  const r=await pool.query(`
+    SELECT c.id,c.profesor_id,c.asignacion_id,c.fecha::text,c.hora::text,c.duracion_min,c.motivo,c.estado,
+      c.pendiente_de,c.solicitada_por,c.es_contrapropuesta,c.respuesta_mensaje,c.created_at,
+      u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2,
+      m.nombre AS materia_nombre
+    FROM citas c
+    JOIN usuarios u ON u.id=c.profesor_id
+    LEFT JOIN asignaciones a ON a.id=c.asignacion_id
+    LEFT JOIN materias m ON m.id=a.materia_id
+    WHERE c.estudiante_id=$1 AND c.encargado_cedula=$2 AND c.anio=$3
+    ORDER BY CASE WHEN c.estado='pendiente' THEN 0 WHEN c.estado='confirmada' THEN 1 ELSE 2 END,
+      c.fecha,c.hora
+  `,[req.hijo.id,ced,anio]);
+  res.json(r.rows);
+});
+
+router.post("/hijo/:id/citas", requirePadre, hijoDelPadre, async (req,res)=>{
+  const profesorId=Number(req.body.profesor_id), asignacionId=Number(req.body.asignacion_id)||null;
+  const fecha=String(req.body.fecha||""),hora=String(req.body.hora||"").slice(0,5);
+  const motivo=String(req.body.motivo||"").trim();
+  const err=validarMomento(fecha,hora);
+  if(err) return res.status(400).json({error:err});
+  if(motivo.length<3) return res.status(400).json({error:"Indique brevemente el motivo de la cita."});
+  const docente=await docenteDelHijo(req.hijo,profesorId,asignacionId);
+  if(!docente) return res.status(403).json({error:"Ese docente no imparte clases al estudiante."});
+  const bloque=await validarSlotProfesor(profesorId,fecha,hora);
+  if(!bloque) return res.status(400).json({error:"La hora elegida ya no está disponible. Seleccione otra."});
+  const anio=await obtenerAnioActivo(),ced=limpiarCedula(req.session.padre.cedula);
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))',[profesorId,fecha]);
+    await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))',[-req.hijo.id,fecha]);
+    if(await hayChoqueCita(client,profesorId,req.hijo.id,fecha,hora,Number(bloque.duracion_min))){
+      await client.query('ROLLBACK');
+      return res.status(409).json({error:"Esa hora se cruza con otra cita. Seleccione una diferente."});
+    }
+    const r=await client.query(`INSERT INTO citas(anio,estudiante_id,profesor_id,asignacion_id,
+      encargado_cedula,solicitada_por,fecha,hora,duracion_min,motivo,estado,pendiente_de)
+      VALUES($1,$2,$3,$4,$5,'encargado',$6,$7,$8,$9,'pendiente','profesor') RETURNING id`,
+      [anio,req.hijo.id,profesorId,docente.asignacion_id,ced,fecha,hora,Number(bloque.duracion_min),motivo]);
+    await client.query('COMMIT');
+    const nombre=`${req.hijo.nombre} ${req.hijo.primer_apellido} ${req.hijo.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
+    await notificarDocente(profesorId,`Nueva solicitud de cita para ${nombre}, el ${fecha} a las ${hora}.`,r.rows[0].id);
+    res.json({ok:true,id:r.rows[0].id});
+  }catch(e){
+    await client.query('ROLLBACK').catch(()=>{});
+    if(e.code==='23505') return res.status(409).json({error:"Esa hora acaba de ser reservada. Seleccione otra."});
+    throw e;
+  }finally{client.release();}
+});
+
+router.put("/citas/:id/responder", requirePadre, async (req,res)=>{
+  const ced=limpiarCedula(req.session.padre.cedula),accion=String(req.body.accion||"");
+  if(!['confirmar','rechazar','proponer'].includes(accion)) return res.status(400).json({error:"Respuesta inválida."});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const q=await client.query(`SELECT * FROM citas WHERE id=$1 AND encargado_cedula=$2 FOR UPDATE`,[req.params.id,ced]);
+    if(!q.rows.length){await client.query('ROLLBACK');return res.status(404).json({error:"Cita no encontrada."});}
+    const cita=q.rows[0];
+    if(cita.estado!=='pendiente'||cita.pendiente_de!=='encargado'){
+      await client.query('ROLLBACK');return res.status(400).json({error:"Esta cita ya no está pendiente de su respuesta."});
+    }
+    const mensaje=String(req.body.mensaje||"").trim();
+    if(accion==='confirmar') await client.query(`UPDATE citas SET estado='confirmada',pendiente_de=NULL,respuesta_mensaje=$1,updated_at=NOW() WHERE id=$2`,[mensaje,cita.id]);
+    else if(accion==='rechazar') await client.query(`UPDATE citas SET estado='rechazada',pendiente_de=NULL,respuesta_mensaje=$1,updated_at=NOW() WHERE id=$2`,[mensaje,cita.id]);
+    else{
+      const fecha=String(req.body.fecha||""),hora=String(req.body.hora||"").slice(0,5);
+      const err=validarMomento(fecha,hora),bloque=err?null:await validarSlotProfesor(cita.profesor_id,fecha,hora);
+      if(err||!bloque){await client.query('ROLLBACK');return res.status(400).json({error:err||"La hora seleccionada no está disponible."});}
+      await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))',[cita.profesor_id,fecha]);
+      await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))',[-cita.estudiante_id,fecha]);
+      if(await hayChoqueCita(client,cita.profesor_id,cita.estudiante_id,fecha,hora,Number(bloque.duracion_min),cita.id)){
+        await client.query('ROLLBACK');return res.status(409).json({error:"La hora se cruza con otra cita."});
+      }
+      await client.query(`UPDATE citas SET fecha=$1,hora=$2,duracion_min=$3,estado='pendiente',pendiente_de='profesor',
+        es_contrapropuesta=true,respuesta_mensaje=$4,updated_at=NOW() WHERE id=$5`,[fecha,hora,Number(bloque.duracion_min),mensaje,cita.id]);
+    }
+    await client.query('COMMIT');
+    await notificarDocente(cita.profesor_id,`El encargado respondió una solicitud de cita (${accion}).`,cita.id);
+    res.json({ok:true});
+  }catch(e){
+    await client.query('ROLLBACK');
+    if(e.code==='23505') return res.status(409).json({error:"Esa hora ya fue reservada."});
+    throw e;
+  }finally{client.release();}
+});
+
+router.put("/citas/:id/cancelar", requirePadre, async (req,res)=>{
+  const ced=limpiarCedula(req.session.padre.cedula);
+  const r=await pool.query(`UPDATE citas SET estado='cancelada',pendiente_de=NULL,
+    respuesta_mensaje=$1,updated_at=NOW()
+    WHERE id=$2 AND encargado_cedula=$3 AND estado IN ('pendiente','confirmada')
+    RETURNING id,profesor_id`,[String(req.body.mensaje||"").trim(),req.params.id,ced]);
+  if(!r.rows.length) return res.status(404).json({error:"La cita no existe o ya no puede cancelarse."});
+  await notificarDocente(r.rows[0].profesor_id,"El encargado canceló una cita.",r.rows[0].id);
+  res.json({ok:true});
+});
+
 // ── Conducta: boletas + nota por período ──────────────────────────────────
 // USA EL MISMO CÁLCULO que el guía en /api/conducta/estudiante/:id?desde=X&hasta=Y
 // para garantizar que la nota que ve el papá coincida con la que ve el guía.
 router.get("/hijo/:id/conducta", requirePadre, hijoDelPadre, async (req, res) => {
-  const anio = anioCR();
-  const per = rangosPeriodo(anio);
+  const anio = await obtenerAnioActivo();
+  const [perI,perII] = await Promise.all([
+    obtenerRangoPeriodo("I Período",pool,anio),
+    obtenerRangoPeriodo("II Período",pool,anio),
+  ]);
+  const per = { I:perI, II:perII };
 
   // Función interna que replica EXACTAMENTE el endpoint del guía
   async function traerBoletas(desde, hasta){

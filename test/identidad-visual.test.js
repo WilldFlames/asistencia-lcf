@@ -41,3 +41,16 @@ test("los accesos continúan dependiendo del perfil y las funciones extra", () =
   assert.match(frontend, /document\.getElementById\("nav-matricula"\)\.style\.display=""/);
   assert.match(frontend, /function actualizarEncabezadoPagina\(page\)/);
 });
+
+test("la interfaz se adapta a iPhone, áreas seguras y navegador móvil", () => {
+  const html = frontend;
+  assert.match(html, /viewport-fit=cover/);
+  assert.match(html, /height:100dvh/);
+  assert.match(html, /env\(safe-area-inset-top\)/);
+  assert.match(html, /env\(safe-area-inset-bottom\)/);
+  assert.match(html, /hover:none\) and \(pointer:coarse/);
+  assert.match(html, /input,select,textarea\{font-size:16px!important/);
+  assert.match(html, /window\.innerWidth<=1024/);
+  assert.match(html, /max-width:1024px\) and \(max-height:600px/);
+  assert.match(html, /fullscreen\.show\{align-items:flex-start;justify-content:center;overflow-y:auto/);
+});

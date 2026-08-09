@@ -40,7 +40,7 @@ router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) =>
   const r = await pool.query(`
     SELECT a.id, a.subgrupo, a.periodo,
       m.nombre AS materia_nombre,
-      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
+      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.segundo_apellido AS prof_ap2
     FROM asignaciones a
     JOIN materias m ON m.id = a.materia_id
     JOIN usuarios u ON u.id = a.profesor_id
@@ -71,7 +71,7 @@ router.get("/", requireAuth, async (req, res) => {
   const celdas = await pool.query(`
     SELECT h.id, h.dia, h.leccion, h.asignacion_id, h.materia_texto, h.aula,
       m.nombre AS materia_nombre,
-      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
+      u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.segundo_apellido AS prof_ap2
     FROM horarios h
     LEFT JOIN asignaciones a ON a.id = h.asignacion_id
     LEFT JOIN materias m ON m.id = a.materia_id
