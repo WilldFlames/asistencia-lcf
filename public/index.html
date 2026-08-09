@@ -2841,7 +2841,7 @@ tr:hover td{background:#f8fafc;}
       <div class="form-grid" style="margin-top:8px;">
         <div class="fg">
           <label>Artículo</label>
-          <select id="dec-art-falta" onchange="cargarIncisosREAC('falta','dec-art-falta','dec-inc-falta','dec-desc-falta')">
+          <select id="dec-art-falta" onchange="cargarFaltaYConsecuenciasREAC('dec')">
             <option value="">— Elegí —</option>
             <option value="155">Art. 155 — Falta grave (20 pts)</option>
             <option value="156">Art. 156 — Falta muy grave (30 pts)</option>
@@ -2881,6 +2881,10 @@ tr:hover td{background:#f8fafc;}
         <div class="fg" style="grid-column:1/-1;">
           <label>Descripción del rebajo</label>
           <textarea id="dec-desc-rebajo" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea>
+        </div>
+        <div class="fg" style="grid-column:1/-1;">
+          <label>Puntos que corresponde rebajar</label>
+          <input type="number" id="dec-puntos-rebajados" readonly style="background:#f8fafc;font-weight:bold;color:#991b1b;"/>
         </div>
       </div>
     </div>
@@ -10503,13 +10507,6 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
     form.innerHTML = `
       ${f('encargado_nombre','Nombre del encargado legal', c.encargado_nombre)}
       ${f('encargado_cedula','Cédula del encargado', c.encargado_cedula)}
-      <div class="fg" style="margin-bottom:8px;"><label>Tipo de falta</label>
-        <select id="dpp-tipo_falta">
-          <option value="grave" ${c.tipo_falta==='grave'?'selected':''}>Grave</option>
-          <option value="muy_grave" ${c.tipo_falta==='muy_grave'?'selected':''}>Muy grave</option>
-          <option value="gravisima" ${c.tipo_falta==='gravisima'?'selected':''}>Gravísima</option>
-        </select>
-      </div>
       ${f('fecha_cita','Fecha de la cita', c.fecha_cita, 'date')}
       ${f('hora_cita','Hora de la cita', c.hora_cita, 'time')}
       ${f('fecha_notificacion','Fecha de notificación', c.fecha_notificacion, 'date')}
@@ -10547,6 +10544,8 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
     const valArtF  = c.art_falta  ?? dec.art_falta  ?? '';
     const valIncF  = c.inc_falta  ?? dec.inc_falta  ?? '';
     const valArtR  = c.art_rebajo ?? dec.art_rebajo ?? '';
+    const valIncR  = c.inc_rebajo ?? dec.inc_rebajo ?? '';
+    const valPuntos = c.puntos_rebajados ?? dec.puntos_rebajados ?? '';
     const valArtA  = c.art_accion ?? dec.art_accion ?? '';
     form.innerHTML = `
       ${f('fecha_notif','Fecha notificación', c.fecha_notif, 'date')}
@@ -10556,7 +10555,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
       <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;margin:8px 0;">
         <strong style="font-size:12px;color:#78350f;">⚖️ Falta imputada (REAC)</strong>
         <div class="fg" style="margin-top:6px;"><label>Artículo</label>
-          <select id="dpp-art_falta" onchange="cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta')">
+          <select id="dpp-art_falta" onchange="cargarFaltaYConsecuenciasREAC('dpp')">
             <option value="">— Elegí —</option>
             <option value="155" ${String(valArtF)==='155'?'selected':''}>Art. 155 — Falta grave (20 pts)</option>
             <option value="156" ${String(valArtF)==='156'?'selected':''}>Art. 156 — Falta muy grave (30 pts)</option>
@@ -10574,11 +10573,23 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
       </div>
       ${t('hecho_imputado','Hecho imputado', c.hecho_imputado, 5)}
       ${f('fecha_hecho','Fecha del hecho', c.fecha_hecho, 'date')}
-      <div class="fg"><label>Artículo rebajo de puntos</label>
-        <select id="dpp-art_rebajo">
-          <option value="">— Sin especificar —</option>
-          <option value="143" ${String(valArtR)==='143'?'selected':''}>Art. 143 — Rebajo de puntos</option>
-        </select>
+      <div style="background:#fee2e2;border-left:3px solid #dc2626;padding:8px 12px;border-radius:6px;margin:8px 0;">
+        <strong style="font-size:12px;color:#991b1b;">📉 Rebajo correspondiente</strong>
+        <div class="form-grid" style="margin-top:6px;">
+          <div class="fg"><label>Artículo</label>
+            <select id="dpp-art_rebajo" onchange="cargarIncisosREAC('rebajo_puntos','dpp-art_rebajo','dpp-inc_rebajo','dpp-desc_rebajo')">
+              <option value="">— Se completa al elegir la falta —</option>
+              <option value="143" ${String(valArtR)==='143'?'selected':''}>Art. 143 — Rebajo de puntos</option>
+            </select>
+          </div>
+          <div class="fg"><label>Inciso</label>
+            <select id="dpp-inc_rebajo" onchange="autorrellenarDescREAC('dpp-art_rebajo','dpp-inc_rebajo','dpp-desc_rebajo')">
+              <option value="">— Se completa automáticamente —</option>
+            </select>
+          </div>
+          <div class="fg"><label>Puntos</label><input type="number" id="dpp-puntos_rebajados" value="${valPuntos||''}" readonly style="background:#f8fafc;font-weight:bold;color:#991b1b;"/></div>
+          <div class="fg" style="grid-column:1/-1;"><label>Descripción del rebajo</label><textarea id="dpp-desc_rebajo" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea></div>
+        </div>
       </div>
       <div class="fg"><label>Artículo acción correctiva</label>
         <select id="dpp-art_accion">
@@ -10592,11 +10603,16 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
     // Después del render, cargar los incisos del artículo si está pre-seleccionado
     if(valArtF){
       setTimeout(async () => {
-        await cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta');
+        await cargarFaltaYConsecuenciasREAC('dpp');
         const sel = document.getElementById('dpp-inc_falta');
         if(sel && valIncF){
           sel.value = valIncF;
           await autorrellenarDescREAC('dpp-art_falta','dpp-inc_falta','dpp-desc_falta');
+        }
+        if(valIncR){
+          const selR=document.getElementById('dpp-inc_rebajo');
+          if(selR) selR.value=valIncR;
+          await autorrellenarDescREAC('dpp-art_rebajo','dpp-inc_rebajo','dpp-desc_rebajo');
         }
       }, 50);
     }
@@ -10607,6 +10623,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
     const valIncF = c.inc_falta  ?? dec.inc_falta  ?? '';
     const valArtR = c.art_rebajo ?? dec.art_rebajo ?? '';
     const valIncR = c.inc_rebajo ?? dec.inc_rebajo ?? '';
+    const valPuntos = c.puntos_rebajados ?? dec.puntos_rebajados ?? '';
     const valArtA = c.art_accion ?? dec.art_accion ?? '';
     const valIncA = c.inc_accion ?? dec.inc_accion ?? '';
     const valDescA = c.desc_accion ?? dec.desc_accion ?? '';
@@ -10617,7 +10634,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
       <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;margin:8px 0;">
         <strong style="font-size:12px;color:#78350f;">⚖️ Falta tipificada</strong>
         <div class="fg" style="margin-top:6px;"><label>Artículo</label>
-          <select id="dpp-art_falta" onchange="cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta')">
+          <select id="dpp-art_falta" onchange="cargarFaltaYConsecuenciasREAC('dpp')">
             <option value="">— Elegí —</option>
             <option value="155" ${String(valArtF)==='155'?'selected':''}>Art. 155 — Falta grave</option>
             <option value="156" ${String(valArtF)==='156'?'selected':''}>Art. 156 — Falta muy grave</option>
@@ -10650,7 +10667,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
           <textarea id="dpp-desc_rebajo" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea>
         </div>
       </div>
-      ${f('puntos_rebajados','Puntos rebajados', c.puntos_rebajados, 'number')}
+      ${f('puntos_rebajados','Puntos rebajados', valPuntos, 'number', 'readonly style="background:#f8fafc;font-weight:bold;color:#991b1b;"')}
       ${f('semestre','Semestre', c.semestre)}
       <div style="background:#dbeafe;border-left:3px solid #2563eb;padding:8px 12px;border-radius:6px;margin:8px 0;">
         <strong style="font-size:12px;color:#1e3a8a;">🛠️ Acción correctiva</strong>
@@ -10677,7 +10694,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
     // Pre-cargar incisos para cada select donde haya artículo seleccionado
     setTimeout(async () => {
       if(valArtF){
-        await cargarIncisosREAC('falta','dpp-art_falta','dpp-inc_falta','dpp-desc_falta');
+        await cargarFaltaYConsecuenciasREAC('dpp');
         if(valIncF){ document.getElementById('dpp-inc_falta').value = valIncF; await autorrellenarDescREAC('dpp-art_falta','dpp-inc_falta','dpp-desc_falta'); }
       }
       if(valArtR){
@@ -10756,7 +10773,7 @@ async function imprimirPasoDP(){
 // Genera la hoja oficial de apertura con datos auto-rellenados:
 // nombre del estudiante, cédula, sección, encargado legal y fecha.
 // Se imprime aparte de los pasos del proceso.
-function imprimirPortadaDP(){
+async function imprimirPortadaDP(){
   if(!dpProcesoActual) return;
   const dp = dpProcesoActual.proceso;
 
@@ -10822,37 +10839,13 @@ function imprimirPortadaDP(){
     </div>
   `;
 
-  // Renderizar con encabezado y pie oficiales del MEP
-  let printArea = document.getElementById('print-dp-area');
-  if(!printArea){ printArea = document.createElement('div'); printArea.id = 'print-dp-area'; document.body.appendChild(printArea); }
-  printArea.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
-  printArea.innerHTML = `
-    <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:10px;padding-bottom:80px;font-size:13px;line-height:1.55;">
-      ${typeof encabezadoMEP === 'function' ? encabezadoMEP('PORTADA DEL EXPEDIENTE') : '<h2 style="text-align:center;">PORTADA DEL EXPEDIENTE</h2>'}
-      ${body}
-      ${typeof piePaginaMEP === 'function' ? piePaginaMEP() : ''}
-    </div>`;
-
-  let style = document.getElementById('print-style-dp');
-  if(style) style.remove();
-  style = document.createElement('style');
-  style.id = 'print-style-dp';
-  style.innerHTML = `
-    @page { size: A4 portrait; margin: 12mm; }
-    @media print {
-      body > *:not(#print-dp-area) { display:none!important; }
-      #print-dp-area { display:block!important; }
-    }
-  `;
-  document.head.appendChild(style);
-  if(typeof imprimirConEncabezado === 'function') imprimirConEncabezado(printArea, style);
-  else window.print();
+  await imprimirPDFMEP('PORTADA DEL EXPEDIENTE', body, `portada_expediente_${String(dp.numero).padStart(3,'0')}_${dp.anio}.pdf`);
 }
 
 // Imprimir un paso ya guardado, generando una hoja con encabezado oficial.
 // Las declaraciones se pueden imprimir aunque no estén completas, para
 // llenarse a mano sobre la hoja impresa.
-function imprimirPasoDPDirecto(tipo, orden){
+async function imprimirPasoDPDirecto(tipo, orden){
   if(!dpProcesoActual) return;
   const dp = dpProcesoActual.proceso;
   const reg = (dpProcesoActual.pasos || []).find(p => p.tipo === tipo && Number(p.orden) === Number(orden));
@@ -10863,15 +10856,20 @@ function imprimirPasoDPDirecto(tipo, orden){
   const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
   const estudiante = `${dp.est_ap1} ${dp.est_ap2||''}, ${dp.est_nombre}`.replace(/\s+/g,' ').trim();
 
-  // "Guía efectivo": si hay sustituto asignado, es él quien firma y aparece
-  // en los documentos oficiales. Si no, aparece el guía original.
-  // Los datos vienen del backend: sust_ap1/sust_ap2/sust_nombre/sust_cedula
-  // cuando existe sustituto activo.
+  // Responsable que debe aparecer y firmar el documento:
+  // 1) profesor asignado específicamente al paso (otra sección),
+  // 2) sustituto activo del expediente,
+  // 3) profesor guía titular.
+  const hayProfesorDePaso = !!(reg?.asignado_a && reg?.asig_nombre);
   const hayGuiaSustituto = !!(dp.guia_sustituto_id && dp.sust_nombre);
-  const guia = hayGuiaSustituto
-    ? `${dp.sust_ap1||''} ${dp.sust_ap2||''} ${dp.sust_nombre||''}`.replace(/\s+/g,' ').trim()
-    : `${dp.guia_ap1||''} ${dp.guia_ap2||''} ${dp.guia_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
-  const guiaCedula = hayGuiaSustituto ? (dp.sust_cedula || '____') : (dp.guia_cedula || '____');
+  const guia = hayProfesorDePaso
+    ? `${reg.asig_ap1||''} ${reg.asig_ap2||''} ${reg.asig_nombre||''}`.replace(/\s+/g,' ').trim()
+    : hayGuiaSustituto
+      ? `${dp.sust_ap1||''} ${dp.sust_ap2||''} ${dp.sust_nombre||''}`.replace(/\s+/g,' ').trim()
+      : `${dp.guia_ap1||''} ${dp.guia_ap2||''} ${dp.guia_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+  const guiaCedula = hayProfesorDePaso ? (reg.asig_cedula || '____')
+    : hayGuiaSustituto ? (dp.sust_cedula || '____') : (dp.guia_cedula || '____');
+  const cargoProfesor = (hayProfesorDePaso || hayGuiaSustituto) ? 'Profesor(a) asignado(a)' : 'Profesor(a) guía';
   const orientador = `${dp.orient_ap1||''} ${dp.orient_ap2||''} ${dp.orient_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
   let body = '';
 
@@ -10915,7 +10913,7 @@ function imprimirPasoDPDirecto(tipo, orden){
         <div style="border-bottom:1px solid #000;height:30px;width:380px;"></div>
         <p style="margin:4px 0 0 0;font-size:12px;"><strong>Nombre del Informante:</strong> ${c.informante||''}</p>
       </div>
-      <div style="margin-top:50px;display:flex;gap:30px;flex-wrap:wrap;">
+      <div class="reporte-materia" style="margin-top:50px;display:flex;gap:30px;flex-wrap:wrap;">
         <div style="flex:1;min-width:200px;">
           <div style="border-bottom:1px solid #000;height:30px;"></div>
           <p style="margin:4px 0 0 0;font-size:12px;"><strong>Cédula:</strong> ${c.informante_cedula||''}</p>
@@ -10930,30 +10928,45 @@ function imprimirPasoDPDirecto(tipo, orden){
         </div>
       </div>`;
   } else if(tipo.startsWith('cita_')){
-    const tipoF = c.tipo_falta || 'grave';
-    // Determinar de quién es la cita: testigo, ofendido u ofensor (default)
+    const calidadCita = {
+      cita_ofendido:'supuesto(a) ofendido(a)',
+      cita_ofensor:'supuesto(a) ofensor(a)',
+      cita_testigo:'testigo'
+    }[tipo] || 'persona convocada';
+    const esCitaOfendidoDocente = tipo === 'cita_ofendido' && dp.ofendido_tipo === 'docente';
+    // Determinar de quién es la cita según su calidad procesal.
     let nombreConvocado, seccionConvocado;
-    if(testigo){
+    if(esCitaOfendidoDocente){
+      nombreConvocado = dp.ofendido_docente_nombre || '____________________';
+      seccionConvocado = '';
+    } else if(testigo){
       nombreConvocado = `${testigo.primer_apellido} ${testigo.segundo_apellido||''} ${testigo.nombre}`.replace(/\s+/g,' ').trim();
       seccionConvocado = testigo.seccion_nombre || dp.seccion_nombre;
     } else if(ofendido){
       nombreConvocado = `${ofendido.primer_apellido} ${ofendido.segundo_apellido||''} ${ofendido.nombre}`.replace(/\s+/g,' ').trim();
       seccionConvocado = ofendido.seccion_nombre || dp.seccion_nombre;
-    } else {
+    } else if(tipo === 'cita_ofensor'){
       nombreConvocado = estudiante;
       seccionConvocado = dp.seccion_nombre;
+    } else {
+      nombreConvocado = '____________________';
+      seccionConvocado = '___';
     }
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p><strong>Fecha:</strong> ${c.fecha_notificacion || '____________'}</p>
-      <p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong> encargado(a) legal del estudiante: <strong>${nombreConvocado}</strong>, sección: <strong>${seccionConvocado||'___'}</strong>.</p>
+      ${esCitaOfendidoDocente
+        ? `<p>Sr(a) <strong>${nombreConvocado}</strong>, docente del centro educativo.</p>`
+        : `<p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong>, encargado(a) legal de la persona estudiante <strong>${nombreConvocado}</strong>, sección <strong>${seccionConvocado||'___'}</strong>.</p>`}
       <p>Saludo cordial,</p>
-      <p>Le informo que el Centro Educativo está realizando una investigación para determinar la posible comisión de la falta <strong>${tipoF}</strong>, de una persona estudiante. De conformidad con el debido proceso y las normas del Código de la Niñez y la Adolescencia, se le convoca el día <strong>${c.fecha_cita||'____'}</strong> a las <strong>${c.hora_cita||'____'}</strong> horas para que represente a su hijo(a) en la audiencia que se efectuará en dicha fecha para recibir su testimonio.</p>
+      <p>Le informo que el Centro Educativo está realizando una investigación para determinar la supuesta comisión de una falta por parte de una persona estudiante. De conformidad con el debido proceso y las normas del Código de la Niñez y la Adolescencia, se le convoca el día <strong>${c.fecha_cita||'____'}</strong> a las <strong>${c.hora_cita||'____'}</strong> horas ${esCitaOfendidoDocente ? 'para rendir su declaración' : 'para que acompañe y represente a la persona estudiante'} en la diligencia correspondiente, en calidad de <strong>${calidadCita}</strong>.</p>
       <p>Cordialmente,</p>
-      <p style="margin-top:30px;">_______________________________<br/>Profesor(a) / Maestro(a) Guía: ${guia}</p>
+      <div class="reporte-materia" style="margin-top:45px;"><p>_______________________________<br/><strong>${cargoProfesor}:</strong> ${guia}<br/>Cédula: ${guiaCedula}</p></div>
       <p>Fecha y hora de la notificación: ${c.fecha_notificacion||'____'} ${c.hora_cita||''}</p>
-      <p>Firma del profesor guía: ____________________________</p>`;
+      <p>Firma del encargado(a) o persona notificada: ____________________________</p>`;
   } else if(tipo.startsWith('decl_')){
     const calidad = c.calidad || (tipo === 'decl_ofendido' ? 'ofendido' : tipo === 'decl_ofensor' ? 'ofensor' : 'testigo');
+    const calidadDeclaracion = tipo === 'decl_ofendido' ? 'supuesto(a) ofendido(a)'
+      : tipo === 'decl_ofensor' ? 'supuesto(a) ofensor(a)' : 'testigo';
 
     // Caso especial: si esta es la declaración del OFENDIDO y el ofendido es
     // un DOCENTE (no un estudiante), usamos un texto adaptado:
@@ -10984,36 +10997,41 @@ function imprimirPasoDPDirecto(tipo, orden){
     if (esOfendidoDocente){
       // Plantilla específica para docente ofendido (mayor de edad, sin sección)
       body = `<p><strong>Expediente:</strong> ${nro}</p>
-        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el docente a cargo/profesor guía: <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong> y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong> comparece el docente <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong> a rendir libremente y sin coacción alguna, su declaración en la causa disciplinaria que está siendo investigada.</p>
+        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece el docente <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
         <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes. La persona declarante manifiesta que sus dichos corresponden fielmente a lo que recuerda y observó, y se advierte que falsear la información puede tener consecuencias en la valoración pedagógica del caso.</p>
         <p>Esta declaración no se realiza bajo juramento en sentido judicial, por no tratarse de un proceso penal, sino de un procedimiento correctivo con fines educativos. No obstante, declaro bajo la fe de juramento que lo aquí manifestado lo hago de manera libre, espontánea, voluntaria, en pleno uso de mis facultades, y sin que medie presión, coacción, violencia, intimidación ni error alguno.</p>
         <p>Yo, <strong>${nombreDeclarante}</strong>, portador de la cédula de identidad <strong>${cedulaDeclarante}</strong>, docente del centro educativo, manifiesto lo siguiente:</p>
         <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
-        <p style="margin-top:30px;">Nombre del docente: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
-        <p>Firma profesor guía: ____________________ &nbsp; Cédula: ${guiaCedula}</p>
-        <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>`;
+        <div class="reporte-materia" style="margin-top:30px;">
+          <p>Nombre del docente: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
+          <p>Firma ${cargoProfesor.toLowerCase()}: ____________________ &nbsp; Cédula: ${guiaCedula}</p>
+          <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>
+        </div>`;
     } else {
       // Plantilla original para estudiante (ofensor, testigo u ofendido estudiante)
       body = `<p><strong>Expediente:</strong> ${nro}</p>
-        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el docente a cargo/profesor guía: <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong> y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong> comparece el estudiante: <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong> de la sección <strong>${dp.seccion_nombre||'___'}</strong>, en calidad de supuesto <strong>${calidad}</strong> a rendir libremente y sin coacción alguna, su declaración en la causa disciplinaria que está siendo investigada.</p>
+        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece la persona estudiante <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, en calidad de <strong>${calidadDeclaracion}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
         <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
         <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
         <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
         <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
-        <p style="margin-top:30px;">Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
-        <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
-        <p>Firma profesor guía: ____________________ &nbsp; Cédula: ${guiaCedula}</p>
-        <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>`;
+        <div class="reporte-materia" style="margin-top:30px;">
+          <p>Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
+          <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
+          <p>Firma ${cargoProfesor.toLowerCase()}: ____________________ &nbsp; Cédula: ${guiaCedula}</p>
+          <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>
+        </div>`;
     }
   } else if(tipo === 'acta_sesion'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p>En presencia del(la) profesor(a) guía <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y de la orientadora <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, se procede a la investigación correspondiente del(la) estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
+      <p>En presencia del(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y de la orientadora <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, se procede a la investigación correspondiente de la persona estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p><strong>Tipificación de la falta:</strong><br/>
         Artículo: ${c.art_falta||'____'} &nbsp; Inciso: ${c.inc_falta||'____'}
         ${c.desc_falta ? `<div style="border:1px solid #ddd;padding:8px;margin-top:4px;background:#fffbeb;font-size:12px;">${c.desc_falta}</div>` : ''}
       </p>
       <p><strong>Rebajo de puntos:</strong><br/>
         Artículo: ${c.art_rebajo||'____'} &nbsp; Inciso: ${c.inc_rebajo||'____'}
+        ${c.puntos_rebajados ? ` &nbsp; <strong>${c.puntos_rebajados} puntos</strong>` : ''}
         ${c.desc_rebajo ? `<div style="border:1px solid #ddd;padding:8px;margin-top:4px;background:#fef2f2;font-size:12px;">${c.desc_rebajo}</div>` : ''}
       </p>
       <p><strong>Posible acción correctiva:</strong><br/>
@@ -11022,25 +11040,27 @@ function imprimirPasoDPDirecto(tipo, orden){
       <p><strong>Descripción de la acción correctiva:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:80px;">${c.desc_accion||''}</div>
       <p><strong>Decisión:</strong> ${c.decision || dp.decision_sesion || '____'}</p>
-      <p style="margin-top:40px;">Profesor(a) Guía: ____________________ &nbsp; ${guia}</p>
-      <p>Orientador(a): ____________________ &nbsp; ${orientador}</p>`;
+      <div class="reporte-materia" style="margin-top:40px;"><p>${cargoProfesor}: ____________________ &nbsp; ${guia}</p>
+      <p>Orientador(a): ____________________ &nbsp; ${orientador}</p></div>`;
   } else if(tipo === 'traslado_cargos'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p>El suscrito docente a cargo <strong>${guia}</strong>, de la sección <strong>${dp.seccion_nombre||'___'}</strong>, siendo las <strong>${c.hora_notif||'____'}</strong> horas del día <strong>${c.fecha_notif||'____'}</strong>, procede a notificar el presente traslado de cargos.</p>
+      <p>El(la) suscrito(a) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, de la sección <strong>${dp.seccion_nombre||'___'}</strong>, siendo las <strong>${c.hora_notif||'____'}</strong> horas del día <strong>${c.fecha_notif||'____'}</strong>, procede a notificar el presente traslado de cargos.</p>
       <p>De conformidad con el artículo 144, inciso d) del REAC, se concede un plazo de <strong>tres días hábiles</strong> para ejercer el derecho de defensa.</p>
       <p>Se notifica a <strong>${c.encargado_nombre||'____'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, encargado(a) del estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p><strong>Falta:</strong> artículo ${c.art_falta||'____'}, inciso ${c.inc_falta||'____'}</p>
       ${c.desc_falta ? `<div style="border:1px solid #ddd;padding:8px;background:#fffbeb;font-size:12px;font-style:italic;">${c.desc_falta}</div>` : ''}
+      <p><strong>Rebajo correspondiente:</strong> artículo ${c.art_rebajo||'143'}, inciso ${c.inc_rebajo||'____'}, <strong>${c.puntos_rebajados||'____'} puntos</strong>.</p>
+      ${c.desc_rebajo ? `<div style="border:1px solid #ddd;padding:8px;background:#fef2f2;font-size:12px;font-style:italic;">${c.desc_rebajo}</div>` : ''}
       <p><strong>Hecho imputado:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:100px;white-space:pre-wrap;">${c.hecho_imputado||''}</div>
       <p>Fecha del hecho: <strong>${c.fecha_hecho||'____'}</strong></p>
       <p><strong>Advertencia:</strong> Si transcurrido el plazo no se presenta descargo, se tendrá por aceptada la imputación.</p>
-      <p style="margin-top:40px;">Profesor(a) Guía: ____________________ ${guia}<br/>Fecha: ${c.fecha_notif||'____'}</p>
+      <div class="reporte-materia" style="margin-top:40px;"><p>${cargoProfesor}: ____________________ ${guia}<br/>Fecha: ${c.fecha_notif||'____'}</p>
       <p style="margin-top:20px;"><strong>RECIBIDO</strong></p>
-      <p>Nombre del encargado: ${c.encargado_nombre||'____'}<br/>Cédula: ${c.encargado_cedula||'____'} &nbsp; Firma: ____________</p>`;
+      <p>Nombre del encargado: ${c.encargado_nombre||'____'}<br/>Cédula: ${c.encargado_cedula||'____'} &nbsp; Firma: ____________</p></div>`;
   } else if(tipo === 'resolucion_final'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p>Al ser las <strong>${c.hora_resol||'____'}</strong> horas del día <strong>${c.fecha_resol||'____'}</strong>, en relación con el proceso aplicado al(la) estudiante <strong>${estudiante}</strong>, expediente <strong>${nro}</strong>, sección a cargo del docente <strong>${guia}</strong>, se resuelve:</p>
+      <p>Al ser las <strong>${c.hora_resol||'____'}</strong> horas del día <strong>${c.fecha_resol||'____'}</strong>, en relación con el proceso aplicado a la persona estudiante <strong>${estudiante}</strong>, expediente <strong>${nro}</strong>, a cargo del(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, se resuelve:</p>
       <p><strong>I. ANTECEDENTES</strong></p>
       <p>Una vez analizado el expediente, con base en el REAC y respetando el debido proceso, se determina lo siguiente:</p>
       <p><strong>II. HECHO PROBADO</strong></p>
@@ -11059,26 +11079,26 @@ function imprimirPasoDPDirecto(tipo, orden){
       <div style="border:1px solid #ccc;padding:10px;min-height:60px;white-space:pre-wrap;">${c.desc_accion||''}</div>
       <p>A ejecutarse a partir del: <strong>${c.fecha_inicio_accion||'____'}</strong></p>
       <p><strong>Notifíquese. Cúmplase.</strong></p>
-      <p style="margin-top:30px;">Firma del docente: ____________________ ${guia}<br/>Firma del estudiante: ____________________<br/>Firma del encargado legal: ____________________</p>`;
+      <p class="reporte-materia" style="margin-top:30px;">Firma del(la) ${cargoProfesor.toLowerCase()}: ____________________ ${guia}<br/>Firma del estudiante: ____________________<br/>Firma del encargado legal: ____________________</p>`;
   } else if(tipo === 'desestima'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p>Al ser las <strong>${c.hora_desest||'____'}</strong> horas del día <strong>${c.fecha_desest||'____'}</strong>, en relación con el proceso seguido contra <strong>${estudiante}</strong>, expediente <strong>${c.expediente||nro}</strong>, el(la) docente <strong>${guia}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>, resuelve:</p>
+      <p>Al ser las <strong>${c.hora_desest||'____'}</strong> horas del día <strong>${c.fecha_desest||'____'}</strong>, en relación con el proceso seguido contra <strong>${estudiante}</strong>, expediente <strong>${c.expediente||nro}</strong>, el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>, resuelve:</p>
       <p><strong>I. ANTECEDENTES</strong></p>
       <p>Conforme al procedimiento del REAC, se realizó la investigación correspondiente.</p>
       <p><strong>II. FUNDAMENTOS</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:120px;white-space:pre-wrap;">${c.fundamento||''}</div>
       <p><strong>III. POR TANTO</strong></p>
       <p>Se desestima la continuación del procedimiento. El estudiante queda libre de responsabilidad. Se ordena el archivo del expediente <strong>${c.expediente||nro}</strong>.</p>
-      <p style="margin-top:30px;">Firma del docente: ____________________ ${guia}</p>`;
+      <p class="reporte-materia" style="margin-top:30px;">Firma del(la) ${cargoProfesor.toLowerCase()}: ____________________ ${guia}</p>`;
   }
 
   // Generar área de impresión
   // Título oficial para el encabezado según tipo de paso
   const TITULOS_OFICIALES = {
     acta_apertura:    "ACTA DE INFORMACIÓN DE LOS HECHOS",
-    cita_ofendido:    "BOLETA DE CITA ENCARGADO LEGAL",
-    cita_ofensor:     "BOLETA DE CITA ENCARGADO LEGAL",
-    cita_testigo:     "BOLETA DE CITA ENCARGADO LEGAL",
+    cita_ofendido:    "BOLETA DE CITA · SUPUESTO(A) OFENDIDO(A)",
+    cita_ofensor:     "BOLETA DE CITA · SUPUESTO(A) OFENSOR(A)",
+    cita_testigo:     "BOLETA DE CITA · TESTIGO",
     decl_ofendido:    "DECLARACIÓN DEL SUPUESTO OFENDIDO",
     decl_ofensor:     "DECLARACIÓN DEL SUPUESTO OFENSOR",
     decl_testigo:     "DECLARACIÓN DE TESTIGO",
@@ -11088,32 +11108,16 @@ function imprimirPasoDPDirecto(tipo, orden){
     desestima:        "DESESTIMA DEL PROCESO",
   };
   const tituloOficial = TITULOS_OFICIALES[tipo] || info.nombre.toUpperCase();
-
-  // Generar área de impresión con encabezado y pie de página oficiales
-  let printArea = document.getElementById('print-dp-area');
-  if(!printArea){ printArea = document.createElement('div'); printArea.id = 'print-dp-area'; document.body.appendChild(printArea); }
-  printArea.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
-  printArea.innerHTML = `
-    <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;padding:10px;padding-bottom:80px;font-size:13px;line-height:1.55;">
-      ${typeof encabezadoMEP === 'function' ? encabezadoMEP(tituloOficial) : `<h2 style="text-align:center;">${tituloOficial}</h2>`}
-      ${body}
-      ${typeof piePaginaMEP === 'function' ? piePaginaMEP() : ''}
-    </div>`;
-
-  let style = document.getElementById('print-style-dp');
-  if(style) style.remove();
-  style = document.createElement('style');
-  style.id = 'print-style-dp';
-  style.innerHTML = `
-    @page { size: A4 portrait; margin: 12mm; }
-    @media print {
-      body > *:not(#print-dp-area) { display:none!important; }
-      #print-dp-area { display:block!important; }
-    }
-  `;
-  document.head.appendChild(style);
-  if(typeof imprimirConEncabezado === 'function') imprimirConEncabezado(printArea, style);
-  else window.print();
+  const nombresArchivo = {
+    acta_apertura:'acta_informacion_hechos', cita_ofendido:'cita_supuesto_ofendido',
+    cita_ofensor:'cita_supuesto_ofensor', cita_testigo:'cita_testigo',
+    decl_ofendido:'declaracion_supuesto_ofendido', decl_ofensor:'declaracion_supuesto_ofensor',
+    decl_testigo:'declaracion_testigo', acta_sesion:'acta_sesion',
+    traslado_cargos:'traslado_cargos', resolucion_final:'resolucion_final', desestima:'desestima_proceso'
+  };
+  const contenidoHTML=`<div style="font-size:13px;line-height:1.55;">${body}</div>`;
+  const archivo=`${nombresArchivo[tipo]||'debido_proceso'}_${String(dp.numero).padStart(3,'0')}_${dp.anio}.pdf`;
+  await imprimirPDFMEP(tituloOficial, contenidoHTML, archivo);
 }
 
 // ── OFENDIDO ──────────────────────────────────────────────────────────
@@ -11237,34 +11241,92 @@ async function cargarREAC(){
 // con todos los incisos de ese artículo y limpia la descripción.
 async function cargarIncisosREAC(categoria, idArt, idInc, idDesc){
   const catalogo = await cargarREAC();
-  const articulo = parseInt(document.getElementById(idArt).value, 10);
+  const artEl = document.getElementById(idArt);
   const selInc = document.getElementById(idInc);
   const txtDesc = document.getElementById(idDesc);
+  if(!artEl || !selInc) return [];
+  const articulo = parseInt(artEl.value, 10);
   if(!articulo){
     selInc.innerHTML = '<option value="">— Primero elegí artículo —</option>';
     if(txtDesc) txtDesc.value = '';
-    return;
+    return [];
   }
   const filtrados = catalogo.filter(c => c.categoria === categoria && c.articulo === articulo);
   selInc.innerHTML = '<option value="">— Elegí inciso —</option>' +
     filtrados.map(c => `<option value="${c.inciso}">${c.inciso}) ${c.descripcion.substring(0, 80)}${c.descripcion.length > 80 ? '...' : ''}</option>`).join('');
   if(txtDesc) txtDesc.value = '';
+  return filtrados;
 }
 
 // Cuando se elige un inciso, llena el textarea de descripción
 async function autorrellenarDescREAC(idArt, idInc, idDesc){
   const catalogo = await cargarREAC();
-  const articulo = parseInt(document.getElementById(idArt).value, 10);
-  const inciso = document.getElementById(idInc).value;
+  const artEl = document.getElementById(idArt);
+  const incEl = document.getElementById(idInc);
   const txtDesc = document.getElementById(idDesc);
-  if(!txtDesc) return;
+  if(!artEl || !incEl || !txtDesc) return null;
+  const articulo = parseInt(artEl.value, 10);
+  const inciso = incEl.value;
   if(!inciso){ txtDesc.value = ''; return; }
-  const match = catalogo.find(c => c.articulo === articulo && c.inciso === inciso);
+  const categoriaEsperada = /rebajo/i.test(idDesc) ? 'rebajo_puntos'
+    : /accion/i.test(idDesc) ? 'accion_correctiva' : 'falta';
+  const match = catalogo.find(c => c.categoria === categoriaEsperada && c.articulo === articulo && c.inciso === inciso);
   txtDesc.value = match ? match.descripcion : '';
+  // Cuando el inciso corresponde al rebajo, los puntos oficiales se copian
+  // automáticamente; no deben depender de que la persona los recuerde.
+  if(match?.categoria === 'rebajo_puntos'){
+    const puntosId = idInc.startsWith('dec-') ? 'dec-puntos-rebajados' : 'dpp-puntos_rebajados';
+    const puntosEl = document.getElementById(puntosId);
+    if(puntosEl) puntosEl.value = match.puntos ?? '';
+  }
+  return match || null;
+}
+
+// Al escoger el artículo de la falta, enlaza sus consecuencias oficiales:
+// gravedad, inciso del artículo 143 y puntos (20, 30 o 50). También prepara
+// el artículo de acciones correctivas de la misma gravedad.
+async function cargarFaltaYConsecuenciasREAC(grupo){
+  const ids = grupo === 'dec' ? {
+    artF:'dec-art-falta', incF:'dec-inc-falta', descF:'dec-desc-falta',
+    artR:'dec-art-rebajo', incR:'dec-inc-rebajo', descR:'dec-desc-rebajo',
+    puntos:'dec-puntos-rebajados', artA:'dec-art-accion', incA:'dec-inc-accion', descA:'dec-desc-accion'
+  } : {
+    artF:'dpp-art_falta', incF:'dpp-inc_falta', descF:'dpp-desc_falta',
+    artR:'dpp-art_rebajo', incR:'dpp-inc_rebajo', descR:'dpp-desc_rebajo',
+    puntos:'dpp-puntos_rebajados', artA:'dpp-art_accion', incA:'dpp-inc_accion', descA:'dpp-desc_accion'
+  };
+  await cargarIncisosREAC('falta', ids.artF, ids.incF, ids.descF);
+  const artFEl=document.getElementById(ids.artF);
+  const articulo=parseInt(artFEl?.value,10);
+  const catalogo=await cargarREAC();
+  const faltaBase=catalogo.find(x=>x.categoria==='falta' && x.articulo===articulo);
+  const puntosEl=document.getElementById(ids.puntos);
+  if(puntosEl) puntosEl.value=faltaBase?.puntos ?? '';
+
+  const artREl=document.getElementById(ids.artR);
+  const incREl=document.getElementById(ids.incR);
+  const descREl=document.getElementById(ids.descR);
+  if(artREl && incREl){
+    artREl.value=faltaBase ? '143' : '';
+    await cargarIncisosREAC('rebajo_puntos',ids.artR,ids.incR,ids.descR);
+    const rebajo=catalogo.find(x=>x.categoria==='rebajo_puntos' && x.gravedad===faltaBase?.gravedad);
+    if(rebajo){
+      incREl.value=rebajo.inciso;
+      if(descREl) descREl.value=rebajo.descripcion;
+      if(puntosEl) puntosEl.value=rebajo.puntos ?? faltaBase?.puntos ?? '';
+    }
+  }
+
+  const artAEl=document.getElementById(ids.artA);
+  const incAEl=document.getElementById(ids.incA);
+  if(artAEl){
+    artAEl.value=faltaBase ? String(articulo) : '';
+    if(incAEl) await cargarIncisosREAC('accion_correctiva',ids.artA,ids.incA,ids.descA);
+  }
 }
 
 function abrirDecisionDP(){
-  ['dec-art-falta','dec-inc-falta','dec-art-rebajo','dec-inc-rebajo','dec-art-accion','dec-inc-accion','dec-desc-falta','dec-desc-rebajo','dec-desc-accion'].forEach(id=>{
+  ['dec-art-falta','dec-inc-falta','dec-art-rebajo','dec-inc-rebajo','dec-art-accion','dec-inc-accion','dec-desc-falta','dec-desc-rebajo','dec-desc-accion','dec-puntos-rebajados'].forEach(id=>{
     const el = document.getElementById(id);
     if(el){
       if(el.tagName === 'SELECT') el.selectedIndex = 0;
@@ -11301,6 +11363,7 @@ async function guardarDecisionDP(){
     art_rebajo:   document.getElementById('dec-art-rebajo').value,
     inc_rebajo:   document.getElementById('dec-inc-rebajo').value,
     desc_rebajo:  document.getElementById('dec-desc-rebajo').value.trim(),
+    puntos_rebajados: document.getElementById('dec-puntos-rebajados').value,
     art_accion:   document.getElementById('dec-art-accion').value,
     inc_accion:   document.getElementById('dec-inc-accion').value,
     desc_accion:  document.getElementById('dec-desc-accion').value.trim(),

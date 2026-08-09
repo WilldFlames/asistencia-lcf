@@ -292,7 +292,8 @@ router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
   const pasosR = await pool.query(`
     SELECT pp.*, u1.primer_apellido AS comp_ap1, u1.segundo_apellido AS comp_ap2, u1.nombre AS comp_nombre,
            u2.primer_apellido AS verif_ap1, u2.segundo_apellido AS verif_ap2, u2.nombre AS verif_nombre,
-           u3.primer_apellido AS asig_ap1, u3.segundo_apellido AS asig_ap2, u3.nombre AS asig_nombre, u3.id AS asig_id
+           u3.primer_apellido AS asig_ap1, u3.segundo_apellido AS asig_ap2, u3.nombre AS asig_nombre,
+           u3.cedula AS asig_cedula, u3.id AS asig_id
     FROM dp_pasos pp
     LEFT JOIN usuarios u1 ON u1.id = pp.completado_por
     LEFT JOIN usuarios u2 ON u2.id = pp.verificado_por
