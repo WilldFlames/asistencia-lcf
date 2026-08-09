@@ -2522,6 +2522,7 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
       <div class="fg"><label>Desde</label><input type="date" id="cum-desde"/></div>
       <div class="fg"><label>Hasta</label><input type="date" id="cum-hasta"/></div>
+      <button class="btn btn-success" id="btn-imprimir-cumplimiento" onclick="imprimirCumplimiento()" disabled>Imprimir PDF</button>
       <button class="btn btn-primary" onclick="cargarCumplimiento()">🔍 Ver</button>
     </div>
     <div id="cum-contenido"></div>
@@ -5621,7 +5622,7 @@ function exportarListaNivelCSV(){
 }
 
 // Imprimir la lista en una ventana nueva con encabezado y pie oficial.
-function imprimirListaNivel(){
+async function imprimirListaNivel(){
   const { estudiantes, titulo } = _listaNivelActual;
   if(!estudiantes.length) return;
   const logoMEP = (typeof MEP_LOGO !== 'undefined') ? MEP_LOGO : '';
@@ -5635,6 +5636,25 @@ function imprimirListaNivel(){
       <td>${e.seccion_nombre || '—'}</td>
     </tr>`;
   }).join('');
+
+  const contenidoHTML = `
+    <div style="font-size:12px;color:#444;margin-bottom:10px;">
+      <strong>Total:</strong> ${estudiantes.length} estudiante(s) &middot;
+      Ordenados alfabeticamente &middot; Fecha de emision: ${fmtF(fechaHoyCR())}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <thead><tr style="background:#1F3864;color:#fff;">
+        <th style="width:38px;padding:6px;border:1px solid #1F3864;">#</th>
+        <th style="padding:6px;border:1px solid #1F3864;text-align:left;">Apellidos, Nombre</th>
+        <th style="width:115px;padding:6px;border:1px solid #1F3864;text-align:left;">Cedula</th>
+        <th style="width:80px;padding:6px;border:1px solid #1F3864;text-align:left;">Seccion</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+  const archivoNivel = (titulo||"nivel").replace(/[^a-zA-Z0-9]/g,"_").toLowerCase();
+  await imprimirPDFMEP(`ESTUDIANTES DE ${(titulo||"NIVEL").toUpperCase()}`,
+    contenidoHTML, `lista_estudiantes_${archivoNivel}_${fechaHoyCR()}.pdf`);
+  return;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -7207,7 +7227,11 @@ async function prepararEImprimirAsistencia(fecha, lecc, registros){
   ));
   // Mostrar para imprimir
   mount.style.cssText = "";
-  window.print();
+  await imprimirConEncabezado(
+    mount,
+    document.getElementById("asis-print-style"),
+    `registro_asistencia_${(asigInfo.seccion_nombre||"seccion").replace(/[^a-zA-Z0-9]/g,"_")}_${fecha}.pdf`
+  );
   // Limpiar después
   setTimeout(() => {
     mount.innerHTML = '';
@@ -16391,9 +16415,10 @@ async function verDetalleArchivado(id){
     if(Array.isArray(historial) && historial.length){
       const filas = historial.slice(0, 20).map(h => `
         <div style="border-bottom:1px dashed var(--border);padding:6px 0;font-size:12px;">
-          <div style="color:var(--muted);">${fmtTS(h.created_at)} · <strong>${h.accion||'—'}</strong></div>
-          ${h.de ? `<div>De: ${h.de} → ${h.a||''}</div>` : ''}
+          <div style="color:var(--muted);">${fmtTS(h.fecha)} · <strong>${h.tipo||'—'}</strong></div>
+          ${h.valor_anterior ? `<div>De: ${h.valor_anterior} → ${h.valor_nuevo||''}</div>` : ''}
           ${h.justificacion ? `<div style="color:var(--muted);">${h.justificacion}</div>` : ''}
+          ${(h.u_ap1||h.u_nombre) ? `<div style="color:#475569;margin-top:2px;">Realizado por: <strong>${`${h.u_ap1||''} ${h.u_nombre||''}`.trim()}</strong>${h.u_rol?` (${h.u_rol.replace('_',' ')})`:''}</div>` : ''}
         </div>
       `).join('');
       html += seccion('📜 Historial reciente', '#6b7280', filas + (historial.length > 20 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;">Mostrando 20 de ${historial.length}.</div>` : ''));
@@ -17063,6 +17088,8 @@ async function cargarCumplimiento(){
   const url = `/api/reportes/cumplimiento${desde||hasta?`?desde=${desde}&hasta=${hasta}`:""}`;
   const d = await api(url);
   if(!d) return;
+  const btnImprimir = document.getElementById("btn-imprimir-cumplimiento");
+  if(btnImprimir) btnImprimir.disabled = false;
   const div = document.getElementById("cum-contenido");
 
   const colorSesiones = (n) => n === 0 ? "color:var(--rojo);font-weight:bold" : n < 3 ? "color:var(--naranja);font-weight:bold" : "color:var(--verde);font-weight:bold";
@@ -17140,6 +17167,23 @@ function abrirMenuInformeSeccion(btn){
 function cerrarMenuInformeSeccion(){
   const m = document.getElementById('menu-informe-seccion');
   if(m) m.remove();
+}
+
+async function imprimirCumplimiento(){
+  const contenido = document.getElementById("cum-contenido");
+  if(!contenido || !contenido.innerHTML.trim()){
+    alert("Primero genere el reporte de cumplimiento con el boton Ver.");
+    return;
+  }
+  const desde = document.getElementById("cum-desde").value || "inicio";
+  const hasta = document.getElementById("cum-hasta").value || fechaHoyCR();
+  const contenidoHTML = `
+    <div style="font-size:12px;margin-bottom:10px;color:#475569;">
+      <strong>Periodo consultado:</strong> ${desde === "inicio" ? "Inicio del curso lectivo" : fmtF(desde)} - ${fmtF(hasta)}
+    </div>
+    ${contenido.innerHTML}`;
+  await imprimirPDFMEP("REPORTE ADMINISTRATIVO DE CUMPLIMIENTO", contenidoHTML,
+    `reporte_cumplimiento_${desde}_${hasta}.pdf`);
 }
 
 async function imprimirInformeSeccionConducta(periodoOpt){
@@ -17503,32 +17547,52 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
   }
 }
 
-// Imprime esperando que carguen las imágenes del encabezado MEP
-async function imprimirConEncabezado(area, styleEl){
-  // Mantener oculto fuera de pantalla mientras carga
-  area.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:800px;background:#fff;visibility:hidden;";
+// Convierte las impresiones antiguas al mismo PDF oficial que usan Matricula
+// y Debidos Procesos, sin duplicar el encabezado ni el pie de pagina.
+function extraerContenidoPDFMEP(area){
+  const copia = area.cloneNode(true);
+  copia.querySelectorAll("style, script, .no-print").forEach(el => el.remove());
 
-  // Esperar a que las imágenes carguen (máximo 3s)
-  const imgs = area.querySelectorAll("img");
-  if(imgs.length){
-    await Promise.all(Array.from(imgs).map(img => {
-      if(img.complete && img.naturalWidth > 0) return Promise.resolve();
-      return new Promise(resolve => {
-        img.onload  = resolve;
-        img.onerror = resolve;
-        setTimeout(resolve, 3000);
-      });
-    }));
+  const envoltura = copia.querySelector("table.page-wrap") ||
+    Array.from(copia.querySelectorAll("table")).find(t => t.tHead && t.tFoot && t.querySelector("img"));
+
+  let titulo = "";
+  if(envoltura && envoltura.tHead){
+    const candidatos = Array.from(envoltura.tHead.querySelectorAll("div"));
+    const tituloEl = candidatos.find(el => el.style && el.style.textAlign === "center" && el.textContent.trim());
+    titulo = tituloEl ? tituloEl.textContent.trim() : "";
+
+    const cuerpo = envoltura.tBodies && envoltura.tBodies[0];
+    const celda = cuerpo && cuerpo.rows[0] && cuerpo.rows[0].cells[0];
+    if(celda && (celda.textContent.trim() || celda.children.length)){
+      return { titulo, contenidoHTML: celda.innerHTML };
+    }
+
+    // Algunas cartas antiguas colocaban el encabezado separado del cuerpo.
+    envoltura.remove();
   }
 
-  // Mover al flujo normal del documento para que el navegador lo imprima correctamente
-  area.style.cssText = "position:static;width:100%;background:#fff;";
-  window.print();
+  copia.querySelectorAll(".print-page-footer, #carta-print-header").forEach(el => el.remove());
+  return { titulo, contenidoHTML: copia.innerHTML };
+}
 
-  // Ocultar y limpiar después de cerrar el diálogo
-  area.style.cssText = "display:none;";
-  if(styleEl) styleEl.remove();
-  area.innerHTML = "";
+async function imprimirConEncabezado(area, styleEl, nombreArchivo){
+  if(!area) return;
+  const doc = extraerContenidoPDFMEP(area);
+  const base = (doc.titulo || "documento")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "documento";
+
+  try {
+    await imprimirPDFMEP(doc.titulo || null, doc.contenidoHTML,
+      nombreArchivo || `${base}_${fechaHoyCR()}.pdf`);
+  } finally {
+    area.style.cssText = "display:none;";
+    if(styleEl) styleEl.remove();
+    area.innerHTML = "";
+  }
 }
 // ════════════════════════════════════
 // Fecha local Costa Rica (UTC-6) — evita que .toISOString() adelante al día siguiente
@@ -17845,13 +17909,9 @@ async function guardarYImprimirCarta(){
     }
 
     // Imprimir esperando que carguen las imágenes del encabezado
-    const imgs = area.querySelectorAll("img");
-    await Promise.all(Array.from(imgs).map(img =>
-      img.complete && img.naturalWidth > 0
-        ? Promise.resolve()
-        : new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 3000); })
-    ));
-    window.print();
+    const estudianteArchivo = `${cartasDatos.estudiante.cedula||"estudiante"}`.replace(/[^a-zA-Z0-9]/g,"_");
+    await imprimirConEncabezado(area, document.getElementById("cart-print-style"),
+      `informe_ausentismo_${estudianteArchivo}_${fechaHoyCR()}.pdf`);
   } catch(e){ sa("alert-cart","Error: "+e.message,"danger"); }
   finally { btn.disabled = false; btn.innerHTML = txt; }
 }

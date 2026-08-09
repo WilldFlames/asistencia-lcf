@@ -532,9 +532,12 @@ router.post("/:id/archivar", canManage, async (req, res) => {
       fecha_archivo=CURRENT_DATE,
       motivo_archivo=$1,
       justificacion_archivo=$2,
+      retirado_por=$3,
+      fecha_retiro=NOW(),
+      motivo_retiro=$1,
       seccion_id=NULL
-    WHERE id=$3
-  `, [motivo||null, justificacion.trim(), req.params.id]);
+    WHERE id=$4
+  `, [motivo||null, justificacion.trim(), u.id, req.params.id]);
 
   // Notificar a profesores de la sección
   if(est.sec_id){
@@ -612,6 +615,9 @@ router.post("/:id/reactivar", canManage, async (req, res) => {
       fecha_archivo=NULL,
       motivo_archivo=NULL,
       justificacion_archivo=NULL,
+      retirado_por=NULL,
+      fecha_retiro=NULL,
+      motivo_retiro=NULL,
       seccion_id=$1,
       activo=true
     WHERE id=$2
