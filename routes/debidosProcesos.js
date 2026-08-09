@@ -34,6 +34,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const { asignarConsecutivoInterno } = require("./consecutivos");
+const { obtenerAnioActivo } = require("../utils/lectivo");
 
 // Roles que pueden iniciar un acta de apertura (cualquier docente/admin)
 const ROLES_INICIAR = ["admin","auxiliar","profesor","profesor_guia","orientador","secretaria","administrativo"];
@@ -411,7 +412,7 @@ router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
 
   const guiaId = await getGuiaDeSeccion(est.seccion_id);
   const orientId = await getOrientadorDeSeccion(est.seccion_id);
-  const anio = new Date().getFullYear();
+  const anio = await obtenerAnioActivo();
 
   // Asignar consecutivo tipo 'proceso'
   let consec;

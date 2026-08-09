@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 
 // ── REPORTE ESTUDIANTE ────────────────────────────────────────
 router.get("/estudiante/:id", requireAuth, async (req, res) => {
@@ -163,12 +164,14 @@ router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
 // ── SECCIONES ACCESIBLES ──────────────────────────────────────
 router.get("/mis-secciones", requireAuth, async (req, res) => {
   const u = req.session.usuario;
+  const anioActivo = await obtenerAnioActivo();
   const fx = u.funciones_extra || [];
   const esGuia      = u.rol === "profesor_guia" || fx.includes("profesor_guia");
   const esOrientador= u.rol === "orientador"    || fx.includes("orientador");
 
   if (u.rol === "admin" || u.rol === "auxiliar") {
-    const r = await pool.query("SELECT * FROM secciones ORDER BY nivel, nombre");
+    const r = await pool.query(`SELECT s.* FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id
+      WHERE sa.anio=$1 AND sa.activa=true ORDER BY s.nivel,s.nombre`, [anioActivo]);
     return res.json(r.rows);
   }
   if (esGuia) {
@@ -217,6 +220,7 @@ router.get("/archivados/buscar", requireAuth, async (req, res) => {
 router.get("/dashboard-profesor", requireAuth, async (req, res) => {
   try {
   const u = req.session.usuario;
+  const anioActivo = await obtenerAnioActivo();
   const _crNow = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
   const hoy = _crNow.getFullYear()+'-'+String(_crNow.getMonth()+1).padStart(2,'0')+'-'+String(_crNow.getDate()).padStart(2,'0');
 
@@ -229,9 +233,9 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
       JOIN secciones s ON s.id=a.seccion_id
       JOIN materias m ON m.id=a.materia_id
       LEFT JOIN sesiones_asistencia sa ON sa.asignacion_id=a.id AND sa.fecha=$2
-      WHERE a.profesor_id=$1
+      WHERE a.profesor_id=$1 AND a.anio=$3
       ORDER BY s.nombre, m.nombre
-    `, [u.id, hoy]),
+    `, [u.id, hoy, anioActivo]),
     pool.query(`
       SELECT COUNT(*) AS c FROM informes
       WHERE destinatario_id=$1 AND respondido=false AND leido=false
@@ -246,13 +250,7 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
   // Determinar el período lectivo actual (I o II Período 2026).
   // I Período: 23/feb–3/jul. II Período: 20/jul–9/dic. Si estamos fuera de ambos
   // (vacaciones de medio año o fin de año), uso el último que cerró.
-  const _hoy = new Date();
-  const _esIPeriodo = _hoy < new Date('2026-07-04T00:00:00');
-  const periodoActual = {
-    nombre: _esIPeriodo ? 'I Período' : 'II Período',
-    desde:  _esIPeriodo ? '2026-02-23' : '2026-07-20',
-    hasta:  _esIPeriodo ? '2026-07-03' : '2026-12-09'
-  };
+  const periodoActual = await obtenerPeriodoActual();
 
   let ausenciasFrecuentes = [];
   let seccionesGuia = [];   // array de {id, nombre, nivel} — todas las secciones del usuario
@@ -309,12 +307,12 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
       LEFT JOIN asistencia ast ON ast.estudiante_id=e.id AND ast.estado='A' AND ast.justificada=false
       LEFT JOIN sesiones_asistencia sa ON sa.id=ast.sesion_id AND sa.asignacion_id=a.id
         AND sa.fecha BETWEEN $2 AND $3
-      WHERE a.profesor_id=$1
+      WHERE a.profesor_id=$1 AND a.anio=$4
       GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido, s.nombre, m.nombre
       HAVING COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) >= 10
       ORDER BY total_ausencias DESC
       LIMIT 10
-    `, [u.id, periodoActual.desde, periodoActual.hasta]);
+    `, [u.id, periodoActual.desde, periodoActual.hasta, anioActivo]);
     ausenciasFrecuentes = aus.rows;
   }
 
@@ -378,6 +376,7 @@ router.get("/cumplimiento", requireAuth, async (req, res) => {
   const hoy = _crNow.getFullYear()+'-'+String(_crNow.getMonth()+1).padStart(2,'0')+'-'+String(_crNow.getDate()).padStart(2,'0');
   const d = desde || hoy.slice(0,8) + '01';
   const h = hasta || hoy;
+  const anioActivo = await obtenerAnioActivo();
 
   // Asistencia por profesor: cuántas sesiones han pasado vs cuántas deberían
   const asistencia = await pool.query(`
@@ -385,13 +384,13 @@ router.get("/cumplimiento", requireAuth, async (req, res) => {
       COUNT(DISTINCT sa.id) AS sesiones_registradas,
       COUNT(DISTINCT a.id) AS asignaciones_total
     FROM usuarios u
-    LEFT JOIN asignaciones a ON a.profesor_id = u.id
+    LEFT JOIN asignaciones a ON a.profesor_id = u.id AND a.anio=$3
     LEFT JOIN sesiones_asistencia sa ON sa.asignacion_id = a.id
       AND sa.fecha BETWEEN $1 AND $2
     WHERE u.activo = true AND u.rol IN ('profesor','profesor_guia','orientador')
     GROUP BY u.id, u.nombre, u.primer_apellido, u.segundo_apellido, u.rol
     ORDER BY u.primer_apellido, u.nombre
-  `, [d, h]);
+  `, [d, h, anioActivo]);
 
   // Conducta por sección: boletas registradas por guía
   const conducta = await pool.query(`

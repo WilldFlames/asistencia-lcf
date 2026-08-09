@@ -989,7 +989,7 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:flex-end;">
       <div class="fg" style="width:130px;">
         <label>Año lectivo</label>
-        <select id="filtro-anio-asig" onchange="cargarAsignaciones()" style="padding:6px 8px;font-weight:bold;"></select>
+        <select id="filtro-anio-asig" onchange="cargarAsignaciones();cargarSeccionesAdmin()" style="padding:6px 8px;font-weight:bold;"></select>
       </div>
       <div class="fg" style="min-width:240px;">
         <label>Filtrar por profesor</label>
@@ -1824,6 +1824,23 @@ tr:hover td{background:#f8fafc;}
     </div>
     <p style="font-size:12.5px;color:var(--muted);margin-bottom:0;">Configurá todo lo del año nuevo <strong>antes</strong> de matricular: crear las secciones, marcar las de francés, y definir en cada sección qué talleres van en A/B (7°-9°) o qué tecnología B ofrece (10°-11°). Cuando aplicés matrículas, todo esto queda listo.</p>
     <div id="alert-ca" class="alert" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <div>
+        <h3 style="font-size:14px;margin:0 0 3px;">🗓️ Fechas oficiales del curso lectivo</h3>
+        <p style="font-size:11.5px;color:var(--muted);margin:0;">Estas fechas controlan Asistencia, Calificaciones, Conducta, Cartas y Reportes.</p>
+      </div>
+      <button class="btn btn-success btn-sm" onclick="caGuardarCalendario()">💾 Guardar fechas</button>
+    </div>
+    <div class="form-grid" style="grid-template-columns:repeat(4,minmax(150px,1fr));">
+      <div class="fg"><label>Inicio I Período</label><input type="date" id="ca-p1-ini"/></div>
+      <div class="fg"><label>Final I Período</label><input type="date" id="ca-p1-fin"/></div>
+      <div class="fg"><label>Inicio II Período</label><input type="date" id="ca-p2-ini"/></div>
+      <div class="fg"><label>Final II Período</label><input type="date" id="ca-p2-fin"/></div>
+    </div>
+    <div id="ca-cal-estado" style="font-size:11.5px;color:var(--muted);margin-top:7px;"></div>
   </div>
 
   <!-- Resumen por nivel -->
@@ -4832,6 +4849,24 @@ function abrirDetalleInstitucional(titulo,contenidoHTML){
   document.getElementById("modal-detalle-institucional").classList.add("show");
 }
 
+let ANIO_LECTIVO_ACTIVO = parseInt(fechaHoyCR().slice(0,4));
+let CALENDARIO_LECTIVO = null;
+
+function rangoPeriodoFrontend(nombre){
+  if(nombre === "II Período") return {
+    nombre, desde: CALENDARIO_LECTIVO?.periodo_ii_inicio || `${ANIO_LECTIVO_ACTIVO}-07-01`,
+    hasta: CALENDARIO_LECTIVO?.periodo_ii_fin || `${ANIO_LECTIVO_ACTIVO}-12-31`
+  };
+  return {
+    nombre:"I Período", desde: CALENDARIO_LECTIVO?.periodo_i_inicio || `${ANIO_LECTIVO_ACTIVO}-01-01`,
+    hasta: CALENDARIO_LECTIVO?.periodo_i_fin || `${ANIO_LECTIVO_ACTIVO}-06-30`
+  };
+}
+function queryRangoFrontend(nombre){
+  const r=rangoPeriodoFrontend(nombre);
+  return `?desde=${r.desde}&hasta=${r.hasta}`;
+}
+
 // Normaliza cualquier formato de fecha (Date, string ISO, string YYYY-MM-DD, null) a YYYY-MM-DD
 // para asignar a inputs type="date". Devuelve "" si no se puede parsear.
 function toDateInput(v){
@@ -4855,10 +4890,7 @@ function toDateInput(v){
 
 // Detectar período según fecha
 function detectarPeriodo(fechaStr) {
-  const PERIODOS = [
-    { nombre: "I Período", desde: "2026-02-23", hasta: "2026-07-03" },
-    { nombre: "II Período", desde: "2026-07-20", hasta: "2026-12-09" },
-  ];
+  const PERIODOS = [rangoPeriodoFrontend("I Período"), rangoPeriodoFrontend("II Período")];
   if (!fechaStr) {
     const hoy = fechaHoyCR();
     fechaStr = hoy;
@@ -4880,10 +4912,12 @@ function periodoActualODefault(fechaStr) {
   const p = detectarPeriodo(fechaStr);
   if (p === "I Período" || p === "II Período") return p;
   const hoy = fechaStr || fechaHoyCR();
-  // Entre I y II (receso de mitad de año, ~jul 4 al jul 19) → II Período
-  if (hoy >= "2026-07-04" && hoy < "2026-07-20") return "II Período";
+  // Entre I y II (receso de mitad de año) se conserva el último período cerrado.
+  const pI = rangoPeriodoFrontend("I Período");
+  const pII = rangoPeriodoFrontend("II Período");
+  if (hoy > pI.hasta && hoy < pII.desde) return "I Período";
   // Después del II Período (a partir del 10 de diciembre) → II Período
-  if (hoy > "2026-12-09") return "II Período";
+  if (hoy > pII.hasta) return "II Período";
   // Antes del I Período (enero-febrero) → I Período
   return "I Período";
 }
@@ -4996,7 +5030,7 @@ function goTo(page){
   actualizarEncabezadoPagina(page);
   if(page==="dashboard")   cargarDashboard();
   if(page==="usuarios")    cargarUsuarios();
-  if(page==="asignaciones"){cargarMateriasList();cargarSeccionesAdmin();cargarAsignaciones();}
+  if(page==="asignaciones"){cargarMateriasList();cargarAsignaciones();cargarSeccionesAdmin();}
   if(page==="estudiantes") {
     cargarEstudiantes();
     poblarSel("filtro-seccion-est",false,"Todas las secciones");
@@ -5067,6 +5101,11 @@ function goTo(page){
 //  INIT APP
 // ════════════════════════════════════
 async function iniciarApp(){
+  try{
+    const vig = await api('/api/config-anio/vigente');
+    if(vig?.anio_activo) ANIO_LECTIVO_ACTIVO = parseInt(vig.anio_activo);
+    if(vig?.calendario) CALENDARIO_LECTIVO = vig.calendario;
+  }catch(e){ console.warn('No se pudo cargar el año lectivo activo:', e.message); }
   // Mostrar rol base + funciones extra
   const rolesExtra = ME.funciones_extra && ME.funciones_extra.length
     ? " + " + ME.funciones_extra.map(r=>RLBL[r]||r).join(", ")
@@ -5633,17 +5672,16 @@ async function cargarDashboard(){
     const _meses2 = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
     const _fC2 = d => `${d.getDate()} ${_meses2[d.getMonth()]}`;
     const _pCol={verde:{bg:'#f0fdf4',c:'#166534'},naran:{bg:'#fff7ed',c:'#9a3412'},rojo:{bg:'#fef2f2',c:'#991b1b'}};
+    const _rangoI = rangoPeriodoFrontend('I Período');
+    const _rangoII = rangoPeriodoFrontend('II Período');
     const _periodos=[
-      {tipo:'verde',icono:'🟢',label:'Primer período',d1:'2026-02-23',d2:'2026-07-03'},
-      {tipo:'naran',icono:'🟠',label:'Semana Santa',d1:'2026-03-29',d2:'2026-04-05'},
-      {tipo:'naran',icono:'🟠',label:'Vacaciones',d1:'2026-07-06',d2:'2026-07-17'},
-      {tipo:'verde',icono:'🟢',label:'Segundo período',d1:'2026-07-20',d2:'2026-12-09'},
-      {tipo:'rojo',icono:'🔴',label:'Fin lecciones',d1:'2026-12-09',d2:'2026-12-09'},
-      {tipo:'rojo',icono:'🔴',label:'Graduación',d1:'2026-12-10',d2:'2026-12-11'},
-    ];
+      {tipo:'verde',icono:'🟢',label:'Primer período',d1:_rangoI.desde,d2:_rangoI.hasta},
+      {tipo:'verde',icono:'🟢',label:'Segundo período',d1:_rangoII.desde,d2:_rangoII.hasta},
+      {tipo:'rojo',icono:'🔴',label:'Fin de lecciones',d1:_rangoII.hasta,d2:_rangoII.hasta},
+    ].filter(p=>p.d1 && p.d2);
     html += `<div class="card" style="margin:0;">
-      <div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">📅 Fechas Clave 2026</div>
-      <div style="display:flex;flex-direction:column;gap:4px;">${_periodos.map(p=>{const c=_pCol[p.tipo];const da=new Date(p.d1+'T12:00:00'),db=new Date(p.d2+'T12:00:00');const act=_hoyMs2>=da.getTime()&&_hoyMs2<=db.getTime();const pas=_hoyMs2>db.getTime();const rng=da.getTime()===db.getTime()?_fC2(da):`${_fC2(da)}–${_fC2(db)}`;return `<div style="display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:5px;background:${c.bg};opacity:${pas?.4:1};"><span style="font-size:12px;">${p.icono}</span><div style="flex:1;min-width:0;overflow:hidden;"><div style="font-size:11px;font-weight:bold;color:${c.c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.label}</div><div style="font-size:10px;color:${c.c};opacity:.8;">${rng}</div></div>${act?`<span style="background:${c.c};color:#fff;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:8px;">HOY</span>`:''}</div>`;}).join('')}</div>
+      <div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">📅 Fechas Clave ${ANIO_LECTIVO_ACTIVO}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;">${_periodos.length?_periodos.map(p=>{const c=_pCol[p.tipo];const da=new Date(p.d1+'T12:00:00'),db=new Date(p.d2+'T12:00:00');const act=_hoyMs2>=da.getTime()&&_hoyMs2<=db.getTime();const pas=_hoyMs2>db.getTime();const rng=da.getTime()===db.getTime()?_fC2(da):`${_fC2(da)}–${_fC2(db)}`;return `<div style="display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:5px;background:${c.bg};opacity:${pas?.4:1};"><span style="font-size:12px;">${p.icono}</span><div style="flex:1;min-width:0;overflow:hidden;"><div style="font-size:11px;font-weight:bold;color:${c.c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.label}</div><div style="font-size:10px;color:${c.c};opacity:.8;">${rng}</div></div>${act?`<span style="background:${c.c};color:#fff;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:8px;">HOY</span>`:''}</div>`;}).join(''):`<div style="font-size:11px;color:var(--muted);">Configure las fechas oficiales de este año en <b>Configurar Año</b>.</div>`}</div>
     </div>`;
 
     // ── CALENDARIZACIÓN II PERÍODO 2026 (según circular oficial del MEP) ──
@@ -5662,7 +5700,7 @@ async function cargarDashboard(){
       rojo: {bg:'#fef2f2', c:'#991b1b', dot:'#dc2626'},
       mora: {bg:'#faf5ff', c:'#6b21a8', dot:'#9333ea'},
     };
-    const _c2Act = [
+    const _c2Act = ANIO_LECTIVO_ACTIVO === 2026 ? [
       {tipo:'verde',icono:'📄',label:'Entrega informes de calificaciones I Período', involucra:'Personal docente', d1:'2026-08-03', d2:'2026-08-07'},
       {tipo:'naran',icono:'🏛️',label:'Congreso APSE',                                involucra:'Afiliados',        d1:'2026-08-12', d2:'2026-08-14'},
       {tipo:'azul', icono:'📝',label:'Primeras Pruebas Parciales',                    involucra:'Todos los niveles',d1:'2026-09-02', d2:'2026-09-08'},
@@ -5683,7 +5721,7 @@ async function cargarDashboard(){
       {tipo:'verde',icono:'📥',label:'Entrega Planillas SEA (7°, 8° y 10°)',          involucra:'7°, 8° y 10°',     d1:'2026-12-07', d2:'2026-12-07'},
       {tipo:'verde',icono:'🎓',label:'Entrega títulos de Noveno',                     involucra:'Comité matrícula', d1:'2026-12-08', d2:'2026-12-10'},
       {tipo:'rojo', icono:'🎓',label:'Graduación',                                    involucra:'Todo el personal', d1:'2026-12-11', d2:'2026-12-11'},
-    ];
+    ] : [];
 
     // Encontrar la actividad ACTUAL o la PRÓXIMA
     let _c2Actual = null;
@@ -5724,13 +5762,13 @@ async function cargarDashboard(){
 
     html += `<div class="card" style="margin:0;grid-column:span 2;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div style="font-weight:bold;font-size:13px;color:var(--azul);">📅 Calendarización II Período 2026</div>
-        <div style="font-size:10px;color:var(--muted);">20 jul → 9 dic</div>
+        <div style="font-weight:bold;font-size:13px;color:var(--azul);">📅 Calendarización detallada ${ANIO_LECTIVO_ACTIVO}</div>
+        <div style="font-size:10px;color:var(--muted);">${_rangoII.desde&&_rangoII.hasta?`${_c2Fmt(_rangoII.desde,_rangoII.hasta)}`:'Fechas pendientes'}</div>
       </div>
       ${_c2Header}
       <div style="max-height:280px;overflow-y:auto;padding-right:4px;">
         <div style="display:flex;flex-direction:column;gap:3px;">
-          ${_c2Act.map(a=>{
+          ${_c2Act.length?_c2Act.map(a=>{
             const c = _c2Col[a.tipo];
             const t1 = new Date(a.d1+'T00:00:00').getTime();
             const t2 = new Date(a.d2+'T23:59:59').getTime();
@@ -5747,11 +5785,11 @@ async function cargarDashboard(){
                 ${activa?`<span style="background:${c.dot};color:#fff;font-size:8.5px;font-weight:bold;padding:1px 5px;border-radius:8px;margin-top:2px;display:inline-block;">HOY</span>`:pasada?`<span style="font-size:9px;color:var(--muted);">✓ Realizado</span>`:''}
               </div>
             </div>`;
-          }).join('')}
+          }).join(''):`<div style="padding:16px;text-align:center;color:var(--muted);font-size:11px;">Las actividades detalladas de ${ANIO_LECTIVO_ACTIVO} todavía no han sido cargadas. Las fechas de los períodos sí se toman de la configuración anual.</div>`}
         </div>
       </div>
     </div>`;
-    html += `<div class="card" style="margin:0;">
+    if (ANIO_LECTIVO_ACTIVO === 2026) html += `<div class="card" style="margin:0;">
       <div style="font-weight:bold;font-size:13px;color:var(--azul);margin-bottom:8px;">🏛️ Sindicatos 2026</div>
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="padding:6px 9px;border-radius:6px;background:#f0fdf4;"><div style="font-weight:bold;font-size:12px;color:#16a34a;margin-bottom:2px;">SEC</div><div style="display:flex;justify-content:space-between;font-size:11px;"><span>Congreso</span><span style="font-weight:bold;color:#16a34a;">17–19 nov</span></div></div>
@@ -6348,15 +6386,18 @@ async function invertirSubgrupos(seccionId, seccionNombre, cantA, cantB){
 
 async function cargarSeccionesAdmin(){
   const nivel=document.getElementById("filtro-nivel-sec")?.value||"";
-  const rows=await api("/api/admin/secciones");
+  const anio=document.getElementById('filtro-anio-asig')?.value||ANIO_LECTIVO_ACTIVO;
+  const rows=await api(`/api/admin/secciones?anio=${anio}`);
   if(!rows)return;
+  const maSec=document.getElementById('ma-seccion');
+  if(maSec) maSec.innerHTML='<option value="">— Seleccionar —</option>'+rows.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
   const f=nivel?rows.filter(s=>s.nivel==nivel):rows;
 
   // Todos los profesores disponibles para guía y orientador
   const opts='<option value="">—</option>'+allProfesores.map(p=>`<option value="${p.id}">${nombrePersona(p)} (${RLBL[p.rol]})</option>`).join("");
 
   const div=document.getElementById("secciones-lista");
-  div.innerHTML=`<table><thead><tr><th>Sección</th><th>Prof. Guía</th><th>Orientador</th><th></th></tr></thead><tbody>
+  div.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:7px;">Configuración exclusiva del <strong>${anio}</strong></div><table><thead><tr><th>Sección</th><th>Prof. Guía</th><th>Orientador</th><th></th></tr></thead><tbody>
     ${f.map(s=>`<tr>
       <td><strong>${s.nombre}</strong></td>
       <td><select class="sg-sel" data-id="${s.id}" style="font-size:12px;padding:3px;border:1px solid var(--border);border-radius:5px;">${opts}</select></td>
@@ -6382,11 +6423,11 @@ async function cargarSeccionesAdmin(){
 async function guardarSec(id){
   const guia=document.querySelector(`.sg-sel[data-id="${id}"]`)?.value;
   const orient=document.querySelector(`.so-sel[data-id="${id}"]`)?.value;
+  const anio=parseInt(document.getElementById('filtro-anio-asig')?.value)||ANIO_LECTIVO_ACTIVO;
   try{
-    if(guia) await api(`/api/admin/secciones/${id}/guia`,"PUT",{profesor_id:+guia});
-    if(orient) await api(`/api/admin/secciones/${id}/orientador`,"POST",{orientador_id:+orient});
+    await api(`/api/admin/secciones/${id}/guia`,"PUT",{profesor_id:guia?+guia:null,anio});
+    await api(`/api/admin/secciones/${id}/orientador`,"POST",{orientador_id:orient?+orient:null,anio});
     sa("alert-secciones","✅ Guardado. Si asignaste nuevos roles, el usuario debe cerrar sesión y volver a entrar para verlos.","success");
-    await cargarCatalogos();
     cargarSeccionesAdmin();
   }catch(e){sa("alert-secciones",e.message,"danger");}
 }
@@ -6398,7 +6439,7 @@ let asigData = [];
 async function cargarAsignaciones(){
   // Poblar selector de año si está vacío
   const selAnio = document.getElementById("filtro-anio-asig");
-  const actual = parseInt(fechaHoyCR().slice(0,4));
+  const actual = ANIO_LECTIVO_ACTIVO;
   if(selAnio && !selAnio.options.length){
     selAnio.innerHTML = `
       <option value="${actual}">${actual} (actual)</option>
@@ -6590,7 +6631,7 @@ async function guardarAsignacion(){
   const lecc=document.getElementById("ma-lecciones").value;
   const subgrupo=document.getElementById("ma-subgrupo").value||null;
   if(!pid||!sid||!mid){sa("alert-ma","Todos los campos son requeridos.","danger");return;}
-  const anio = document.getElementById("filtro-anio-asig")?.value || fechaHoyCR().slice(0,4);
+  const anio = document.getElementById("filtro-anio-asig")?.value || ANIO_LECTIVO_ACTIVO;
   try{await api("/api/admin/asignaciones","POST",{profesor_id:+pid,seccion_id:+sid,materia_id:+mid,lecciones_semana:+lecc,subgrupo,anio:+anio});cerrarModal("modal-asignacion");cargarAsignaciones();}
   catch(e){sa("alert-ma",e.message,"danger");}
 }
@@ -7602,7 +7643,7 @@ let _histTabActual = 'todos';
 // Cualquier fecha entre I y II (receso de mitad de año) se asigna al I.
 function periodoDeFecha(fecha){
   const f = String(fecha).slice(0, 10);
-  if(f >= '2026-07-20') return 'II';
+  if(f >= rangoPeriodoFrontend('II Período').desde) return 'II';
   return 'I';
 }
 
@@ -7687,7 +7728,7 @@ async function cargarHistSesiones(){
       const hoy = fechaHoyCR();
       const hayII = rows.some(r => periodoDeFecha(r.fecha) === 'II');
       const hayI = rows.some(r => periodoDeFecha(r.fecha) === 'I');
-      if(hoy >= '2026-07-20' && hayII) _histTabActual = 'II';
+      if(hoy >= rangoPeriodoFrontend('II Período').desde && hayII) _histTabActual = 'II';
       else if(hayI && !hayII) _histTabActual = 'I';
       else _histTabActual = 'todos';
       _histTabInited = true;
@@ -8645,8 +8686,8 @@ async function cargarBoletasLista(){
   if(per === 'anual'){
     // Traemos ambos períodos por separado para calcular la nota ponderada.
     const [dI, dII] = await Promise.all([
-      api(`${base}?desde=2026-02-23&hasta=2026-07-03`),
-      api(`${base}?desde=2026-07-20&hasta=2026-12-09`),
+      api(`${base}${queryRangoFrontend('I Período')}`),
+      api(`${base}${queryRangoFrontend('II Período')}`),
     ]);
     if(!dI || !dII) return;
     const notaI = dI.notaConducta;
@@ -8667,8 +8708,8 @@ async function cargarBoletasLista(){
     totalRebajadoLbl = `Nota I: ${notaI} · Nota II: ${notaII} · Anual = (${notaI} × 0.5) + (${notaII} × 0.5)`;
   } else {
     let url = base;
-    if(per === 'I Período')      url += `?desde=2026-02-23&hasta=2026-07-03`;
-    else if(per === 'II Período') url += `?desde=2026-07-20&hasta=2026-12-09`;
+    if(per === 'I Período')      url += queryRangoFrontend('I Período');
+    else if(per === 'II Período') url += queryRangoFrontend('II Período');
     d = await api(url);
     if(!d) return;
     notaFinal = d.notaConducta;
@@ -8750,8 +8791,8 @@ async function imprimirConducta(){
 
   if(per === 'anual'){
     const [dI, dII] = await Promise.all([
-      api(`${base}?desde=2026-02-23&hasta=2026-07-03`),
-      api(`${base}?desde=2026-07-20&hasta=2026-12-09`),
+      api(`${base}${queryRangoFrontend('I Período')}`),
+      api(`${base}${queryRangoFrontend('II Período')}`),
     ]);
     if(!dI || !dII) return;
     const notaI = dI.notaConducta;
@@ -8767,10 +8808,10 @@ async function imprimirConducta(){
   } else {
     let urlBoletas = base;
     if(per === 'I Período'){
-      urlBoletas += `?desde=2026-02-23&hasta=2026-07-03`;
+      urlBoletas += queryRangoFrontend('I Período');
       periodoLabel = 'I Período';
     } else if(per === 'II Período'){
-      urlBoletas += `?desde=2026-07-20&hasta=2026-12-09`;
+      urlBoletas += queryRangoFrontend('II Período');
       periodoLabel = 'II Período';
     }
     d = await api(urlBoletas);
@@ -9111,7 +9152,7 @@ async function confirmarImportarExcel(){
 //  ARCHIVAR AÑO (mover estudiantes activos al expediente histórico)
 // ════════════════════════════════════════════════════════════════════
 function abrirArchivarAnio(){
-  const anioActual = new Date().getFullYear();
+  const anioActual = ANIO_LECTIVO_ACTIVO;
   const inp = document.getElementById("arch-anio");
   if(inp) inp.value = anioActual;
   document.getElementById("alert-arch").className = "alert";
@@ -9527,7 +9568,7 @@ let matAnio = null;          // año de matrícula seleccionado
 let matCupos = [];           // cupos por sección para matAnio
 let matAsigFuturas = {};     // estudiante_id → asignación futura (si matAnio > actual)
 
-function matAnioActual(){ return parseInt(fechaHoyCR().slice(0,4)); }
+function matAnioActual(){ return ANIO_LECTIVO_ACTIVO; }
 
 async function iniciarMatricula(){
   // Selector de año: actual y siguiente. Default: el siguiente a partir de setiembre.
@@ -9551,7 +9592,7 @@ async function iniciarMatricula(){
   if(btnFr) btnFr.style.display = ME.rol === "admin" ? "" : "none";
 
   const [data, cupos, futuras] = await Promise.all([
-    api("/api/matricula"),
+    api(`/api/matricula?anio=${matAnio}`),
     api(`/api/matricula/cupos/${matAnio}`).catch(()=>[]),
     esFuturo ? api(`/api/matricula/asignaciones/${matAnio}`).catch(()=>[]) : Promise.resolve([])
   ]);
@@ -9617,8 +9658,7 @@ function matCambioAnio(){ iniciarMatricula(); }
 async function abrirSeccionesFrances(){
   document.getElementById("sf-anio").textContent = matAnio;
   document.getElementById("alert-sf").className = "alert";
-  let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
-  if(!secciones.length){ try{ secciones = await api("/api/admin/secciones")||[]; }catch{} }
+  let secciones = matCupos.map(c=>({id:c.seccion_id,nombre:c.nombre,nivel:c.nivel}));
   let marcas = [];
   try{ marcas = await api(`/api/matricula/secciones-idioma/${matAnio}`)||[]; }catch{}
   const marcaMap = {}; marcas.forEach(m=>{ marcaMap[m.seccion_id] = m.idioma; });
@@ -9653,8 +9693,17 @@ async function sfGuardar(seccionId, chk){
 async function matAplicarAnio(){
   const actual = matAnioActual();
   if(matAnio <= actual){ sa("alert-mat","Solo se aplican matrículas de un año futuro.","danger"); return; }
-  const conSec = Object.keys(matAsigFuturas).length;
-  const anioAnt = matAnio - 1;
+  let revision;
+  try{
+    revision = await api(`/api/matricula/previsualizar-aplicar/${matAnio}`);
+  }catch(e){ sa("alert-mat",e.message,"danger"); return; }
+  if(revision.ya_aplicado){ sa("alert-mat",`Las matrículas ${matAnio} ya fueron aplicadas.`,"danger"); return; }
+  if(!revision.calendario_completo){
+    sa("alert-mat",`Antes de aplicar ${matAnio}, complete las cuatro fechas oficiales en Configurar Año.`,"danger");
+    return;
+  }
+  const conSec = revision.con_matricula;
+  const anioAnt = revision.anio_origen;
   const aviso = `Vas a APLICAR las matrículas del ${matAnio} y CERRAR el ${anioAnt}:\n\n` +
     `📚 Se ARCHIVAN los promedios y ausencias del ${anioAnt} por estudiante/materia\n` +
     `   (auxiliares y admin los ven en Expediente → 📚 Historial Académico)\n\n` +
@@ -9666,9 +9715,10 @@ async function matAplicarAnio(){
     `   • Horario del ${anioAnt} (el horario ${matAnio} que hayas preparado queda intacto)\n\n` +
     `📋 Cambios:\n` +
     `   • ${conSec} estudiantes pasan a su sección nueva (con idioma, tecnología y subgrupo)\n` +
-    `   • Los activos SIN matrícula ${matAnio} quedan SIN SECCIÓN\n` +
-    `   • Se limpian guías y orientadores (se reasignan desde Admin → Asignaciones)\n\n` +
-    `⚠️ Hacé esto solo al arrancar el año nuevo, DESPUÉS de archivar el ${anioAnt} desde Expediente.\n\n` +
+    `   • ${revision.sin_matricula} estudiantes activos SIN matrícula ${matAnio} quedan en espera, sin sección\n` +
+    `   • Se activan ${revision.guias_destino} guías y ${revision.orientadores_destino} orientadores preparados\n` +
+    `   • Quedan ${revision.asignaciones_destino} asignaciones y ${revision.secciones_destino} secciones preparadas para ${matAnio}\n\n` +
+    `⚠️ Hacé esto solamente después de terminar y revisar toda la información del ${anioAnt}.\n\n` +
     `¿Continuar?`;
   if(!confirm(aviso)) return;
   if(!confirm(`Última confirmación:\n\n¿Cerrar ${anioAnt} y aplicar matrículas ${matAnio} ahora?\n\nEsta acción NO se puede deshacer.`)) return;
@@ -9679,9 +9729,12 @@ async function matAplicarAnio(){
       `📚 ${r.resumenes_archivados} resúmenes académicos archivados (${r.resumenes_saltados} saltados)\n` +
       `🎓 ${r.aplicados} estudiantes en sección nueva · ${r.sin_seccion} sin sección\n` +
       `🗑️ ${r.asignaciones_borradas} asignaciones, ${r.boletas_borradas} boletas, ${r.horarios_borrados||0} celdas de horario borradas\n` +
-      `🧹 ${r.guias_limpiadas} guías y ${r.orientadores_limpiados} orientadores limpiados\n\n` +
-      `Ahora asigná guías, orientadores y materias desde Admin → Asignaciones.`,
+      `👤 ${r.guias_aplicadas||0} guías y ${r.orientadores_aplicados||0} orientadores activados\n\n` +
+      `El ${matAnio} quedó como año lectivo activo.`,
       "success");
+    ANIO_LECTIVO_ACTIVO = matAnio;
+    try{ const vig=await api('/api/config-anio/vigente'); CALENDARIO_LECTIVO=vig.calendario||CALENDARIO_LECTIVO; }catch{}
+    document.getElementById('mat-anio').innerHTML='';
     await iniciarMatricula();
   }catch(e){ sa("alert-mat", e.message, "danger"); }
 }
@@ -9958,7 +10011,7 @@ async function eliminarMatricula(id, nombre){
   if(just===null) return;
   if(!just.trim()){ alert("La justificación es obligatoria."); return; }
   try{
-    await api(`/api/matricula/${id}`,"DELETE",{justificacion:just});
+    await api(`/api/matricula/${id}`,"DELETE",{justificacion:just,anio:matAnio});
     sa("alert-mat","✅ Matrícula eliminada.","success");
     iniciarMatricula();
   }catch(e){ sa("alert-mat",e.message,"danger"); }
@@ -15473,16 +15526,40 @@ async function iniciarConfigAnio(){
 
 function caCambioAnio(){ iniciarConfigAnio(); }
 
+async function caGuardarCalendario(){
+  const anio = parseInt(document.getElementById('ca-anio').value);
+  const body = {
+    periodo_i_inicio: document.getElementById('ca-p1-ini').value,
+    periodo_i_fin: document.getElementById('ca-p1-fin').value,
+    periodo_ii_inicio: document.getElementById('ca-p2-ini').value,
+    periodo_ii_fin: document.getElementById('ca-p2-fin').value,
+  };
+  try{
+    await api(`/api/config-anio/calendario/${anio}`,'PUT',body);
+    sa('alert-ca',`✅ Fechas oficiales del ${anio} guardadas.`,'success');
+    if(anio === ANIO_LECTIVO_ACTIVO) CALENDARIO_LECTIVO = { anio, ...body };
+    await caCargar();
+  }catch(e){ sa('alert-ca',e.message,'danger'); }
+}
+
 async function caCargar(){
   const anio = document.getElementById("ca-anio").value;
   document.getElementById("ca-anio-label").textContent = `— ${anio}`;
   try{
     caData = await api(`/api/config-anio/resumen/${anio}`);
+    const cal = caData.calendario || {};
+    document.getElementById('ca-p1-ini').value = toDateInput(cal.periodo_i_inicio);
+    document.getElementById('ca-p1-fin').value = toDateInput(cal.periodo_i_fin);
+    document.getElementById('ca-p2-ini').value = toDateInput(cal.periodo_ii_inicio);
+    document.getElementById('ca-p2-fin').value = toDateInput(cal.periodo_ii_fin);
+    document.getElementById('ca-cal-estado').innerHTML = cal.periodo_i_inicio && cal.periodo_ii_fin
+      ? `✅ Calendario ${anio} completo · Estado: <strong>${cal.estado||'preparación'}</strong>`
+      : `⚠️ Falta registrar el calendario ${anio}. No se podrá aplicar el cambio de año hasta completarlo.`;
     // Aviso solo si es año futuro
     const alertEl = document.getElementById("alert-ca");
     if(caData.es_futuro){
       alertEl.style.cssText = "display:block;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:10px 14px;border-radius:7px;margin-top:10px;font-size:12.5px;";
-      alertEl.innerHTML = `ℹ️ <strong>Configurando ${anio} (año futuro).</strong> Guía y orientador se muestran vacíos — se asignan después desde <strong>Admin → Asignaciones</strong> cuando el año arranque. Al archivar el año actual, esos vínculos quedan limpios automáticamente.`;
+      alertEl.innerHTML = `ℹ️ <strong>Configurando ${anio} (año futuro).</strong> Todo lo que guardés aquí pertenece solamente al ${anio}. También podés preparar sus guías, orientadores, materias y horario sin alterar el ${caData.anio_activo}.`;
     } else {
       alertEl.style.display = "none";
     }
@@ -15503,9 +15580,9 @@ function caRenderResumen(){
   const talleres_ok = nivel7a9.filter(s=>s.taller_a && s.taller_b).length;
   const tec_ok = nivel10a11.filter(s=>s.tec_b).length;
   const frances_ok = nivel10a11.filter(s=>s.idioma_exclusivo).length;
-  const st = (n,t,lbl,gris)=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;${gris?'opacity:.6;':''}">
-    <div style="font-size:22px;font-weight:bold;color:${gris?'#94a3b8':(n===t&&t?'var(--verde)':'var(--azul)')};">${gris?'—':n}${t?`<span style="color:var(--muted);font-size:14px;">/${t}</span>`:''}</div>
-    <div style="font-size:11px;color:var(--muted);margin-top:2px;">${lbl}${gris?' <span style="font-size:10px;">(al archivar)</span>':''}</div>
+  const st = (n,t,lbl,gris)=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;">
+    <div style="font-size:22px;font-weight:bold;color:${n===t&&t?'var(--verde)':'var(--azul)'};">${n}${t?`<span style="color:var(--muted);font-size:14px;">/${t}</span>`:''}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px;">${lbl}</div>
   </div>`;
   cont.innerHTML = [
     st(secTotal, null, 'Secciones', false),
@@ -15552,7 +15629,8 @@ async function caCrearSeccion(){
   const nombre = inp.value.trim();
   if(!nombre){ sa("alert-ca","Escribí el nombre de la sección.","danger"); return; }
   try{
-    await api("/api/config-anio/secciones","POST",{ nombre });
+    const anio = parseInt(document.getElementById('ca-anio').value);
+    await api("/api/config-anio/secciones","POST",{ nombre, anio });
     sa("alert-ca", `✅ Sección "${nombre}" creada.`, "success");
     inp.value = "";
     await caCargar();
@@ -15565,7 +15643,8 @@ async function caCrearSeccion(){
 async function caEliminarSeccion(id, nombre){
   if(!confirm(`¿Eliminar la sección "${nombre}"?\n\nSolo se puede si NO tiene estudiantes, asignaciones ni matrículas activas.`)) return;
   try{
-    await api(`/api/config-anio/secciones/${id}`,"DELETE");
+    const anio = parseInt(document.getElementById('ca-anio').value);
+    await api(`/api/config-anio/secciones/${id}?anio=${anio}`,"DELETE");
     sa("alert-ca", `✅ Sección "${nombre}" eliminada.`, "success");
     await caCargar();
     try{ allSecciones = await api("/api/admin/secciones") || allSecciones; }catch{}
@@ -15829,7 +15908,7 @@ async function iniciarHorario(){
   document.getElementById('hor-btn-mi').style.display = esDocenteH ? '' : 'none';
   const anioInput = document.getElementById('hor-anio');
   // Poblar dropdown: año actual y siguiente (para preparar el nuevo año antes de aplicar)
-  const actual = parseInt(fechaHoyCR().slice(0,4));
+  const actual = ANIO_LECTIVO_ACTIVO;
   if(!anioInput.options.length){
     anioInput.innerHTML = `
       <option value="${actual}">${actual} (actual)</option>
@@ -15848,11 +15927,14 @@ async function iniciarHorario(){
       aviso.style.display = 'none';
     }
   }
-  // Poblar secciones desde el catálogo global
+  // Poblar únicamente las secciones habilitadas para el año seleccionado.
   const sel = document.getElementById('hor-seccion');
-  if(sel && !sel.options.length){
+  if(sel){
+    let secsAnio=[];
+    try{ secsAnio=await api(`/api/admin/secciones?anio=${anioInput.value}`)||[]; }catch{ secsAnio=allSecciones||[]; }
     sel.innerHTML = '<option value="">— Seleccionar sección —</option>' +
-      (allSecciones||[]).map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+      secsAnio.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+    sel.dataset.anio=anioInput.value;
   }
   if(!horLecciones.length){
     try{ horLecciones = await api('/api/horarios/lecciones')||[]; }catch{}
@@ -15864,11 +15946,20 @@ async function iniciarHorario(){
 
 async function horCargarSeccion(){
   horModo = 'seccion';
-  const secId = document.getElementById('hor-seccion').value;
-  const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
+  const selSeccion = document.getElementById('hor-seccion');
+  let secId = selSeccion.value;
+  const anio = document.getElementById('hor-anio').value || ANIO_LECTIVO_ACTIVO;
+  if(selSeccion.dataset.anio !== String(anio)){
+    const anterior=secId;
+    let secs=[]; try{ secs=await api(`/api/admin/secciones?anio=${anio}`)||[]; }catch{}
+    selSeccion.innerHTML='<option value="">— Seleccionar sección —</option>'+secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+    if(secs.some(s=>String(s.id)===String(anterior))) selSeccion.value=anterior;
+    selSeccion.dataset.anio=String(anio);
+    secId=selSeccion.value;
+  }
   document.getElementById('hor-anio-label').textContent = anio;
   // Refrescar aviso de año futuro
-  const actual = parseInt(fechaHoyCR().slice(0,4));
+  const actual = ANIO_LECTIVO_ACTIVO;
   const aviso = document.getElementById('hor-aviso-anio');
   if(aviso){
     if(parseInt(anio) > actual){
@@ -15992,7 +16083,7 @@ function horBorrarFila(btn){ btn.parentElement.remove(); }
 
 async function horGuardar(){
   const secId = document.getElementById('hor-seccion').value;
-  const anio = parseInt(document.getElementById('hor-anio').value) || parseInt(fechaHoyCR().slice(0,4));
+  const anio = parseInt(document.getElementById('hor-anio').value) || ANIO_LECTIVO_ACTIVO;
   if(!secId){ sa('alert-horario','Seleccioná una sección.','danger'); return; }
   const celdas = [];
   // Recorrer cada .hor-fila (que agrupa 1 select + 1 aula en su propia fila)
@@ -16015,7 +16106,7 @@ async function horGuardar(){
 
 async function horVerMiHorario(){
   horModo = 'mio';
-  const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
+  const anio = document.getElementById('hor-anio').value || ANIO_LECTIVO_ACTIVO;
   document.getElementById('hor-btn-guardar').style.display = 'none';
   document.getElementById('hor-guia-label').textContent = '';
   document.getElementById('hor-guia-label').style.display = 'none';
@@ -16036,7 +16127,7 @@ async function horVerMiHorario(){
 }
 
 function horImprimir(){
-  const anio = document.getElementById('hor-anio').value || fechaHoyCR().slice(0,4);
+  const anio = document.getElementById('hor-anio').value || ANIO_LECTIVO_ACTIVO;
   const secSel = document.getElementById('hor-seccion');
   const secNombre = horModo==='mio' ? '' : (secSel.options[secSel.selectedIndex]?.text || '');
   const guia = document.getElementById('hor-guia-label').textContent.replace('👤 Profesor(a) guía: ','');
@@ -17336,7 +17427,7 @@ async function finalizarMatricula(){
     // Guardar en BD recién al finalizar (paso 4)
     const r=await api("/api/matricula/guardar","POST",matDatosGuardados);
     matEstId=r.estudiante_id;
-    await api(`/api/matricula/completar/${matEstId}`,"POST",{});
+    await api(`/api/matricula/completar/${matEstId}`,"POST",{anio:matAnio});
     cerrarModal("modal-matricula");
     sa("alert-mat","✅ Matrícula finalizada y guardada exitosamente.","success");
     iniciarMatricula();
@@ -17569,8 +17660,8 @@ async function imprimirInformeSeccionConducta(periodoOpt){
     let notaFinal, boletasCount, extra = '';
     if(per === 'anual'){
       const [dI, dII] = await Promise.all([
-        api(`${base(e.id)}?desde=2026-02-23&hasta=2026-07-03`),
-        api(`${base(e.id)}?desde=2026-07-20&hasta=2026-12-09`),
+        api(`${base(e.id)}${queryRangoFrontend('I Período')}`),
+        api(`${base(e.id)}${queryRangoFrontend('II Período')}`),
       ]);
       const notaI = dI?.notaConducta ?? 100;
       const notaII = dII?.notaConducta ?? 100;
@@ -17578,7 +17669,7 @@ async function imprimirInformeSeccionConducta(periodoOpt){
       boletasCount = (dI?.boletas?.length ?? 0) + (dII?.boletas?.length ?? 0);
       extra = `I:${notaI} · II:${notaII}`;
     } else {
-      const rango = per === 'I Período' ? '?desde=2026-02-23&hasta=2026-07-03' : '?desde=2026-07-20&hasta=2026-12-09';
+      const rango = queryRangoFrontend(per);
       const d = await api(`${base(e.id)}${rango}`);
       notaFinal = d?.notaConducta ?? 100;
       boletasCount = d?.boletas?.length ?? 0;
@@ -19059,7 +19150,7 @@ function actualizarBotonesCarnet(){
 function construirCarnetHTML(est){
   const nombre = nombrePersona(est);
   const cedula = String(est.cedula||'').replace(/\s+/g,'');
-  const anio = new Date().getFullYear();
+  const anio = ANIO_LECTIVO_ACTIVO;
 
   // Tamaño tarjeta 640x1000 px (proporción igual al papel 54.2×85 mm)
   const wrap = document.createElement('div');

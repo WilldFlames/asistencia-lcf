@@ -1,0 +1,29 @@
+PARCHE DE CURSO LECTIVO 2027
+============================
+
+Después de subir este proyecto y esperar que Railway termine el despliegue:
+
+1. Entre normalmente al sistema con el usuario administrador.
+2. Abra "Configurar Año" y seleccione 2027.
+3. Registre las cuatro fechas oficiales de los períodos 2027.
+4. Revise y prepare, siempre con el selector en 2027:
+   - secciones;
+   - profesores guía;
+   - orientadores;
+   - talleres, idioma y tecnología;
+   - asignaciones de profesores;
+   - horarios.
+5. En Matrícula 2027, revise estudiantes, cupos y secciones.
+
+IMPORTANTE
+----------
+
+No presione "Aplicar Matrículas" mientras todavía se esté trabajando en 2026.
+El botón muestra una vista previa con las cantidades reales y pide dos
+confirmaciones. Al aplicarlo, 2026 queda cerrado y 2027 pasa a ser el año
+activo. El mismo cierre no puede ejecutarse dos veces.
+
+Quienes no estén matriculados al hacer el cambio quedan activos, en espera y
+sin sección. Se les puede completar la matrícula después, incluso en febrero o
+marzo, y entrarán inmediatamente a su sección de 2027.
+

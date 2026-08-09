@@ -1,14 +1,9 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerRangoPeriodo } = require("../utils/lectivo");
 
 // Año actual en zona horaria de Costa Rica (UTC-6)
-function anioCR(){
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - 360);
-  return d.getFullYear();
-}
-
 // ── Política de acceso del módulo de Calificaciones ────────────────────
 // SOLO el profesor que enseña una asignación puede ver/manipular sus notas.
 // Ni admin, ni guía, ni orientador, ni auxiliar tienen acceso.
@@ -88,7 +83,7 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
         )
         AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
       ORDER BY s.nombre, m.nombre, a.subgrupo NULLS FIRST
-    `, [u.id, periodo, anioCR()]);
+    `, [u.id, periodo, await obtenerAnioActivo()]);
 
     res.json(r.rows);
   } catch (e) {
@@ -147,6 +142,7 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
     WHERE a.profesor_id = $1
       AND a.seccion_id  = $2
       AND a.materia_id  = $3
+      AND a.anio = $6
       AND (($4::text IS NULL AND a.subgrupo IS NULL) OR a.subgrupo = $4)
       AND (
         COALESCE(a.periodo,'I Período') = $5
@@ -159,12 +155,13 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
               AND a2.materia_id = a.materia_id
               AND (($4::text IS NULL AND a2.subgrupo IS NULL) OR a2.subgrupo = $4)
               AND COALESCE(a2.periodo,'I Período') = $5
+              AND a2.anio = $6
           )
         )
       )
     ORDER BY CASE WHEN COALESCE(a.periodo,'I Período')=$5 THEN 0 ELSE 1 END
     LIMIT 1
-  `, [profesor_id, seccion_id, materia_id, subgrupo || null, periodo]);
+  `, [profesor_id, seccion_id, materia_id, subgrupo || null, periodo, await obtenerAnioActivo()]);
   return r.rows[0] || null;
 }
 
@@ -541,13 +538,6 @@ router.put("/evaluaciones/:id/notas", requireAuth, async (req, res) => {
 // FASE 3: PROMEDIOS DEL PERÍODO + ASISTENCIA AUTOMÁTICA + CIERRE/REAPERTURA
 // ════════════════════════════════════════════════════════════════════════
 
-// Fechas oficiales de cada período del año lectivo 2026 (centralizadas).
-// Si cambian, modificar acá.
-const PERIODOS_FECHAS = {
-  'I Período':  { desde: '2026-02-23', hasta: '2026-07-03' },
-  'II Período': { desde: '2026-07-20', hasta: '2026-12-09' }
-};
-
 // Tabla MEP de asistencia (% ausencias injustificadas → puntos /5)
 function puntosAsistenciaMEP(porcentajeAusencias) {
   if (porcentajeAusencias < 10) return 5;
@@ -626,8 +616,7 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
     // Calcular asistencia (mismo patrón que el modo normal).
     // IMPORTANTE: la tabla sesiones_asistencia solo tiene la columna `lecciones`
     // (no lecciones_realizadas ni lecciones_planeadas). Hay que usar esa.
-    const fechasSimpl = PERIODOS_FECHAS[periodo];
-    if (!fechasSimpl) throw new Error('Período inválido.');
+    const fechasSimpl = await obtenerRangoPeriodo(periodo);
     const totLeccR = await pool.query(`
       SELECT COALESCE(SUM(s.lecciones), 0)::int AS total
       FROM sesiones_asistencia s
@@ -806,8 +795,7 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
   }
 
   // 5. Calcular % de asistencia automáticamente desde el módulo de asistencia
-  const fechas = PERIODOS_FECHAS[periodo];
-  if (!fechas) throw new Error('Período inválido.');
+  const fechas = await obtenerRangoPeriodo(periodo);
   // Total de lecciones impartidas en el período por esta asignación
   // (sumamos sesiones_asistencia.lecciones * cantidad_estudiantes_en_sesión)
   // Pero para cada estudiante calculamos sus propias ausencias.

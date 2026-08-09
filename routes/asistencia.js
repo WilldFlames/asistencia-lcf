@@ -1,27 +1,18 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireDocente } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 
 // ── MIS ASIGNACIONES ──────────────────────────────────────────────────────────
 // Detecta el período lectivo actual según la fecha del servidor.
 // Antes del 4-jul-2026 = I Período. Después = II Período.
-function periodoActualNombre() {
-  const hoy = new Date();
-  return (hoy < new Date('2026-07-04T00:00:00')) ? 'I Período' : 'II Período';
-}
-
 router.get("/mis-asignaciones", requireDocente, async (req, res) => {
   const uid = req.session.usuario.id;
-  const periodo = periodoActualNombre();
+  const periodo = (await obtenerPeriodoActual()).nombre;
   // Año en curso: los profes solo ven asignaciones del año actual. Las del
   // año siguiente (preparadas por adelantado) no se cargan hasta que se
   // aplique "Aplicar Matrículas" y las viejas se borren.
-  const anioCR = () => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - 360);
-    return d.getFullYear();
-  };
-  const anio = anioCR();
+  const anio = await obtenerAnioActivo();
 
   const r = await pool.query(`
     WITH mis_asig AS (

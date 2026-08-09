@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerCalendario, obtenerRangoPeriodo } = require("../utils/lectivo");
 
 async function canAccess(req, res, next) {
   const u = req.session.usuario;
@@ -15,16 +16,22 @@ async function canAccess(req, res, next) {
 
 // ── LISTAR MATRÍCULAS ─────────────────────────────────────────────────
 router.get("/", canAccess, async (req, res) => {
+  const anioActivo = await obtenerAnioActivo();
+  const anio = parseInt(req.query.anio) || anioActivo;
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
-      e.tipo_ingreso, e.nivel_matricula, e.matricula_completada, e.idioma, e.tecnologia,
+      e.tipo_ingreso, e.nivel_matricula,
+      COALESCE(ma.completada, CASE WHEN $2 THEN e.matricula_completada ELSE false END) AS matricula_completada,
+      COALESCE(ma.estado, CASE WHEN $2 AND e.matricula_completada THEN 'completa' ELSE 'pendiente' END) AS matricula_estado,
+      e.idioma, e.tecnologia,
       e.boleta_entregada,
       e.seccion_id, s.nombre AS seccion_nombre, e.created_at
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
+    LEFT JOIN matricula ma ON ma.estudiante_id=e.id AND ma.anio=$1
     WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
     ORDER BY e.primer_apellido, e.nombre
-  `);
+  `, [anio, anio === anioActivo]);
   res.json(r.rows);
 });
 
@@ -229,17 +236,30 @@ router.post("/adecuacion", canAccess, async (req, res) => {
 
 // ── COMPLETAR MATRÍCULA ───────────────────────────────────────────────
 router.post("/completar/:id", canAccess, async (req, res) => {
-  await pool.query("UPDATE estudiantes SET matricula_completada=true WHERE id=$1", [req.params.id]);
+  const anioActivo = await obtenerAnioActivo();
+  const anio = parseInt(req.body?.anio || req.query.anio) || anioActivo;
+  await pool.query(`INSERT INTO matricula (estudiante_id,anio,completada,estado,confirmado_por)
+    VALUES ($1,$2,true,'completa',$3)
+    ON CONFLICT (estudiante_id,anio) DO UPDATE SET completada=true,estado='completa',confirmado_por=$3`,
+    [req.params.id,anio,req.session.usuario.id]);
+  if(anio === anioActivo)
+    await pool.query("UPDATE estudiantes SET matricula_completada=true WHERE id=$1", [req.params.id]);
   res.json({ ok:true });
 });
 
 // ── ELIMINAR MATRÍCULA (soft delete) ─────────────────────────────────
 router.delete("/:id", canAccess, async (req, res) => {
-  const { justificacion } = req.body || {};
+  const { justificacion, anio } = req.body || {};
   if(!justificacion?.trim())
     return res.status(400).json({ error:"La justificación es obligatoria." });
   const r = await pool.query("SELECT id FROM estudiantes WHERE id=$1", [req.params.id]);
   if(!r.rows.length) return res.status(404).json({ error:"No encontrado." });
+  const anioActivo = await obtenerAnioActivo();
+  const anioObjetivo = parseInt(anio) || anioActivo;
+  if(anioObjetivo !== anioActivo){
+    await pool.query("DELETE FROM matricula WHERE estudiante_id=$1 AND anio=$2", [req.params.id,anioObjetivo]);
+    return res.json({ ok:true, matricula_anual_eliminada:true });
+  }
   // Get cedula to revert prematricula
   const est = await pool.query("SELECT cedula FROM estudiantes WHERE id=$1", [req.params.id]);
   await pool.query("UPDATE estudiantes SET activo=false, matricula_completada=false WHERE id=$1", [req.params.id]);
@@ -268,7 +288,7 @@ function fechaCR(){
   const localMs = ahora.getTime() + (ahora.getTimezoneOffset() + offsetCR) * 60000;
   return new Date(localMs).toISOString().slice(0,10);
 }
-function anioActualCR(){ return parseInt(fechaCR().slice(0,4)); }
+async function anioActualCR(){ return obtenerAnioActivo(); }
 
 // Subgrupo según tecnología:
 //   Inglés Conversacional = A
@@ -289,13 +309,14 @@ function subgrupoDeTecnologia(tec){
 router.get("/cupos/:anio", canAccess, async (req, res) => {
   const anio = parseInt(req.params.anio);
   if(!anio) return res.status(400).json({ error: "Año inválido" });
-  const esActual = anio === anioActualCR();
+  const esActual = anio === await anioActualCR();
   const q = esActual ? `
     SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, sc.tec_b,
       COUNT(e.id)::int AS ocupados,
       COUNT(*) FILTER (WHERE UPPER(COALESCE(e.subgrupo,'')) = 'A')::int AS ocupados_a,
       COUNT(*) FILTER (WHERE UPPER(COALESCE(e.subgrupo,'')) = 'B')::int AS ocupados_b
     FROM secciones s
+    JOIN secciones_anio san ON san.seccion_id=s.id AND san.anio=$1 AND san.activa=true
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
     LEFT JOIN secciones_config sc ON sc.seccion_id = s.id AND sc.anio = $1
     LEFT JOIN estudiantes e ON e.seccion_id = s.id
@@ -307,6 +328,7 @@ router.get("/cupos/:anio", canAccess, async (req, res) => {
       COUNT(*) FILTER (WHERE UPPER(COALESCE(m.subgrupo,'')) = 'A')::int AS ocupados_a,
       COUNT(*) FILTER (WHERE UPPER(COALESCE(m.subgrupo,'')) = 'B')::int AS ocupados_b
     FROM secciones s
+    JOIN secciones_anio san ON san.seccion_id=s.id AND san.anio=$1 AND san.activa=true
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
     LEFT JOIN secciones_config sc ON sc.seccion_id = s.id AND sc.anio = $1
     LEFT JOIN matricula m ON m.seccion_id = s.id AND m.anio = $1
@@ -337,7 +359,7 @@ router.post("/asignar", canAccess, async (req, res) => {
     return res.status(400).json({ error: "estudiante_id, anio y seccion_id son requeridos" });
 
   const u = req.session.usuario;
-  const esActual = a === anioActualCR();
+  const esActual = a === await anioActualCR();
 
   // ── Verificar cupos (excluyendo al propio estudiante) ──────────────────
   // Cupo total 26 + cupo por subgrupo 13 (aplica en 10° y 11° con tecnologías)
@@ -422,13 +444,14 @@ router.post("/asignar", canAccess, async (req, res) => {
   }
   // En ambos casos queda registrado en la tabla matricula (historial por año)
   await pool.query(`
-    INSERT INTO matricula (estudiante_id, anio, seccion_id, seccion_nombre, idioma, tecnologia, subgrupo, confirmado_por)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    INSERT INTO matricula (estudiante_id, anio, seccion_id, seccion_nombre, idioma, tecnologia, subgrupo, confirmado_por, completada, estado)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,'completa')
     ON CONFLICT (estudiante_id, anio) DO UPDATE SET
       seccion_id=$3, seccion_nombre=$4,
       idioma=COALESCE($5, matricula.idioma),
       tecnologia=COALESCE($6, matricula.tecnologia),
       subgrupo=COALESCE($7, matricula.subgrupo),
+      estado='completa', completada=true,
       confirmado_por=$8
   `, [estudiante_id, a, seccion_id, secNombre, idioma || null, tecnologia || null, sub, u.id]);
 
@@ -443,6 +466,44 @@ router.get("/asignaciones/:anio", canAccess, async (req, res) => {
     FROM matricula m WHERE m.anio=$1
   `, [anio]);
   res.json(r.rows);
+});
+
+// Vista previa segura del cambio de año. No modifica absolutamente nada;
+// permite que el administrador vea las cantidades reales antes de confirmar.
+router.get("/previsualizar-aplicar/:anio", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  if(u.rol !== "admin") return res.status(403).json({ error:"Solo el administrador puede revisar el cierre de año" });
+  const anio = parseInt(req.params.anio);
+  const anioOrigen = await obtenerAnioActivo();
+  if(!anio || anio !== anioOrigen + 1)
+    return res.status(409).json({ error:`El año activo es ${anioOrigen}. Solo se puede preparar el cierre hacia ${anioOrigen + 1}.` });
+
+  const [calendario, cierre, cantidades] = await Promise.all([
+    obtenerCalendario(anio),
+    pool.query("SELECT aplicado_at FROM cierres_anio WHERE anio_destino=$1", [anio]),
+    pool.query(`SELECT
+      (SELECT COUNT(*)::int FROM estudiantes WHERE activo=true AND COALESCE(archivado,false)=false) AS estudiantes_activos,
+      (SELECT COUNT(*)::int FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
+         WHERE m.anio=$1 AND m.seccion_id IS NOT NULL AND e.activo=true) AS con_matricula,
+      (SELECT COUNT(*)::int FROM estudiantes e WHERE e.activo=true AND COALESCE(e.archivado,false)=false
+         AND NOT EXISTS (SELECT 1 FROM matricula m WHERE m.estudiante_id=e.id AND m.anio=$1 AND m.seccion_id IS NOT NULL)) AS sin_matricula,
+      (SELECT COUNT(*)::int FROM asignaciones WHERE anio=$2) AS asignaciones_origen,
+      (SELECT COUNT(*)::int FROM asignaciones WHERE anio=$1) AS asignaciones_destino,
+      (SELECT COUNT(*)::int FROM secciones_anio WHERE anio=$1 AND activa=true) AS secciones_destino,
+      (SELECT COUNT(*)::int FROM seccion_guia_anio WHERE anio=$1 AND profesor_id IS NOT NULL) AS guias_destino,
+      (SELECT COUNT(*)::int FROM seccion_orientador_anio WHERE anio=$1 AND orientador_id IS NOT NULL) AS orientadores_destino
+    `, [anio, anioOrigen])
+  ]);
+  const fechasCompletas = !!(calendario.periodo_i_inicio && calendario.periodo_i_fin &&
+    calendario.periodo_ii_inicio && calendario.periodo_ii_fin);
+  res.json({
+    anio_origen: anioOrigen,
+    anio_destino: anio,
+    ya_aplicado: cierre.rows.length > 0,
+    calendario_completo: fechasCompletas,
+    calendario,
+    ...cantidades.rows[0]
+  });
 });
 
 // ── APLICAR MATRÍCULAS DE UN AÑO (solo admin, un botón al arrancar) ──────
@@ -460,7 +521,14 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
   if(u.rol !== "admin") return res.status(403).json({ error: "Solo el administrador puede aplicar matrículas" });
   const anio = parseInt(req.params.anio);
   if(!anio) return res.status(400).json({ error: "Año inválido" });
-  const anioAnt = anio - 1;
+  const anioAnt = await obtenerAnioActivo();
+  if(anio !== anioAnt + 1)
+    return res.status(409).json({ error:`El año activo es ${anioAnt}. Solo se puede aplicar ${anioAnt + 1}.` });
+  const calendario = await obtenerCalendario(anio);
+  const fechasOk = calendario.periodo_i_inicio && calendario.periodo_i_fin &&
+    calendario.periodo_ii_inicio && calendario.periodo_ii_fin;
+  if(!fechasOk)
+    return res.status(409).json({ error:`Antes de aplicar ${anio}, complete las cuatro fechas lectivas en Configurar Año.` });
 
   // Importar calculadora de promedios del módulo calificaciones (para el resumen)
   const { calcularPromediosParaArchivo } = require("./calificaciones");
@@ -468,6 +536,12 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock($1)", [anio]);
+    const ya = await client.query("SELECT aplicado_at FROM cierres_anio WHERE anio_destino=$1", [anio]);
+    if(ya.rows.length){
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error:`Las matrículas ${anio} ya fueron aplicadas. No se ejecutó ninguna limpieza adicional.` });
+    }
 
     // ── 1. ARCHIVAR RESUMEN ACADÉMICO DEL AÑO ANTERIOR ─────────────────
     // Por cada asignación activa (del año en curso, que es el que estamos
@@ -481,8 +555,8 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       JOIN secciones s ON s.id = a.seccion_id
       JOIN materias m ON m.id = a.materia_id
       JOIN usuarios u ON u.id = a.profesor_id
-      WHERE (a.activa = true OR a.activa IS NULL)
-    `);
+      WHERE a.anio = $1
+    `, [anioAnt]);
 
     let archivadas = 0, saltadas = 0;
     for(const a of asigsR.rows){
@@ -540,8 +614,8 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
         LEFT JOIN estudiantes e ON e.id = b.estudiante_id
         LEFT JOIN secciones s ON s.id = e.seccion_id
       `);
-      const rangosI  = { desde: `${anioAnt}-02-23`, hasta: `${anioAnt}-07-03` };
-      const rangosII = { desde: `${anioAnt}-07-20`, hasta: `${anioAnt}-12-09` };
+      const rangosI  = await obtenerRangoPeriodo('I Período', client, anioAnt);
+      const rangosII = await obtenerRangoPeriodo('II Período', client, anioAnt);
       const enRango = (b, rg) => String(b.fecha).slice(0,10) >= rg.desde && String(b.fecha).slice(0,10) <= rg.hasta;
       const porEst = {};
       conductaR.rows.forEach(b => {
@@ -572,7 +646,10 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
     //   - sesiones_asistencia y asistencia (cascade desde asignaciones)
     //   - evaluaciones, indicadores, notas_examen, notas_indicador (cascade)
     //   - boletas_conducta ligadas a asignaciones (cascade); las sin asignación → borrar todas
-    const boletasBorradas = await client.query("DELETE FROM boletas_conducta RETURNING id");
+    const boletasBorradas = await client.query(
+      "DELETE FROM boletas_conducta WHERE EXTRACT(YEAR FROM fecha)::int=$1 RETURNING id",
+      [anioAnt]
+    );
 
     // ── 3. Estudiantes → nueva sección + idioma/tecnología/subgrupo ───
     const apl = await client.query(`
@@ -580,8 +657,10 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
         seccion_id = m.seccion_id,
         idioma     = COALESCE(m.idioma, e.idioma),
         tecnologia = COALESCE(m.tecnologia, e.tecnologia),
-        subgrupo   = COALESCE(m.subgrupo, e.subgrupo)
-      FROM matricula m
+        subgrupo   = COALESCE(m.subgrupo, e.subgrupo),
+        nivel_matricula = s.nivel,
+        matricula_completada = COALESCE(m.completada,true)
+      FROM matricula m JOIN secciones s ON s.id=m.seccion_id
       WHERE m.estudiante_id = e.id AND m.anio = $1 AND m.seccion_id IS NOT NULL
         AND e.activo = true
       RETURNING e.id
@@ -589,15 +668,21 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
 
     // ── 4. Activos sin matrícula → sin sección ────────────────────────
     const sinMat = await client.query(`
-      UPDATE estudiantes SET seccion_id = NULL
+      UPDATE estudiantes SET seccion_id = NULL, matricula_completada=false
       WHERE activo = true AND (archivado = false OR archivado IS NULL)
         AND id NOT IN (SELECT estudiante_id FROM matricula WHERE anio = $1 AND seccion_id IS NOT NULL)
       RETURNING id
     `, [anio]);
 
     // ── 5. Limpiar guía y orientador ──────────────────────────────────
-    const guiaClean = await client.query("DELETE FROM seccion_guia RETURNING seccion_id");
-    const oriClean  = await client.query("DELETE FROM seccion_orientador RETURNING seccion_id");
+    await client.query("DELETE FROM seccion_guia");
+    const guiaAplicada = await client.query(`INSERT INTO seccion_guia (seccion_id,profesor_id)
+      SELECT seccion_id,profesor_id FROM seccion_guia_anio
+      WHERE anio=$1 AND profesor_id IS NOT NULL RETURNING seccion_id`, [anio]);
+    await client.query("DELETE FROM seccion_orientador");
+    const oriAplicada = await client.query(`INSERT INTO seccion_orientador (seccion_id,orientador_id)
+      SELECT seccion_id,orientador_id FROM seccion_orientador_anio
+      WHERE anio=$1 AND orientador_id IS NOT NULL RETURNING seccion_id`, [anio]);
 
     // ── 5.b. Borrar horarios del año anterior (los del año nuevo, si el
     //         admin ya los creó por adelantado, quedan intactos) ─────────
@@ -620,13 +705,27 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       "SELECT COUNT(*)::int AS c FROM asignaciones WHERE anio = $1", [anio]
     );
 
+    await client.query("UPDATE anios_lectivos SET estado='cerrado',updated_at=NOW() WHERE anio=$1", [anioAnt]);
+    await client.query(`UPDATE anios_lectivos SET estado='activo',aplicado_at=NOW(),aplicado_por=$2,updated_at=NOW()
+      WHERE anio=$1`, [anio,u.id]);
+    const resumenCierre = {
+      aplicados: apl.rows.length, sin_seccion: sinMat.rows.length,
+      asignaciones_borradas: asigBorradas.rows.length,
+      boletas_borradas: boletasBorradas.rows.length,
+      resumenes_archivados: archivadas, resumenes_saltados: saltadas
+    };
+    await client.query(`INSERT INTO cierres_anio (anio_destino,anio_origen,aplicado_por,resumen)
+      VALUES ($1,$2,$3,$4::jsonb)`, [anio,anioAnt,u.id,JSON.stringify(resumenCierre)]);
+
     await client.query("COMMIT");
     res.json({
       ok: true,
       aplicados: apl.rows.length,
       sin_seccion: sinMat.rows.length,
-      guias_limpiadas: guiaClean.rows.length,
-      orientadores_limpiados: oriClean.rows.length,
+      guias_limpiadas: 0,
+      orientadores_limpiados: 0,
+      guias_aplicadas: guiaAplicada.rows.length,
+      orientadores_aplicados: oriAplicada.rows.length,
       asignaciones_borradas: asigBorradas.rows.length,
       asignaciones_nuevas_preparadas: asigNuevas.rows[0].c,
       boletas_borradas: boletasBorradas.rows.length,

@@ -2,6 +2,7 @@ const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const { pool } = require("../db");
 const { requireRol, requireAuth } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 const onlyAdmin = requireRol("admin");
 
 // ── USUARIOS ──────────────────────────────────────────────────
@@ -128,17 +129,19 @@ router.put("/asignaciones/:id/simplificado", onlyAdmin, async (req, res) => {
 
 // ── SECCIONES ─────────────────────────────────────────────────
 router.get("/secciones", async (req, res) => {
+  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
   const r = await pool.query(`
     SELECT s.*,
       u.nombre AS guia_nombre, u.primer_apellido AS guia_ap1, u.segundo_apellido AS guia_ap2, u.id AS guia_id, u.cedula AS guia_cedula,
       o.id AS orient_id, o.nombre AS orient_nombre, o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2, o.cedula AS orient_cedula
     FROM secciones s
-    LEFT JOIN seccion_guia sg ON sg.seccion_id=s.id
+    JOIN secciones_anio san ON san.seccion_id=s.id AND san.anio=$1 AND san.activa=true
+    LEFT JOIN seccion_guia_anio sg ON sg.seccion_id=s.id AND sg.anio=$1
     LEFT JOIN usuarios u ON u.id=sg.profesor_id
-    LEFT JOIN (SELECT so.seccion_id, so.orientador_id FROM seccion_orientador so) so2 ON so2.seccion_id=s.id
+    LEFT JOIN seccion_orientador_anio so2 ON so2.seccion_id=s.id AND so2.anio=$1
     LEFT JOIN usuarios o ON o.id=so2.orientador_id
     ORDER BY s.nivel, s.nombre
-  `);
+  `, [anio]);
   res.json(r.rows);
 });
 
@@ -357,27 +360,43 @@ router.get("/buscar-profe/:nombre", onlyAdmin, async (req, res) => {
 
 router.put("/secciones/:id/guia", onlyAdmin, async (req, res) => {
   const { profesor_id } = req.body;
-  if (!profesor_id) return res.json({ ok: true });
+  const anio = parseInt(req.body.anio) || await obtenerAnioActivo();
+  const activo = await obtenerAnioActivo();
+  if (!profesor_id) {
+    await pool.query("DELETE FROM seccion_guia_anio WHERE seccion_id=$1 AND anio=$2", [req.params.id, anio]);
+    if(anio === activo) await pool.query("DELETE FROM seccion_guia WHERE seccion_id=$1", [req.params.id]);
+    return res.json({ ok: true });
+  }
   // Validar que no sea también orientador
-  const esOrient = await pool.query("SELECT 1 FROM seccion_orientador WHERE orientador_id=$1 LIMIT 1", [profesor_id]);
+  const esOrient = await pool.query("SELECT 1 FROM seccion_orientador_anio WHERE orientador_id=$1 AND anio=$2 LIMIT 1", [profesor_id, anio]);
   if (esOrient.rows.length > 0)
     return res.status(400).json({ error: "Este profesor ya está asignado como Orientador. Un profesor solo puede tener una función extra (guía O orientador, no ambas)." });
-  await pool.query(`
-    INSERT INTO seccion_guia (seccion_id,profesor_id) VALUES ($1,$2)
-    ON CONFLICT (seccion_id) DO UPDATE SET profesor_id=$2
-  `, [req.params.id, profesor_id]);
+  await pool.query(`INSERT INTO seccion_guia_anio (seccion_id,anio,profesor_id) VALUES ($1,$2,$3)
+    ON CONFLICT (seccion_id,anio) DO UPDATE SET profesor_id=EXCLUDED.profesor_id`, [req.params.id, anio, profesor_id]);
+  if(anio === activo) await pool.query(`INSERT INTO seccion_guia (seccion_id,profesor_id) VALUES ($1,$2)
+    ON CONFLICT (seccion_id) DO UPDATE SET profesor_id=EXCLUDED.profesor_id`, [req.params.id, profesor_id]);
   res.json({ ok: true });
 });
 
 router.post("/secciones/:id/orientador", onlyAdmin, async (req, res) => {
   const { orientador_id } = req.body;
-  if (!orientador_id) return res.json({ ok: true });
+  const anio = parseInt(req.body.anio) || await obtenerAnioActivo();
+  const activo = await obtenerAnioActivo();
+  if (!orientador_id) {
+    await pool.query("DELETE FROM seccion_orientador_anio WHERE seccion_id=$1 AND anio=$2", [req.params.id, anio]);
+    if(anio === activo) await pool.query("DELETE FROM seccion_orientador WHERE seccion_id=$1", [req.params.id]);
+    return res.json({ ok: true });
+  }
   // Validar que no sea también guía
-  const esGuia = await pool.query("SELECT 1 FROM seccion_guia WHERE profesor_id=$1 LIMIT 1", [orientador_id]);
+  const esGuia = await pool.query("SELECT 1 FROM seccion_guia_anio WHERE profesor_id=$1 AND anio=$2 LIMIT 1", [orientador_id, anio]);
   if (esGuia.rows.length > 0)
     return res.status(400).json({ error: "Este profesor ya está asignado como Profesor Guía. Un profesor solo puede tener una función extra (guía O orientador, no ambas)." });
-  await pool.query("DELETE FROM seccion_orientador WHERE seccion_id=$1", [req.params.id]);
-  await pool.query("INSERT INTO seccion_orientador (seccion_id, orientador_id) VALUES ($1,$2)", [req.params.id, orientador_id]);
+  await pool.query(`INSERT INTO seccion_orientador_anio (seccion_id,anio,orientador_id) VALUES ($1,$2,$3)
+    ON CONFLICT (seccion_id,anio) DO UPDATE SET orientador_id=EXCLUDED.orientador_id`, [req.params.id, anio, orientador_id]);
+  if(anio === activo){
+    await pool.query("DELETE FROM seccion_orientador WHERE seccion_id=$1", [req.params.id]);
+    await pool.query("INSERT INTO seccion_orientador (seccion_id,orientador_id) VALUES ($1,$2)", [req.params.id, orientador_id]);
+  }
   res.json({ ok: true });
 });
 
@@ -388,27 +407,21 @@ router.delete("/secciones/:seccion_id/orientador/:orientador_id", onlyAdmin, asy
 
 // ── ASIGNACIONES ──────────────────────────────────────────────
 // Por defecto muestra solo las del período actual; con ?todas=1 devuelve historial completo.
-function periodoActualAdmin() {
-  const hoy = new Date();
-  return (hoy < new Date('2026-07-04T00:00:00')) ? 'I Período' : 'II Período';
+async function periodoActualAdmin() {
+  return (await obtenerPeriodoActual()).nombre;
 }
 
 router.get("/asignaciones", onlyAdmin, async (req, res) => {
   const todas = req.query.todas === '1';
-  const periodo = periodoActualAdmin();
+  const periodo = await periodoActualAdmin();
   // Año lectivo: default = actual. Permite preparar el año siguiente sin
   // afectar el año en curso. Las asignaciones del año siguiente conviven con
   // las del actual en la misma tabla, filtradas por la columna `anio`.
   // Las asignaciones legacy (anio IS NULL) se consideran del año ACTUAL
   // (no del año pedido), para que al filtrar por 2027 no aparezcan las
   // viejas del 2026 que no tenían anio registrado.
-  const anioCR = () => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - 360); // UTC-6
-    return d.getFullYear();
-  };
-  const anio = parseInt(req.query.anio) || anioCR();
-  const anioActual = anioCR();
+  const anioActual = await obtenerAnioActivo();
+  const anio = parseInt(req.query.anio) || anioActual;
   const sqlTodas = `
     SELECT a.*, COALESCE(a.periodo,'I Período') AS periodo,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol AS prof_rol,
@@ -457,15 +470,17 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
 router.post("/asignaciones", onlyAdmin, async (req, res) => {
   const { profesor_id, seccion_id, materia_id, lecciones_semana, subgrupo, periodo, anio } = req.body;
   if (!profesor_id||!seccion_id||!materia_id) return res.status(400).json({ error: "Datos incompletos" });
-  const anioCR = () => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - 360);
-    return d.getFullYear();
-  };
-  const anioFinal = parseInt(anio) || anioCR();
+  const anioFinal = parseInt(anio) || await obtenerAnioActivo();
+  const periodoFinal = periodo || await periodoActualAdmin();
   try {
+    const dup = await pool.query(`SELECT id FROM asignaciones
+      WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3
+        AND COALESCE(subgrupo,'')=COALESCE($4::text,'')
+        AND COALESCE(periodo,'I Período')=$5 AND anio=$6 LIMIT 1`,
+      [profesor_id,seccion_id,materia_id,subgrupo||null,periodoFinal,anioFinal]);
+    if(dup.rows.length) return res.status(409).json({ error:"Asignación ya existe para ese año, período y grupo" });
     const r = await pool.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo,periodo,anio) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupo||null,periodo||periodoActualAdmin(), anioFinal]);
+      [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupo||null,periodoFinal, anioFinal]);
     res.json({ ok:true, id:r.rows[0].id });
   } catch(e) {
     if (e.message.includes("unique")) return res.status(409).json({ error: "Asignación ya existe" });

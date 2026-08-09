@@ -5,6 +5,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { asignarConsecutivoInterno } = require("./consecutivos");
+const { obtenerAnioActivo } = require("../utils/lectivo");
 
 // Mapeo oficial de cada pauta a los formularios que incluye, EN ORDEN.
 const PAUTAS = {
@@ -254,7 +255,7 @@ router.post("/", requireAuth, async (req, res) => {
       if (ori.rows.length) orientadorFinal = ori.rows[0].orientador_id;
     }
 
-    const anio = new Date().getFullYear();
+    const anio = await obtenerAnioActivo(client);
     const pR = await client.query(`
       INSERT INTO protocolos (consecutivo_id, numero, anio, pauta, iniciado_por, orientador_id)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *

@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
+const { obtenerAnioActivo } = require("../utils/lectivo");
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const informeSelect = (whereClause) => `
@@ -41,6 +42,7 @@ router.get("/todos", requireRol("admin"), async (req, res) => {
 // Incluye también las materias que el profesor enseña en la sección del estudiante,
 // para que el informe compilado muestre "Prof. X — Materia Y".
 router.get("/compilado/:estudiante_id", requireAuth, async (req, res) => {
+  const anioActivo = await obtenerAnioActivo();
   const r = await pool.query(`
     SELECT i.*,
       ur.nombre AS remit_nombre, ur.primer_apellido AS remit_ap1, ur.segundo_apellido AS remit_ap2, ur.rol AS remit_rol,
@@ -53,6 +55,7 @@ router.get("/compilado/:estudiante_id", requireAuth, async (req, res) => {
         FROM asignaciones a
         JOIN materias m ON m.id = a.materia_id
         WHERE a.profesor_id = i.destinatario_id AND a.seccion_id = e.seccion_id
+          AND a.anio = $2
       ) AS materias_profesor
     FROM informes i
     JOIN usuarios ur ON ur.id=i.remitente_id
@@ -61,21 +64,22 @@ router.get("/compilado/:estudiante_id", requireAuth, async (req, res) => {
     LEFT JOIN secciones s ON s.id=e.seccion_id
     WHERE i.estudiante_id=$1 AND i.respondido=true
     ORDER BY ud.primer_apellido, ud.nombre, i.fecha_respuesta DESC
-  `, [req.params.estudiante_id]);
+  `, [req.params.estudiante_id, anioActivo]);
   res.json(r.rows);
 });
 
 // ── PROFESORES DE UNA SECCIÓN (para enviar informes masivos) ─────────────────
 router.get("/profesores-seccion/:seccion_id", requireAuth, async (req, res) => {
+  const anioActivo = await obtenerAnioActivo();
   const r = await pool.query(`
     SELECT DISTINCT u.id, u.nombre, u.primer_apellido, u.segundo_apellido, u.rol,
       m.nombre AS materia_nombre
     FROM asignaciones a
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN materias m ON m.id=a.materia_id
-    WHERE a.seccion_id=$1 AND u.activo=true
+    WHERE a.seccion_id=$1 AND a.anio=$2 AND u.activo=true
     ORDER BY u.primer_apellido, u.nombre
-  `, [req.params.seccion_id]);
+  `, [req.params.seccion_id, anioActivo]);
   res.json(r.rows);
 });
 
@@ -119,6 +123,7 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
     "SELECT subgrupo FROM estudiantes WHERE id=$1", [estudiante_id]
   );
   const subgrupoEst = estR.rows[0]?.subgrupo || null;
+  const anioActivo = await obtenerAnioActivo();
 
   // Obtener profesores de la sección que corresponden al subgrupo del estudiante:
   // - Si el estudiante tiene subgrupo A o B: solo profesores SIN subgrupo + profesores del mismo subgrupo
@@ -134,15 +139,16 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
     profsQuery = `
       SELECT DISTINCT a.profesor_id FROM asignaciones a
       WHERE a.seccion_id=$1
+        AND a.anio=$3
         AND (a.subgrupo IS NULL OR a.subgrupo='' OR a.subgrupo=$2)
     `;
-    profsParams = [seccion_id, subgrupoEst];
+    profsParams = [seccion_id, subgrupoEst, anioActivo];
   } else {
     profsQuery = `
       SELECT DISTINCT a.profesor_id FROM asignaciones a
-      WHERE a.seccion_id=$1
+      WHERE a.seccion_id=$1 AND a.anio=$2
     `;
-    profsParams = [seccion_id];
+    profsParams = [seccion_id, anioActivo];
   }
 
   const profsR = await pool.query(profsQuery, profsParams);

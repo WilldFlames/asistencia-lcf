@@ -20,6 +20,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db").pool;
 const { asignarConsecutivoInterno } = require("./consecutivos");
+const { obtenerAnioActivo } = require("../utils/lectivo");
 
 // Helpers de sesión y roles (replicados del patrón de otros módulos)
 function requireAuth(req, res, next){
@@ -195,7 +196,7 @@ router.post("/", requireAuth, async (req, res) => {
   } = req.body;
 
   const tipo = (tipo_reunion === 'virtual') ? 'virtual' : 'presencial';
-  const anio = new Date().getFullYear();
+  const anio = await obtenerAnioActivo();
 
   // Asignar consecutivo tipo 'minuta'
   let consec;

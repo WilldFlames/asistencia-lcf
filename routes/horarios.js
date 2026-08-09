@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
+const { obtenerAnioActivo } = require("../utils/lectivo");
 
 // ── HORAS OFICIALES DE LECCIÓN (Curso Lectivo — formato imagen MEP) ────────
 // Formato 24h con cero a la izquierda para poder comparar como texto.
@@ -26,8 +27,6 @@ function fechaCR(){
   const localMs = ahora.getTime() + (ahora.getTimezoneOffset() + offsetCR) * 60000;
   return new Date(localMs).toISOString().slice(0,10);
 }
-function anioCR(){ return parseInt(fechaCR().slice(0,4)); }
-
 // ── CATÁLOGO DE LECCIONES (horas) ──────────────────────────────────────────
 router.get("/lecciones", requireAuth, (req, res) => {
   res.json(LECCIONES);
@@ -37,6 +36,7 @@ router.get("/lecciones", requireAuth, (req, res) => {
 // Aplica herencia I → II Período: muestra la asignación del período actual
 // si existe una versión específica (ej. talleres), si no, la del I Período.
 router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) => {
+  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
   const r = await pool.query(`
     SELECT a.id, a.subgrupo, a.periodo,
       m.nombre AS materia_nombre,
@@ -45,16 +45,18 @@ router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) =>
     JOIN materias m ON m.id = a.materia_id
     JOIN usuarios u ON u.id = a.profesor_id
     WHERE a.seccion_id = $1
+      AND a.anio = $2
       AND NOT (
         COALESCE(a.periodo,'I Período') = 'I Período'
         AND EXISTS (
           SELECT 1 FROM asignaciones a2
           WHERE a2.seccion_id = a.seccion_id AND a2.materia_id = a.materia_id
             AND a2.profesor_id = a.profesor_id AND a2.periodo = 'II Período'
+            AND a2.anio = $2
         )
       )
     ORDER BY m.nombre, u.primer_apellido
-  `, [req.params.seccion_id]);
+  `, [req.params.seccion_id, anio]);
   res.json(r.rows);
 });
 
@@ -63,7 +65,7 @@ router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) =>
 // de estudiantes). Devuelve celdas + nombre del profe guía de la sección.
 router.get("/", requireAuth, async (req, res) => {
   const seccionId = req.query.seccion_id;
-  const anio = parseInt(req.query.anio) || anioCR();
+  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
   if(!seccionId) return res.status(400).json({ error: "seccion_id requerido" });
 
   const celdas = await pool.query(`
@@ -80,9 +82,9 @@ router.get("/", requireAuth, async (req, res) => {
 
   const guiaR = await pool.query(`
     SELECT u.nombre, u.primer_apellido, u.segundo_apellido
-    FROM seccion_guia sg JOIN usuarios u ON u.id = sg.profesor_id
-    WHERE sg.seccion_id = $1
-  `, [seccionId]);
+    FROM seccion_guia_anio sg JOIN usuarios u ON u.id = sg.profesor_id
+    WHERE sg.seccion_id = $1 AND sg.anio=$2
+  `, [seccionId, anio]);
 
   res.json({ anio, celdas: celdas.rows, guia: guiaR.rows[0] || null });
 });
@@ -92,12 +94,21 @@ router.get("/", requireAuth, async (req, res) => {
 router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
   const seccionId = req.params.seccion_id;
   const { anio, celdas } = req.body;
-  const a = parseInt(anio) || anioCR();
+  const a = parseInt(anio) || await obtenerAnioActivo();
   if(!Array.isArray(celdas)) return res.status(400).json({ error: "celdas debe ser un array" });
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const idsAsignacion = [...new Set(celdas.map(c=>parseInt(c.asignacion_id)).filter(Boolean))];
+    if(idsAsignacion.length){
+      const validas = await client.query(`SELECT id FROM asignaciones
+        WHERE id=ANY($1::int[]) AND seccion_id=$2 AND anio=$3`, [idsAsignacion,seccionId,a]);
+      if(validas.rows.length !== idsAsignacion.length){
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error:`El horario contiene asignaciones que no pertenecen a la sección o al año ${a}. Recargue la pantalla.` });
+      }
+    }
     await client.query("DELETE FROM horarios WHERE seccion_id=$1 AND anio=$2", [seccionId, a]);
     for(const c of celdas){
       if(!c.dia || !c.leccion) continue;
@@ -127,7 +138,7 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
 
 // ── MI HORARIO (profesor: sus lecciones en todas las secciones) ────────────
 router.get("/mi-horario", requireAuth, async (req, res) => {
-  const anio = parseInt(req.query.anio) || anioCR();
+  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
   const r = await pool.query(`
     SELECT h.dia, h.leccion, h.aula, s.nombre AS seccion_nombre, m.nombre AS materia_nombre
     FROM horarios h

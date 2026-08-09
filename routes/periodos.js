@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireRol } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 
 // Roles autorizados: admin, auxiliar y administrativo pueden hacer intercambio.
 // (Antes solo admin y auxiliar — administrativo también debería poder).
@@ -12,10 +13,7 @@ const canSwap = requireRol("admin", "auxiliar", "administrativo");
 const NOMBRE_HOGAR = "Educación para el Hogar";
 const NOMBRE_INDUSTRIALES = "Artes Industriales";
 
-function periodoActualNombre() {
-  const hoy = new Date();
-  return (hoy < new Date('2026-07-04T00:00:00')) ? 'I Período' : 'II Período';
-}
+async function periodoActualNombre() { return (await obtenerPeriodoActual()).nombre; }
 
 // Busca los IDs de las materias Hogar e Industriales de forma tolerante:
 // primero intenta con nombre exacto, si no encuentra usa ILIKE.
@@ -49,6 +47,7 @@ async function obtenerIdsMaterias(client) {
 // secciones donde HAY al menos una asignación de Hogar o Industriales.
 router.get("/preview", canSwap, async (req, res) => {
   try {
+    const anio = await obtenerAnioActivo();
     // Obtener IDs de las materias (con búsqueda tolerante)
     const { idHogar, idIndus } = await obtenerIdsMaterias();
 
@@ -72,9 +71,10 @@ router.get("/preview", canSwap, async (req, res) => {
       JOIN usuarios u ON u.id=a.profesor_id
       WHERE a.materia_id IN ($1, $2)
         AND s.nivel BETWEEN 7 AND 9
+        AND a.anio=$3
         AND COALESCE(a.periodo,'I Período') = 'I Período'
       ORDER BY s.nivel, s.nombre, a.subgrupo NULLS FIRST
-    `, [idHogar, idIndus]);
+    `, [idHogar, idIndus, anio]);
 
     // Asignaciones del II Período (si ya existen, indicar)
     const yaCreadasR = await pool.query(`
@@ -83,8 +83,9 @@ router.get("/preview", canSwap, async (req, res) => {
       JOIN secciones s ON s.id=a.seccion_id
       WHERE a.materia_id IN ($1, $2)
         AND s.nivel BETWEEN 7 AND 9
+        AND a.anio=$3
         AND COALESCE(a.periodo,'I Período') = 'II Período'
-    `, [idHogar, idIndus]);
+    `, [idHogar, idIndus, anio]);
     const yaExiste = new Set(yaCreadasR.rows.map(r =>
       `${r.seccion_id}|${r.materia_id}|${r.subgrupo || ''}`));
 
@@ -130,7 +131,8 @@ router.get("/preview", canSwap, async (req, res) => {
 
     res.json({
       grupos: lista,
-      periodo_actual: periodoActualNombre(),
+      periodo_actual: await periodoActualNombre(),
+      anio,
       materias: { hogar: idHogar, industriales: idIndus }
     });
   } catch (err) {
@@ -147,6 +149,7 @@ router.post("/intercambiar", canSwap, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const anio = await obtenerAnioActivo(client);
 
     const { idHogar, idIndus } = await obtenerIdsMaterias(client);
     if (!idHogar || !idIndus) {
@@ -164,8 +167,9 @@ router.post("/intercambiar", canSwap, async (req, res) => {
       JOIN secciones s ON s.id=a.seccion_id
       WHERE a.materia_id IN ($1, $2)
         AND s.nivel BETWEEN 7 AND 9
+        AND a.anio=$3
         AND COALESCE(a.periodo,'I Período') = 'I Período'
-    `, [idHogar, idIndus]);
+    `, [idHogar, idIndus, anio]);
 
     // Agrupar por SECCIÓN (no por sección+subgrupo). Dentro de cada sección
     // recolectamos todas las asignaciones de Hogar y de Industriales por
@@ -191,8 +195,8 @@ router.post("/intercambiar", canSwap, async (req, res) => {
     const yaCreadasR = await client.query(`
       SELECT seccion_id, materia_id, subgrupo
       FROM asignaciones
-      WHERE materia_id IN ($1, $2) AND COALESCE(periodo,'I Período')='II Período'
-    `, [idHogar, idIndus]);
+      WHERE materia_id IN ($1, $2) AND COALESCE(periodo,'I Período')='II Período' AND anio=$3
+    `, [idHogar, idIndus, anio]);
     const yaExiste = new Set(yaCreadasR.rows.map(r =>
       `${r.seccion_id}|${r.materia_id}|${r.subgrupo || ''}`));
 
@@ -260,20 +264,20 @@ router.post("/intercambiar", canSwap, async (req, res) => {
         }
 
         const nuevaHogar = await client.query(`
-          INSERT INTO asignaciones (profesor_id, seccion_id, materia_id, subgrupo, lecciones_semana, periodo)
-          VALUES ($1, $2, $3, $4, $5, 'II Período') RETURNING id
-        `, [aH.profesor_id, sec.seccion_id, idHogar, aI.subgrupo, aH.lecciones_semana]);
+          INSERT INTO asignaciones (profesor_id, seccion_id, materia_id, subgrupo, lecciones_semana, periodo, anio)
+          VALUES ($1, $2, $3, $4, $5, 'II Período', $6) RETURNING id
+        `, [aH.profesor_id, sec.seccion_id, idHogar, aI.subgrupo, aH.lecciones_semana, anio]);
 
         const nuevaIndus = await client.query(`
-          INSERT INTO asignaciones (profesor_id, seccion_id, materia_id, subgrupo, lecciones_semana, periodo)
-          VALUES ($1, $2, $3, $4, $5, 'II Período') RETURNING id
-        `, [aI.profesor_id, sec.seccion_id, idIndus, aH.subgrupo, aI.lecciones_semana]);
+          INSERT INTO asignaciones (profesor_id, seccion_id, materia_id, subgrupo, lecciones_semana, periodo, anio)
+          VALUES ($1, $2, $3, $4, $5, 'II Período', $6) RETURNING id
+        `, [aI.profesor_id, sec.seccion_id, idIndus, aH.subgrupo, aI.lecciones_semana, anio]);
 
         await client.query(`
           INSERT INTO intercambios_periodo
-            (nivel, seccion_id, asig_hogar_i, asig_indus_i, asig_hogar_ii, asig_indus_ii, ejecutado_por)
-          SELECT s.nivel, $1, $2, $3, $4, $5, $6 FROM secciones s WHERE s.id=$1
-        `, [sec.seccion_id, aH.id, aI.id, nuevaHogar.rows[0].id, nuevaIndus.rows[0].id, req.session.usuario.id]);
+            (nivel, seccion_id, asig_hogar_i, asig_indus_i, asig_hogar_ii, asig_indus_ii, ejecutado_por, anio)
+          SELECT s.nivel, $1, $2, $3, $4, $5, $6, $7 FROM secciones s WHERE s.id=$1
+        `, [sec.seccion_id, aH.id, aI.id, nuevaHogar.rows[0].id, nuevaIndus.rows[0].id, req.session.usuario.id, anio]);
 
         alguIntercambio = true;
         intercambiados++;
@@ -318,10 +322,11 @@ router.post("/revertir", canSwap, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const anio = await obtenerAnioActivo(client);
     const interR = await client.query(`
       SELECT id, asig_hogar_ii, asig_indus_ii
-      FROM intercambios_periodo WHERE revertido=false
-    `);
+      FROM intercambios_periodo WHERE revertido=false AND anio=$1
+    `, [anio]);
     if (!interR.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: "No hay intercambios pendientes de revertir." });
@@ -349,7 +354,7 @@ router.post("/revertir", canSwap, async (req, res) => {
       await client.query(`DELETE FROM asignaciones WHERE id = ANY($1::int[])`, [idsII]);
     }
     // Marcar los registros del histórico como revertidos
-    await client.query(`UPDATE intercambios_periodo SET revertido=true WHERE revertido=false`);
+    await client.query(`UPDATE intercambios_periodo SET revertido=true WHERE revertido=false AND anio=$1`, [anio]);
 
     await client.query('COMMIT');
     res.json({ ok: true, revertidos: interR.rows.length });
@@ -365,6 +370,7 @@ router.post("/revertir", canSwap, async (req, res) => {
 // ── HISTORIAL de intercambios ────────────────────────────────────────────────
 router.get("/historial", canSwap, async (req, res) => {
   try {
+    const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
     const r = await pool.query(`
       SELECT ip.*,
         s.nombre AS seccion_nombre,
@@ -372,8 +378,9 @@ router.get("/historial", canSwap, async (req, res) => {
       FROM intercambios_periodo ip
       JOIN secciones s ON s.id=ip.seccion_id
       LEFT JOIN usuarios u ON u.id=ip.ejecutado_por
+      WHERE ip.anio=$1
       ORDER BY ip.created_at DESC
-    `);
+    `, [anio]);
     res.json(r.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

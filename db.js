@@ -598,18 +598,13 @@ async function initDB() {
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS nacionalidad TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS profesion TEXT DEFAULT NULL`);
 
-    // Actualizar UNIQUE de asignaciones para incluir subgrupo
+    // Retirar las restricciones antiguas de asignaciones. No se vuelven a
+    // crear aquí porque todavía no contemplaban curso lectivo y podían hacer
+    // fallar un reinicio después de preparar asignaciones del año siguiente.
+    // Más abajo se instala la clave definitiva: subgrupo + período + año.
     await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_profesor_id_seccion_id_materia_id_key`);
-    await client.query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'asignaciones_unique_subgrupo'
-        ) THEN
-          ALTER TABLE asignaciones ADD CONSTRAINT asignaciones_unique_subgrupo
-          UNIQUE(profesor_id, seccion_id, materia_id, subgrupo);
-        END IF;
-      END $$;
-    `);
+    await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_unique_subgrupo`);
+    await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_unique_periodo`);
 
     // ── PERÍODO LECTIVO en asignaciones ─────────────────────────────────────
     // Permite tener dos asignaciones distintas para el mismo profesor/sección/materia,
@@ -618,18 +613,8 @@ async function initDB() {
     // Default 'I Período' para todas las existentes (que se crearon antes de esta migración).
     await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS periodo TEXT DEFAULT 'I Período'`);
     await client.query(`UPDATE asignaciones SET periodo='I Período' WHERE periodo IS NULL`);
-    // Reemplazar el unique anterior para incluir período en la clave
-    await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_unique_subgrupo`);
-    await client.query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'asignaciones_unique_periodo'
-        ) THEN
-          ALTER TABLE asignaciones ADD CONSTRAINT asignaciones_unique_periodo
-          UNIQUE(profesor_id, seccion_id, materia_id, subgrupo, periodo);
-        END IF;
-      END $$;
-    `);
+    // La restricción nueva por período+año se crea después de inicializar
+    // anios_lectivos y normalizar las filas heredadas.
 
     // ── REGISTRO DE INTERCAMBIOS Hogar↔Industriales ─────────────────────────
     // Audita cada vez que se ejecuta el intercambio en II Período, para poder
@@ -659,6 +644,141 @@ async function initDB() {
         creado_en  TIMESTAMP DEFAULT NOW()
       )
     `);
+
+    // ── CURSOS LECTIVOS Y CAMBIO DE AÑO SEGURO ──────────────────────
+    // El año activo ya no depende del reloj del servidor. Esto permite cerrar
+    // 2026 y activar 2027 incluso si el trámite se hace en enero.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS anios_lectivos (
+        anio               INTEGER PRIMARY KEY,
+        estado             TEXT NOT NULL DEFAULT 'preparacion'
+                           CHECK(estado IN ('preparacion','activo','cerrado')),
+        periodo_i_inicio   DATE,
+        periodo_i_fin      DATE,
+        periodo_ii_inicio  DATE,
+        periodo_ii_fin     DATE,
+        aplicado_at        TIMESTAMP,
+        aplicado_por       INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at         TIMESTAMP DEFAULT NOW(),
+        updated_at         TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS cierres_anio (
+        anio_destino INTEGER PRIMARY KEY,
+        anio_origen  INTEGER NOT NULL,
+        aplicado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        aplicado_at TIMESTAMP DEFAULT NOW(),
+        resumen JSONB DEFAULT '{}'::jsonb
+      );
+
+      CREATE TABLE IF NOT EXISTS secciones_anio (
+        seccion_id INTEGER NOT NULL REFERENCES secciones(id) ON DELETE CASCADE,
+        anio       INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        activa     BOOLEAN NOT NULL DEFAULT true,
+        PRIMARY KEY(seccion_id, anio)
+      );
+
+      CREATE TABLE IF NOT EXISTS seccion_guia_anio (
+        seccion_id INTEGER NOT NULL REFERENCES secciones(id) ON DELETE CASCADE,
+        anio       INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        profesor_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        PRIMARY KEY(seccion_id, anio)
+      );
+
+      CREATE TABLE IF NOT EXISTS seccion_orientador_anio (
+        seccion_id INTEGER NOT NULL REFERENCES secciones(id) ON DELETE CASCADE,
+        anio       INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        orientador_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        PRIMARY KEY(seccion_id, anio)
+      );
+    `);
+
+    // 2026 conserva las fechas oficiales que ya utilizaba el sistema. El 2027
+    // se crea en preparación y el administrador debe registrar sus fechas.
+    await client.query(`
+      INSERT INTO anios_lectivos
+        (anio, estado, periodo_i_inicio, periodo_i_fin, periodo_ii_inicio, periodo_ii_fin)
+      VALUES
+        (2026, 'activo', '2026-02-23', '2026-07-03', '2026-07-20', '2026-12-09'),
+        (2027, 'preparacion', NULL, NULL, NULL, NULL)
+      ON CONFLICT (anio) DO NOTHING
+    `);
+    // Si una base futura arranca sin fila activa, activar el año calendario.
+    await client.query(`
+      INSERT INTO anios_lectivos (anio, estado)
+      SELECT EXTRACT(YEAR FROM CURRENT_DATE)::int, 'activo'
+      WHERE NOT EXISTS (SELECT 1 FROM anios_lectivos WHERE estado='activo')
+      ON CONFLICT (anio) DO UPDATE SET estado='activo'
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname='anios_lectivos_un_activo')
+           AND (SELECT COUNT(*) FROM anios_lectivos WHERE estado='activo') <= 1 THEN
+          CREATE UNIQUE INDEX anios_lectivos_un_activo
+            ON anios_lectivos ((estado)) WHERE estado='activo';
+        END IF;
+      END $$
+    `);
+
+    // Habilitar las secciones existentes para 2026 y 2027 sin alterar el
+    // catálogo global. Desde ahora crear/eliminar en Configurar Año modifica
+    // esta disponibilidad anual, no destruye la sección histórica.
+    await client.query(`
+      INSERT INTO secciones_anio (seccion_id, anio, activa)
+      SELECT s.id, a.anio, true FROM secciones s
+      CROSS JOIN (SELECT anio FROM anios_lectivos WHERE anio IN (2026, 2027)) a
+      ON CONFLICT (seccion_id, anio) DO NOTHING
+    `);
+
+    // Copiar los vínculos vigentes de guía/orientación al año activo una sola vez.
+    await client.query(`
+      INSERT INTO seccion_guia_anio (seccion_id, anio, profesor_id)
+      SELECT sg.seccion_id, al.anio, sg.profesor_id
+      FROM seccion_guia sg
+      CROSS JOIN LATERAL (SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1) al
+      ON CONFLICT (seccion_id, anio) DO NOTHING
+    `);
+    await client.query(`
+      INSERT INTO seccion_orientador_anio (seccion_id, anio, orientador_id)
+      SELECT so.seccion_id, al.anio, so.orientador_id
+      FROM seccion_orientador so
+      CROSS JOIN LATERAL (SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1) al
+      WHERE so.orientador_id IS NOT NULL
+      ON CONFLICT (seccion_id, anio) DO NOTHING
+    `);
+
+    // Toda asignación vieja pertenece al año activo al momento de instalar
+    // este parche. La clave anterior no incluía año y bloqueaba preparar 2027.
+    await client.query(`
+      UPDATE asignaciones SET anio=(SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1)
+      WHERE anio IS NULL
+    `);
+    await client.query(`ALTER TABLE asignaciones DROP CONSTRAINT IF EXISTS asignaciones_unique_periodo`);
+    // Bases antiguas pueden contener duplicados permitidos por valores NULL.
+    // En ese caso no se aborta el despliegue: la API igualmente impide crear
+    // nuevos duplicados y el índice se podrá crear cuando se depuren los viejos.
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname='asignaciones_unique_anio')
+           AND NOT EXISTS (
+             SELECT 1 FROM asignaciones
+             GROUP BY profesor_id, seccion_id, materia_id,
+               COALESCE(subgrupo,''), COALESCE(periodo,'I Período'), anio
+             HAVING COUNT(*) > 1
+           ) THEN
+          CREATE UNIQUE INDEX asignaciones_unique_anio
+            ON asignaciones (profesor_id, seccion_id, materia_id,
+              COALESCE(subgrupo,''), COALESCE(periodo,'I Período'), anio);
+        END IF;
+      END $$
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_asignaciones_anio ON asignaciones(anio)`);
+
+    // El estado de matrícula también debe pertenecer a un año concreto.
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS completada BOOLEAN DEFAULT false`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'pendiente'`);
+    await client.query(`ALTER TABLE intercambios_periodo ADD COLUMN IF NOT EXISTS anio INTEGER`);
+    await client.query(`UPDATE intercambios_periodo SET anio=2026 WHERE anio IS NULL`);
 
     // ── HISTORIAL DE ESTUDIANTES ──────────────────────────────────────────
     // Registra todos los movimientos importantes que afectan a un estudiante:

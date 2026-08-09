@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
+const { obtenerAnioActivo } = require("../utils/lectivo");
 
 const canManage = requireRol("admin","auxiliar","orientador","profesor_guia");
 
@@ -86,6 +87,7 @@ router.delete("/:id", canManage, async (req, res) => {
 //     para que también puedan figurar como quien atendió la boleta.
 // El frontend agrupa por tipo con optgroup.
 router.get("/mis-asignaciones/:seccion_id", requireAuth, async (req, res) => {
+  const anio = await obtenerAnioActivo();
   // Asignaciones reales (profesor + materia en esa sección)
   const asig = await pool.query(`
     SELECT a.id, m.nombre AS materia_nombre,
@@ -93,9 +95,9 @@ router.get("/mis-asignaciones/:seccion_id", requireAuth, async (req, res) => {
     FROM asignaciones a
     JOIN materias m ON m.id = a.materia_id
     JOIN usuarios u ON u.id = a.profesor_id
-    WHERE a.seccion_id = $1
+    WHERE a.seccion_id = $1 AND a.anio=$2
     ORDER BY m.nombre
-  `, [req.params.seccion_id]);
+  `, [req.params.seccion_id, anio]);
 
   // Personal de apoyo: orientadores, auxiliares, administrativos
   // (activos, sin importar la sección).

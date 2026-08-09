@@ -1,16 +1,11 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireDocente } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 
 // Detecta el período lectivo actual según la fecha del servidor.
 // I Período: 23/feb – 3/jul, II Período: 20/jul – 9/dic. Fuera de eso, último cerrado.
-function periodoActual() {
-  const hoy = new Date();
-  if (hoy < new Date('2026-07-04T00:00:00')) {
-    return { nombre: 'I Período', desde: '2026-02-23', hasta: '2026-07-03' };
-  }
-  return { nombre: 'II Período', desde: '2026-07-20', hasta: '2026-12-09' };
-}
+async function periodoActual() { return obtenerPeriodoActual(); }
 
 // ── DATOS PRE-LLENADOS para el formulario ─────────────────────────────────────
 // Devuelve la info del estudiante + cálculo de ausencias del período actual
@@ -21,7 +16,8 @@ router.get("/datos/:estudiante_id", requireDocente, async (req, res) => {
   if (!estId) return res.status(400).json({ error: "estudiante_id inválido" });
 
   try {
-    const p = periodoActual();
+    const p = await periodoActual();
+    const anioActivo = await obtenerAnioActivo();
     const u = req.session.usuario;
 
     // Estudiante + sección + primer encargado.
@@ -52,12 +48,13 @@ router.get("/datos/:estudiante_id", requireDocente, async (req, res) => {
       JOIN materias m ON m.id=a.materia_id
       JOIN usuarios u ON u.id=a.profesor_id
       WHERE a.seccion_id=$1
+        AND a.anio=$${esAdminAux ? 2 : 3}
         AND LOWER(m.nombre) NOT LIKE '%guía%'
         AND LOWER(m.nombre) NOT LIKE '%guia%'
         AND LOWER(m.nombre) NOT LIKE '%orientac%'
         ${esAdminAux ? '' : 'AND a.profesor_id=$2'}
       ORDER BY m.nombre`,
-      esAdminAux ? [est.seccion_id] : [est.seccion_id, u.id]);
+      esAdminAux ? [est.seccion_id, anioActivo] : [est.seccion_id, u.id, anioActivo]);
 
     // Filtrar adicionalmente por subgrupo: si la asignación tiene subgrupo, solo aplica
     // si el estudiante también tiene ese subgrupo (o no tiene asignado).
@@ -123,6 +120,7 @@ router.get("/estudiantes-disponibles/:seccion_id", requireDocente, async (req, r
   const secId = parseInt(req.params.seccion_id);
   if (!secId) return res.status(400).json({ error: "seccion_id inválido" });
   const esAdminAux = ['admin','auxiliar'].includes(u.rol);
+  const anioActivo = await obtenerAnioActivo();
 
   try {
     // Determinar qué subgrupos puede ver el docente en esa sección,
@@ -136,10 +134,11 @@ router.get("/estudiantes-disponibles/:seccion_id", requireDocente, async (req, r
         FROM asignaciones a
         JOIN materias m ON m.id=a.materia_id
         WHERE a.profesor_id=$1 AND a.seccion_id=$2
+          AND a.anio=$3
           AND LOWER(m.nombre) NOT LIKE '%guía%'
           AND LOWER(m.nombre) NOT LIKE '%guia%'
           AND LOWER(m.nombre) NOT LIKE '%orientac%'
-      `, [u.id, secId]);
+      `, [u.id, secId, anioActivo]);
 
       if (!asigR.rows.length) {
         // No tiene materia aplicable en esa sección
@@ -185,18 +184,22 @@ router.get("/secciones-disponibles", requireDocente, async (req, res) => {
   const u = req.session.usuario;
   const esAdminAux = ['admin','auxiliar'].includes(u.rol);
   try {
+    const anioActivo = await obtenerAnioActivo();
     const r = await pool.query(
       esAdminAux
-        ? `SELECT DISTINCT s.id, s.nombre, s.nivel FROM secciones s ORDER BY s.nivel, s.nombre`
+        ? `SELECT DISTINCT s.id, s.nombre, s.nivel FROM secciones s
+           JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$1 AND sa.activa=true
+           ORDER BY s.nivel, s.nombre`
         : `SELECT DISTINCT s.id, s.nombre, s.nivel FROM secciones s
            JOIN asignaciones a ON a.seccion_id=s.id
            JOIN materias m ON m.id=a.materia_id
            WHERE a.profesor_id=$1
+             AND a.anio=$2
              AND LOWER(m.nombre) NOT LIKE '%guía%'
              AND LOWER(m.nombre) NOT LIKE '%guia%'
              AND LOWER(m.nombre) NOT LIKE '%orientac%'
            ORDER BY s.nivel, s.nombre`,
-      esAdminAux ? [] : [u.id]
+      esAdminAux ? [anioActivo] : [u.id,anioActivo]
     );
     res.json(r.rows);
   } catch (err) {
@@ -214,7 +217,7 @@ router.post("/", requireDocente, async (req, res) => {
     return res.status(400).json({ error: "estudiante_id y materia son requeridos" });
 
   try {
-    const p = periodoActual();
+    const p = await periodoActual();
     const r = await pool.query(`
       INSERT INTO cartas_ausentismo
         (estudiante_id, asignacion_id, emitida_por, fecha, periodo, materia,

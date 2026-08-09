@@ -1,39 +1,74 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireRol } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerCalendario } = require("../utils/lectivo");
 
 const onlyAdmin = requireRol("admin");
 
-function anioCR(){
-  const ahora = new Date();
-  const offsetCR = -6 * 60;
-  const localMs = ahora.getTime() + (ahora.getTimezoneOffset() + offsetCR) * 60000;
-  return parseInt(new Date(localMs).toISOString().slice(0,4));
+async function asegurarAnio(anio){
+  await pool.query(
+    "INSERT INTO anios_lectivos (anio,estado) VALUES ($1,'preparacion') ON CONFLICT (anio) DO NOTHING",
+    [anio]
+  );
 }
 
+// Estado general para todos los módulos autenticados.
+router.get("/vigente", async (req, res) => {
+  const anio_activo = await obtenerAnioActivo();
+  const calendario = await obtenerCalendario(anio_activo);
+  const siguiente = await obtenerCalendario(anio_activo + 1);
+  const cierre = await pool.query("SELECT anio_destino, aplicado_at FROM cierres_anio ORDER BY aplicado_at DESC LIMIT 1");
+  res.json({ anio_activo, calendario, siguiente, ultimo_cierre: cierre.rows[0] || null });
+});
+
+router.get("/calendario/:anio", onlyAdmin, async (req, res) => {
+  const anio = parseInt(req.params.anio);
+  if(!anio) return res.status(400).json({ error: "Año inválido" });
+  await asegurarAnio(anio);
+  res.json(await obtenerCalendario(anio));
+});
+
+router.put("/calendario/:anio", onlyAdmin, async (req, res) => {
+  const anio = parseInt(req.params.anio);
+  const { periodo_i_inicio, periodo_i_fin, periodo_ii_inicio, periodo_ii_fin } = req.body;
+  if(!anio) return res.status(400).json({ error: "Año inválido" });
+  const fechas = [periodo_i_inicio, periodo_i_fin, periodo_ii_inicio, periodo_ii_fin];
+  if(fechas.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(String(f||''))))
+    return res.status(400).json({ error: "Debe completar las cuatro fechas del curso lectivo." });
+  if(fechas.some(f => Number(String(f).slice(0,4)) !== anio))
+    return res.status(400).json({ error: `Todas las fechas deben pertenecer al ${anio}.` });
+  if(!(periodo_i_inicio <= periodo_i_fin && periodo_i_fin < periodo_ii_inicio && periodo_ii_inicio <= periodo_ii_fin))
+    return res.status(400).json({ error: "Revise el orden de las fechas de los períodos." });
+  await asegurarAnio(anio);
+  await pool.query(`
+    UPDATE anios_lectivos SET periodo_i_inicio=$1, periodo_i_fin=$2,
+      periodo_ii_inicio=$3, periodo_ii_fin=$4, updated_at=NOW()
+    WHERE anio=$5
+  `, [periodo_i_inicio, periodo_i_fin, periodo_ii_inicio, periodo_ii_fin, anio]);
+  res.json({ ok:true, calendario: await obtenerCalendario(anio) });
+});
+
 // ── Resumen general del año: secciones + estado de cada configuración ─────
-// Nota: la tabla `secciones` es global (no hay una por año). Los vínculos de
-// guía y orientador corresponden al AÑO EN CURSO. Para años futuros los
-// devolvemos vacíos, para no confundir a admin con datos que se limpiarán al
-// archivar el año actual.
+// El catálogo de nombres de sección es global, pero su disponibilidad, guía,
+// orientador, idioma y configuración A/B se guardan por año.
 router.get("/resumen/:anio", onlyAdmin, async (req, res) => {
   const anio = parseInt(req.params.anio);
   if(!anio) return res.status(400).json({ error: "Año inválido" });
-  const esFuturo = anio > anioCR();
-  // Secciones existentes (globales)
+  await asegurarAnio(anio);
+  const anioActivo = await obtenerAnioActivo();
+  const esFuturo = anio > anioActivo;
   const secR = await pool.query(`
     SELECT s.id, s.nombre, s.nivel,
-      ${esFuturo ? "NULL::int AS guia_id, NULL::text AS guia, NULL::int AS orientador_id, NULL::text AS orientador," : `
       sg.profesor_id AS guia_id,
       (SELECT TRIM(CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido)) FROM usuarios u WHERE u.id = sg.profesor_id) AS guia,
       so.orientador_id AS orientador_id,
-      (SELECT TRIM(CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido)) FROM usuarios u WHERE u.id = so.orientador_id) AS orientador,`}
+      (SELECT TRIM(CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido)) FROM usuarios u WHERE u.id = so.orientador_id) AS orientador,
       si.idioma AS idioma_exclusivo,
       sc.tec_b, sc.taller_a, sc.taller_b
     FROM secciones s
-    ${esFuturo ? "" : `
-    LEFT JOIN seccion_guia sg ON sg.seccion_id = s.id
-    LEFT JOIN seccion_orientador so ON so.seccion_id = s.id`}
+    JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$1 AND sa.activa=true
+    LEFT JOIN seccion_guia_anio sg ON sg.seccion_id = s.id AND sg.anio=$1
+    LEFT JOIN seccion_orientador_anio so ON so.seccion_id = s.id AND so.anio=$1
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
     LEFT JOIN secciones_config sc ON sc.seccion_id = s.id AND sc.anio = $1
     ORDER BY s.nivel, s.nombre
@@ -48,50 +83,63 @@ router.get("/resumen/:anio", onlyAdmin, async (req, res) => {
     if(s.taller_a && s.taller_b) porNivel[n].con_talleres++;
     if(s.tec_b) porNivel[n].con_tec_b++;
   });
-  res.json({ anio, es_futuro: esFuturo, secciones: secR.rows, por_nivel: porNivel });
+  res.json({ anio, anio_activo: anioActivo, es_futuro: esFuturo, secciones: secR.rows, por_nivel: porNivel,
+    calendario: await obtenerCalendario(anio) });
 });
 
 // ── CREAR SECCIÓN NUEVA (a mano, sin guía ni orientador) ──────────────────
 router.post("/secciones", onlyAdmin, async (req, res) => {
-  const { nombre } = req.body;
+  const { nombre, anio } = req.body;
+  const a = parseInt(anio);
   if(!nombre || !nombre.trim()) return res.status(400).json({ error: "Nombre requerido" });
+  if(!a) return res.status(400).json({ error: "Año requerido" });
   const nom = nombre.trim();
   // Validar formato "N-M" donde N es nivel (7-11) y M es número
   const m = nom.match(/^(\d+)-(\d+)$/);
   if(!m) return res.status(400).json({ error: `Formato inválido. Debe ser tipo "10-1", "7-3", etc.` });
   const nivel = parseInt(m[1]);
   if(nivel < 7 || nivel > 11) return res.status(400).json({ error: "Nivel debe estar entre 7 y 11" });
+  await asegurarAnio(a);
+  const client = await pool.connect();
   try {
-    const r = await pool.query(
-      "INSERT INTO secciones (nombre, nivel) VALUES ($1,$2) RETURNING *",
-      [nom, nivel]
-    );
-    res.json({ ok: true, seccion: r.rows[0] });
+    await client.query('BEGIN');
+    const r = await client.query(`
+      INSERT INTO secciones (nombre,nivel) VALUES ($1,$2)
+      ON CONFLICT (nombre) DO UPDATE SET nivel=EXCLUDED.nivel
+      RETURNING *`, [nom,nivel]);
+    await client.query(`INSERT INTO secciones_anio (seccion_id,anio,activa) VALUES ($1,$2,true)
+      ON CONFLICT (seccion_id,anio) DO UPDATE SET activa=true`, [r.rows[0].id,a]);
+    await client.query('COMMIT');
+    res.json({ ok:true, seccion:r.rows[0] });
   } catch(e) {
-    if(String(e.message).includes("duplicate") || String(e.message).includes("unique")){
-      return res.status(409).json({ error: `Ya existe una sección con el nombre "${nom}".` });
-    }
-    res.status(500).json({ error: e.message });
-  }
+    await client.query('ROLLBACK');
+    res.status(500).json({ error:e.message });
+  } finally { client.release(); }
 });
 
 // ── ELIMINAR SECCIÓN (solo si NO tiene estudiantes ni asignaciones) ───────
 router.delete("/secciones/:id", onlyAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
-  const est = await pool.query(
-    "SELECT COUNT(*)::int AS c FROM estudiantes WHERE seccion_id=$1 AND (archivado=false OR archivado IS NULL)", [id]);
-  if(est.rows[0].c > 0){
-    return res.status(409).json({ error: `No se puede eliminar: la sección tiene ${est.rows[0].c} estudiante(s) activo(s).` });
+  const anio = parseInt(req.query.anio);
+  if(!id || !anio) return res.status(400).json({ error:"Sección y año requeridos" });
+  const anioActivo = await obtenerAnioActivo();
+  if(anio === anioActivo){
+    const est = await pool.query(
+      "SELECT COUNT(*)::int AS c FROM estudiantes WHERE seccion_id=$1 AND activo=true AND (archivado=false OR archivado IS NULL)", [id]);
+    if(est.rows[0].c > 0)
+      return res.status(409).json({ error:`No se puede quitar del ${anio}: tiene ${est.rows[0].c} estudiante(s) activo(s).` });
   }
-  const asig = await pool.query("SELECT COUNT(*)::int AS c FROM asignaciones WHERE seccion_id=$1", [id]);
+  const asig = await pool.query("SELECT COUNT(*)::int AS c FROM asignaciones WHERE seccion_id=$1 AND anio=$2", [id,anio]);
   if(asig.rows[0].c > 0){
-    return res.status(409).json({ error: `No se puede eliminar: la sección tiene ${asig.rows[0].c} asignación(es) de profesores. Bórrelas primero.` });
+    return res.status(409).json({ error: `No se puede quitar del ${anio}: tiene ${asig.rows[0].c} asignación(es).` });
   }
-  const mat = await pool.query("SELECT COUNT(*)::int AS c FROM matricula WHERE seccion_id=$1", [id]);
+  const mat = await pool.query("SELECT COUNT(*)::int AS c FROM matricula WHERE seccion_id=$1 AND anio=$2", [id,anio]);
   if(mat.rows[0].c > 0){
-    return res.status(409).json({ error: `No se puede eliminar: hay ${mat.rows[0].c} matrícula(s) reservada(s) en esta sección.` });
+    return res.status(409).json({ error: `No se puede quitar del ${anio}: hay ${mat.rows[0].c} matrícula(s) reservada(s).` });
   }
-  await pool.query("DELETE FROM secciones WHERE id=$1", [id]);
+  await pool.query("DELETE FROM secciones_anio WHERE seccion_id=$1 AND anio=$2", [id,anio]);
+  await pool.query("DELETE FROM seccion_guia_anio WHERE seccion_id=$1 AND anio=$2", [id,anio]);
+  await pool.query("DELETE FROM seccion_orientador_anio WHERE seccion_id=$1 AND anio=$2", [id,anio]);
   res.json({ ok: true });
 });
 
