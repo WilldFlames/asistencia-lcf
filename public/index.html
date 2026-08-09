@@ -528,6 +528,10 @@ tr:hover td{background:#f8fafc;}
     background:rgba(255,255,255,.96);backdrop-filter:blur(10px);color:var(--text);
     border-bottom:1px solid var(--border);box-shadow:0 2px 10px rgba(18,59,102,.04);
   }
+  .topbar-left{flex:1 1 auto;min-width:0;overflow:hidden;}
+  .topbar-left > div{min-width:0;overflow:hidden;}
+  .topbar-school,.topbar .sub{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .topbar-right{flex:0 0 auto;min-width:0;}
   .topbar-left{display:flex;align-items:center;gap:11px;min-width:0;}
   .topbar-page-title{font-size:17px;font-weight:800;color:var(--azul);line-height:1.25;}
   .topbar .sub{font-size:11px;color:var(--muted);opacity:1;margin-top:2px;}
@@ -701,8 +705,13 @@ tr:hover td{background:#f8fafc;}
   .stat .num{font-size:25px;}
   #page-dashboard .dashboard-stats .stat{display:block;text-align:center;}
   #page-dashboard .dashboard-stats .stat-icon{width:36px;height:36px;margin:0 auto 8px;font-size:17px;}
-  #page-dashboard .dashboard-welcome{padding:18px;}
-  #dash-profesor-content > div{grid-template-columns:1fr!important;}
+  #page-dashboard,#dash-profesor-content{width:100%;max-width:100%;min-width:0;}
+  #page-dashboard .dashboard-welcome{width:100%;max-width:100%;min-width:0;padding:18px;}
+  #page-dashboard .dashboard-welcome h2,#page-dashboard .dashboard-welcome p{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+  #dash-profesor-content > div{width:100%;max-width:100%;min-width:0;grid-template-columns:minmax(0,1fr)!important;}
+  #dash-profesor-content > div > *,#dash-profesor-content .card{width:100%;max-width:100%;min-width:0;}
+  #dash-profesor-content .dash-attendance-row{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:center;}
+  #dash-profesor-content .dash-attendance-btn{max-width:100%;padding:7px 10px;}
   #dash-profesor-content .card[style*="grid-column:span 2"]{grid-column:span 1!important;}
 }
 
@@ -711,10 +720,17 @@ tr:hover td{background:#f8fafc;}
   .auth-box > img{width:82px!important;height:82px!important;}
   .topbar-right{gap:6px;}
   .btn-logout{font-size:11px;}
+  .topbar-left > div{max-width:calc(100vw - 175px);}
   .stats{grid-template-columns:1fr 1fr;}
   .form-actions .btn{flex:1 1 auto;}
   .modal-actions{display:grid;grid-template-columns:1fr 1fr;}
   .modal-actions .btn{width:100%;margin:0;}
+}
+@media screen and (max-width:360px){
+  #dash-profesor-content .dash-attendance-row{grid-template-columns:minmax(0,1fr);}
+  #dash-profesor-content .dash-attendance-btn{width:100%;margin-top:7px;}
+  .topbar-left > div{max-width:calc(100vw - 160px);}
+  .topbar .sub{display:none;}
 }
 @media screen and (max-width:1024px) and (max-height:600px){
   .fullscreen.show{align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;}
@@ -5823,9 +5839,9 @@ async function cargarDashboard(){
         const sub = a.subgrupo ? ' (G'+a.subgrupo+')' : '';
         const secEsc = (a.seccion_nombre||'').replace(/'/g,"\\'");
         const btn = !ok
-          ? `<button class="btn btn-primary btn-xs" onclick="goTo('asistencia');setTimeout(()=>abrirAsistencia(${a.id},'${secEsc}'),400);" style="white-space:nowrap;font-size:11px;">Pasar lista</button>`
+          ? `<button class="btn btn-primary btn-xs dash-attendance-btn" onclick="goTo('asistencia');setTimeout(()=>abrirAsistencia(${a.id},'${secEsc}'),400);" style="white-space:nowrap;font-size:11px;">Pasar lista</button>`
           : '';
-        rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);">
+        rowsHtml += `<div class="dash-attendance-row" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);">
           <div style="flex:1;min-width:0;">
             <div style="font-weight:bold;font-size:13px;">${a.seccion_nombre}</div>
             <div style="font-size:11px;color:var(--muted);">${a.materia_nombre}${sub}</div>

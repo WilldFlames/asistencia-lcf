@@ -53,4 +53,8 @@ test("la interfaz se adapta a iPhone, áreas seguras y navegador móvil", () => 
   assert.match(html, /window\.innerWidth<=1024/);
   assert.match(html, /max-width:1024px\) and \(max-height:600px/);
   assert.match(html, /fullscreen\.show\{align-items:flex-start;justify-content:center;overflow-y:auto/);
+  assert.match(html, /grid-template-columns:minmax\(0,1fr\)!important/);
+  assert.match(html, /class="dash-attendance-row"/);
+  assert.match(html, /dash-attendance-btn/);
+  assert.match(html, /topbar-left\{flex:1 1 auto;min-width:0;overflow:hidden/);
 });
