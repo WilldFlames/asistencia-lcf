@@ -2,6 +2,17 @@ const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const { pool } = require("../db");
 const { LECCIONES } = require("./horarios");
+const {
+  createRateLimiter,
+  regenerateSession,
+  saveSession,
+} = require("../middleware/security");
+
+const loginPadresLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: "Demasiados intentos de ingreso. Espere 15 minutos e intente nuevamente.",
+});
 
 // ── Helpers Costa Rica ─────────────────────────────────────────────────────
 function fechaCR(){
@@ -70,7 +81,7 @@ async function hijoDelPadre(req, res, next){
 //  AUTENTICACIÓN
 // ═══════════════════════════════════════════════════════════════════════════
 
-router.post("/login", async (req, res) => {
+router.post("/login", loginPadresLimiter, async (req, res) => {
   const { cedula, password } = req.body;
   if(!cedula || !password) return res.status(400).json({ error: "Cédula y contraseña requeridas" });
   const ced = limpiarCedula(cedula);
@@ -130,11 +141,14 @@ router.post("/login", async (req, res) => {
   const enc = encR.rows[0] || { nombre: "", primer_apellido: "", segundo_apellido: "" };
 
   // 5. Registrar sesión (única): el sid nuevo invalida cualquier sesión anterior
-  req.session.padre = { cedula: ced, nombre: enc.nombre, primer_apellido: enc.primer_apellido, segundo_apellido: enc.segundo_apellido, es_personal: esPersonal };
-  delete req.session.usuario; // el portal de padres es aislado — para volver a admin debe salir e ingresar por el botón normal
+  const padreSesion = { cedula: ced, nombre: enc.nombre, primer_apellido: enc.primer_apellido, segundo_apellido: enc.segundo_apellido, es_personal: esPersonal };
+  await regenerateSession(req);
+  req.session.padre = padreSesion;
+  await saveSession(req);
   await pool.query("UPDATE padres_acceso SET sid_activo=$1 WHERE cedula=$2", [req.sessionID, ced]);
 
-  res.json({ ok: true, primer_login: primerLogin, es_personal: esPersonal, padre: req.session.padre, hijos });
+  loginPadresLimiter.reset(req);
+  res.json({ ok: true, primer_login: primerLogin, es_personal: esPersonal, padre: padreSesion, hijos });
 });
 
 router.post("/cambiar-password", requirePadre, async (req, res) => {
@@ -154,6 +168,11 @@ router.post("/cambiar-password", requirePadre, async (req, res) => {
   if(!ok) return res.status(401).json({ error: "Contraseña actual incorrecta" });
   const hash = await bcrypt.hash(password_nuevo, 10);
   await pool.query("UPDATE padres_acceso SET password_hash=$1, primer_login=false WHERE cedula=$2", [hash, ced]);
+  const padreSesion = { ...req.session.padre };
+  await regenerateSession(req);
+  req.session.padre = padreSesion;
+  await saveSession(req);
+  await pool.query("UPDATE padres_acceso SET sid_activo=$1 WHERE cedula=$2", [req.sessionID, ced]);
   res.json({ ok: true });
 });
 
@@ -162,8 +181,10 @@ router.post("/logout", async (req, res) => {
     await pool.query("UPDATE padres_acceso SET sid_activo=NULL WHERE cedula=$1 AND sid_activo=$2",
       [req.session.padre.cedula, req.sessionID]).catch(()=>{});
   }
-  req.session.destroy(()=>{});
-  res.json({ ok: true });
+  req.session.destroy(() => {
+    res.clearCookie("lcf.sid");
+    res.json({ ok: true });
+  });
 });
 
 router.get("/me", async (req, res) => {

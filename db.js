@@ -1,6 +1,5 @@
 require("dotenv").config();
 const { Pool } = require("pg");
-const bcrypt = require("bcryptjs");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -1856,17 +1855,9 @@ async function initDB() {
     await client.query("INSERT INTO materias (nombre) VALUES ('Inglés Conversacional') ON CONFLICT DO NOTHING");
     await client.query("INSERT INTO materias (nombre) VALUES ('Diseño Publicitario') ON CONFLICT DO NOTHING");
 
-    // Admin por defecto
-    const adminEx = await client.query("SELECT id FROM usuarios WHERE rol='admin' LIMIT 1");
-    if (adminEx.rows.length === 0) {
-      const hash = await bcrypt.hash("Admin2024**", 10);
-      await client.query(`
-        INSERT INTO usuarios (cedula,nombre,primer_apellido,segundo_apellido,password_hash,rol,primer_login)
-        VALUES ('0000000000','Administrador','Sistema','LCF',$1,'admin',false)
-        ON CONFLICT DO NOTHING
-      `, [hash]);
-      console.log("✅ Admin creado — cédula: 0000000000 / contraseña: Admin2024**");
-    }
+    // No se crean administradores con credenciales conocidas. Las instalaciones
+    // existentes conservan sus usuarios; el administrador debe crear y verificar
+    // una cuenta nominal antes de desactivar cualquier cuenta heredada.
 
     // Secciones
     const secciones = [

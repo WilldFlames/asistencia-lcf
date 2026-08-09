@@ -84,6 +84,42 @@ function guiaEfectivo(dp) {
   return dp.guia_sustituto_id || dp.guia_a_cargo || null;
 }
 
+const ROLES_ACCESO_TOTAL = ["admin", "auxiliar", "administrativo", "secretaria"];
+
+async function requireProcesoAccess(req, res, next) {
+  try {
+    const u = req.session && req.session.usuario;
+    if (!u) return res.status(401).json({ error: "No autorizado" });
+
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+
+    let permitido = ROLES_ACCESO_TOTAL.includes(u.rol) ||
+      dp.iniciado_por === u.id ||
+      dp.guia_a_cargo === u.id ||
+      dp.guia_sustituto_id === u.id ||
+      dp.orientador_id === u.id;
+
+    if (!permitido) {
+      const asignado = await pool.query(
+        "SELECT 1 FROM dp_pasos WHERE proceso_id=$1 AND asignado_a=$2 LIMIT 1",
+        [dp.id, u.id]
+      );
+      permitido = asignado.rows.length > 0;
+    }
+
+    if (!permitido) {
+      return res.status(403).json({ error: "No tiene permiso para consultar este proceso." });
+    }
+
+    req.debidoProceso = dp;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 // Helper: crear una notificación
 async function notificar(usuarioId, tipo, mensaje) {
   if (!usuarioId) return;
@@ -232,7 +268,7 @@ router.get("/pendientes/orientador", requireAuth, async (req, res) => {
 });
 
 // ── DETALLE DE UN PROCESO ─────────────────────────────────────────────
-router.get("/:id", requireAuth, async (req, res) => {
+router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
   const dpR = await pool.query(`
     SELECT dp.*, e.cedula, e.nombre AS est_nombre, e.primer_apellido AS est_ap1, e.segundo_apellido AS est_ap2,
            e.seccion_id, s.nombre AS seccion_nombre,
@@ -436,7 +472,7 @@ router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
 // El cliente envía: { tipo, contenido, completar }
 // Si el paso aún no existe (por tipo+orden), se crea. Si ya existe, se
 // actualiza el contenido.
-router.post("/:id/pasos", requireAuth, async (req, res) => {
+router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const procesoId = req.params.id;
   const { tipo, orden, contenido, completar, testigo_id } = req.body;
@@ -509,7 +545,7 @@ router.post("/:id/pasos", requireAuth, async (req, res) => {
 // ── AGREGAR TESTIGO ───────────────────────────────────────────────────
 // Crea automáticamente los pasos 6 (cita) y 7 (declaración) para ese testigo.
 // Si el testigo es de OTRA sección, los pasos se asignan al guía de esa sección.
-router.post("/:id/testigos", requireAuth, async (req, res) => {
+router.post("/:id/testigos", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const procesoId = req.params.id;
   const { estudiante_id } = req.body;
@@ -579,7 +615,7 @@ router.post("/:id/testigos", requireAuth, async (req, res) => {
 });
 
 // ── ELIMINAR TESTIGO ──────────────────────────────────────────────────
-router.delete("/:id/testigos/:testigo_id", requireAuth, async (req, res) => {
+router.delete("/:id/testigos/:testigo_id", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const procesoId = req.params.id;
   const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
@@ -604,7 +640,7 @@ router.delete("/:id/testigos/:testigo_id", requireAuth, async (req, res) => {
 // ── AGREGAR OFENDIDO ──────────────────────────────────────────────────
 // Igual que testigos pero para ofendidos (víctimas). Cuando el ofendido es
 // de otra sección, la cita y declaración se asignan al guía de esa sección.
-router.post("/:id/ofendidos", requireAuth, async (req, res) => {
+router.post("/:id/ofendidos", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const procesoId = req.params.id;
   const { estudiante_id } = req.body;
@@ -680,7 +716,7 @@ router.post("/:id/ofendidos", requireAuth, async (req, res) => {
 });
 
 // ── ELIMINAR OFENDIDO ─────────────────────────────────────────────────
-router.delete("/:id/ofendidos/:ofendido_id", requireAuth, async (req, res) => {
+router.delete("/:id/ofendidos/:ofendido_id", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const procesoId = req.params.id;
   const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
@@ -702,7 +738,7 @@ router.delete("/:id/ofendidos/:ofendido_id", requireAuth, async (req, res) => {
 });
 
 // ── VERIFICAR PASO (check del guía cuando lo hizo otro profe) ─────────
-router.post("/:id/pasos/:paso_id/verificar", requireAuth, async (req, res) => {
+router.post("/:id/pasos/:paso_id/verificar", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
   if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
@@ -720,7 +756,7 @@ router.post("/:id/pasos/:paso_id/verificar", requireAuth, async (req, res) => {
 
 // ── DECIDIR EN PASO 8 (continuar / desestimar) ────────────────────────
 // El guía registra la decisión. Queda pendiente de aprobación del orientador.
-router.post("/:id/decidir-sesion", requireAuth, async (req, res) => {
+router.post("/:id/decidir-sesion", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const { decision, contenido } = req.body;
   if (!["continuar","desestimar"].includes(decision)) {
@@ -779,7 +815,7 @@ router.post("/:id/decidir-sesion", requireAuth, async (req, res) => {
 //   - o fue rechazada por el orientador
 // NO se puede cancelar si ya fue APROBADA (porque ya se crearon los pasos
 // siguientes: traslado_cargos, resolucion_final o desestima).
-router.post("/:id/cancelar-decision", requireAuth, async (req, res) => {
+router.post("/:id/cancelar-decision", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   try {
     const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
@@ -836,7 +872,7 @@ router.post("/:id/cancelar-decision", requireAuth, async (req, res) => {
 });
 
 // ── APROBAR / RECHAZAR ACTA SESIÓN (orientador) ───────────────────────
-router.post("/:id/aprobar-sesion", requireAuth, async (req, res) => {
+router.post("/:id/aprobar-sesion", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const { decision, observacion } = req.body;  // decision: 'aprobado' | 'rechazado'
   if (!["aprobado","rechazado"].includes(decision)) {
@@ -919,7 +955,7 @@ router.post("/:id/aprobar-sesion", requireAuth, async (req, res) => {
 });
 
 // ── CERRAR PROCESO (al completar resolución final o desestima) ────────
-router.post("/:id/cerrar", requireAuth, async (req, res) => {
+router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
   if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
@@ -964,7 +1000,7 @@ router.post("/:id/cerrar", requireAuth, async (req, res) => {
 // (resuelto, desestimado o archivado) para poder corregirlo. El estado
 // vuelve a 'en_curso' y se preserva todo el contenido de los pasos.
 // Uso típico: se detectó un error en la resolución después de cerrado.
-router.post("/:id/reactivar", requireAuth, async (req, res) => {
+router.post("/:id/reactivar", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   if (!["admin","administrativo"].includes(u.rol)) {
     return res.status(403).json({ error: "Solo admin/administrativo puede reactivar debidos procesos." });
@@ -1016,7 +1052,7 @@ router.post("/:id/reactivar", requireAuth, async (req, res) => {
   }
 });
 
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   if (!["admin","administrativo"].includes(u.rol)) {
     return res.status(403).json({ error: "Solo administración puede eliminar procesos." });
@@ -1055,7 +1091,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
 // Solo admin y administrativo. Cuando se asigna, todas las validaciones
 // del proceso usan al sustituto en lugar del guía original. Si se pasa
 // sustituto_id=null, se quita y el guía original vuelve a tomar el caso.
-router.put("/:id/sustituto", requireAuth, async (req, res) => {
+router.put("/:id/sustituto", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   if (!["admin","administrativo"].includes(u.rol)) {
     return res.status(403).json({ error: "Solo admin y administrativo pueden asignar sustitutos." });
@@ -1134,7 +1170,7 @@ router.put("/:id/sustituto", requireAuth, async (req, res) => {
 //     aprueba o rechaza. Si aprueba, el estado pasa a 'archivado'. Si
 //     rechaza, vuelve al estado anterior.
 
-router.post("/:id/solicitar-archivo", requireAuth, async (req, res) => {
+router.post("/:id/solicitar-archivo", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const { motivo } = req.body;
   if (!motivo || !motivo.trim()) {
@@ -1189,7 +1225,7 @@ router.post("/:id/solicitar-archivo", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/:id/aprobar-archivo", requireAuth, async (req, res) => {
+router.post("/:id/aprobar-archivo", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const { aprobar, decision } = req.body; // aprobar: bool, decision: texto opcional
   try {

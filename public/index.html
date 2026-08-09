@@ -4401,7 +4401,7 @@ let allSecciones=[],allMaterias=[],allProfesores=[],allMedidasActivas=[];
 //  API
 // ════════════════════════════════════
 async function api(url,method="GET",body=null){
-  const opts={method,headers:{"Content-Type":"application/json"}};
+  const opts={method,headers:{"Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"}};
   if(body) opts.body=JSON.stringify(body);
   const r=await fetch(url,opts);
   let d={};
@@ -9309,7 +9309,7 @@ function renderMatricula(){
       :'<span class="badge" style="background:#fef9c3;color:#713f12;">⏳ En proceso</span>'}</td>
     <td style="display:flex;gap:4px;">
       <button class="btn btn-outline btn-xs" onclick="continuarMatricula(${e.id},'${e.cedula}')">✏️</button>
-      <button class="btn btn-danger btn-xs" onclick="eliminarMatricula(${e.id},'${(e.primer_apellido+' '+e.nombre).replace(/'/g,"\'")}')">🗑️</button>
+      <button class="btn btn-danger btn-xs" onclick="eliminarMatricula(${e.id},'${(e.primer_apellido+' '+e.nombre).replace(/'/g,"\\'")}')">🗑️</button>
     </td>
   </tr>`;
   }).join("")
@@ -9454,7 +9454,7 @@ function subgrupoDeTec(tec){
 // Celda de sección en la tabla de matrícula (actual + asignación futura)
 function matSeccionCelda(e){
   const esFuturo = matAnio > matAnioActual();
-  const esc = (e.primer_apellido+' '+e.nombre).replace(/'/g,"\'");
+  const esc = (e.primer_apellido+' '+e.nombre).replace(/'/g,"\\'");
   const btnAsignar = `<button class="btn btn-outline btn-xs" onclick="abrirAsignarSeccion(${e.id},'${esc}',${e.nivel_matricula||0})">📚 Asignar</button>`;
   const btnEditar  = `<button class="btn btn-outline btn-xs" onclick="abrirAsignarSeccion(${e.id},'${esc}',${e.nivel_matricula||0})" title="Cambiar sección">✏️</button>`;
   if(esFuturo){

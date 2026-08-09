@@ -7,27 +7,43 @@ const pgSession = require("connect-pg-simple")(session);
 const path      = require("path");
 const { pool, initDB } = require("./db");
 const { requireAuth } = require("./middleware/auth");
+const {
+  validateSecurityConfig,
+  getSessionSecret,
+  securityHeaders,
+  csrfProtection,
+  rejectActiveMarkup,
+  hideProductionErrors,
+} = require("./middleware/security");
+
+validateSecurityConfig();
 
 const app  = express();
 app.use(compression()); // Gzip — reduces 411KB to ~100KB
 const PORT = process.env.PORT || 3002;
 
 app.set('trust proxy', 1);
+app.disable("x-powered-by");
+app.use(securityHeaders);
+app.use(hideProductionErrors);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(session({
   store: new pgSession({ pool, createTableIfMissing: true }),
-  secret: process.env.SESSION_SECRET || "lcf-asistencia-secret-2024",
-  resave: true,
+  secret: getSessionSecret(),
+  resave: false,
   saveUninitialized: false,
   proxy: true,
+  name: "lcf.sid",
   cookie: {
     maxAge: 10 * 60 * 60 * 1000,
-    secure: true,
-    sameSite: 'none',
+    secure: process.env.NODE_ENV === "production",
+    sameSite: 'lax',
     httpOnly: true
   }
 }));
+app.use(csrfProtection());
+app.use(rejectActiveMarkup);
 
 app.use("/api/auth",           require("./routes/auth"));
 app.use("/api/admin",          requireAuth, require("./routes/admin"));
@@ -93,7 +109,7 @@ initDB().then(() => {
   app.listen(PORT, () => {
     console.log(`\n🏫 Sistema de Asistencia — Liceo de Calle Fallas`);
     console.log(`   http://localhost:${PORT}`);
-    console.log(`   Admin: cédula 0000000000 / contraseña: Admin2024**\n`);
+    console.log(`   Servidor iniciado correctamente.\n`);
   });
 
   // Tarea de mantenimiento: re-comprime fotos viejas grandes (una sola vez).

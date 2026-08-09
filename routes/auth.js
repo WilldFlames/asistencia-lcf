@@ -1,8 +1,19 @@
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const { pool } = require("../db");
+const {
+  createRateLimiter,
+  regenerateSession,
+  saveSession,
+} = require("../middleware/security");
 
-router.post("/login", async (req, res) => {
+const loginLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: "Demasiados intentos de ingreso. Espere 15 minutos e intente nuevamente.",
+});
+
+router.post("/login", loginLimiter, async (req, res) => {
   const { cedula, password } = req.body;
   if (!cedula || !password) return res.status(400).json({ error: "Datos incompletos" });
   try {
@@ -23,7 +34,7 @@ router.post("/login", async (req, res) => {
       if (esOrientador.rows.length > 0) funciones_extra.push("orientador");
     }
 
-    req.session.usuario = {
+    const usuarioSesion = {
       id: user.id,
       cedula: user.cedula,
       nombre: user.nombre,
@@ -33,13 +44,20 @@ router.post("/login", async (req, res) => {
       primer_login: user.primer_login,
       funciones_extra  // roles adicionales por asignación de sección
     };
-    res.json({ ok: true, usuario: req.session.usuario });
+    await regenerateSession(req);
+    req.session.usuario = usuarioSesion;
+    await saveSession(req);
+    loginLimiter.reset(req);
+    res.json({ ok: true, usuario: usuarioSesion });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post("/logout", (req, res) => {
-  req.session.destroy();
-  res.json({ ok: true });
+router.post("/logout", (req, res, next) => {
+  req.session.destroy(error => {
+    if (error) return next(error);
+    res.clearCookie("lcf.sid");
+    res.json({ ok: true });
+  });
 });
 
 router.get("/me", (req, res) => {
@@ -61,7 +79,10 @@ router.post("/cambiar-password", async (req, res) => {
     if (!ok) return res.status(401).json({ error: "La contraseña actual es incorrecta" });
     const hash = await bcrypt.hash(password_nuevo, 10);
     await pool.query("UPDATE usuarios SET password_hash=$1, primer_login=false WHERE id=$2", [hash, req.session.usuario.id]);
-    req.session.usuario.primer_login = false;
+    const usuarioSesion = { ...req.session.usuario, primer_login: false };
+    await regenerateSession(req);
+    req.session.usuario = usuarioSesion;
+    await saveSession(req);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
