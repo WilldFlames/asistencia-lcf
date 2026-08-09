@@ -100,7 +100,7 @@ router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
           <h3 style="margin:12px 0 0;">Reporte de Asistencia</h3>
         </div>
         <div style="border:1px solid #e2e8f0;padding:20px;border-radius:0 0 8px 8px;">
-          <p><strong>Estudiante:</strong> ${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre}</p>
+          <p><strong>Estudiante:</strong> ${est.nombre} ${est.primer_apellido} ${est.segundo_apellido}</p>
           <p><strong>Sección:</strong> ${est.seccion_nombre||"—"}</p>
           <p><strong>Período:</strong> ${desde?fmtF(desde):"Inicio"} al ${hasta?fmtF(hasta):"hoy"}</p>
           <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:13px;">
@@ -137,7 +137,7 @@ router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
             Nota: el valor entre paréntesis (≈N) indica las ausencias equivalentes según la regla MEP (2 tardías = 1 ausencia). El % se calcula sumando ausencias y equivalentes.
           </p>
           <p style="margin-top:20px;font-size:12px;color:#64748b;">
-            Enviado por: ${remitente.primer_apellido} ${remitente.nombre} — ${new Date().toLocaleDateString("es-CR")}
+            Enviado por: ${remitente.nombre} ${remitente.primer_apellido} ${remitente.segundo_apellido||''} — ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric"})}
           </p>
         </div>
       </div>
@@ -152,7 +152,7 @@ router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
     await transporter.sendMail({
       from: `"Liceo de Calle Fallas" <${process.env.EMAIL_USER}>`,
       to: destinatarios.join(", "),
-      subject: `Reporte de Asistencia — ${est.primer_apellido} ${est.nombre} (${est.seccion_nombre||""})`,
+      subject: `Reporte de Asistencia — ${est.nombre} ${est.primer_apellido} ${est.segundo_apellido||''} (${est.seccion_nombre||""})`,
       html
     });
 

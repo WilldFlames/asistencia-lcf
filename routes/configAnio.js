@@ -25,9 +25,9 @@ router.get("/resumen/:anio", onlyAdmin, async (req, res) => {
     SELECT s.id, s.nombre, s.nivel,
       ${esFuturo ? "NULL::int AS guia_id, NULL::text AS guia, NULL::int AS orientador_id, NULL::text AS orientador," : `
       sg.profesor_id AS guia_id,
-      (SELECT u.primer_apellido || ' ' || u.nombre FROM usuarios u WHERE u.id = sg.profesor_id) AS guia,
+      (SELECT TRIM(CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido)) FROM usuarios u WHERE u.id = sg.profesor_id) AS guia,
       so.orientador_id AS orientador_id,
-      (SELECT u.primer_apellido || ' ' || u.nombre FROM usuarios u WHERE u.id = so.orientador_id) AS orientador,`}
+      (SELECT TRIM(CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido)) FROM usuarios u WHERE u.id = so.orientador_id) AS orientador,`}
       si.idioma AS idioma_exclusivo,
       sc.tec_b, sc.taller_a, sc.taller_b
     FROM secciones s

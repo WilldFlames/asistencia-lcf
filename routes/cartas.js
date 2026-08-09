@@ -90,7 +90,7 @@ router.get("/datos/:estudiante_id", requireDocente, async (req, res) => {
         asignacion_id: a.id,
         materia: a.materia,
         prof_id: a.prof_id,
-        prof_nombre_completo: `${a.prof_ap1} ${a.prof_ap2}, ${a.prof_nombre}`.trim(),
+        prof_nombre_completo: `${a.prof_nombre} ${a.prof_ap1} ${a.prof_ap2||''}`.replace(/\s+/g,' ').trim(),
         ausencias: aus,
         total_lecciones: totLec,
         porcentaje: pct
@@ -104,7 +104,7 @@ router.get("/datos/:estudiante_id", requireDocente, async (req, res) => {
       periodo: p,
       docente: {
         id: u.id,
-        nombre_completo: `${u.primer_apellido} ${u.segundo_apellido || ''}, ${u.nombre}`.trim()
+        nombre_completo: `${u.nombre} ${u.primer_apellido} ${u.segundo_apellido || ''}`.replace(/\s+/g,' ').trim()
       }
     });
   } catch (err) {

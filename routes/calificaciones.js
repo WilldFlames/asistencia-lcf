@@ -131,7 +131,8 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
   //               cuando no existe una versión específica del II)
   // Prioriza siempre la más específica (por eso el ORDER BY).
   const r = await pool.query(`
-    SELECT a.id, m.nombre AS materia_nombre,
+    SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo,
+           m.nombre AS materia_nombre, s.nombre AS seccion_nombre,
            (a.modo_simplificado OR COALESCE(m.modo_simplificado, false)) AS modo_simplificado,
            s.nivel AS seccion_nivel,
            COALESCE(a.periodo,'I Período') AS periodo,
@@ -1267,7 +1268,7 @@ router.get("/historial-previo", requireAuth, async (req, res) => {
     `, [asignacion_id, estudiante_id, a.materia_id, a.periodo]);
 
     res.json(r.rows.map(row => {
-      const profe = `${row.prof_ap1||''} ${row.prof_ap2||''} ${row.prof_nombre||''}`.replace(/\s+/g,' ').trim();
+      const profe = `${row.prof_nombre||''} ${row.prof_ap1||''} ${row.prof_ap2||''}`.replace(/\s+/g,' ').trim();
       // Calcular nota normalizada (sobre el puntaje total)
       let nota_obtenida = null, nota_maxima = null;
       if (row.tipo === 'examen') {

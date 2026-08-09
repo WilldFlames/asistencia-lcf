@@ -490,7 +490,7 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
         // Calcular promedios por estudiante (usando la lógica existente)
         const data = await calcularPromediosParaArchivo(client, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.periodo);
         if(!data || !data.estudiantes){ saltadas++; continue; }
-        const profNom = `${a.prof_ap1||''} ${a.prof_nombre||''}`.trim();
+        const profNom = `${a.prof_nombre||''} ${a.prof_ap1||''}`.trim();
         for(const est of data.estudiantes){
           const rb = est.rubros || {};
           await client.query(`

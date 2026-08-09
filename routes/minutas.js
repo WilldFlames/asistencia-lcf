@@ -147,7 +147,7 @@ router.get("/:id", requireAuth, async (req, res) => {
           const creadorR = await pool.query("SELECT iniciada_por, numero, anio FROM minutas WHERE id=$1", [req.params.id]);
           const creadorId = creadorR.rows[0]?.iniciada_por;
           if (creadorId && creadorId !== u.id) {
-            const nomAcceso = `${u.primer_apellido || ''} ${u.nombre || ''}`.trim();
+            const nomAcceso = `${u.nombre || ''} ${u.primer_apellido || ''} ${u.segundo_apellido || ''}`.replace(/\s+/g,' ').trim();
             const rolAcceso = u.rol === 'admin' ? 'Administrador' : 'Administrativo';
             await pool.query(
               "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
@@ -220,11 +220,11 @@ router.post("/", requireAuth, async (req, res) => {
       tipo, plataforma || '', dependencia || 'Liceo de Calle Fallas',
       lugar || '', fecha_reunion || null,
       hora_inicio || '', hora_fin || '', tema || '',
-      elaborada_por || `${u.primer_apellido||''} ${u.segundo_apellido||''} ${u.nombre||''}`.replace(/\s+/g,' ').trim()
+      elaborada_por || `${u.nombre||''} ${u.primer_apellido||''} ${u.segundo_apellido||''}`.replace(/\s+/g,' ').trim()
     ]);
 
     // Auto-agregar al creador como primer presente
-    const nombreCreador = `${u.primer_apellido||''} ${u.segundo_apellido||''} ${u.nombre||''}`.replace(/\s+/g,' ').trim();
+    const nombreCreador = `${u.nombre||''} ${u.primer_apellido||''} ${u.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
     const puestoCreador = u.rol || '';
     await pool.query(`
       INSERT INTO minuta_asistentes (minuta_id, usuario_id, nombre, puesto, tipo, orden)
@@ -318,7 +318,7 @@ router.post("/:id/asistentes", requireAuth, async (req, res) => {
       );
       if (!uR.rows.length) return res.status(400).json({ error:"Usuario no encontrado o inactivo" });
       const ud = uR.rows[0];
-      nombre = `${ud.primer_apellido||''} ${ud.segundo_apellido||''} ${ud.nombre||''}`.replace(/\s+/g,' ').trim();
+      nombre = `${ud.nombre||''} ${ud.primer_apellido||''} ${ud.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
       if (!puesto) puesto = ud.rol;
     } else {
       // Externo: requiere nombre
@@ -432,7 +432,7 @@ router.post("/:id/reabrir", requireAuth, async (req, res) => {
       );
       // Notificar al creador
       try {
-        const nomAcceso = `${u.primer_apellido || ''} ${u.nombre || ''}`.trim();
+        const nomAcceso = `${u.nombre || ''} ${u.primer_apellido || ''} ${u.segundo_apellido || ''}`.replace(/\s+/g,' ').trim();
         const rolAcceso = u.rol === 'admin' ? 'Administrador' : 'Administrativo';
         await pool.query(
           "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",

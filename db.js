@@ -377,6 +377,9 @@ async function initDB() {
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS foto_url TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS archivado BOOLEAN DEFAULT false`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS fecha_archivo DATE DEFAULT NULL`);
+    // Conserva la sección que tenía la persona al momento de archivarla. La
+    // sección activa se limpia, pero el expediente debe seguir mostrándola.
+    await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS seccion_archivo TEXT DEFAULT NULL`);
     // Auditoría del retiro: quién lo hizo, cuándo y con qué motivo
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS retirado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS fecha_retiro TIMESTAMP DEFAULT NULL`);
@@ -680,6 +683,32 @@ async function initDB() {
       )
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_hist_est ON historial_estudiante(estudiante_id, fecha DESC)`);
+
+    // Recuperar la sección de expedientes ya archivados a partir del historial
+    // anterior, cuando todavía no existía la columna seccion_archivo.
+    await client.query(`
+      UPDATE estudiantes e
+      SET seccion_archivo = (
+        SELECT NULLIF(
+          REGEXP_REPLACE(he.valor_anterior, '^Activo en\\s*', '', 'i'),
+          'sin sección'
+        )
+        FROM historial_estudiante he
+        WHERE he.estudiante_id = e.id
+          AND he.tipo = 'archivado'
+          AND he.valor_anterior ILIKE 'Activo en %'
+        ORDER BY he.fecha DESC
+        LIMIT 1
+      )
+      WHERE e.archivado = true
+        AND NULLIF(TRIM(e.seccion_archivo), '') IS NULL
+        AND EXISTS (
+          SELECT 1 FROM historial_estudiante he
+          WHERE he.estudiante_id = e.id
+            AND he.tipo = 'archivado'
+            AND he.valor_anterior ILIKE 'Activo en %'
+        )
+    `);
 
     // Migración inicial: importar movimientos antiguos.
     // Si un estudiante tiene una justificación de cambio de sección guardada en

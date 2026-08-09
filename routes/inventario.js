@@ -299,7 +299,7 @@ router.post("/salidas", canInventario, async (req, res) => {
     const uR = await pool.query("SELECT nombre, primer_apellido, segundo_apellido, cedula FROM usuarios WHERE id=$1", [retiraId]);
     if (!uR.rows.length) return res.status(400).json({ error: "Usuario que retira no encontrado." });
     const x = uR.rows[0];
-    retiraNombre = `${x.primer_apellido||''} ${x.segundo_apellido||''} ${x.nombre||''}`.replace(/\s+/g,' ').trim();
+    retiraNombre = `${x.nombre||''} ${x.primer_apellido||''} ${x.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
     retiraCedula = x.cedula || "";
   }
   if (!retiraNombre) return res.status(400).json({ error: "El nombre de quien retira es requerido" });

@@ -97,7 +97,7 @@ router.post("/", requireRol("profesor_guia","orientador","auxiliar"), async (req
       [estudiante_id]
     );
     const nombreEst = estR.rows[0]
-      ? `${estR.rows[0].primer_apellido||''} ${estR.rows[0].segundo_apellido||''}, ${estR.rows[0].nombre||''}`.replace(/\s+/g,' ').trim()
+      ? `${estR.rows[0].nombre||''} ${estR.rows[0].primer_apellido||''} ${estR.rows[0].segundo_apellido||''}`.replace(/\s+/g,' ').trim()
       : 'un estudiante';
     await pool.query(
       "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1, 'informe', $2)",
@@ -154,7 +154,7 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
     [estudiante_id]
   );
   const nombreEst = estDataR.rows[0]
-    ? `${estDataR.rows[0].primer_apellido||''} ${estDataR.rows[0].segundo_apellido||''}, ${estDataR.rows[0].nombre||''}`.replace(/\s+/g,' ').trim()
+    ? `${estDataR.rows[0].nombre||''} ${estDataR.rows[0].primer_apellido||''} ${estDataR.rows[0].segundo_apellido||''}`.replace(/\s+/g,' ').trim()
     : 'un estudiante';
 
   const insertados = [];

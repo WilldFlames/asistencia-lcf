@@ -108,7 +108,7 @@ router.get("/preview", canSwap, async (req, res) => {
         asignacion_id: a.id,
         subgrupo: a.subgrupo || null,
         prof_id: a.prof_id,
-        prof_nombre: `${a.prof_ap1} ${a.prof_ap2 || ''}, ${a.prof_nombre}`.trim(),
+        prof_nombre: `${a.prof_nombre} ${a.prof_ap1} ${a.prof_ap2 || ''}`.replace(/\s+/g,' ').trim(),
         lecciones_semana: a.lecciones_semana
       };
       if (a.materia_id === idHogar) secciones[a.seccion_id].hogar.push(info);

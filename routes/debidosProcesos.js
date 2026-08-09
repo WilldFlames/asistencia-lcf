@@ -342,7 +342,7 @@ router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
   try {
     const encR = await pool.query(`
       SELECT
-        TRIM(CONCAT_WS(' ', primer_apellido, segundo_apellido, nombre)) AS nombre_completo,
+        TRIM(CONCAT_WS(' ', nombre, primer_apellido, segundo_apellido)) AS nombre_completo,
         cedula, telefono, parentesco, es_principal
       FROM encargados WHERE estudiante_id = $1
       ORDER BY es_principal DESC NULLS LAST, id
@@ -394,7 +394,7 @@ router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
       if (!dR.rows.length) return res.status(400).json({ error: "Docente ofendido no encontrado o inactivo." });
       const d = dR.rows[0];
       docIdFinal = d.id;
-      docNombreFinal = `${d.primer_apellido||''} ${d.segundo_apellido||''}, ${d.nombre||''}`.replace(/\s+/g,' ').replace(/^,\s*/,'').trim();
+      docNombreFinal = `${d.nombre||''} ${d.primer_apellido||''} ${d.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
       docCedulaFinal = d.cedula;
     } else if (ofendido_docente_nombre && ofendido_docente_nombre.trim()) {
       // Docente externo (no está en el sistema): aceptamos nombre + cédula sueltos
@@ -602,7 +602,7 @@ router.post("/:id/testigos", requireAuth, requireProcesoAccess, async (req, res)
     // Notificar al guía de la otra sección
     if (asignadoA) {
       await notificar(asignadoA, "debido_proceso_pendiente",
-        `📋 Tenés una declaración de testigo pendiente en el debido proceso N°${dp.numero}-${dp.anio} (testigo: ${est.primer_apellido} ${est.nombre}).`);
+        `📋 Tenés una declaración de testigo pendiente en el debido proceso N°${dp.numero}-${dp.anio} (testigo: ${est.nombre} ${est.primer_apellido}).`);
     }
 
     res.json({ ok: true, paso_cita_id: citaR.rows[0].id, paso_decl_id: declR.rows[0].id, asignado_a: asignadoA });
@@ -703,7 +703,7 @@ router.post("/:id/ofendidos", requireAuth, requireProcesoAccess, async (req, res
 
     if (asignadoA) {
       await notificar(asignadoA, "debido_proceso_pendiente",
-        `📋 Tenés una declaración de ofendido pendiente en el debido proceso N°${dp.numero}-${dp.anio} (ofendido: ${est.primer_apellido} ${est.nombre}).`);
+        `📋 Tenés una declaración de ofendido pendiente en el debido proceso N°${dp.numero}-${dp.anio} (ofendido: ${est.nombre} ${est.primer_apellido}).`);
     }
 
     res.json({ ok: true, paso_cita_id: citaR.rows[0].id, paso_decl_id: declR.rows[0].id, asignado_a: asignadoA });
@@ -1133,7 +1133,7 @@ router.put("/:id/sustituto", requireAuth, requireProcesoAccess, async (req, res)
 
   // Log para auditoría
   if (nuevoSustituto) {
-    const nombreSus = `${nuevoSustituto.primer_apellido||''} ${nuevoSustituto.segundo_apellido||''} ${nuevoSustituto.nombre||''}`.replace(/\s+/g,' ').trim();
+    const nombreSus = `${nuevoSustituto.nombre||''} ${nuevoSustituto.primer_apellido||''} ${nuevoSustituto.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
     console.log(`[DP] Sustituto asignado a expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}): ${nombreSus} (${nuevoSustituto.id}). Por usuario ${u.id} (${u.rol}). Motivo: "${(motivo||'').trim()}"`);
 
     // Notificar al sustituto

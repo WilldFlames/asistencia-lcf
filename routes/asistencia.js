@@ -152,7 +152,7 @@ router.get("/diagnostico/:asignacion_id", async (req, res) => {
     res.json({
       asignacion: {
         id: a.id,
-        profesor: `${a.primer_apellido||''} ${a.segundo_apellido||''} ${a.prof_nombre||''}`.replace(/\s+/g,' ').trim(),
+        profesor: `${a.prof_nombre||''} ${a.primer_apellido||''} ${a.segundo_apellido||''}`.replace(/\s+/g,' ').trim(),
         prof_activo: a.prof_activo,
         seccion: a.seccion_nombre,
         nivel: a.seccion_nivel,
@@ -386,7 +386,7 @@ router.post("/", requireDocente, async (req, res) => {
                     VALUES ($1, 'conducta', $2)
                   `, [
                     g.id,
-                    `⚠️ Boleta automática — ${g.primer_apellido} ${g.segundo_apellido}, ${g.nombre} (${g.seccion_nombre||'sin sección'}): Ausencia injustificada en Guía/Orientación.`
+                    `⚠️ Boleta automática — ${g.nombre} ${g.primer_apellido} ${g.segundo_apellido} (${g.seccion_nombre||'sin sección'}): Ausencia injustificada en Guía/Orientación.`
                   ]);
                 }
               } catch(notifErr){ console.error('notif auto-boleta:', notifErr.message); }

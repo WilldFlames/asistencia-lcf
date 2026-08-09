@@ -132,7 +132,7 @@ router.get("/", requireAuth, async (req, res) => {
              (SELECT COUNT(*) FROM protocolo_formularios pf WHERE pf.protocolo_id=p.id)::int AS f_total,
              (SELECT string_agg(
                 COALESCE(NULLIF(pp.nombre_completo,''),
-                         CONCAT_WS(' ', e.primer_apellido, e.segundo_apellido, ',', e.nombre)),
+                         CONCAT_WS(' ', e.nombre, e.primer_apellido, e.segundo_apellido)),
                 ' / ')
               FROM protocolo_personas pp LEFT JOIN estudiantes e ON e.id = pp.estudiante_id
               WHERE pp.protocolo_id = p.id AND pp.rol = 'afectado'

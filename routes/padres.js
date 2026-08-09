@@ -356,7 +356,7 @@ router.get("/alertas", requirePadre, async (req, res) => {
     ORDER BY fecha DESC, hora DESC
   `, [ids, desde, hoy]);
 
-  const nombreDe = {}; hijos.forEach(h => { nombreDe[h.id] = `${h.primer_apellido} ${h.nombre}`; });
+  const nombreDe = {}; hijos.forEach(h => { nombreDe[h.id] = `${h.nombre} ${h.primer_apellido} ${h.segundo_apellido||''}`.replace(/\s+/g,' ').trim(); });
   const alertas = [];
   aus.rows.forEach(x => alertas.push({
     tipo: x.estado === 'A' ? 'ausencia' : 'tardia',

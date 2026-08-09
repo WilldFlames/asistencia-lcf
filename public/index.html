@@ -409,6 +409,288 @@ tr:hover td{background:#f8fafc;}
   #print-header img{max-width:400px!important;height:auto!important;}
   .reporte-materia{page-break-inside:avoid;}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   IDENTIDAD VISUAL INSTITUCIONAL 2026
+   Capa exclusivamente visual: no altera permisos, rutas ni acciones.
+   Está limitada a pantalla para no modificar los documentos oficiales.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media screen {
+  :root{
+    --azul:#123b66;
+    --azul2:#2563a8;
+    --verde:#18a66a;
+    --rojo:#dc4c5b;
+    --naranja:#ed8a32;
+    --morado:#7759c8;
+    --celeste:#2ba8c6;
+    --bg:#f4f7fb;
+    --card:#ffffff;
+    --border:#dfe7f0;
+    --text:#1d2b3c;
+    --muted:#66768a;
+    --sidebar:#0d2f52;
+    --sidebar-deep:#082641;
+    --r:14px;
+    --shadow-sm:0 2px 8px rgba(20,45,75,.06);
+    --shadow-md:0 10px 28px rgba(20,45,75,.10);
+  }
+
+  html{background:var(--bg);}
+  body{
+    font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif;
+    background:
+      radial-gradient(circle at 84% 2%,rgba(43,168,198,.07),transparent 25rem),
+      var(--bg);
+    color:var(--text);
+    overflow:hidden;
+  }
+  button,input,select,textarea{font:inherit;}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+    outline:3px solid rgba(37,99,168,.22);
+    outline-offset:2px;
+  }
+
+  /* Acceso */
+  #login-screen{background:linear-gradient(145deg,#082641 0%,#123b66 52%,#226ca6 100%);}
+  #login-screen::before,#cambiar-pass-screen::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(circle at 18% 18%,rgba(255,255,255,.12),transparent 24rem),
+      radial-gradient(circle at 82% 82%,rgba(44,182,198,.16),transparent 22rem);
+  }
+  .auth-box{
+    position:relative;border:1px solid rgba(255,255,255,.72);border-radius:24px;
+    padding:38px 42px 34px;box-shadow:0 28px 80px rgba(1,20,39,.34);
+  }
+  .auth-box > img{width:96px!important;height:96px!important;border:5px solid #fff;box-shadow:0 9px 24px rgba(18,59,102,.18)!important;}
+  .auth-box h2{font-size:21px;letter-spacing:-.25px;margin-bottom:5px;}
+  .auth-sub{font-size:13px;line-height:1.55;margin-bottom:22px;}
+  .auth-fg{margin-bottom:14px;}
+  .auth-fg label{font-size:11px;letter-spacing:.2px;color:#526277;margin-bottom:6px;}
+  .auth-fg input{min-height:44px;border-color:#d7e0ea;border-radius:10px;background:#fbfdff;transition:border-color .15s,box-shadow .15s;}
+  .auth-fg input:focus{border-color:var(--azul2);box-shadow:0 0 0 4px rgba(37,99,168,.10);}
+  .auth-btn{min-height:44px;border-radius:10px;box-shadow:0 7px 16px rgba(18,59,102,.18);transition:transform .15s,box-shadow .15s,opacity .15s;}
+  .auth-btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(18,59,102,.22);opacity:1;}
+
+  /* Estructura principal */
+  .app-body{display:block;min-height:100vh;overflow:hidden;}
+  .sidebar{
+    position:fixed;inset:0 auto 0 0;z-index:150;width:252px;
+    background:linear-gradient(180deg,var(--sidebar) 0%,var(--sidebar-deep) 100%);
+    padding:0 12px 18px;overflow-y:auto;overflow-x:hidden;
+    box-shadow:8px 0 26px rgba(7,36,63,.12);
+    scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent;
+  }
+  .sidebar-brand{
+    min-height:92px;margin:0 -12px 11px;padding:15px 16px;
+    display:flex;align-items:center;gap:11px;border-bottom:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.025);
+  }
+  .sidebar-brand img{
+    width:54px;height:54px;object-fit:cover;border-radius:50%;border:3px solid rgba(255,255,255,.94);
+    box-shadow:0 5px 16px rgba(0,0,0,.24);flex:0 0 auto;visibility:hidden;
+  }
+  .sidebar-brand img[src]{visibility:visible;}
+  .sidebar-brand-name{font-size:13px;font-weight:800;line-height:1.28;color:#fff;}
+  .sidebar-brand-sub{font-size:10px;line-height:1.35;color:rgba(255,255,255,.62);margin-top:3px;}
+  .sidebar-section{
+    padding:14px 10px 6px;font-size:9px;letter-spacing:1.35px;color:rgba(255,255,255,.46);
+    opacity:1;font-weight:800;
+  }
+  .nav-btn{
+    min-height:43px;margin:2px 0;padding:7px 9px;border-radius:11px;gap:10px;
+    color:rgba(255,255,255,.78);font-size:12.5px;font-weight:600;
+    transition:background .16s,color .16s,transform .16s,box-shadow .16s;
+  }
+  .nav-btn:hover{background:rgba(255,255,255,.08);color:#fff;transform:translateX(2px);}
+  .nav-btn.active{
+    background:#fff;color:var(--sidebar);font-weight:800;
+    box-shadow:0 8px 20px rgba(3,23,41,.24);transform:none;
+  }
+  .nav-btn .icon{
+    width:29px;height:29px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;
+    font-size:15px;background:rgba(43,168,198,.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);flex:0 0 auto;
+  }
+  .nav-btn.active .icon{box-shadow:none;}
+  .nav-btn[data-page="dashboard"] .icon,.nav-btn[data-page="consulta"] .icon,.nav-btn[data-page="horario"] .icon{background:#dff4f8;}
+  .nav-btn[data-page="asistencia"] .icon,.nav-btn[data-page="comedor"] .icon,.nav-btn[data-page="cumplimiento"] .icon{background:#ddf7eb;}
+  .nav-btn[data-page="calificaciones"] .icon,.nav-btn[data-page="promedio"] .icon,.nav-btn[data-page="reportes"] .icon{background:#e7edff;}
+  .nav-btn[data-page="conducta"] .icon,.nav-btn[data-page="debidos"] .icon,.nav-btn[data-page="protocolos"] .icon{background:#eee9fb;}
+  .nav-btn[data-page="estudiantes"] .icon,.nav-btn[data-page="matricula"] .icon,.nav-btn[data-page="prematricula"] .icon{background:#fff0dc;}
+  .nav-btn[data-page="mensajes"] .icon,.nav-btn[data-page="cartas"] .icon,.nav-btn[data-page="anuncios"] .icon{background:#ffe7ec;}
+  .nav-btn[data-page="usuarios"] .icon,.nav-btn[data-page="asignaciones"] .icon,.nav-btn[data-page="config-anio"] .icon{background:#e4f0ff;}
+  .nav-btn[data-page="precautoria"] .icon,.nav-btn[data-page="suspension"] .icon{background:#ffe3e4;}
+
+  .topbar{
+    position:fixed;top:0;right:0;left:252px;z-index:140;height:72px;padding:0 28px;
+    background:rgba(255,255,255,.96);backdrop-filter:blur(10px);color:var(--text);
+    border-bottom:1px solid var(--border);box-shadow:0 2px 10px rgba(18,59,102,.04);
+  }
+  .topbar-left{display:flex;align-items:center;gap:11px;min-width:0;}
+  .topbar-page-title{font-size:17px;font-weight:800;color:var(--azul);line-height:1.25;}
+  .topbar .sub{font-size:11px;color:var(--muted);opacity:1;margin-top:2px;}
+  .topbar-school{display:none;}
+  .topbar-right{gap:11px;}
+  #usuario-label{
+    max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    padding:7px 11px;border-radius:999px;background:#edf4fb;color:#36516f;font-size:11.5px;font-weight:700;opacity:1;
+  }
+  .notif-wrap{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:11px;background:#fff;}
+  .notif-bell{font-size:17px;padding:0;}
+  .notif-dropdown{top:46px;border-radius:14px;box-shadow:var(--shadow-md);}
+  .btn-logout{
+    min-height:36px;padding:7px 13px;border:1px solid #f1cbd0;border-radius:10px;
+    background:#fff6f7;color:#a93644;font-weight:800;transition:background .15s,transform .15s;
+  }
+  .btn-logout:hover{background:#ffe9ec;transform:translateY(-1px);}
+  .hamburger{color:var(--azul);}
+
+  .main-content{
+    height:100vh;margin-left:252px;padding:96px 28px 34px;overflow-y:auto;overflow-x:hidden;
+    scroll-behavior:smooth;
+  }
+  .page.active{animation:pageIn .18s ease-out;}
+  @keyframes pageIn{from{opacity:.35;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+  /* Componentes comunes */
+  .card{
+    border:1px solid var(--border);border-radius:var(--r);padding:19px;margin-bottom:16px;
+    box-shadow:var(--shadow-sm);background:rgba(255,255,255,.98);
+  }
+  .card h2{font-size:15px;color:var(--azul);letter-spacing:-.1px;margin-bottom:14px;}
+  .card:hover{border-color:#d4dfeb;}
+  .stats{gap:13px;margin-bottom:18px;}
+  .stat{
+    position:relative;overflow:hidden;min-height:104px;padding:17px;border:1px solid var(--border);
+    border-radius:var(--r);text-align:left;box-shadow:var(--shadow-sm);
+  }
+  .stat::after{content:"";position:absolute;width:74px;height:74px;border-radius:50%;right:-26px;bottom:-32px;background:rgba(37,99,168,.06);}
+  .stat .num{font-size:29px;line-height:1;font-weight:800;color:var(--azul);letter-spacing:-1px;}
+  .stat .lbl{font-size:11.5px;color:var(--muted);margin-top:8px;font-weight:650;}
+  #page-dashboard .dashboard-stats .stat{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;}
+  #page-dashboard .dashboard-stats .stat-icon{
+    grid-row:1/3;width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;background:#e8f1fb;
+  }
+  #page-dashboard .dashboard-stats .stat:nth-child(2) .stat-icon{background:#ddf7eb;}
+  #page-dashboard .dashboard-stats .stat:nth-child(3) .stat-icon{background:#fff0dc;}
+  #page-dashboard .dashboard-stats .stat .lbl{margin-top:5px;}
+  #page-dashboard .dashboard-welcome{
+    position:relative;padding:20px 22px;border:0;color:#fff;overflow:hidden;
+    background:linear-gradient(120deg,#123b66,#276da4);box-shadow:0 11px 24px rgba(18,59,102,.18);
+  }
+  #page-dashboard .dashboard-welcome::after{content:"";position:absolute;right:-60px;top:-85px;width:230px;height:230px;border-radius:50%;background:rgba(255,255,255,.08);}
+  #page-dashboard .dashboard-welcome h2{position:relative;color:#fff;font-size:18px;margin-bottom:6px;z-index:1;}
+  #page-dashboard .dashboard-welcome p{position:relative;color:rgba(255,255,255,.78)!important;z-index:1;}
+  #dash-profesor-content > div{gap:14px!important;}
+  #dash-profesor-content .card{box-shadow:var(--shadow-sm);}
+
+  .fg{gap:6px;}
+  .fg label{font-size:11px;color:#526277;letter-spacing:.15px;}
+  .fg input,.fg select,.fg textarea,
+  .search-bar input,
+  .main-content input[type="text"],.main-content input[type="search"],.main-content input[type="number"],
+  .main-content input[type="date"],.main-content input[type="time"],.main-content input[type="email"],
+  .main-content input[type="password"],.main-content select,.main-content textarea{
+    min-height:39px;padding:8px 11px;border:1px solid #d6e0ea;border-radius:9px;background:#fff;color:var(--text);
+    transition:border-color .15s,box-shadow .15s,background .15s;
+  }
+  .fg textarea,.main-content textarea{min-height:72px;}
+  .fg input:focus,.fg select:focus,.fg textarea:focus,.search-bar input:focus,
+  .main-content input:focus,.main-content select:focus,.main-content textarea:focus{
+    outline:none;border-color:#6d9bc8;box-shadow:0 0 0 4px rgba(37,99,168,.09);background:#fff;
+  }
+  .form-grid{gap:14px;}
+  .form-actions{margin-top:15px;gap:9px;}
+
+  .btn{
+    min-height:36px;padding:8px 15px;border-radius:9px;font-size:12.5px;font-weight:750;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    box-shadow:0 2px 5px rgba(20,45,75,.08);transition:transform .15s,box-shadow .15s,background .15s,opacity .15s;
+  }
+  .btn:hover{opacity:1;transform:translateY(-1px);box-shadow:0 6px 12px rgba(20,45,75,.13);}
+  .btn:active{transform:translateY(0);box-shadow:0 2px 5px rgba(20,45,75,.08);}
+  .btn-primary{background:var(--azul2);}
+  .btn-success{background:var(--verde);}
+  .btn-danger{background:var(--rojo);}
+  .btn-orange{background:var(--naranja);}
+  .btn-purple{background:var(--morado);}
+  .btn-outline{background:#fff;color:var(--azul);border:1px solid #b9cce0;box-shadow:none;}
+  .btn-outline:hover{background:#eef5fb;border-color:#7fa3c7;}
+  .btn-sm{min-height:32px;padding:6px 11px;font-size:11.5px;}
+  .btn-xs{min-height:27px;padding:4px 8px;font-size:10.5px;border-radius:7px;}
+
+  .table-wrap{border:1px solid var(--border);border-radius:12px;background:#fff;box-shadow:0 2px 7px rgba(20,45,75,.035);}
+  .table-wrap table{margin:0;}
+  th{height:39px;padding:9px 12px;background:#edf3f8;color:#526579;border-bottom:1px solid #d5e0eb;font-size:10px;letter-spacing:.35px;text-transform:uppercase;}
+  td{padding:10px 12px;border-bottom-color:#e8eef4;font-size:12.5px;}
+  tr:hover td{background:#f7faff;}
+  .empty{padding:38px;color:#7a8899;}
+
+  .badge{padding:4px 9px;font-size:10px;letter-spacing:.1px;}
+  .alert{padding:11px 14px;border-radius:10px;box-shadow:0 2px 6px rgba(20,45,75,.04);}
+  .informe-card,.reporte-materia,.enc-card{border-radius:11px;background:#fff;}
+  .consulta-card{border:1px solid #bcd0e4;border-left:4px solid var(--azul2);box-shadow:var(--shadow-sm);}
+
+  .modal-overlay{background:rgba(7,29,51,.58);backdrop-filter:blur(3px);}
+  .modal{border:1px solid rgba(255,255,255,.8);border-radius:18px;padding:23px;box-shadow:0 24px 70px rgba(5,29,52,.28);}
+  .modal h3{font-size:16px;margin-bottom:16px;}
+  .modal-actions{padding-top:13px;border-top:1px solid #edf1f5;gap:9px;}
+  .detalle-institucional-bloque{border:1px solid var(--border);border-left:4px solid var(--azul2);border-radius:11px;padding:10px 14px;margin-bottom:12px;background:#fbfdff;}
+  .detalle-institucional-bloque.verde{border-left-color:var(--verde);}
+  .detalle-institucional-bloque.naranja{border-left-color:var(--naranja);}
+  .detalle-institucional-bloque h4{font-size:12px;color:var(--azul);margin-bottom:7px;}
+  .detalle-institucional-fila{display:flex;justify-content:space-between;gap:18px;padding:6px 0;border-bottom:1px dashed #dbe4ee;font-size:12.5px;line-height:1.35;}
+  .detalle-institucional-fila:last-child{border-bottom:0;}
+  .detalle-institucional-fila span{color:var(--muted);}
+  .detalle-institucional-fila strong{text-align:right;color:var(--text);overflow-wrap:anywhere;}
+
+  .notif-header{padding:12px 14px;}
+  .notif-item{padding:12px 14px;line-height:1.4;}
+  .notif-item.no-leida{background:#f0f6fc;}
+  .search-bar{gap:9px;margin-bottom:14px;}
+
+  /* El horario conserva su diseño especial y se integra con la nueva capa. */
+  .hor-toolbar{border-radius:12px;background:#fff;box-shadow:var(--shadow-sm);}
+  #hor-grid-wrap{border-radius:14px;box-shadow:var(--shadow-sm);}
+}
+
+@media screen and (min-width:769px){
+  .main-content{margin-left:252px;}
+}
+
+@media screen and (max-width:768px){
+  .topbar{left:0;height:64px;padding:0 12px;}
+  .topbar-page-title{display:none;}
+  .topbar-school{display:block;font-size:13px;font-weight:800;color:var(--azul);white-space:nowrap;}
+  .topbar .sub{font-size:9.5px;}
+  .sidebar{left:-266px;width:252px;padding-bottom:22px;transition:left .24s ease;}
+  .sidebar.open{left:0;}
+  .main-content{height:100vh;margin-left:0;padding:82px 11px 26px;}
+  .sidebar-overlay{z-index:149;background:rgba(4,25,44,.55);backdrop-filter:blur(2px);}
+  #usuario-label{display:none;}
+  .btn-logout{padding:6px 9px;min-height:34px;}
+  .notif-wrap{width:35px;height:35px;}
+  .card{padding:15px;border-radius:12px;}
+  .modal{border-radius:18px 18px 0 0;padding:19px 14px;}
+  .stats{gap:9px;}
+  .stat{min-height:91px;padding:13px;}
+  .stat .num{font-size:25px;}
+  #page-dashboard .dashboard-stats .stat{display:block;text-align:center;}
+  #page-dashboard .dashboard-stats .stat-icon{width:36px;height:36px;margin:0 auto 8px;font-size:17px;}
+  #page-dashboard .dashboard-welcome{padding:18px;}
+  #dash-profesor-content > div{grid-template-columns:1fr!important;}
+  #dash-profesor-content .card[style*="grid-column:span 2"]{grid-column:span 1!important;}
+}
+
+@media screen and (max-width:430px){
+  .auth-box{margin:12px;padding:30px 22px 26px;border-radius:20px;}
+  .auth-box > img{width:82px!important;height:82px!important;}
+  .topbar-right{gap:6px;}
+  .btn-logout{font-size:11px;}
+  .stats{grid-template-columns:1fr 1fr;}
+  .form-actions .btn{flex:1 1 auto;}
+}
 </style>
 </head>
 <body>
@@ -560,9 +842,13 @@ tr:hover td{background:#f8fafc;}
 
 <!-- TOPBAR -->
 <div class="topbar">
-  <div style="display:flex;align-items:center;gap:10px;">
+  <div class="topbar-left">
     <button class="hamburger" onclick="toggleSidebar()" title="Menú">☰</button>
-    <div><div class="topbar h1">🏫 Liceo de Calle Fallas</div><div class="sub">Sistema de Asistencia</div></div>
+    <div>
+      <div class="topbar-page-title" id="topbar-page-title">Panel principal</div>
+      <div class="topbar-school">Liceo de Calle Fallas</div>
+      <div class="sub" id="topbar-page-subtitle">Sistema de Administración Institucional</div>
+    </div>
   </div>
   <div class="topbar-right">
     <span id="usuario-label"></span>
@@ -585,13 +871,18 @@ tr:hover td{background:#f8fafc;}
 
 <div class="app-body">
 <nav class="sidebar" id="sidebar">
-  <div style="height:10px"></div>
+  <div class="sidebar-brand">
+    <img id="sidebar-shield" alt="Escudo del Liceo de Calle Fallas"/>
+    <div>
+      <div class="sidebar-brand-name">Liceo de Calle Fallas</div>
+      <div class="sidebar-brand-sub">Administración institucional</div>
+    </div>
+  </div>
   <button class="nav-btn active" data-page="dashboard" onclick="goTo('dashboard')"><span class="icon">🏠</span><span>Dashboard</span></button>
   <button class="nav-btn" id="nav-mensajes" data-page="mensajes" onclick="goTo('mensajes')" style="display:none"><span class="icon">📨</span><span>Mensajes</span></button>
   <div class="sidebar-section" id="sec-docente" style="display:none">Docente</div>
   <button class="nav-btn" data-page="asistencia" id="nav-asistencia" onclick="goTo('asistencia')" style="display:none"><span class="icon">✅</span><span>Asistencia</span></button>
   <button class="nav-btn" data-page="calificaciones" id="nav-calificaciones" onclick="goTo('calificaciones')" style="display:none"><span class="icon">📊</span><span>Calificaciones</span></button>
-  <button class="nav-btn" data-page="promedio" id="nav-promedio" onclick="goTo('promedio')" style="display:none"><span class="icon">📈</span><span>Promedio</span></button>
   <button class="nav-btn" data-page="promedio" id="nav-promedio" onclick="goTo('promedio')" style="display:none"><span class="icon">📈</span><span>Promedio</span></button>
   <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
@@ -630,12 +921,12 @@ tr:hover td{background:#f8fafc;}
 
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
-  <div class="stats" id="dash-stats-admin">
-    <div class="stat"><div class="num" id="ds-usuarios">—</div><div class="lbl">Usuarios</div></div>
-    <div class="stat"><div class="num green" id="ds-estudiantes">—</div><div class="lbl">Estudiantes</div></div>
-    <div class="stat"><div class="num orange" id="ds-asignaciones">—</div><div class="lbl">Asignaciones</div></div>
+  <div class="stats dashboard-stats" id="dash-stats-admin">
+    <div class="stat"><div class="stat-icon">👥</div><div class="num" id="ds-usuarios">—</div><div class="lbl">Usuarios activos</div></div>
+    <div class="stat"><div class="stat-icon">🎒</div><div class="num green" id="ds-estudiantes">—</div><div class="lbl">Estudiantes</div></div>
+    <div class="stat"><div class="stat-icon">📚</div><div class="num orange" id="ds-asignaciones">—</div><div class="lbl">Asignaciones</div></div>
   </div>
-  <div class="card"><h2 id="dash-saludo">Bienvenido</h2><p style="font-size:14px;color:var(--muted)" id="dash-msg"></p></div>
+  <div class="card dashboard-welcome"><h2 id="dash-saludo">Bienvenido</h2><p style="font-size:14px;color:var(--muted)" id="dash-msg"></p></div>
   <div id="dash-profesor-content"></div>
 </div>
 
@@ -4438,6 +4729,25 @@ tr:hover td{background:#f8fafc;}
 let ME=null;
 let asigActiva=null, consecTipoActivo='todos', consecData=[];
 
+// La interfaz reutiliza el escudo que ya está incluido en la pantalla de
+// acceso. Así evitamos duplicar la imagen o depender de un archivo externo.
+function iniciarIdentidadVisual(){
+  const escudoFuente=document.querySelector("#login-screen .auth-box img");
+  const escudoMenu=document.getElementById("sidebar-shield");
+  if(escudoFuente&&escudoMenu&&!escudoMenu.src) escudoMenu.src=escudoFuente.src;
+}
+
+function actualizarEncabezadoPagina(page){
+  const titulo=document.getElementById("topbar-page-title");
+  if(!titulo)return;
+  const boton=[...document.querySelectorAll(`.nav-btn[data-page="${page}"]`)]
+    .find(b=>b.style.display!=="none") || document.querySelector(`.nav-btn[data-page="${page}"]`);
+  const etiqueta=boton?.querySelector("span:last-child")?.textContent?.trim();
+  titulo.textContent=page==="dashboard"?"Panel principal":(etiqueta||"Sistema institucional");
+}
+
+iniciarIdentidadVisual();
+
 // Verificar si el usuario tiene un rol o función extra
 function tieneRol(rol) {
   if (!ME) return false;
@@ -4491,6 +4801,36 @@ const fmtF=d=>{
   const [y,m,dia] = s.split("-");
   return `${dia}/${m}/${y}`;
 };
+
+// Formato institucional único para personas: Nombre + primer apellido +
+// segundo apellido. Se usa tanto en pantalla como en documentos impresos.
+function nombrePersona(persona, opciones={}){
+  const vacio = Object.prototype.hasOwnProperty.call(opciones,"vacio") ? String(opciones.vacio??"") : "—";
+  if(!persona) return vacio;
+  const partes=[persona.nombre,persona.primer_apellido,persona.segundo_apellido]
+    .map(v=>String(v??"").trim()).filter(Boolean);
+  let resultado=partes.join(" ").replace(/\s+/g," ").trim();
+  if(!resultado) resultado=vacio;
+  return opciones.mayusculas ? resultado.toLocaleUpperCase("es-CR") : resultado;
+}
+
+function nombreDesdeCampos(nombre,primerApellido,segundoApellido,opciones={}){
+  return nombrePersona({nombre,primer_apellido:primerApellido,segundo_apellido:segundoApellido},opciones);
+}
+
+function htmlSeguro(valor){
+  return String(valor??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function filaDetalle(etiqueta,valor){
+  return `<div class="detalle-institucional-fila"><span>${htmlSeguro(etiqueta)}</span><strong>${htmlSeguro(valor||"—")}</strong></div>`;
+}
+
+function abrirDetalleInstitucional(titulo,contenidoHTML){
+  document.getElementById("detalle-institucional-titulo").textContent=titulo;
+  document.getElementById("detalle-institucional-contenido").innerHTML=contenidoHTML;
+  document.getElementById("modal-detalle-institucional").classList.add("show");
+}
 
 // Normaliza cualquier formato de fecha (Date, string ISO, string YYYY-MM-DD, null) a YYYY-MM-DD
 // para asignar a inputs type="date". Devuelve "" si no se puede parsear.
@@ -4653,6 +4993,7 @@ function goTo(page){
   document.getElementById("page-"+page).classList.add("active");
   const btn=document.querySelector(`[data-page="${page}"]`);
   if(btn)btn.classList.add("active");
+  actualizarEncabezadoPagina(page);
   if(page==="dashboard")   cargarDashboard();
   if(page==="usuarios")    cargarUsuarios();
   if(page==="asignaciones"){cargarMateriasList();cargarSeccionesAdmin();cargarAsignaciones();}
@@ -4730,7 +5071,7 @@ async function iniciarApp(){
   const rolesExtra = ME.funciones_extra && ME.funciones_extra.length
     ? " + " + ME.funciones_extra.map(r=>RLBL[r]||r).join(", ")
     : "";
-  document.getElementById("usuario-label").textContent=`${ME.primer_apellido} ${ME.nombre} (${RLBL[ME.rol]}${rolesExtra})`;
+  document.getElementById("usuario-label").textContent=`${nombrePersona(ME)} (${RLBL[ME.rol]}${rolesExtra})`;
 
   const fx = ME.funciones_extra || [];
   const esAdmin     = ME.rol === "admin";
@@ -5026,7 +5367,7 @@ async function cargarCatalogos(){
   poblarSel("mi-seccion",false,"— Sección —");
   poblarSel("mcs-seccion",false,"Sin sección");
   const sp=document.getElementById("ma-profesor");
-  if(sp) sp.innerHTML='<option value="">— Seleccionar —</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]})</option>`).join("");
+  if(sp) sp.innerHTML='<option value="">— Seleccionar —</option>'+allProfesores.map(p=>`<option value="${p.id}">${nombrePersona(p)} (${RLBL[p.rol]})</option>`).join("");
   const sm=document.getElementById("ma-materia");
   if(sm) sm.innerHTML='<option value="">— Seleccionar —</option>'+allMaterias.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join("");
 }
@@ -5169,7 +5510,7 @@ async function cargarDashboard(){
   const hora = hoy.getHours();
   const saludo = hora<12?"🌅 Buenos días":hora<18?"☀️ Buenas tardes":"🌙 Buenas noches";
   const saludoFinal = hora<12?"🌅 Buenos días":hora<18?"☀️ Buenas tardes":"🌙 Buenas noches";
-  document.getElementById("dash-saludo").textContent = `${saludoFinal}, ${ME.nombre} ${ME.primer_apellido}`;
+  document.getElementById("dash-saludo").textContent = `${saludoFinal}, ${nombrePersona(ME)}`;
   document.getElementById("dash-msg").textContent = `${RLBL[ME.rol]}${fx.length?" + "+fx.map(r=>RLBL[r]).join(", "):""} · ${dias[hoy.getDay()]} ${hoy.toLocaleDateString("es-CR",{day:"numeric",month:"long",year:"numeric"})}`;
 
   // Stats admin
@@ -5196,7 +5537,7 @@ async function cargarDashboard(){
 
     // Cargar horario del profesor desde horarios.json
     const horarios = await cargarHorarios();
-    const nombreCompleto = `${ME.primer_apellido||''} ${ME.segundo_apellido||''} ${ME.nombre||''}`;
+  const nombreCompleto = nombrePersona(ME,{vacio:''});
     const horarioHoy = obtenerHorarioHoy(horarios, nombreCompleto);
 
     // hoyStr ya definido arriba con timezone CR
@@ -5435,7 +5776,7 @@ async function cargarDashboard(){
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">
           ${d.ausenciasFrecuentes.map(e=>`
             <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:9px 12px;font-size:13px;">
-              <div style="font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
+              <div style="font-weight:bold;">${nombrePersona(e)}</div>
               ${e.seccion_nombre?`<div style="font-size:11px;color:var(--azul);font-weight:bold;">📚 ${e.seccion_nombre}</div>`:""}
               ${e.materia_nombre?`<div style="font-size:11px;color:var(--muted);display:none;">📖 ${e.materia_nombre}</div>`:""}
               <div style="color:var(--rojo);font-weight:bold;margin-top:3px;">${e.total_ausencias} lecciones ausente</div>
@@ -5451,7 +5792,7 @@ async function cargarDashboard(){
       if(esProf&&d&&d.asignaciones){const ss=new Set(d.asignaciones.map(a=>a.seccion_id).filter(Boolean));mFilt=allMedidasActivas.filter(m=>ss.has(m.seccion_id));}
       if(mFilt.length>0){
         const susp=mFilt.filter(m=>m.tipo==='suspension'),prec=mFilt.filter(m=>m.tipo==='precautoria'),hibr=mFilt.filter(m=>m.tipo==='educacion_hibrida');
-        const mRow=m=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid var(--border);"><span><strong>${m.primer_apellido}, ${m.nombre}</strong> <span style="color:var(--muted);">${m.seccion_nombre||''}</span></span><span style="color:var(--muted);white-space:nowrap;">vence ${fmtF(m.fecha_fin)}</span></div>`;
+        const mRow=m=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid var(--border);"><span><strong>${nombrePersona(m)}</strong> <span style="color:var(--muted);">${m.seccion_nombre||''}</span></span><span style="color:var(--muted);white-space:nowrap;">vence ${fmtF(m.fecha_fin)}</span></div>`;
         let mHtml='';
         if(susp.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#991b1b;margin:5px 0 2px;">🚫 Suspendidos (${susp.length})</div>${susp.map(mRow).join('')}`;
         if(prec.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#854d0e;margin:5px 0 2px;">⚠️ Precautoria (${prec.length})</div>${prec.map(mRow).join('')}`;
@@ -5558,7 +5899,7 @@ async function abrirListaNivel(nivel){
     }
 
     const rows = filtrados.map((e, i) => {
-      const nom = `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/\s+/g,' ').trim();
+      const nom = nombrePersona(e);
       return `<tr>
         <td style="text-align:center;color:var(--muted);font-size:12px;">${i+1}</td>
         <td>${nom}</td>
@@ -5582,7 +5923,7 @@ async function abrirListaNivel(nivel){
           <thead style="position:sticky;top:0;background:#f1f5f9;z-index:1;">
             <tr>
               <th style="width:40px;text-align:center;">#</th>
-              <th>Apellidos, Nombre</th>
+              <th>Nombre completo</th>
               <th>Cédula</th>
               <th>Sección</th>
             </tr>
@@ -5628,7 +5969,7 @@ async function imprimirListaNivel(){
   const logoMEP = (typeof MEP_LOGO !== 'undefined') ? MEP_LOGO : '';
 
   const filas = estudiantes.map((e, i) => {
-    const nom = `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/\s+/g,' ').trim();
+    const nom = nombrePersona(e);
     return `<tr>
       <td style="text-align:center;">${i+1}</td>
       <td>${nom}</td>
@@ -5756,13 +6097,13 @@ async function cargarUsuarios(){
   if(!f.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin usuarios</td></tr>`;return;}
   tbody.innerHTML=f.map(u=>`<tr>
     <td><code>${u.cedula}</code></td>
-    <td>${u.primer_apellido} ${u.segundo_apellido}, ${u.nombre}</td>
+      <td>${nombrePersona(u)}</td>
     <td><span class="badge ${RBDG[u.rol]}">${RLBL[u.rol]}</span></td>
     <td><span class="badge ${u.activo?"b-prof":"b-aux"}">${u.activo?"Activo":"Inactivo"}</span></td>
     <td>${u.primer_login?'<span class="badge b-aux">Pendiente</span>':'<span class="badge b-prof">OK</span>'}</td>
     <td style="white-space:nowrap;">
       <button class="btn btn-outline btn-xs" onclick="editarUsuario(${u.id})">✏️</button>
-      <button class="btn btn-orange btn-xs" onclick="resetPass(${u.id},'${u.nombre} ${u.primer_apellido}')" title="Reiniciar contraseña">🔑</button>
+      <button class="btn btn-orange btn-xs" onclick="resetPass(${u.id},'${nombrePersona(u).replace(/'/g,"\\'")}')" title="Reiniciar contraseña">🔑</button>
     </td>
   </tr>`).join("");
 }
@@ -5877,7 +6218,7 @@ async function gpBuscar(){
       return;
     }
     cont.innerHTML = rows.map(p=>{
-      const nombre = `${p.primer_apellido||''} ${p.segundo_apellido||''}, ${p.nombre||''}`.trim();
+    const nombre = nombrePersona(p);
       const c = p.cuenta;
       let estado, badges = '';
       if(p.es_personal){
@@ -5934,7 +6275,7 @@ async function gpVerHijos(cedula){
     const hijos = await api(`/api/admin/padres/${encodeURIComponent(cedula)}/hijos`)||[];
     div.innerHTML = hijos.length
       ? '<div style="font-size:12px;font-weight:bold;margin-bottom:4px;">Hijos activos:</div>' +
-        hijos.map(h=>`<div style="font-size:12px;margin:2px 0;">🎒 ${h.primer_apellido} ${h.segundo_apellido||''}, ${h.nombre} — <span style="color:var(--muted);">Sección ${h.seccion_nombre||'—'}</span></div>`).join("")
+      hijos.map(h=>`<div style="font-size:12px;margin:2px 0;">🎒 ${nombrePersona(h)} — <span style="color:var(--muted);">Sección ${h.seccion_nombre||'—'}</span></div>`).join("")
       : '<div style="color:var(--muted);font-size:12px;">Sin hijos activos.</div>';
   }catch(e){ div.innerHTML = `<div style="color:#dc2626;font-size:12px;">${e.message}</div>`; }
 }
@@ -6012,7 +6353,7 @@ async function cargarSeccionesAdmin(){
   const f=nivel?rows.filter(s=>s.nivel==nivel):rows;
 
   // Todos los profesores disponibles para guía y orientador
-  const opts='<option value="">—</option>'+allProfesores.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]})</option>`).join("");
+  const opts='<option value="">—</option>'+allProfesores.map(p=>`<option value="${p.id}">${nombrePersona(p)} (${RLBL[p.rol]})</option>`).join("");
 
   const div=document.getElementById("secciones-lista");
   div.innerHTML=`<table><thead><tr><th>Sección</th><th>Prof. Guía</th><th>Orientador</th><th></th></tr></thead><tbody>
@@ -6085,7 +6426,7 @@ async function cargarAsignaciones(){
     const profsMap = new Map();
     rows.forEach(a=>{
       if(!profsMap.has(a.profesor_id)){
-        profsMap.set(a.profesor_id, `${a.prof_ap1||""} ${a.prof_nombre||""}`.trim());
+        profsMap.set(a.profesor_id, nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2));
       }
     });
     const profsArr = [...profsMap.entries()].sort((a,b)=>a[1].localeCompare(b[1],"es"));
@@ -6141,7 +6482,7 @@ function renderAsignaciones(){
     }
 
     return `<tr ${fondoFila?`style="background:${fondoFila};"`:''}>
-      <td>${a.prof_ap1} ${a.prof_nombre}</td>
+      <td>${nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2)}</td>
       <td><span class="badge ${RBDG[a.prof_rol]}">${RLBL[a.prof_rol]}</span></td>
       <td><strong>${a.seccion_nombre}</strong></td>
       <td>${a.materia_nombre}${a.subgrupo?` <span class="badge b-guia">Grupo ${a.subgrupo}</span>`:""}</td>
@@ -6164,7 +6505,7 @@ function abrirModalSimplPeriodos(asigId){
   document.getElementById('msp-asig-id').value = asigId;
   document.getElementById('msp-nombre').innerHTML =
     `<strong>${a.materia_nombre}</strong> — ${a.seccion_nombre}${a.subgrupo?' · Grupo '+a.subgrupo:''}<br/>
-     <small style="color:var(--muted);">Profesor: ${a.prof_ap1||''} ${a.prof_nombre||''} · Período asignación: ${a.periodo||'(sin definir)'}</small>`;
+     <small style="color:var(--muted);">Profesor: ${nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2)} · Período asignación: ${a.periodo||'(sin definir)'}</small>`;
   // Marcar checkboxes según los periodos ya activos
   const activos = new Set(a.simplificado_periodos || []);
   ['I Período','II Período','III Período'].forEach((p, i) => {
@@ -6231,7 +6572,7 @@ async function diagnosticarAsig(id){
       subs || '  (sin subgrupos)',
       ``,
       `📋 SESIONES de asistencia registradas: ${s.total}`,
-      s.primera_fecha ? `  Primera: ${s.primera_fecha.slice(0,10)} · Última: ${s.ultima_fecha.slice(0,10)}` : '',
+      s.primera_fecha ? `  Primera: ${fmtF(s.primera_fecha)} · Última: ${fmtF(s.ultima_fecha)}` : '',
       ``,
       `🩺 DIAGNÓSTICO:`,
       ...d.problemas.map(p => '  ' + p),
@@ -6268,7 +6609,7 @@ async function editarAsig(id){
   // Poblar profesores
   const selProf = document.getElementById("ea-profesor");
   selProf.innerHTML = '<option value="">— Seleccionar —</option>' +
-    allProfesores.map(p=>`<option value="${p.id}" ${p.id===asig.profesor_id?'selected':''}>${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]||p.rol})</option>`).join("");
+      allProfesores.map(p=>`<option value="${p.id}" ${p.id===asig.profesor_id?'selected':''}>${nombrePersona(p)} (${RLBL[p.rol]||p.rol})</option>`).join("");
 
   // Poblar secciones
   const selSec = document.getElementById("ea-seccion");
@@ -6325,7 +6666,7 @@ async function cargarEstudiantes(){
   tbody.innerHTML=rows.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
-    <td>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+      <td>${nombrePersona(e)}</td>
     <td>${e.seccion_nombre||"—"}</td>
     <td>${e.becado?'<span class="badge b-guia">🎓 Becado</span>':''}</td>
     <td>${fmtF(e.fecha_nacimiento)}</td>
@@ -6546,7 +6887,7 @@ function eliminarEst(id,n){
   // Backward-compat: si no se pasa el nombre, sacarlo de la caché
   if(!n && window.estCache){
     const e = window.estCache.get(id);
-    if(e) n = `${e.nombre} ${e.primer_apellido}`;
+    if(e) n = nombrePersona(e);
   }
   // Abrir modal con justificación obligatoria
   document.getElementById("del-est-id").value=id;
@@ -6574,7 +6915,7 @@ function abrirCambioSec(id,nombre,secActual){
   if((!nombre||!secActual) && window.estCache){
     const e = window.estCache.get(id);
     if(e){
-      if(!nombre) nombre = `${e.nombre} ${e.primer_apellido}`;
+      if(!nombre) nombre = nombrePersona(e);
       if(!secActual) secActual = e.seccion_nombre || "Sin sección";
     }
   }
@@ -6604,7 +6945,7 @@ function abrirCambioCedula(id){
   if(!e){ alert("No se pudo cargar el estudiante."); return; }
   cambCedEstId = id;
   document.getElementById("mcc-est").innerHTML =
-    `Estudiante: <strong>${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}</strong>`;
+    `Estudiante: <strong>${nombrePersona(e)}</strong>`;
   document.getElementById("mcc-actual-val").textContent = e.cedula || '—';
   document.getElementById("mcc-cedula-nueva").value = "";
   document.getElementById("mcc-justificacion").value = "";
@@ -6630,7 +6971,7 @@ async function confirmarCambioCedula(){
 // ── HISTORIAL DEL ESTUDIANTE ──────────────────────────────────
 async function abrirHistorialEstudiante(estId){
   const e = window.estCache?.get(estId);
-  const nombre = e ? `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}` : '';
+  const nombre = e ? nombrePersona(e,{vacio:''}) : '';
   const ced = e ? e.cedula : '';
   document.getElementById("mhe-info").innerHTML =
     nombre ? `<strong>${nombre}</strong>${ced?` · Cédula ${ced}`:''}` : '';
@@ -6674,7 +7015,7 @@ function renderHistorialEstudiante(rows){
                        ' · ' +
                        fecha.toLocaleTimeString('es-CR', {hour:'2-digit', minute:'2-digit'});
       const usuario = h.u_nombre || h.u_ap1
-        ? `${h.u_ap1||''} ${h.u_nombre||''}`.trim() + (h.u_rol?` (${h.u_rol})`:'')
+        ? nombreDesdeCampos(h.u_nombre,h.u_ap1,h.u_ap2) + (h.u_rol?` (${h.u_rol})`:'')
         : '<span style="color:var(--muted);">Sistema</span>';
       return `<div style="border-left:4px solid ${t.color};background:#f8fafc;padding:10px 14px;border-radius:6px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
@@ -6700,7 +7041,7 @@ function abrirEncargados(estId,nombre){
   // Backward-compat: sacar de caché
   if(!nombre && window.estCache){
     const e = window.estCache.get(estId);
-    if(e) nombre = `${e.nombre} ${e.primer_apellido}`;
+    if(e) nombre = nombrePersona(e);
   }
   encEstId=estId;
   document.getElementById("menc-titulo").textContent=`Encargados — ${nombre||""}`;
@@ -6729,7 +7070,7 @@ async function cargarEncargadosLista(){
       </div>
       <!-- Nombre y parentesco -->
       <div style="font-size:16px;font-weight:bold;margin-bottom:4px;">
-        ${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}
+        ${nombrePersona(e)}
       </div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">
         ${e.parentesco?`${e.parentesco}`:""}
@@ -6849,7 +7190,7 @@ async function buscarEstudianteConsulta(){
             ${rows.map(e=>`
               <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;cursor:pointer;" onclick="document.getElementById('consulta-cedula').value='${e.cedula}';buscarEstudianteConsulta()">
                 <div>
-                  <strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong>
+                  <strong>${nombrePersona(e)}</strong>
                   <span style="font-size:12px;color:var(--muted);margin-left:8px;">${e.seccion_nombre||'Sin sección'}</span>
                 </div>
                 <span style="font-size:12px;color:var(--muted);">${e.cedula}</span>
@@ -6864,7 +7205,7 @@ async function buscarEstudianteConsulta(){
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
           ${d.foto_url?`<img src="${d.foto_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--azul);"/>`:`<div style="width:80px;height:80px;border-radius:50%;background:var(--azul2);display:flex;align-items:center;justify-content:center;font-size:28px;">👤</div>`}
           <div>
-            <div style="font-size:18px;font-weight:bold;color:var(--azul);">${d.primer_apellido} ${d.segundo_apellido}, ${d.nombre}</div>
+            <div style="font-size:18px;font-weight:bold;color:var(--azul);">${nombrePersona(d)}</div>
             <div class="consulta-info" style="margin-top:4px;">
               <p><strong>Cédula:</strong> ${d.cedula}</p>
               <p><strong>Sección:</strong> ${d.seccion_nombre||"Sin asignar"}</p>
@@ -6878,7 +7219,7 @@ async function buscarEstudianteConsulta(){
           ${encs.length?encs.map(e=>`
             <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#f8fafc;position:relative;">
               ${e.es_principal?'<span class="badge b-prof" style="position:absolute;top:8px;right:8px;">Principal</span>':""}
-              <div style="font-weight:bold;font-size:14px;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
+        <div style="font-weight:bold;font-size:14px;">${nombrePersona(e)}</div>
               <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">
                 ${e.parentesco?`${e.parentesco}`:""} ${e.cedula?` · Cédula: ${e.cedula}`:""}
               </div>
@@ -6946,8 +7287,8 @@ async function abrirAsistencia(id,titulo){
       const sec = secs?.find(s=>s.nombre===asig.seccion_nombre);
       if(sec){
         const partes = [];
-        if(sec.guia_nombre) partes.push(`👨‍🏫 Prof. Guía: ${sec.guia_nombre} ${sec.guia_ap1||""} ${sec.guia_ap2||""}`);
-        if(sec.orient_nombre) partes.push(`🧭 Orientador: ${sec.orient_nombre} ${sec.orient_ap1||""} ${sec.orient_ap2||""}`);
+        if(sec.guia_nombre) partes.push(`👨‍🏫 Prof. Guía: ${nombreDesdeCampos(sec.guia_nombre,sec.guia_ap1,sec.guia_ap2)}`);
+        if(sec.orient_nombre) partes.push(`🧭 Orientador: ${nombreDesdeCampos(sec.orient_nombre,sec.orient_ap1,sec.orient_ap2)}`);
         if(partes.length) document.getElementById("asis-seccion-info").textContent=partes.join("   ·   ");
       }
     }
@@ -7017,7 +7358,7 @@ function renderTablaAsist(){
     return `<tr style="${rowStyle}">
     <td style="color:var(--muted);font-size:11px">${i+1}</td>
     <td style="font-size:13px">
-      <span style="${nombreStyle}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</span>${medidaBadge}
+          <span style="${nombreStyle}">${nombrePersona(e)}</span>${medidaBadge}
       <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span>
       ${e.escapado?`<br/><span style="font-size:11px;color:var(--naranja);font-weight:bold;">⚠️ Escapado</span>`:""}
     </td>
@@ -7042,15 +7383,15 @@ function renderTablaAsist(){
         <span style="color:var(--muted)">de ${totalLecc}</span>
       </div>`:''}
     </td>
-    <td>${e.estado!=='P'?(e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${e.primer_apellido} ${e.nombre}','${e.estado}',${e.lecciones_ausentes||totalLecc})">${e.justificada?"✅ Justif.":"📝 Justif."}</button>`:"<span style='font-size:11px;color:var(--muted)'>Guardar primero</span>"):"—"}</td>
+      <td>${e.estado!=='P'?(e.asistencia_id?`<button class="btn btn-outline btn-xs" onclick="abrirJus(${e.asistencia_id},'${nombrePersona(e).replace(/'/g,"\\'")}','${e.estado}',${e.lecciones_ausentes||totalLecc})">${e.justificada?"✅ Justif.":"📝 Justif."}</button>`:"<span style='font-size:11px;color:var(--muted)'>Guardar primero</span>"):"—"}</td>
     <td>
       <button class="btn btn-xs ${e.escapado?'btn-warning':'btn-outline'}"
-        onclick="toggleEscape(${e.id},'${e.primer_apellido} ${e.nombre}',${e.escapado?'true':'false'})"
+            onclick="toggleEscape(${e.id},'${nombrePersona(e).replace(/'/g,"\\'")}',${e.escapado?'true':'false'})"
         title="${e.escapado?'Quitar escape':'Marcar como escapado'}" style="${e.escapado?'background:#f97316;color:#fff;border-color:#f97316;':''}">
         ${e.escapado?'🏃 Escape':'🏃'}
       </button>
     </td>
-    <td><button class="btn btn-outline btn-xs" onclick="abrirObservaciones(${e.id},'${e.primer_apellido} ${e.nombre}','${fecha}')" title="Observaciones">📝</button></td>
+      <td><button class="btn btn-outline btn-xs" onclick="abrirObservaciones(${e.id},'${nombrePersona(e).replace(/'/g,"\\'")}','${fecha}')" title="Observaciones">📝</button></td>
   </tr>`;
   }).join("");
 }
@@ -7081,7 +7422,20 @@ function verMedida(id, tipo){
     suspension:       {label:'Suspensión',         icono:'🚫'},
     educacion_hibrida:{label:'Educación Híbrida',  icono:'🏠'},
   }[tipo]||{label:tipo,icono:'📋'};
-  alert(`${cfg.icono} ${cfg.label}\n\nEstudiante: ${m.primer_apellido} ${m.segundo_apellido||''}, ${m.nombre}\nSección: ${m.seccion_nombre||'—'}\n\nInicio: ${fmtF(m.fecha_inicio)}\nVence: ${fmtF(m.fecha_fin)}\n${m.observacion?'\nObservación: '+m.observacion:''}\nRegistrado por: ${m.creado_ap1||''} ${m.creado_nombre||''}`);
+  const registradoPor=nombreDesdeCampos(m.creado_nombre,m.creado_ap1,m.creado_ap2);
+  abrirDetalleInstitucional(`${cfg.icono} ${cfg.label}`,`
+    <div class="detalle-institucional-bloque">
+      <h4>👤 Estudiante</h4>
+      ${filaDetalle('Nombre completo',nombrePersona(m))}
+      ${filaDetalle('Sección',m.seccion_nombre||'—')}
+    </div>
+    <div class="detalle-institucional-bloque naranja">
+      <h4>📅 Vigencia</h4>
+      ${filaDetalle('Fecha de inicio',fmtF(m.fecha_inicio))}
+      ${filaDetalle('Fecha de vencimiento',fmtF(m.fecha_fin))}
+      ${m.observacion?filaDetalle('Observación',m.observacion):''}
+      ${filaDetalle('Registrado por',registradoPor)}
+    </div>`);
 }
 
 
@@ -7117,7 +7471,7 @@ async function prepararEImprimirAsistencia(fecha, lecc, registros){
     const misAsigs = await api("/api/asistencia/mis-asignaciones") || [];
     asigInfo = misAsigs.find(a => a.id === asigActiva) || {};
   } catch(_){}
-  const profNombre = ME ? `${ME.primer_apellido} ${ME.segundo_apellido||''}, ${ME.nombre}`.trim() : '—';
+  const profNombre = nombrePersona(ME);
   const seccionLbl = (asigInfo.seccion_nombre || '—') + (asigInfo.subgrupo?` · subgrupo ${asigInfo.subgrupo}`:'');
   const materia = asigInfo.materia_nombre || '—';
 
@@ -7534,7 +7888,7 @@ async function cargarObsEstudiante(estId, fecha){
       if(hoyMode){
         return `<div style="background:#f0f9ff;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:12px;display:flex;align-items:flex-start;gap:6px;">
           <div style="flex:1;">${o.observacion||o.contenido||''}
-            <span style="color:var(--muted);margin-left:6px;">${o.prof_ap1||o.autor_ap1||''} ${o.prof_nombre||o.autor_nombre||''}</span>
+            <span style="color:var(--muted);margin-left:6px;">${nombreDesdeCampos(o.prof_nombre||o.autor_nombre,o.prof_ap1||o.autor_ap1,o.prof_ap2||o.autor_ap2)}</span>
           </div>
           ${botones}
         </div>`;
@@ -7640,7 +7994,7 @@ async function initReportes(){
 async function cargarEstReporte(){
   const sid=document.getElementById("rep-seccion").value;if(!sid)return;
   const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);if(!rows)return;
-  document.getElementById("rep-estudiante").innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+  document.getElementById("rep-estudiante").innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
 }
 
 // ── REPORTE: tab activos vs retirados ────────────────────────
@@ -7680,7 +8034,7 @@ function buscarEstArchivado(){
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.map(e=>{
         const sec = e.seccion_nombre ? ` · ${e.seccion_nombre}` : '';
         const estado = e.archivado ? ' [archivado]' : ' [inactivo]';
-        return `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre} (${e.cedula})${sec}${estado}</option>`;
+    return `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${sec}${estado}</option>`;
       }).join("");
     }catch(err){
       sel.innerHTML = '<option value="">— Error al buscar —</option>';
@@ -7734,7 +8088,7 @@ async function generarReporte(){
   document.getElementById("reporte-contenido").innerHTML=`
     <div class="card" style="max-width:720px;margin:0 auto;">
       <div style="margin-bottom:14px;">
-        <div style="font-size:17px;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</div>
+      <div style="font-size:17px;font-weight:bold;">${nombrePersona(e)}</div>
         <div style="font-size:13px;color:var(--muted);">Cédula: ${e.cedula} · Sección: ${e.seccion_nombre||"—"} · Nac.: ${fmtF(e.fecha_nacimiento)}</div>
         <div style="font-size:13px;color:var(--azul);font-weight:bold;">${detectarPeriodo(hasta||desde||null)}</div>
         ${desde||hasta?`<div style="font-size:12px;color:var(--muted);">Período: ${desde?fmtF(desde):"inicio"} al ${hasta?fmtF(hasta):"hoy"}</div>`:""}
@@ -7751,7 +8105,7 @@ async function generarReporte(){
         const tarEqMat = Math.floor(tarMat/2);
         return `
         <div class="reporte-materia">
-          <h4>${m.materia} <small style="font-weight:normal;color:var(--muted);">— ${m.prof_ap1} ${m.prof_nombre}</small></h4>
+          <h4>${m.materia} <small style="font-weight:normal;color:var(--muted);">— ${nombreDesdeCampos(m.prof_nombre,m.prof_ap1,m.prof_ap2)}</small></h4>
           <div style="display:flex;gap:14px;font-size:13px;margin-bottom:8px;flex-wrap:wrap;">
             <span>📚 ${m.total_lecciones||0} lecc.</span>
             <span style="color:var(--rojo)">❌ ${m.ausencias||0} lecc. ausentes</span>
@@ -7776,7 +8130,7 @@ async function generarReporte(){
             <div class="ausencia-item">
               <span style="color:var(--muted);min-width:80px;font-size:12px;">${fmtF(o.fecha)}</span>
               <span style="flex:1;font-size:13px;">${o.observacion}</span>
-              <span style="font-size:11px;color:var(--muted)">${o.prof_ap1} ${o.prof_nombre}</span>
+              <span style="font-size:11px;color:var(--muted)">${nombreDesdeCampos(o.prof_nombre,o.prof_ap1,o.prof_ap2)}</span>
             </div>`).join("")}
         </div>`:""}
 
@@ -7795,7 +8149,7 @@ async function generarReporte(){
         const secs = await api("/api/admin/secciones");
         const sec = secs?.find(s=>s.nombre===e.seccion_nombre);
         if(sec){
-          guiaNombre = `${sec.guia_ap1||""} ${sec.guia_ap2||""}, ${sec.guia_nombre||""}`.trim().replace(/^,\s*/,"");
+          guiaNombre = nombreDesdeCampos(sec.guia_nombre,sec.guia_ap1,sec.guia_ap2);
           guiaCedula = sec.guia_cedula||"";
         }
       }catch{}
@@ -7888,7 +8242,7 @@ async function cargarMensajes(tipo){
     if(!_informesAgrupados[eid]){
       _informesAgrupados[eid] = {
         estudiante_id: eid,
-        nombre: `${inf.est_ap1||''} ${inf.est_ap2||''}, ${inf.est_nombre||''}`.replace(/^,\s*/,'').trim(),
+        nombre: nombreDesdeCampos(inf.est_nombre,inf.est_ap1,inf.est_ap2),
         seccion: inf.seccion_nombre || '—',
         lista: [],
       };
@@ -7984,9 +8338,9 @@ function verInformesEstudiante(estId){
         <span style="font-size:12px;color:var(--muted);">${fmtTS(inf.created_at)}</span>
       </div>
       <div style="font-size:12px;margin-bottom:8px;color:var(--muted);">
-        ${tipo==="inbox" || tipo==="todos" ? `Solicitado por: <strong>${inf.remit_ap1||''} ${inf.remit_nombre||''}</strong>` : ''}
-        ${tipo==="enviados" ? `Enviado a: <strong>${inf.dest_ap1||''} ${inf.dest_nombre||''}</strong>` : ''}
-        ${tipo==="todos" ? ` → <strong>${inf.dest_ap1||''} ${inf.dest_nombre||''}</strong>` : ''}
+        ${tipo==="inbox" || tipo==="todos" ? `Solicitado por: <strong>${nombreDesdeCampos(inf.remit_nombre,inf.remit_ap1,inf.remit_ap2)}</strong>` : ''}
+        ${tipo==="enviados" ? `Enviado a: <strong>${nombreDesdeCampos(inf.dest_nombre,inf.dest_ap1,inf.dest_ap2)}</strong>` : ''}
+        ${tipo==="todos" ? ` → <strong>${nombreDesdeCampos(inf.dest_nombre,inf.dest_ap1,inf.dest_ap2)}</strong>` : ''}
       </div>
       ${inf.observaciones ? `<div style="font-size:12px;background:#f8fafc;border-radius:6px;padding:8px;margin-bottom:8px;color:var(--muted);">📝 ${inf.observaciones}</div>` : ''}
       ${inf.respondido ? `<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:10px;margin-top:8px;font-size:13px;">
@@ -8043,7 +8397,7 @@ async function cargarEstInforme(){
   if(!rows) return;
   document.getElementById("mi-estudiante").innerHTML=
     '<option value="">— Seleccionar estudiante —</option>'+
-    rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+      rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
 }
 
 async function enviarInforme(){
@@ -8053,7 +8407,7 @@ async function enviarInforme(){
 
 function abrirResponderById(id, soloVer){
   const inf = window._informesData && window._informesData[id];
-  const nombre = inf ? `${inf.est_ap1} ${inf.est_ap2}, ${inf.est_nombre}` : "Estudiante";
+  const nombre = inf ? nombreDesdeCampos(inf.est_nombre,inf.est_ap1,inf.est_ap2) : "Estudiante";
   abrirResponder(id, nombre, soloVer, inf);
 }
 
@@ -8137,7 +8491,7 @@ async function cargarObsLista(estId, fecha){
   if(!rows.length){ div.innerHTML='<div style="color:var(--muted);font-size:13px;margin-bottom:8px;">Sin observaciones para esta fecha.</div>'; return; }
   div.innerHTML = rows.map(o=>`
     <div style="border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:6px;background:#f8fafc;">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">${o.prof_ap1} ${o.prof_nombre}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">${nombreDesdeCampos(o.prof_nombre,o.prof_ap1,o.prof_ap2)}</div>
       <div style="font-size:13px;">${o.observacion}</div>
       <button class="btn btn-danger btn-xs" style="margin-top:6px;" onclick="eliminarObs(${o.id},${estId},'${fecha}')">🗑️</button>
     </div>`).join("");
@@ -8180,7 +8534,7 @@ async function cargarEstConducta(){
   if(!rows) return;
   document.getElementById("cond-estudiante").innerHTML=
     '<option value="">— Seleccionar estudiante —</option>'+
-    rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+      rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
 }
 
 async function verConductaEstudiante(){
@@ -8207,7 +8561,7 @@ async function verConductaEstudiante(){
     if(asignaciones.length){
       html += '<optgroup label="📚 Materias de la sección">';
       html += asignaciones.map(a => {
-        const nombre = `${a.prof_ap1||''} ${a.prof_ap2||''} ${a.prof_nombre||''}`.replace(/\s+/g,' ').trim();
+        const nombre = nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2);
         return `<option value="a:${a.id}">${a.materia_nombre} — ${nombre}</option>`;
       }).join('');
       html += '</optgroup>';
@@ -8221,7 +8575,7 @@ async function verConductaEstudiante(){
         if(!gente.length) return;
         html += `<optgroup label="🧑‍🏫 ${rolLabel[rol]||rol}">`;
         html += gente.map(p => {
-          const nombre = `${p.primer_apellido||''} ${p.segundo_apellido||''} ${p.nombre||''}`.replace(/\s+/g,' ').trim();
+  const nombre = nombrePersona(p);
           return `<option value="u:${p.id}">${nombre}</option>`;
         }).join('');
         html += '</optgroup>';
@@ -8343,14 +8697,14 @@ async function cargarBoletasLista(){
     // Construir etiqueta de "a quién está asignada la boleta"
     let asignadoA = "";
     if(b.materia_nombre){
-      const profNom = `${b.prof_ap1||''} ${b.prof_ap2||''} ${b.prof_nombre||''}`.replace(/\s+/g,' ').trim();
+      const profNom = nombreDesdeCampos(b.prof_nombre,b.prof_ap1,b.prof_ap2);
       asignadoA = `📚 ${b.materia_nombre} — ${profNom}`;
     } else if(b.apoyo_nombre){
-      const apoNom = `${b.apoyo_ap1||''} ${b.apoyo_ap2||''} ${b.apoyo_nombre||''}`.replace(/\s+/g,' ').trim();
+      const apoNom = nombreDesdeCampos(b.apoyo_nombre,b.apoyo_ap1,b.apoyo_ap2);
       const rolTxt = rolLabel[b.apoyo_rol] || b.apoyo_rol || '';
       asignadoA = `🧑‍🏫 ${rolTxt}: ${apoNom}`;
     }
-    const regNom = `${b.reg_ap1||''} ${b.reg_ap2||''} ${b.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+    const regNom = nombreDesdeCampos(b.reg_nombre,b.reg_ap1,b.reg_ap2);
     return `
     <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;background:#fafafa;">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
@@ -8428,7 +8782,7 @@ async function imprimirConducta(){
   const sec = secs?.find(s=>s.nombre === document.getElementById("cond-titulo").textContent.replace("Conducta — ","").split(" — ")[0]?.trim()) || null;
   const condSec = secs?.find(s=>s.id==condSeccionActual) || null;
   const secFinal = condSec || sec;
-  const guia = secFinal ? `${secFinal.guia_ap1||""} ${secFinal.guia_ap2||""}, ${secFinal.guia_nombre||""}`.trim().replace(/^,\s*/,"") : "";
+  const guia = secFinal ? nombreDesdeCampos(secFinal.guia_nombre,secFinal.guia_ap1,secFinal.guia_ap2) : "";
   const guiaCed = secFinal?.guia_cedula || "";
   const periodo = periodoLabel;
   const titulo = document.getElementById("cond-titulo").textContent;
@@ -8524,14 +8878,14 @@ async function imprimirInformesEstudiante(estudianteId){
   // Todos los informes son del mismo estudiante; usamos el primero para los datos generales
   const primero = informes[0];
   const periodo = detectarPeriodo(null);
-  const nombreEst = `${primero.est_ap1||''} ${primero.est_ap2||''}, ${primero.est_nombre||''}`.trim();
+  const nombreEst = nombreDesdeCampos(primero.est_nombre,primero.est_ap1,primero.est_ap2);
   const seccion = primero.seccion_nombre || '—';
   const cedula = primero.est_cedula || '—';
-  const guia = `${primero.remit_ap1||''} ${primero.remit_nombre||''}`.trim();
+  const guia = nombreDesdeCampos(primero.remit_nombre,primero.remit_ap1,primero.remit_ap2);
 
   // Construir una sección por cada respuesta de profesor
   const secciones = informes.map(inf => {
-    const profNombre = `${inf.dest_ap1||''} ${inf.dest_ap2||''}, ${inf.dest_nombre||''}`.trim();
+    const profNombre = nombreDesdeCampos(inf.dest_nombre,inf.dest_ap1,inf.dest_ap2);
     const materia = inf.materias_profesor ? ` — ${inf.materias_profesor}` : '';
     return `
       <div style="margin-bottom:16px;page-break-inside:avoid;break-inside:avoid;">
@@ -8716,9 +9070,9 @@ async function previsualizarExcel(){
     const tbody = document.getElementById("excel-tbody");
     tbody.innerHTML = procesadas.slice(0, 50).map(e => `<tr>
       <td>${e.cedula}</td>
-      <td>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</td>
+      <td>${nombrePersona(e)}</td>
       <td>${e.seccion_id ? (secciones.find(s=>s.id===e.seccion_id)?.nombre||'—') : '—'}</td>
-      <td>${e.fecha_nacimiento||'—'}</td>
+      <td>${fmtF(e.fecha_nacimiento)}</td>
     </tr>`).join('') + (procesadas.length > 50 ? `<tr><td colspan="4" style="text-align:center;color:var(--muted);">... y ${procesadas.length-50} más</td></tr>` : '');
     document.getElementById("excel-preview").style.display = "";
     document.getElementById("btn-confirmar-excel").disabled = false;
@@ -8920,7 +9274,7 @@ ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
           <tbody>
             ${ests.map((e,i)=>`<tr style="background:${i%2===0?'#fff':'#f9fafb'};">
               <td style="padding:5px 8px;border:1px solid #e2e8f0;">${i+1}</td>
-              <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+        <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;">${nombrePersona(e)}</td>
               <td style="padding:5px 8px;border:1px solid #e2e8f0;">${e.cedula}</td>
               <td style="padding:5px 8px;border:1px solid #e2e8f0;">${fmtF(e.fecha_nacimiento)}</td>
             </tr>`).join("")}
@@ -9104,7 +9458,7 @@ async function abrirGestionComite(){
   const todos = await api("/api/admin/usuarios") || allProfesores || [];
   const sel = document.getElementById("comite-usuario");
   if(sel) sel.innerHTML='<option value="">— Seleccionar usuario —</option>'+
-    todos.map(p=>`<option value="${p.id}">${p.primer_apellido} ${p.nombre} (${RLBL[p.rol]||p.rol})</option>`).join("");
+    todos.map(p=>`<option value="${p.id}">${nombrePersona(p)} (${RLBL[p.rol]||p.rol})</option>`).join("");
   document.getElementById("alert-comite").className="alert";
   await cargarComiteComedor();
   document.getElementById("modal-comite-comedor").classList.add("show");
@@ -9116,7 +9470,7 @@ async function cargarComiteComedor(){
   if(!div) return;
   div.innerHTML = rows.length
     ? rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
-        <span>${r.primer_apellido} ${r.nombre} <span style="font-size:11px;color:var(--muted);">(${RLBL[r.rol]||r.rol})</span></span>
+        <span>${nombrePersona(r)} <span style="font-size:11px;color:var(--muted);">(${RLBL[r.rol]||r.rol})</span></span>
         <button class="btn btn-danger btn-xs" onclick="quitarComiteComedor(${r.id})">✕ Quitar</button>
       </div>`).join("")
     : '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Sin miembros asignados.</div>';
@@ -9378,7 +9732,7 @@ function renderMatricula(){
     return `<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
-    <td><strong>${e.primer_apellido} ${e.segundo_apellido||""}, ${e.nombre}</strong>${badgeBoleta}</td>
+      <td><strong>${nombrePersona(e)}</strong>${badgeBoleta}</td>
     <td><span class="badge" style="background:${COLORES_TIPO[e.tipo_ingreso]||'#e0f2fe'};color:#374151;">${tipos[e.tipo_ingreso]||e.tipo_ingreso}</span></td>
     <td style="font-weight:bold;">${NIVELES_MAT[e.nivel_matricula]||'—'}</td>
     <td>${matSeccionCelda(e)}
@@ -9388,7 +9742,7 @@ function renderMatricula(){
       :'<span class="badge" style="background:#fef9c3;color:#713f12;">⏳ En proceso</span>'}</td>
     <td style="display:flex;gap:4px;">
       <button class="btn btn-outline btn-xs" onclick="continuarMatricula(${e.id},'${e.cedula}')">✏️</button>
-      <button class="btn btn-danger btn-xs" onclick="eliminarMatricula(${e.id},'${(e.primer_apellido+' '+e.nombre).replace(/'/g,"\\'")}')">🗑️</button>
+      <button class="btn btn-danger btn-xs" onclick="eliminarMatricula(${e.id},'${nombrePersona(e).replace(/'/g,"\\'")}')">🗑️</button>
     </td>
   </tr>`;
   }).join("")
@@ -9533,7 +9887,7 @@ function subgrupoDeTec(tec){
 // Celda de sección en la tabla de matrícula (actual + asignación futura)
 function matSeccionCelda(e){
   const esFuturo = matAnio > matAnioActual();
-  const esc = (e.primer_apellido+' '+e.nombre).replace(/'/g,"\\'");
+  const esc = nombrePersona(e).replace(/'/g,"\\'");
   const btnAsignar = `<button class="btn btn-outline btn-xs" onclick="abrirAsignarSeccion(${e.id},'${esc}',${e.nivel_matricula||0})">📚 Asignar</button>`;
   const btnEditar  = `<button class="btn btn-outline btn-xs" onclick="abrirAsignarSeccion(${e.id},'${esc}',${e.nivel_matricula||0})" title="Cambiar sección">✏️</button>`;
   if(esFuturo){
@@ -9666,12 +10020,12 @@ function renderMedidas(rows, tipo){
                  : vencida?`<span class="badge" style="background:#f1f5f9;color:#64748b;">Vencida</span>`
                  : `<span class="badge" style="background:#f0fdf4;color:#166534;">Próxima</span>`;
     return `<tr style="${activa?`background:${cfg.bg};border-left:4px solid ${cfg.border};`:''}">
-      <td><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong><br/><span style="font-size:11px;color:var(--muted);">${r.cedula}</span></td>
+      <td><strong>${nombrePersona(r)}</strong><br/><span style="font-size:11px;color:var(--muted);">${r.cedula}</span></td>
       <td style="font-size:12px;">${r.seccion_nombre||'—'}</td>
       <td style="font-size:12px;">${fmtF(r.fecha_inicio)}</td>
       <td style="font-size:12px;font-weight:bold;color:${activa?cfg.color:'#64748b'};">${fmtF(r.fecha_fin)}</td>
       <td>${estado}</td>
-      <td style="font-size:12px;color:var(--muted);">${r.creado_ap1||''} ${r.creado_nombre||''}</td>
+      <td style="font-size:12px;color:var(--muted);">${nombreDesdeCampos(r.creado_nombre,r.creado_ap1,r.creado_ap2)}</td>
       <td>${window.medidasSoloLectura ? '<span style="color:var(--muted);font-size:11px;" title="Solo lectura">👁️</span>' : `<button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button>`}</td>
     </tr>`;
   }).join('');
@@ -9710,7 +10064,7 @@ async function cargarEstudiantesMedida(){
     const rows = await api(`/api/estudiantes?seccion_id=${secId}`)||[];
     sel.innerHTML='<option value="">— Seleccionar estudiante —</option>'+
       rows.sort((a,b)=>a.primer_apellido.localeCompare(b.primer_apellido))
-          .map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</option>`).join('');
+    .map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join('');
   }catch{}
 }
 
@@ -9826,15 +10180,15 @@ async function cargarDPLista(estado){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
             <div style="flex:1;min-width:0;">
               <div style="font-size:11px;color:var(--muted);">${nro}</div>
-              <strong style="font-size:14px;color:#0f172a;line-height:1.3;">${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}</strong>
+        <strong style="font-size:14px;color:#0f172a;line-height:1.3;">${nombrePersona(p)}</strong>
               <div style="font-size:11px;color:var(--muted);">${p.cedula} · ${p.seccion_nombre||'—'}</div>
             </div>
             ${badge}
           </div>
           <div style="font-size:11px;color:var(--muted);">
             ${p.sust_nombre
-              ? `<strong>🔄 Sustituto:</strong> <span style="color:#ea580c;">${p.sust_ap1||''} ${p.sust_ap2||''} ${p.sust_nombre}</span> <small>(reemplaza a ${p.guia_ap1||''} ${p.guia_nombre||''})</small>`
-              : `<strong>Guía:</strong> ${p.guia_ap1||'—'} ${p.guia_ap2||''} ${p.guia_nombre||''}`} · <strong>Inició:</strong> ${p.ini_ap1||'—'} ${p.ini_ap2||''} ${p.ini_nombre||''}
+              ? `<strong>🔄 Sustituto:</strong> <span style="color:#ea580c;">${nombreDesdeCampos(p.sust_nombre,p.sust_ap1,p.sust_ap2)}</span> <small>(reemplaza a ${nombreDesdeCampos(p.guia_nombre,p.guia_ap1,p.guia_ap2)})</small>`
+              : `<strong>Guía:</strong> ${nombreDesdeCampos(p.guia_nombre,p.guia_ap1,p.guia_ap2)}`} · <strong>Inició:</strong> ${nombreDesdeCampos(p.ini_nombre,p.ini_ap1,p.ini_ap2)}
           </div>
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
             <span style="color:var(--muted);">Progreso:</span>
@@ -9870,14 +10224,14 @@ async function cargarDPPendientes(){
     wrap.style.display = '';
     const html = [];
     pendProf.forEach(p => {
-      const nombre = `${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}`;
+      const nombre = nombrePersona(p);
       const tipoLbl = DP_TIPOS_PASO[p.tipo]?.nombre || p.tipo;
       html.push(`<div style="padding:4px 0;">📋 <strong>N°${p.numero}-${p.anio}</strong> · ${tipoLbl} · ${nombre} (${p.seccion_nombre||'—'})
         <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirDPDetalle(${p.proceso_id})">Ver proceso</button>
       </div>`);
     });
     pendOrient.forEach(p => {
-      const nombre = `${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}`;
+    const nombre = nombrePersona(p);
       html.push(`<div style="padding:4px 0;">🧑‍⚖️ <strong>N°${p.numero}-${p.anio}</strong> · Aprobá acta sesión · ${nombre} (${p.seccion_nombre||'—'}) · Propuesta: <strong>${p.decision_sesion}</strong>
         <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirDPDetalle(${p.proceso_id})">Ver proceso</button>
       </div>`);
@@ -9905,7 +10259,7 @@ async function abrirNuevoDP(){
     const sel = document.getElementById('ndp-ofendido-docente-id');
     if(sel){
       const opciones = profs.map(p => {
-        const nom = `${p.primer_apellido||''} ${p.segundo_apellido||''}, ${p.nombre||''}`.replace(/\s+/g,' ').replace(/^,\s*/,'').trim();
+  const nom = nombrePersona(p);
         return `<option value="${p.id}" data-cedula="${p.cedula||''}" data-nombre="${nom}">${nom} (${p.cedula||'—'})</option>`;
       }).join('');
       sel.innerHTML = '<option value="">— Elegí o ingresá manualmente abajo —</option>' + opciones;
@@ -9950,7 +10304,7 @@ function dpBuscarEstudiante(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+      `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
   }, 300);
@@ -10007,13 +10361,13 @@ async function abrirDPDetalle(procesoId){
     dpProcesoActual = d;
     const dp = d.proceso;
     const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
-    const nombre = `${dp.est_ap1} ${dp.est_ap2||''}, ${dp.est_nombre}`;
+    const nombre = nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2);
     document.getElementById('dpd-titulo').textContent = `⚖️ Debido Proceso ${nro}`;
 
     // Datos del guía actual: si hay sustituto activo, ese tiene el control.
-    const guiaOriginal = `${dp.guia_ap1||''} ${dp.guia_ap2||''} ${dp.guia_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
-    const sustituto = `${dp.sust_ap1||''} ${dp.sust_ap2||''} ${dp.sust_nombre||''}`.replace(/\s+/g,' ').trim();
-    const orient = `${dp.orient_ap1||''} ${dp.orient_ap2||''} ${dp.orient_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+    const guiaOriginal = nombreDesdeCampos(dp.guia_nombre,dp.guia_ap1,dp.guia_ap2);
+    const sustituto = nombreDesdeCampos(dp.sust_nombre,dp.sust_ap1,dp.sust_ap2,{vacio:''});
+    const orient = nombreDesdeCampos(dp.orient_nombre,dp.orient_ap1,dp.orient_ap2);
     let lineaGuia = `Guía: ${guiaOriginal}`;
     if(sustituto){
       lineaGuia = `🔄 Sustituto activo: <strong style="color:#ea580c;">${sustituto}</strong> <small>(reemplaza a ${guiaOriginal})</small>`;
@@ -10116,8 +10470,8 @@ async function abrirDPDetalle(procesoId){
 async function abrirAsignarSustituto(){
   if(!dpProcesoActual){ return; }
   const dp = dpProcesoActual.proceso;
-  const guiaOriginal = `${dp.guia_ap1||''} ${dp.guia_ap2||''} ${dp.guia_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
-  const sustActual = `${dp.sust_ap1||''} ${dp.sust_ap2||''} ${dp.sust_nombre||''}`.replace(/\s+/g,' ').trim();
+  const guiaOriginal = nombreDesdeCampos(dp.guia_nombre,dp.guia_ap1,dp.guia_ap2);
+  const sustActual = nombreDesdeCampos(dp.sust_nombre,dp.sust_ap1,dp.sust_ap2,{vacio:''});
 
   document.getElementById('dpsust-info').innerHTML = `
     Expediente: <strong>N°${String(dp.numero).padStart(3,'0')}-${dp.anio}</strong><br/>
@@ -10134,7 +10488,7 @@ async function abrirAsignarSustituto(){
     const opciones = profs
       .filter(p => ['profesor','profesor_guia'].includes(p.rol) && p.id !== dp.guia_a_cargo)
       .map(p => {
-        const nombre = `${p.primer_apellido||''} ${p.segundo_apellido||''} ${p.nombre||''}`.replace(/\s+/g,' ').trim();
+  const nombre = nombrePersona(p);
         const sel = p.id === dp.guia_sustituto_id ? ' selected' : '';
         return `<option value="${p.id}"${sel}>${nombre}</option>`;
       }).join('');
@@ -10190,7 +10544,7 @@ async function abrirReactivarDP(){
   }[dp.estado] || dp.estado;
   const justif = prompt(
     `🔄 Reactivar el debido proceso N°${String(dp.numero).padStart(3,'0')}-${dp.anio}\n\n`
-    + `Estudiante: ${dp.est_ap1||''} ${dp.est_ap2||''}, ${dp.est_nombre||''}\n`
+    + `Estudiante: ${nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2)}\n`
     + `Estado actual: ${estadoLbl}\n\n`
     + `El proceso volverá a estado "EN CURSO" y se podrá corregir. El contenido de los pasos se preserva.\n\n`
     + `Justificación (obligatoria):`
@@ -10210,7 +10564,7 @@ async function abrirSolicitarArchivo(){
   const dp = dpProcesoActual.proceso;
   const motivo = prompt(
     `📦 Solicitar archivar el debido proceso N°${String(dp.numero).padStart(3,'0')}-${dp.anio}\n\n`
-    + `Estudiante: ${dp.est_ap1||''} ${dp.est_ap2||''}, ${dp.est_nombre||''}\n\n`
+    + `Estudiante: ${nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2)}\n\n`
     + `El proceso pasará a "Pendiente de archivo" y el orientador deberá aprobar el archivo definitivo.\n\n`
     + `Motivo (obligatorio):`
   );
@@ -10231,11 +10585,11 @@ async function abrirAprobarArchivo(){
   // Buscar el nombre del solicitante (en el cache lo tenemos por id)
   const solicitanteId = dp.archivo_solicitado_por;
   const motivoSolic = dp.archivo_motivo || '(sin motivo registrado)';
-  const fechaSolic = dp.archivo_solicitado_en ? new Date(dp.archivo_solicitado_en).toLocaleString('es-CR') : '—';
+  const fechaSolic = dp.archivo_solicitado_en ? fmtTS(dp.archivo_solicitado_en) : '—';
 
   const accion = confirm(
     `📦 Decidir sobre el archivo del expediente N°${String(dp.numero).padStart(3,'0')}-${dp.anio}\n\n`
-    + `Estudiante: ${dp.est_ap1||''} ${dp.est_ap2||''}, ${dp.est_nombre||''}\n\n`
+    + `Estudiante: ${nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2)}\n\n`
     + `Solicitud de archivo:\n`
     + `  Fecha: ${fechaSolic}\n`
     + `  Motivo: "${motivoSolic}"\n\n`
@@ -10333,7 +10687,7 @@ function renderDPPasos(d){
       estadoTxt = verificado || !reg?.asignado_a ? '✅ Completado' : '⏳ Pendiente verificación';
       estadoColor = verificado || !reg?.asignado_a ? '#16a34a' : '#f59e0b';
     } else if(asignadoOtro){
-      estadoTxt = `📤 Asignado a otro guía (${reg.asig_ap1||''} ${reg.asig_ap2||''} ${reg.asig_nombre||''})`.replace(/\s+/g,' ');
+      estadoTxt = `📤 Asignado a otro guía (${nombreDesdeCampos(reg.asig_nombre,reg.asig_ap1,reg.asig_ap2)})`;
       estadoColor = '#9333ea';
     } else {
       estadoTxt = '⏳ Pendiente';
@@ -10343,11 +10697,11 @@ function renderDPPasos(d){
     // Etiqueta de testigo o ofendido
     let extraLabel = '';
     if(ps.testigo){
-      extraLabel = ` — ${ps.testigo.primer_apellido} ${ps.testigo.segundo_apellido||''} ${ps.testigo.nombre}`.replace(/\s+/g,' ');
+      extraLabel = ` — ${nombrePersona(ps.testigo)}`;
       if(ps.testigo.seccion_nombre) extraLabel += ` (${ps.testigo.seccion_nombre})`;
     }
     if(ps.ofendido){
-      extraLabel = ` — ${ps.ofendido.primer_apellido} ${ps.ofendido.segundo_apellido||''} ${ps.ofendido.nombre}`.replace(/\s+/g,' ');
+      extraLabel = ` — ${nombrePersona(ps.ofendido)}`;
       if(ps.ofendido.seccion_nombre) extraLabel += ` (${ps.ofendido.seccion_nombre})`;
     }
 
@@ -10442,7 +10796,7 @@ function renderDPPasos(d){
   if(puedeEditarOfendidos || ofendidos.length){
     const listaOfen = ofendidos.length
       ? ofendidos.map((o, i) => {
-          const nomO = `${o.primer_apellido||''} ${o.segundo_apellido||''} ${o.nombre||''}`.replace(/\s+/g,' ').trim();
+        const nomO = nombrePersona(o);
           const secO = o.seccion_nombre ? ` (${o.seccion_nombre})` : '';
           const btnQuitar = puedeEditarOfendidos
             ? `<button class="btn btn-danger btn-xs" onclick="quitarOfendidoDP(${o.id}, '${nomO.replace(/'/g,"\\'")}')">🗑️ Quitar</button>`
@@ -10471,7 +10825,7 @@ function renderDPPasos(d){
   if(dp.estado === 'en_curso' && esGuia){
     const listaTest = d.testigos.length
       ? d.testigos.map((t, i) => {
-          const nomT = `${t.primer_apellido||''} ${t.segundo_apellido||''} ${t.nombre||''}`.replace(/\s+/g,' ').trim();
+        const nomT = nombrePersona(t);
           const secT = t.seccion_nombre ? ` (${t.seccion_nombre})` : '';
           return `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-top:6px;">
             <span style="font-size:12.5px;"><strong>Testigo ${i+1}:</strong> ${nomT}${secT}</span>
@@ -10802,7 +11156,7 @@ async function imprimirPortadaDP(){
   const dp = dpProcesoActual.proceso;
 
   // Datos del estudiante (ya con dos apellidos)
-  const nombreEst = `${dp.est_ap1||''} ${dp.est_ap2||''}, ${dp.est_nombre||''}`.replace(/\s+/g,' ').trim();
+  const nombreEst = nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2);
   // Número de expediente en formato oficial: LCF-EXP.EST-001-2026
   const numFmt = `LCF-EXP.EST-${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
   // Buscar encargado legal desde la acta de apertura (donde se anotó) o desde
@@ -10820,9 +11174,7 @@ async function imprimirPortadaDP(){
     encTelef  = encs[0].telefono || '';
   }
   // Fecha de apertura: la del proceso
-  const fechaApertura = dp.created_at
-    ? new Date(dp.created_at).toLocaleDateString('es-CR', {day:'2-digit', month:'long', year:'numeric'})
-    : '';
+  const fechaApertura = dp.created_at ? fmtF(dp.created_at) : '';
 
   // HTML de la portada: layout vertical centrado tipo ficha oficial
   const body = `
@@ -10878,7 +11230,7 @@ async function imprimirPasoDPDirecto(tipo, orden){
   const c = reg?.contenido || {};
   const info = DP_TIPOS_PASO[tipo];
   const nro = `N°${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
-  const estudiante = `${dp.est_ap1} ${dp.est_ap2||''}, ${dp.est_nombre}`.replace(/\s+/g,' ').trim();
+  const estudiante = nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2);
 
   // Responsable que debe aparecer y firmar el documento:
   // 1) profesor asignado específicamente al paso (otra sección),
@@ -10887,14 +11239,14 @@ async function imprimirPasoDPDirecto(tipo, orden){
   const hayProfesorDePaso = !!(reg?.asignado_a && reg?.asig_nombre);
   const hayGuiaSustituto = !!(dp.guia_sustituto_id && dp.sust_nombre);
   const guia = hayProfesorDePaso
-    ? `${reg.asig_ap1||''} ${reg.asig_ap2||''} ${reg.asig_nombre||''}`.replace(/\s+/g,' ').trim()
+    ? nombreDesdeCampos(reg.asig_nombre,reg.asig_ap1,reg.asig_ap2)
     : hayGuiaSustituto
-      ? `${dp.sust_ap1||''} ${dp.sust_ap2||''} ${dp.sust_nombre||''}`.replace(/\s+/g,' ').trim()
-      : `${dp.guia_ap1||''} ${dp.guia_ap2||''} ${dp.guia_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+      ? nombreDesdeCampos(dp.sust_nombre,dp.sust_ap1,dp.sust_ap2)
+      : nombreDesdeCampos(dp.guia_nombre,dp.guia_ap1,dp.guia_ap2);
   const guiaCedula = hayProfesorDePaso ? (reg.asig_cedula || '____')
     : hayGuiaSustituto ? (dp.sust_cedula || '____') : (dp.guia_cedula || '____');
   const cargoProfesor = (hayProfesorDePaso || hayGuiaSustituto) ? 'Profesor(a) asignado(a)' : 'Profesor(a) guía';
-  const orientador = `${dp.orient_ap1||''} ${dp.orient_ap2||''} ${dp.orient_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+  const orientador = nombreDesdeCampos(dp.orient_nombre,dp.orient_ap1,dp.orient_ap2);
   let body = '';
 
   // Buscar testigo si aplica. Si el paso aún no se guardó (reg=null) pero
@@ -10927,7 +11279,7 @@ async function imprimirPasoDPDirecto(tipo, orden){
   if(tipo === 'acta_apertura'){
     const hechosTxt = (c.hechos || '').trim();
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p><strong>Fecha:</strong> ${c.fecha_hechos || '_____________'}</p>
+      <p><strong>Fecha:</strong> ${c.fecha_hechos ? fmtF(c.fecha_hechos) : '_____________'}</p>
       <p>Yo, <strong>${c.informante||'__________________'}</strong>, portador de la cédula de identidad <strong>${c.informante_cedula||'____________'}</strong>, en calidad de <strong>${c.informante_calidad||'____________'}</strong>, manifiesto lo siguiente:</p>
       <p>Se hace constar que la presente se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes...</p>
       <p>Pongo en conocimiento los siguientes hechos:</p>
@@ -10948,7 +11300,7 @@ async function imprimirPasoDPDirecto(tipo, orden){
         </div>
         <div style="flex:1;min-width:160px;">
           <div style="border-bottom:1px solid #000;height:30px;"></div>
-          <p style="margin:4px 0 0 0;font-size:12px;"><strong>Fecha:</strong> ${c.fecha_hechos||''}</p>
+          <p style="margin:4px 0 0 0;font-size:12px;"><strong>Fecha:</strong> ${c.fecha_hechos ? fmtF(c.fecha_hechos) : ''}</p>
         </div>
       </div>`;
   } else if(tipo.startsWith('cita_')){
@@ -10964,10 +11316,10 @@ async function imprimirPasoDPDirecto(tipo, orden){
       nombreConvocado = dp.ofendido_docente_nombre || '____________________';
       seccionConvocado = '';
     } else if(testigo){
-      nombreConvocado = `${testigo.primer_apellido} ${testigo.segundo_apellido||''} ${testigo.nombre}`.replace(/\s+/g,' ').trim();
+      nombreConvocado = nombrePersona(testigo);
       seccionConvocado = testigo.seccion_nombre || dp.seccion_nombre;
     } else if(ofendido){
-      nombreConvocado = `${ofendido.primer_apellido} ${ofendido.segundo_apellido||''} ${ofendido.nombre}`.replace(/\s+/g,' ').trim();
+      nombreConvocado = nombrePersona(ofendido);
       seccionConvocado = ofendido.seccion_nombre || dp.seccion_nombre;
     } else if(tipo === 'cita_ofensor'){
       nombreConvocado = estudiante;
@@ -10977,15 +11329,15 @@ async function imprimirPasoDPDirecto(tipo, orden){
       seccionConvocado = '___';
     }
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p><strong>Fecha:</strong> ${c.fecha_notificacion || '____________'}</p>
+      <p><strong>Fecha:</strong> ${c.fecha_notificacion ? fmtF(c.fecha_notificacion) : '____________'}</p>
       ${esCitaOfendidoDocente
         ? `<p>Sr(a) <strong>${nombreConvocado}</strong>, docente del centro educativo.</p>`
         : `<p>Sr(a) <strong>${c.encargado_nombre||'____________________'}</strong>, encargado(a) legal de la persona estudiante <strong>${nombreConvocado}</strong>, sección <strong>${seccionConvocado||'___'}</strong>.</p>`}
       <p>Saludo cordial,</p>
-      <p>Le informo que el Centro Educativo está realizando una investigación para determinar la supuesta comisión de una falta por parte de una persona estudiante. De conformidad con el debido proceso y las normas del Código de la Niñez y la Adolescencia, se le convoca el día <strong>${c.fecha_cita||'____'}</strong> a las <strong>${c.hora_cita||'____'}</strong> horas ${esCitaOfendidoDocente ? 'para rendir su declaración' : 'para que acompañe y represente a la persona estudiante'} en la diligencia correspondiente, en calidad de <strong>${calidadCita}</strong>.</p>
+      <p>Le informo que el Centro Educativo está realizando una investigación para determinar la supuesta comisión de una falta por parte de una persona estudiante. De conformidad con el debido proceso y las normas del Código de la Niñez y la Adolescencia, se le convoca el día <strong>${c.fecha_cita ? fmtF(c.fecha_cita) : '____'}</strong> a las <strong>${c.hora_cita||'____'}</strong> horas ${esCitaOfendidoDocente ? 'para rendir su declaración' : 'para que acompañe y represente a la persona estudiante'} en la diligencia correspondiente, en calidad de <strong>${calidadCita}</strong>.</p>
       <p>Cordialmente,</p>
       <div class="reporte-materia" style="margin-top:45px;"><p>_______________________________<br/><strong>${cargoProfesor}:</strong> ${guia}<br/>Cédula: ${guiaCedula}</p></div>
-      <p>Fecha y hora de la notificación: ${c.fecha_notificacion||'____'} ${c.hora_cita||''}</p>
+      <p>Fecha y hora de la notificación: ${c.fecha_notificacion ? fmtF(c.fecha_notificacion) : '____'} ${c.hora_cita||''}</p>
       <p>Firma del encargado(a) o persona notificada: ____________________________</p>`;
   } else if(tipo.startsWith('decl_')){
     const calidad = c.calidad || (tipo === 'decl_ofendido' ? 'ofendido' : tipo === 'decl_ofensor' ? 'ofensor' : 'testigo');
@@ -11007,10 +11359,10 @@ async function imprimirPasoDPDirecto(tipo, orden){
       nombreDeclarante = dp.ofendido_docente_nombre || '__________';
       cedulaDeclarante = dp.ofendido_docente_cedula || '____';
     } else if (testigo){
-      nombreDeclarante = `${testigo.primer_apellido} ${testigo.segundo_apellido||''}, ${testigo.nombre}`;
+      nombreDeclarante = nombrePersona(testigo);
       cedulaDeclarante = testigo.cedula;
     } else if (ofendido){
-      nombreDeclarante = `${ofendido.primer_apellido} ${ofendido.segundo_apellido||''}, ${ofendido.nombre}`;
+      nombreDeclarante = nombrePersona(ofendido);
       cedulaDeclarante = ofendido.cedula;
     } else {
       nombreDeclarante = estudiante;
@@ -11021,26 +11373,26 @@ async function imprimirPasoDPDirecto(tipo, orden){
     if (esOfendidoDocente){
       // Plantilla específica para docente ofendido (mayor de edad, sin sección)
       body = `<p><strong>Expediente:</strong> ${nro}</p>
-        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece el docente <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
+        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece el docente <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
         <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes. La persona declarante manifiesta que sus dichos corresponden fielmente a lo que recuerda y observó, y se advierte que falsear la información puede tener consecuencias en la valoración pedagógica del caso.</p>
         <p>Esta declaración no se realiza bajo juramento en sentido judicial, por no tratarse de un proceso penal, sino de un procedimiento correctivo con fines educativos. No obstante, declaro bajo la fe de juramento que lo aquí manifestado lo hago de manera libre, espontánea, voluntaria, en pleno uso de mis facultades, y sin que medie presión, coacción, violencia, intimidación ni error alguno.</p>
         <p>Yo, <strong>${nombreDeclarante}</strong>, portador de la cédula de identidad <strong>${cedulaDeclarante}</strong>, docente del centro educativo, manifiesto lo siguiente:</p>
         <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
         <div class="reporte-materia" style="margin-top:30px;">
-          <p>Nombre del docente: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
+          <p>Nombre del docente: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</p>
           <p>Firma ${cargoProfesor.toLowerCase()}: ____________________ &nbsp; Cédula: ${guiaCedula}</p>
           <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>
         </div>`;
     } else {
       // Plantilla original para estudiante (ofensor, testigo u ofendido estudiante)
       body = `<p><strong>Expediente:</strong> ${nro}</p>
-        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl||'____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece la persona estudiante <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, en calidad de <strong>${calidadDeclaracion}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
+        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece la persona estudiante <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, en calidad de <strong>${calidadDeclaracion}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
         <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
         <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
         <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
         <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
         <div class="reporte-materia" style="margin-top:30px;">
-          <p>Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl||'____'}</p>
+          <p>Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</p>
           <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
           <p>Firma ${cargoProfesor.toLowerCase()}: ____________________ &nbsp; Cédula: ${guiaCedula}</p>
           <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>
@@ -11068,7 +11420,7 @@ async function imprimirPasoDPDirecto(tipo, orden){
       <p>Orientador(a): ____________________ &nbsp; ${orientador}</p></div>`;
   } else if(tipo === 'traslado_cargos'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p>El(la) suscrito(a) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, de la sección <strong>${dp.seccion_nombre||'___'}</strong>, siendo las <strong>${c.hora_notif||'____'}</strong> horas del día <strong>${c.fecha_notif||'____'}</strong>, procede a notificar el presente traslado de cargos.</p>
+      <p>El(la) suscrito(a) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, de la sección <strong>${dp.seccion_nombre||'___'}</strong>, siendo las <strong>${c.hora_notif||'____'}</strong> horas del día <strong>${c.fecha_notif ? fmtF(c.fecha_notif) : '____'}</strong>, procede a notificar el presente traslado de cargos.</p>
       <p>De conformidad con el artículo 144, inciso d) del REAC, se concede un plazo de <strong>tres días hábiles</strong> para ejercer el derecho de defensa.</p>
       <p>Se notifica a <strong>${c.encargado_nombre||'____'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, encargado(a) del estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p><strong>Falta:</strong> artículo ${c.art_falta||'____'}, inciso ${c.inc_falta||'____'}</p>
@@ -11077,14 +11429,14 @@ async function imprimirPasoDPDirecto(tipo, orden){
       ${c.desc_rebajo ? `<div style="border:1px solid #ddd;padding:8px;background:#fef2f2;font-size:12px;font-style:italic;">${c.desc_rebajo}</div>` : ''}
       <p><strong>Hecho imputado:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:100px;white-space:pre-wrap;">${c.hecho_imputado||''}</div>
-      <p>Fecha del hecho: <strong>${c.fecha_hecho||'____'}</strong></p>
+      <p>Fecha del hecho: <strong>${c.fecha_hecho ? fmtF(c.fecha_hecho) : '____'}</strong></p>
       <p><strong>Advertencia:</strong> Si transcurrido el plazo no se presenta descargo, se tendrá por aceptada la imputación.</p>
-      <div class="reporte-materia" style="margin-top:40px;"><p>${cargoProfesor}: ____________________ ${guia}<br/>Fecha: ${c.fecha_notif||'____'}</p>
+      <div class="reporte-materia" style="margin-top:40px;"><p>${cargoProfesor}: ____________________ ${guia}<br/>Fecha: ${c.fecha_notif ? fmtF(c.fecha_notif) : '____'}</p>
       <p style="margin-top:20px;"><strong>RECIBIDO</strong></p>
       <p>Nombre del encargado: ${c.encargado_nombre||'____'}<br/>Cédula: ${c.encargado_cedula||'____'} &nbsp; Firma: ____________</p></div>`;
   } else if(tipo === 'resolucion_final'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p>Al ser las <strong>${c.hora_resol||'____'}</strong> horas del día <strong>${c.fecha_resol||'____'}</strong>, en relación con el proceso aplicado a la persona estudiante <strong>${estudiante}</strong>, expediente <strong>${nro}</strong>, a cargo del(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, se resuelve:</p>
+      <p>Al ser las <strong>${c.hora_resol||'____'}</strong> horas del día <strong>${c.fecha_resol ? fmtF(c.fecha_resol) : '____'}</strong>, en relación con el proceso aplicado a la persona estudiante <strong>${estudiante}</strong>, expediente <strong>${nro}</strong>, a cargo del(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, se resuelve:</p>
       <p><strong>I. ANTECEDENTES</strong></p>
       <p>Una vez analizado el expediente, con base en el REAC y respetando el debido proceso, se determina lo siguiente:</p>
       <p><strong>II. HECHO PROBADO</strong></p>
@@ -11101,12 +11453,12 @@ async function imprimirPasoDPDirecto(tipo, orden){
       </ul>
       <p>Descripción de la acción:</p>
       <div style="border:1px solid #ccc;padding:10px;min-height:60px;white-space:pre-wrap;">${c.desc_accion||''}</div>
-      <p>A ejecutarse a partir del: <strong>${c.fecha_inicio_accion||'____'}</strong></p>
+      <p>A ejecutarse a partir del: <strong>${c.fecha_inicio_accion ? fmtF(c.fecha_inicio_accion) : '____'}</strong></p>
       <p><strong>Notifíquese. Cúmplase.</strong></p>
       <p class="reporte-materia" style="margin-top:30px;">Firma del(la) ${cargoProfesor.toLowerCase()}: ____________________ ${guia}<br/>Firma del estudiante: ____________________<br/>Firma del encargado legal: ____________________</p>`;
   } else if(tipo === 'desestima'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
-      <p>Al ser las <strong>${c.hora_desest||'____'}</strong> horas del día <strong>${c.fecha_desest||'____'}</strong>, en relación con el proceso seguido contra <strong>${estudiante}</strong>, expediente <strong>${c.expediente||nro}</strong>, el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>, resuelve:</p>
+      <p>Al ser las <strong>${c.hora_desest||'____'}</strong> horas del día <strong>${c.fecha_desest ? fmtF(c.fecha_desest) : '____'}</strong>, en relación con el proceso seguido contra <strong>${estudiante}</strong>, expediente <strong>${c.expediente||nro}</strong>, el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>, resuelve:</p>
       <p><strong>I. ANTECEDENTES</strong></p>
       <p>Conforme al procedimiento del REAC, se realizó la investigación correspondiente.</p>
       <p><strong>II. FUNDAMENTOS</strong></p>
@@ -11163,7 +11515,7 @@ function dpBuscarOfendido(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+    `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
   }, 300);
@@ -11208,7 +11560,7 @@ function dpBuscarTestigo(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+    `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
   }, 300);
@@ -11518,7 +11870,7 @@ async function cargarMinutasLista(estado){
       return;
     }
     tbody.innerHTML = minData.map(m => {
-      const creador = `${m.ini_ap1||''} ${m.ini_nombre||''}`.trim();
+      const creador = nombreDesdeCampos(m.ini_nombre,m.ini_ap1,m.ini_ap2);
       let badge;
       if(m.estado === 'en_curso'){
         badge = '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">📝 En curso</span>';
@@ -11566,7 +11918,7 @@ async function abrirNuevaMinuta(){
   nminToggleTipo();
   // Default dependencia y elaborada por
   document.getElementById('nmin-dependencia').value = 'Liceo de Calle Fallas';
-  document.getElementById('nmin-elaborada').value = `${ME.primer_apellido||''} ${ME.segundo_apellido||''} ${ME.nombre||''}`.replace(/\s+/g,' ').trim();
+  document.getElementById('nmin-elaborada').value = nombrePersona(ME);
   // Default fecha hoy
   document.getElementById('nmin-fecha').value = fechaHoyCR();
   document.getElementById('alert-nmin').className = 'alert';
@@ -11611,7 +11963,7 @@ async function abrirMinutaDetalle(id){
     document.getElementById('mind-titulo').textContent =
       `📝 Minuta MIN-${String(m.numero).padStart(3,'0')}-${m.anio}`;
     document.getElementById('mind-subtitulo').innerHTML =
-      `Creada por ${(m.ini_ap1||'')} ${(m.ini_nombre||'')} · ${fmtTS(m.created_at)} · Estado: ${m.estado === 'en_curso' ? '<strong style="color:#1e40af;">En curso</strong>' : '<strong style="color:#16a34a;">Finalizada</strong>'}`;
+      `Creada por ${nombreDesdeCampos(m.ini_nombre,m.ini_ap1,m.ini_ap2)} · ${fmtTS(m.created_at)} · Estado: ${m.estado === 'en_curso' ? '<strong style="color:#1e40af;">En curso</strong>' : '<strong style="color:#16a34a;">Finalizada</strong>'}`;
 
     // Botones según estado y permisos:
     //  - Editar / Finalizar / Añadir asistentes / Eliminar → solo el creador
@@ -11721,7 +12073,7 @@ async function abrirAgregarAsistente(tipo){
   const sel = document.getElementById('mina-usuario-id');
   sel.innerHTML = '<option value="">— Externo / no aparece en sistema —</option>' +
     minUsuariosCache.map(p => {
-      const nom = `${p.primer_apellido||''} ${p.segundo_apellido||''} ${p.nombre||''}`.replace(/\s+/g,' ').trim();
+  const nom = nombrePersona(p);
       return `<option value="${p.id}" data-nombre="${nom}" data-rol="${p.rol||''}">${nom} (${RLBL[p.rol]||p.rol||''})</option>`;
     }).join('');
 
@@ -11849,7 +12201,7 @@ async function reabrirMinuta(){
     if(!confirm('¿Reabrir esta minuta para edición?')) return;
   } else if (esSup) {
     // Admin/Administrativo reabriendo minuta ajena: pedir justificación
-    const nomCreador = `${m.ini_ap1||''} ${m.ini_nombre||''}`.trim();
+    const nomCreador = nombreDesdeCampos(m.ini_nombre,m.ini_ap1,m.ini_ap2);
     justificacion = prompt(
       `🔓 Reapertura de minuta ajena\n\n` +
       `Vas a reabrir la minuta MIN-${String(m.numero).padStart(3,'0')}-${m.anio} creada por ${nomCreador}.\n\n` +
@@ -12152,7 +12504,7 @@ async function invCargarUsuarios(){
     const sel = document.getElementById('inv-sal-usuario');
     if(sel){
       const opciones = invUsuarios.map(u => {
-        const nombre = `${u.primer_apellido||''} ${u.segundo_apellido||''} ${u.nombre||''}`.replace(/\s+/g,' ').trim();
+  const nombre = nombrePersona(u);
         return `<option value="${u.id}">${nombre} (${u.cedula||'sin céd.'})</option>`;
       }).join('');
       sel.innerHTML = '<option value="">— Seleccioná un usuario —</option>' + opciones;
@@ -12536,7 +12888,7 @@ async function invCargarHistorial(){
       return;
     }
     wrap.innerHTML = rows.map(s => {
-      const reg = `${s.reg_ap1||''} ${s.reg_ap2||''} ${s.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+      const reg = nombreDesdeCampos(s.reg_nombre,s.reg_ap1,s.reg_ap2);
       // Botón eliminar solo para junta y admin (canInventario en backend lo valida también)
       const puedeEliminar = ['junta','admin'].includes(ME.rol);
       return `<div style="border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px;">
@@ -12598,7 +12950,7 @@ async function invImprimirSalida(id){
     const telefono        = cfg.telefono         || '';
     const email           = cfg.email            || '';
 
-    const reg = `${s.reg_ap1||''} ${s.reg_ap2||''} ${s.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+    const reg = nombreDesdeCampos(s.reg_nombre,s.reg_ap1,s.reg_ap2);
     const retiraRol = s.retira_rol ? (RLBL[s.retira_rol] || s.retira_rol) : '';
     const tituloRol = retiraRol ? ` — ${retiraRol}` : '';
 
@@ -12960,7 +13312,7 @@ async function invEntCargar(){
       return;
     }
     wrap.innerHTML = rows.slice(0, 30).map(e => {
-      const reg = `${e.reg_ap1||''} ${e.reg_ap2||''} ${e.reg_nombre||''}`.replace(/\s+/g,' ').trim();
+      const reg = nombreDesdeCampos(e.reg_nombre,e.reg_ap1,e.reg_ap2);
       return `<div style="padding:8px;border-bottom:1px solid #f1f5f9;font-size:13px;">
         <strong>${e.codigo}</strong> · ${e.producto_nombre} — <strong style="color:#16a34a;">+${e.cantidad} ${e.unidad}</strong>
         <span style="float:right;color:var(--muted);font-size:11px;">${fmtF(e.fecha)} · ${reg}</span>
@@ -13123,7 +13475,7 @@ async function cargarProtLista(estado){
         const estadoBadge = p.estado === 'activo'
           ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">⏳ Activo</span>'
           : '<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">✅ Cerrado</span>';
-        const ini = `${p.ini_ap1||''} ${p.ini_ap2||''} ${p.ini_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
+        const ini = nombreDesdeCampos(p.ini_nombre,p.ini_ap1,p.ini_ap2);
         return `<div style="background:#fff;border:1px solid var(--border);border-left:5px solid #0891b2;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
             <div style="flex:1;min-width:0;">
@@ -13162,7 +13514,7 @@ async function cargarProtPendientes(){
     if(!rows.length){ wrap.style.display='none'; return; }
     wrap.style.display = '';
     lista.innerHTML = rows.map(p => {
-      const ini = `${p.ini_ap1||''} ${p.ini_ap2||''} ${p.ini_nombre||''}`.replace(/\s+/g,' ').trim();
+      const ini = nombreDesdeCampos(p.ini_nombre,p.ini_ap1,p.ini_ap2);
       return `<div style="padding:4px 0;">🛡️ <strong>N°${p.numero}-${p.anio}</strong> · ${p.pauta_nombre || 'Pauta '+p.pauta} · Inició: ${ini}
         <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirProtoDetalle(${p.id})">Ver</button>
       </div>`;
@@ -13204,7 +13556,7 @@ function npBuscarEstudiante(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+    `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     }catch{ sel.innerHTML='<option value="">— Error —</option>'; }
   }, 300);
@@ -13254,8 +13606,8 @@ async function abrirProtoDetalle(protoId){
     const p = d.protocolo;
     const nro = `N°${String(p.numero).padStart(3,'0')}-${p.anio}`;
     document.getElementById('pd-titulo').textContent = `🛡️ ${nro} — Pauta ${p.pauta}`;
-    const ini = `${p.ini_ap1||''} ${p.ini_ap2||''} ${p.ini_nombre||''}`.replace(/\s+/g,' ').trim() || '—';
-    const orient = `${p.orient_ap1||''} ${p.orient_ap2||''} ${p.orient_nombre||''}`.replace(/\s+/g,' ').trim() || 'Sin asignar';
+    const ini = nombreDesdeCampos(p.ini_nombre,p.ini_ap1,p.ini_ap2);
+    const orient = nombreDesdeCampos(p.orient_nombre,p.orient_ap1,p.orient_ap2,{vacio:'Sin asignar'});
     document.getElementById('pd-subtitulo').innerHTML = `
       <strong>${PAUTA_NOMBRES[p.pauta] || ''}</strong><br/>
       Inició: ${ini} · Orientador: ${orient}
@@ -13287,7 +13639,7 @@ function renderPersonasProto(d){
 
   const lista = personas.map(pe => {
     const nombre = pe.estudiante_id
-      ? `${pe.est_ap1||''} ${pe.est_ap2||''}, ${pe.est_nombre||''}`.replace(/\s+/g,' ').trim() + (pe.est_cedula?` (${pe.est_cedula})`:'') + (pe.est_seccion?` · ${pe.est_seccion}`:'')
+      ? nombreDesdeCampos(pe.est_nombre,pe.est_ap1,pe.est_ap2) + (pe.est_cedula?` (${pe.est_cedula})`:'') + (pe.est_seccion?` · ${pe.est_seccion}`:'')
       : `${pe.nombre_completo||''}${pe.cedula?` (${pe.cedula})`:''}${pe.es_externo?' [externo]':''}${pe.es_mayor_edad?' [mayor de edad]':''}`;
     const iconos = { afectado:'👤', ofensor:'⚠️', observador:'👁️', externo:'🌐' };
     const eliminar = puedeEditar && pe.rol !== 'afectado'
@@ -13371,13 +13723,13 @@ function valoresAutorrelleno(){
   const c = protConfigCentro || {};
   const p = (protActual?.personas || []).find(x => x.rol === 'afectado') || {};
   const nombreAfectado = p.estudiante_id
-    ? `${p.est_ap1||''} ${p.est_ap2||''}, ${p.est_nombre||''}`.replace(/\s+/g,' ').trim()
+    ? nombreDesdeCampos(p.est_nombre,p.est_ap1,p.est_ap2)
     : (p.nombre_completo || '');
   const cedulaAfectado = p.estudiante_id ? p.est_cedula : p.cedula;
   const seccionAfectado = p.estudiante_id ? p.est_seccion : p.seccion;
   const fechaNacAfectado = p.estudiante_id ? (p.est_fnac ? new Date(p.est_fnac).toISOString().slice(0,10) : '') : p.fecha_nacimiento;
   const ini = protActual?.protocolo || {};
-  const iniNombre = `${ini.ini_ap1||''} ${ini.ini_ap2||''} ${ini.ini_nombre||''}`.replace(/\s+/g,' ').trim();
+  const iniNombre = nombreDesdeCampos(ini.ini_nombre,ini.ini_ap1,ini.ini_ap2,{vacio:''});
   return {
     centro_nombre: c.nombre_centro || 'Liceo de Calle Fallas',
     codigo_pres: c.codigo_presupuestario || '',
@@ -13766,7 +14118,7 @@ function ppBuscarEstudiante(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-        `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+    `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     }catch{ sel.innerHTML='<option value="">— Error —</option>'; }
   }, 300);
@@ -13881,7 +14233,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
 
   // Helper para mostrar checkboxes en impresión
   const cb = (v) => v ? '☑' : '☐';
-  const fechaFmt = (s) => s ? s : '____________';
+  const fechaFmt = (s) => s ? fmtF(s) : '____________';
 
   let titulo = FORMULARIO_NOMBRES[tipo] || tipo;
   let body = '';
@@ -13957,7 +14309,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
       <h4>A. Datos del estudiante</h4>
       <p><strong>Nombre:</strong> ${c.estudiante||''}</p>
-      <p><strong>Grado/sección:</strong> ${c.seccion||''} · <strong>Fecha nac.:</strong> ${c.fecha_nac||''} · <strong>Edad:</strong> ${c.edad||''}</p>
+      <p><strong>Grado/sección:</strong> ${c.seccion||''} · <strong>Fecha nac.:</strong> ${fechaFmt(c.fecha_nac)} · <strong>Edad:</strong> ${c.edad||''}</p>
       <p><strong>Encargado presente:</strong> ${c.encargado_nombre||''}</p>
       <p>Tipo de entrevista: ${cb(c.entr_violentada)} Violentada · ${cb(c.entr_observador)} Observador · ${cb(c.entr_ejerce)} Que ejerció</p>
       <h4>B. Compilación</h4>
@@ -13982,7 +14334,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <p><strong>Motivo PANI:</strong> ${cb(c.pani_negligencia)} Negligencia · ${cb(c.pani_omision)} Omisión · ${cb(c.pani_riesgo)} Riesgo</p>
       <h4>Datos del estudiante</h4>
       <p><strong>Nombre:</strong> ${c.estudiante||''} · <strong>Cédula:</strong> ${c.cedula||''}</p>
-      <p><strong>Fecha nac.:</strong> ${c.fecha_nac||''} · <strong>Edad:</strong> ${c.edad||''} · <strong>Nivel:</strong> ${c.nivel||''}</p>
+      <p><strong>Fecha nac.:</strong> ${fechaFmt(c.fecha_nac)} · <strong>Edad:</strong> ${c.edad||''} · <strong>Nivel:</strong> ${c.nivel||''}</p>
       <p><strong>Dirección:</strong> ${c.direccion||''}</p>
       <p><strong>Encargado:</strong> ${c.enc_nombre||''} · Céd: ${c.enc_cedula||''} · Tel: ${c.enc_telef||''}</p>
       <p><strong>Motivo de referencia:</strong></p>
@@ -13995,7 +14347,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <p><strong>Centro educativo:</strong> ${c.centro_nombre||''} · <strong>Circuito:</strong> ${c.circuito||''} · <strong>DRE:</strong> ${c.dre||''}</p>
       <h4>Datos de quien presuntamente ejerció la violencia</h4>
       <p><strong>Nombre:</strong> ${c.ofensor_nombre||''} · <strong>Cédula:</strong> ${c.ofensor_cedula||''}</p>
-      <p><strong>Fecha nac.:</strong> ${c.ofensor_fechanac||''} · <strong>Edad:</strong> ${c.ofensor_edad||''} · <strong>Nivel/cargo:</strong> ${c.ofensor_nivel||''}</p>
+      <p><strong>Fecha nac.:</strong> ${fechaFmt(c.ofensor_fechanac)} · <strong>Edad:</strong> ${c.ofensor_edad||''} · <strong>Nivel/cargo:</strong> ${c.ofensor_nivel||''}</p>
       <p><strong>Correo:</strong> ${c.ofensor_correo||''}</p>
       <p><strong>Dirección:</strong> ${c.ofensor_direccion||''}</p>
       <p><strong>Encargado:</strong> ${c.ofensor_enc_nombre||''} · Céd: ${c.ofensor_enc_ced||''} · Tel: ${c.ofensor_enc_telef||''}</p>
@@ -14003,7 +14355,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <div style="border:1px solid #ccc;padding:10px;min-height:120px;white-space:pre-wrap;">${c.motivo||''}</div>
       <h4>Datos de quien presuntamente recibe la violencia</h4>
       <p><strong>Nombre:</strong> ${c.victima_nombre||''} · <strong>Cédula:</strong> ${c.victima_cedula||''}</p>
-      <p><strong>Fecha nac.:</strong> ${c.victima_fechanac||''} · <strong>Edad:</strong> ${c.victima_edad||''} · <strong>Nivel:</strong> ${c.victima_nivel||''}</p>
+      <p><strong>Fecha nac.:</strong> ${fechaFmt(c.victima_fechanac)} · <strong>Edad:</strong> ${c.victima_edad||''} · <strong>Nivel:</strong> ${c.victima_nivel||''}</p>
       <p><strong>Encargado:</strong> ${c.victima_enc_nombre||''} · Céd: ${c.victima_enc_ced||''} · Tel: ${c.victima_enc_telef||''}</p>
       <p><strong>Dirección:</strong> ${c.victima_direccion||''}</p>
       <h4>Testigos</h4>
@@ -14014,7 +14366,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <p><strong>Expediente:</strong> ${nro} · <strong>Fecha:</strong> ${fechaFmt(c.fecha)}</p>
       <h4>Datos del estudiante</h4>
       <p><strong>Nombre:</strong> ${c.estudiante||''} · <strong>Cédula:</strong> ${c.cedula||''}</p>
-      <p><strong>Fecha nac.:</strong> ${c.fecha_nac||''} · <strong>Edad:</strong> ${c.edad||''} · <strong>Nivel:</strong> ${c.nivel||''}</p>
+      <p><strong>Fecha nac.:</strong> ${fechaFmt(c.fecha_nac)} · <strong>Edad:</strong> ${c.edad||''} · <strong>Nivel:</strong> ${c.nivel||''}</p>
       <p><strong>Dirección:</strong> ${c.direccion||''}</p>
       <p><strong>Encargado:</strong> ${c.encargado||''} · Tel: ${c.telef_enc||''}</p>
       <p><strong>Grupo familiar:</strong> ${c.grupo_familiar||''}</p>
@@ -14037,7 +14389,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <p>${cb(c.dre)} DRE · ${cb(c.asesorias)} Asesorías · ${cb(c.curricular)} Desarrollo Curricular · ${cb(c.vidaestud)} Vida Estudiantil<br/>
       ${cb(c.upre)} UPRE · ${cb(c.panea)} PANEA · ${cb(c.otra)} Otra: ${c.otra_detalle||''}</p>
       <h4>Estudiante referido</h4>
-      <p>${c.estudiante||''} · Céd: ${c.cedula||''} · Fnac: ${c.fecha_nac||''} · Edad: ${c.edad||''} · Nivel: ${c.nivel||''}</p>
+      <p>${c.estudiante||''} · Céd: ${c.cedula||''} · Fnac: ${fechaFmt(c.fecha_nac)} · Edad: ${c.edad||''} · Nivel: ${c.nivel||''}</p>
       <p><strong>Solicitud:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.solicitud||''}</div>
       <p style="margin-top:20px;">Firma persona directora: __________________ &nbsp; Sello</p>`;
@@ -14046,7 +14398,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <p><strong>Expediente:</strong> ${nro}</p>
       <p><strong>Centro:</strong> ${c.centro_nombre||''}</p>
       <p><strong>Elaborado por:</strong> ${c.elaborado_por||''}</p>
-      <p><strong>Fecha del informe:</strong> ${c.fecha_informe||''} · <strong>Activación:</strong> ${c.fecha_activacion||''}</p>
+      <p><strong>Fecha del informe:</strong> ${fechaFmt(c.fecha_informe)} · <strong>Activación:</strong> ${fechaFmt(c.fecha_activacion)}</p>
       <p>${cb(c.no_violencia)} No se identificó manifestación de violencia/bullying — proceder al cierre</p>
       <p>${cb(c.no_riesgo)} No se identificó situación de vulnerabilidad y riesgo — proceder al cierre</p>
       <p><strong>Relato:</strong></p>
@@ -14059,20 +14411,20 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <p>${cb(c.referencia_ccss)} Referencia a la CCSS</p>
       <p>${cb(c.denuncia_disc)} Denuncia a Asuntos Disciplinarios</p>
       <p>${cb(c.coord_otras)} Coordinación con otras instituciones</p>
-      <p>Institución/recurso: ${c.coord_institucion||''} · Contacto: ${c.coord_contacto||''} · Fecha: ${c.coord_fecha||''}</p>
+      <p>Institución/recurso: ${c.coord_institucion||''} · Contacto: ${c.coord_contacto||''} · Fecha: ${fechaFmt(c.coord_fecha)}</p>
       <p><strong>Medidas de protección:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.medidas_proteccion||''}</div>
       <p><strong>Acciones psico-socioeducativas:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:60px;white-space:pre-wrap;">${c.acciones_psico||''}</div>
       <p><strong>¿Requiere otra Pauta?</strong> ${c.otra_pauta==='si'?'Sí':c.otra_pauta==='no'?'No':''} — ${c.otra_pauta_detalle||''}</p>
-      <p><strong>Fecha 1° seguimiento:</strong> ${c.fecha_seg1||''} · <strong>2° seguimiento:</strong> ${c.fecha_seg2||''}</p>
+      <p><strong>Fecha 1° seguimiento:</strong> ${fechaFmt(c.fecha_seg1)} · <strong>2° seguimiento:</strong> ${fechaFmt(c.fecha_seg2)}</p>
       <p style="margin-top:30px;"><strong>Quien elaboró:</strong> ${c.elaborado_por||''}</p>
       <p>Firma: __________________ &nbsp; <strong>Directora:</strong> ${c.director||''} &nbsp; Fecha recibido: __________</p>
       <p>Sello institucional</p>`;
   } else if(tipo === 'F12'){
     body = `<p style="text-align:center;font-weight:bold;">INFORME DE SEGUIMIENTO</p>
       <p><strong>Expediente:</strong> ${nro}</p>
-      <p><strong>Fecha del primer informe:</strong> ${c.fecha||''}</p>
+      <p><strong>Fecha del primer informe:</strong> ${fechaFmt(c.fecha)}</p>
       <p><strong>Centro:</strong> ${c.centro_nombre||''}</p>
       <p><strong>Elaborado por:</strong> ${c.elaborado_por||''}</p>
       <h4>A. Articulación inter e intrainstitucional (1°, 2°, 3° mes)</h4>
@@ -14086,7 +14438,7 @@ function imprimirFormProtocoloDirecto(formId, tipo){
       <h4>C. Acciones psico-socioeducativas</h4>
       <div style="border:1px solid #ccc;padding:10px;min-height:80px;white-space:pre-wrap;">${c.seg_acciones||''}</div>
       <h4>Cierre del expediente</h4>
-      <p><strong>Fecha cierre:</strong> ${c.fecha_cierre||''}</p>
+      <p><strong>Fecha cierre:</strong> ${fechaFmt(c.fecha_cierre)}</p>
       <p><strong>Encargado activación:</strong> ${c.responsable||''} &nbsp; Firma: __________________</p>
       <p><strong>Visto bueno directora:</strong> ${c.director||''} &nbsp; Firma: __________________</p>
       <p>Sello institucional</p>`;
@@ -14130,7 +14482,7 @@ async function iniciarConsecutivos(){
       const usuarios=await api("/api/admin/usuarios-activos")||[];
       const sel=document.getElementById("consec-solicitante");
       if(sel) sel.innerHTML='<option value="">— Seleccionar usuario —</option>'+
-        usuarios.map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${u.rol})</option>`).join("");
+        usuarios.map(u=>`<option value="${u.id}">${nombrePersona(u)} (${u.rol})</option>`).join("");
       const wrap=document.getElementById("consec-sol-wrap");
       if(wrap) wrap.style.display="";
     }catch{}
@@ -14191,11 +14543,11 @@ function renderConsecutivos(rows, tipo){
     protocolo:{bg:"#dcfce7",color:"#166534",border:"#86efac"}
   };
   tbody.innerHTML=rows.map(c=>{
-    const sol=`${c.sol_ap1||''} ${c.sol_nombre||''}`.trim();
+    const sol=nombreDesdeCampos(c.sol_nombre,c.sol_ap1,c.sol_ap2);
     let detalle='';
     if(c.tipo==='oficio') detalle=c.destinatario||'—';
     else if(c.tipo==='minuta'||c.tipo==='proceso')
-      detalle=c.est_nombre?`${c.est_ap1} ${c.est_nombre}`:c.seccion_nombre||'—';
+      detalle=c.est_nombre?nombreDesdeCampos(c.est_nombre,c.est_ap1,c.est_ap2):c.seccion_nombre||'—';
     else if(c.tipo==='protocolo')
       detalle=(c.tipo_protocolo||'').slice(0,50)+(c.tipo_protocolo?.length>50?'...':'');
     const cargo=c.solicitado_por_cargo||c.solicitante_cargo||c.digitado_por_cargo||'—';
@@ -14204,7 +14556,7 @@ function renderConsecutivos(rows, tipo){
       <td style="font-weight:bold;color:var(--azul);">${c.numero}</td>
       <td><span style="background:${tc.bg};color:${tc.color};padding:2px 8px;border-radius:6px;font-size:12px;font-weight:bold;">${tipoLabel[c.tipo]||c.tipo}</span></td>
       <td style="font-weight:bold;">${c.numero}</td>
-      <td>${c.fecha?.slice(0,10)||'—'}</td>
+      <td>${fmtF(c.fecha)}</td>
       <td>${sol||'—'}</td>
       <td style="font-size:12px;">${detalle}</td>
       <td><button class="btn btn-danger btn-xs" onclick="eliminarConsec(${c.id})">🗑️</button></td>
@@ -14240,7 +14592,7 @@ async function cargarEstConsec(tipo){
   try{
     const rows=await api(`/api/estudiantes?seccion_id=${secId}`)||[];
     sel.innerHTML='<option value="">— Estudiante —</option>'+
-      rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</option>`).join("");
+      rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
   }catch{}
 }
 
@@ -14383,7 +14735,7 @@ async function cargarListaComedor(){
     const rowBecado = (e,i) => `<tr style="background:#f0fdf4;">
       <td><input type="checkbox" id="cd-${e.id}" checked onchange="actualizarStatsBeca()"/></td>
       <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-      <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+      <td><strong>${nombrePersona(e)}</strong></td>
       <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
       <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
     </tr>`;
@@ -14392,7 +14744,7 @@ async function cargarListaComedor(){
     const rowRegular = (e,i) => `<tr>
       <td><input type="checkbox" id="cd-${e.id}" onchange="actualizarStatsBeca()"/></td>
       <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-      <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+      <td><strong>${nombrePersona(e)}</strong></td>
       <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
       <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
     </tr>`;
@@ -14435,14 +14787,14 @@ function filtrarSeccionComedor(){
   const rowBecado = (e,i) => `<tr style="background:#f0fdf4;">
     <td><input type="checkbox" id="cd-${e.id}" checked onchange="actualizarStatsBeca()"/></td>
     <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-    <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+      <td><strong>${nombrePersona(e)}</strong></td>
     <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
     <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
   </tr>`;
   const rowRegular = (e,i) => `<tr>
     <td><input type="checkbox" id="cd-${e.id}" onchange="actualizarStatsBeca()"/></td>
     <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-    <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+      <td><strong>${nombrePersona(e)}</strong></td>
     <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
     <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
   </tr>`;
@@ -14512,7 +14864,7 @@ async function cargarResumenComedor(){
           <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th><th>Hora</th></tr></thead>
           <tbody>${rows.filter(r=>r.becado).map((r,i)=>`<tr>
             <td style="color:var(--muted)">${i+1}</td>
-            <td><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong></td>
+      <td><strong>${nombrePersona(r)}</strong></td>
             <td style="font-size:11px;">${r.cedula}</td>
             <td style="font-size:11px;">${r.seccion_nombre||'—'}</td>
             <td style="font-size:11px;">${r.hora||'—'}</td>
@@ -14525,7 +14877,7 @@ async function cargarResumenComedor(){
           <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th><th>Hora</th></tr></thead>
           <tbody>${rows.filter(r=>!r.becado).map((r,i)=>`<tr>
             <td style="color:var(--muted)">${i+1}</td>
-            <td>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</td>
+      <td>${nombrePersona(r)}</td>
             <td style="font-size:11px;">${r.cedula}</td>
             <td style="font-size:11px;">${r.seccion_nombre||'—'}</td>
             <td style="font-size:11px;">${r.hora||'—'}</td>
@@ -14561,7 +14913,7 @@ async function imprimirReporteComedor(){
 
   const rowHtml = (r,i) => `<tr style="page-break-inside:avoid;">
     <td style="padding:4px 6px;text-align:center;">${i+1}</td>
-    <td style="padding:4px 6px;"><strong>${r.primer_apellido} ${r.segundo_apellido||''}, ${r.nombre}</strong></td>
+      <td style="padding:4px 6px;"><strong>${nombrePersona(r)}</strong></td>
     <td style="padding:4px 6px;">${r.cedula}</td>
     <td style="padding:4px 6px;">${r.seccion_nombre||'—'}</td>
     <td style="padding:4px 6px;text-align:center;">${r.hora||'—'}</td>
@@ -14736,7 +15088,7 @@ async function escanearComedor(){
     if(result){
       result.style.display='';
       result.style.background = tipo==='becado' ? '#dcfce7' : '#e0f2fe';
-      document.getElementById('csr-nombre').textContent = `${est.primer_apellido||''} ${est.nombre||''}`.trim();
+  document.getElementById('csr-nombre').textContent = nombrePersona(est);
       document.getElementById('csr-cedula').textContent = est.cedula || cedula;
       document.getElementById('csr-tipo').innerHTML = tipo==='becado'
         ?'<span style="color:#166534;font-weight:bold;">🎓 BECADO</span>'
@@ -14768,7 +15120,7 @@ let ppTabActual = 'inicio';
 
 function iniciarPortalPadres(){
   const p = PP?.padre || {};
-  document.getElementById("pp-nombre").textContent = `${p.nombre||''} ${p.primer_apellido||''}`.trim() || p.cedula;
+  document.getElementById("pp-nombre").textContent = nombrePersona(p,{vacio:p.cedula});
   document.getElementById("portal-padres").style.display = "block";
   const hijos = PP?.hijos || [];
   if(!hijos.length){
@@ -14787,7 +15139,7 @@ function ppRenderHijosTabs(){
     <button onclick="ppSelHijo(${h.id})" style="flex:1;min-width:180px;text-align:left;padding:10px 14px;border-radius:10px;cursor:pointer;
       border:2px solid ${ppHijoActual&&h.id===ppHijoActual.id?'var(--azul)':'var(--border)'};
       background:${ppHijoActual&&h.id===ppHijoActual.id?'#eff6ff':'#fff'};">
-      <div style="font-weight:bold;font-size:14px;">🎒 ${h.primer_apellido} ${h.segundo_apellido||''}, ${h.nombre}</div>
+      <div style="font-weight:bold;font-size:14px;">🎒 ${nombrePersona(h)}</div>
       <div style="font-size:12px;color:var(--muted);">Sección ${h.seccion_nombre||'—'}</div>
     </button>`).join("");
 }
@@ -14827,7 +15179,7 @@ async function ppCargarInicio(){
         <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;${a.hoy?'background:#fef2f2;':''}">
           ${a.hoy?'<span style="background:#dc2626;color:#fff;border-radius:4px;padding:1px 6px;font-size:10.5px;font-weight:bold;margin-right:6px;">HOY</span>':''}
           <strong>${a.estudiante}</strong> — ${a.detalle}
-          <span style="color:var(--muted);"> · ${a.fecha}</span>
+          <span style="color:var(--muted);"> · ${fmtF(a.fecha)}</span>
         </div>`).join("");
     } else {
       card.style.display = 'none';
@@ -14871,7 +15223,7 @@ async function ppCargarPorteria(){
   try{
     const rows = await api(`/api/padres/hijo/${ppHijoActual.id}/porteria`)||[];
     tbody.innerHTML = rows.length ? rows.map(r=>`<tr>
-      <td style="white-space:nowrap;">${String(r.fecha).slice(0,10)}</td>
+      <td style="white-space:nowrap;">${fmtF(r.fecha)}</td>
       <td>${r.hora}</td>
       <td>${r.tipo==='entrada'?'⬇️ Entrada':'⬆️ Salida'}</td>
       <td>${r.resultado==='permitido'?'<span style="color:var(--verde);font-weight:bold;">✔ Permitido</span>':'<span style="color:#dc2626;font-weight:bold;">⛔ Denegado</span>'}</td>
@@ -14926,7 +15278,7 @@ async function ppCargarAsistencia(){
     document.getElementById('pp-as-pre').textContent = res.presentes||0;
     const filas = (r.registros||[]).filter(x=>x.estado!=='P');
     tbody.innerHTML = filas.length ? filas.map(x=>`<tr>
-      <td style="white-space:nowrap;">${String(x.fecha).slice(0,10)}</td>
+      <td style="white-space:nowrap;">${fmtF(x.fecha)}</td>
       <td>${x.materia_nombre}</td>
       <td>${x.estado==='A'?'<span style="color:#dc2626;font-weight:bold;">Ausente</span>':'<span style="color:#ea580c;font-weight:bold;">Tardía</span>'}</td>
       <td>${x.estado==='A' ? (x.lecciones_ausentes ?? x.lecciones_sesion) : (x.lecciones_tardias ?? '—')}</td>
@@ -14964,7 +15316,7 @@ async function ppCargarConducta(){
     const boletas = per === 'I' ? (r.boletas_I||[]) : per === 'II' ? (r.boletas_II||[]) : (r.boletas||[]);
     const TIPOS = {muy_leve:'Muy leve',leve:'Leve',grave:'Grave',muy_grave:'Muy grave',gravisima:'Gravísima'};
     tbody.innerHTML = boletas.length ? boletas.map(b=>`<tr>
-      <td style="white-space:nowrap;">${String(b.fecha).slice(0,10)}</td>
+      <td style="white-space:nowrap;">${fmtF(b.fecha)}</td>
       <td style="font-size:11.5px;">${b.descripcion}${b.observacion?`<div style="color:var(--muted);">${b.observacion}</div>`:''}</td>
       <td>${TIPOS[b.tipo]||b.tipo}</td>
       <td style="color:#dc2626;font-weight:bold;">-${b.puntos}</td>
@@ -15080,7 +15432,7 @@ async function anCargarLista(){
       <td style="white-space:nowrap;">${String(a.created_at).slice(0,10)}</td>
       <td><strong>${a.titulo}</strong><div style="font-size:11.5px;color:var(--muted);max-width:340px;">${a.cuerpo.length>120?a.cuerpo.slice(0,120)+'…':a.cuerpo}</div></td>
       <td>${a.para_todos?'📣 Todos':(a.secciones||[]).map(id=>secMap[id]||id).join(', ')}</td>
-      <td>${a.creador_ap1||''} ${a.creador_nombre||''}</td>
+      <td>${nombreDesdeCampos(a.creador_nombre,a.creador_ap1,a.creador_ap2)}</td>
       <td>${a.activo?'<span class="badge b-guia">Activo</span>':'<span class="badge" style="background:#f1f5f9;color:#64748b;">Oculto</span>'}</td>
       <td style="white-space:nowrap;">
         <button class="btn btn-outline btn-xs" onclick="anToggle(${a.id})" title="${a.activo?'Ocultar':'Mostrar'}">${a.activo?'🙈':'👁️'}</button>
@@ -15387,7 +15739,7 @@ function itRender(){
   const dis = itPuedeEditar ? '' : 'disabled';
   tbody.innerHTML = lista.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
-    <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+      <td><strong>${nombrePersona(e)}</strong></td>
     <td><code>${e.cedula}</code></td>
     <td>${e.seccion_nombre}</td>
     <td>${itPuedeEditar ? `
@@ -15541,7 +15893,7 @@ async function horCargarSeccion(){
     }
     const g = r.guia;
     guiaLabel.textContent = g
-      ? `👤 Profesor(a) guía: ${g.primer_apellido||''} ${g.segundo_apellido||''} ${g.nombre||''}`.trim() : '';
+    ? `👤 Profesor(a) guía: ${nombrePersona(g)}` : '';
     guiaLabel.style.display = g ? '' : 'none';
     // Mapa celdas: "dia-leccion" → ARRAY de celdas (pueden ser varias por celda, ej: Hogar+Industriales)
     const mapa = {};
@@ -15558,7 +15910,7 @@ async function horCargarSeccion(){
 
 function horEtiquetaAsig(a){
   const sub = a.subgrupo ? ` [${a.subgrupo}]` : '';
-  return `${a.materia_nombre}${sub} — ${a.prof_ap1} ${a.prof_nombre}`;
+  return `${a.materia_nombre}${sub} — ${nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2)}`;
 }
 
 function horRenderGrid(mapa, editable){
@@ -15602,7 +15954,7 @@ function horRenderGrid(mapa, editable){
           const aulaTxt = (c.aula !== null && c.aula !== undefined && c.aula !== '')
             ? `<span class="hor-room">Aula ${c.aula}</span>` : '';
           if(c.materia_nombre){
-            return `<div class="hor-class-card hor-day-${dia}"><div class="hor-subject">${c.materia_nombre}</div><div class="hor-teacher">${c.prof_ap1||''} ${c.prof_nombre||''}</div>${aulaTxt}</div>`;
+            return `<div class="hor-class-card hor-day-${dia}"><div class="hor-subject">${c.materia_nombre}</div><div class="hor-teacher">${nombreDesdeCampos(c.prof_nombre,c.prof_ap1,c.prof_ap2)}</div>${aulaTxt}</div>`;
           }
           return `<div class="hor-class-card hor-day-${dia}"><div class="hor-subject">${c.materia_texto||''}</div>${aulaTxt}</div>`;
         }).join('');
@@ -15733,7 +16085,7 @@ function horImprimir(){
       @media print{button{display:none}}
     <\/style></head><body>
     <h1>CURSO LECTIVO ${anio}</h1>
-    <div class="meta"><span>SECCIÓN: ${horModo==='mio' ? '' : secNombre}</span><span>PROFESOR GUÍA: ${horModo==='mio' ? (ME.primer_apellido+' '+ME.nombre) : guia}</span></div>
+      <div class="meta"><span>SECCIÓN: ${horModo==='mio' ? '' : secNombre}</span><span>PROFESOR GUÍA: ${horModo==='mio' ? nombrePersona(ME) : guia}</span></div>
     ${grid}
     <script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
@@ -15774,7 +16126,7 @@ async function psBuscarEst(){
     const e = await api(`/api/porteria/estudiante/${encodeURIComponent(ced)}`);
     psEstudiante = e;
     info.style.color = 'var(--verde)';
-    info.textContent = `✅ ${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre} — Sección ${e.seccion_nombre||'—'}`;
+  info.textContent = `✅ ${nombrePersona(e)} — Sección ${e.seccion_nombre||'—'}`;
   }catch(err){
     info.style.color = '#dc2626';
     info.textContent = '❌ ' + err.message;
@@ -15832,13 +16184,13 @@ async function psCargarLista(){
     if(!rows.length){ tbody.innerHTML='<tr><td colspan="8" class="empty">Sin permisos registrados.</td></tr>'; return; }
     tbody.innerHTML = rows.map(p=>{
       const quien = p.tipo==='individual'
-        ? `${p.est_ap1||''} ${p.est_ap2||''}, ${p.est_nombre||''}`
+        ? nombreDesdeCampos(p.est_nombre,p.est_ap1,p.est_ap2)
         : `👥 Sección ${p.seccion_nombre||'—'}`;
       const anular = p.anulado ? '' :
         `<button class="btn btn-outline btn-xs" onclick="psAnular(${p.id})" title="Anular permiso">🗑️</button>`;
       return `<tr>
         <td style="font-weight:bold;white-space:nowrap;">${p.numero}-${p.anio}</td>
-        <td style="white-space:nowrap;">${String(p.fecha).slice(0,10)}</td>
+        <td style="white-space:nowrap;">${fmtF(p.fecha)}</td>
         <td>${p.tipo==='individual'?'👤 Individual':'👥 Sección'}</td>
         <td>${quien}</td>
         <td>${p.motivo||''}</td>
@@ -15910,7 +16262,7 @@ async function ptEscanear(){
       box.style.background='#fee2e2'; box.style.border='3px solid #dc2626';
       document.getElementById('ptr-estado').innerHTML='<span style="color:#991b1b;">⛔ SALIDA DENEGADA</span>';
     }
-    document.getElementById('ptr-nombre').textContent = `${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}`;
+  document.getElementById('ptr-nombre').textContent = nombrePersona(est);
     document.getElementById('ptr-sub').textContent = `${est.cedula||cedula} · Sección ${est.seccion_nombre||'—'} · ${r.hora||''}`;
     document.getElementById('ptr-detalle').textContent = r.detalle||'';
     if(input) input.value='';
@@ -15949,7 +16301,7 @@ async function ptCargarRegistros(){
         : '<span style="color:#dc2626;font-weight:bold;">⛔</span>';
       return `<tr title="${(r.detalle||'').replace(/"/g,'&quot;')}">
         <td style="white-space:nowrap;">${r.hora}</td>
-        <td>${r.primer_apellido} ${r.segundo_apellido}, ${r.nombre}</td>
+      <td>${nombrePersona(r)}</td>
         <td>${r.seccion_nombre||'—'}</td>
         <td>${r.tipo==='entrada'?'⬇️ Entrada':'⬆️ Salida'}</td>
         <td>${res}</td>
@@ -15966,7 +16318,7 @@ async function ptCargarPermisosHoy(){
     if(!vivos.length){ tbody.innerHTML='<tr><td colspan="5" class="empty">Sin permisos hoy.</td></tr>'; return; }
     tbody.innerHTML = vivos.map(p=>{
       const quien = p.tipo==='individual'
-        ? `${p.est_ap1||''} ${p.est_ap2||''}, ${p.est_nombre||''}`
+        ? nombreDesdeCampos(p.est_nombre,p.est_ap1,p.est_ap2)
         : `👥 Sección ${p.seccion_nombre||'—'}`;
       return `<tr>
         <td style="font-weight:bold;white-space:nowrap;">${p.numero}-${p.anio}</td>
@@ -16002,7 +16354,7 @@ async function buscarExpediente(){
       <div style="border:1.5px solid var(--border);border-radius:10px;padding:14px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
           <div style="flex:1;min-width:240px;">
-            <div style="font-weight:bold;font-size:16px;">${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}</div>
+      <div style="font-weight:bold;font-size:16px;">${nombrePersona(est)}</div>
             <div style="font-size:12.5px;color:var(--muted);">Cédula: <code>${est.cedula}</code></div>
             <div style="font-size:12.5px;color:var(--muted);">Sección actual: <strong>${est.seccion_nombre||'—'}</strong> · Estado: ${est.activo?'<span style="color:var(--verde);">Activo</span>':'<span style="color:#dc2626;">Inactivo</span>'}${est.archivado?' (Archivado)':''}</div>
           </div>
@@ -16011,7 +16363,7 @@ async function buscarExpediente(){
         ${encs.length ? `
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
           <div style="font-weight:bold;font-size:13px;margin-bottom:4px;">👨‍👩‍👧 Encargados (${encs.length})</div>
-          ${encs.map(en=>`<div style="font-size:12.5px;margin:2px 0;">• ${en.primer_apellido||''} ${en.nombre||''} <span style="color:var(--muted);">(${en.parentesco||'—'})</span> · Tel: ${en.telefono||'—'}${en.cedula?` · Céd: ${en.cedula}`:''}</div>`).join('')}
+      ${encs.map(en=>`<div style="font-size:12.5px;margin:2px 0;">• ${nombrePersona(en)} <span style="color:var(--muted);">(${en.parentesco||'—'})</span> · Tel: ${en.telefono||'—'}${en.cedula?` · Céd: ${en.cedula}`:''}</div>`).join('')}
         </div>` : ''}
         ${mats.length ? `
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
@@ -16125,7 +16477,7 @@ async function cargarEstudiantesRetiro(){
   if(!sid){selEst.innerHTML='<option value="">— Estudiante —</option>';return;}
   const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`)||[];
   selEst.innerHTML='<option value="">— Estudiante —</option>'+
-    rows.map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</option>`).join("");
+    rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
   let secciones=(allSecciones&&allSecciones.length)?allSecciones:[];
   if(!secciones.length){try{secciones=await api("/api/admin/secciones")||[];}catch{}}
   const sec=secciones.find(s=>s.id==sid);
@@ -16143,7 +16495,7 @@ async function cargarEncargadoRetiro(){
     const encs=await api(`/api/encargados/estudiante/${eid}`)||[];
     const enc=encs.find(e=>e.es_principal)||encs[0];
     if(enc){
-      document.getElementById("retiro-enc-nombre").value=`${enc.nombre} ${enc.primer_apellido} ${enc.segundo_apellido||''}`.trim();
+  document.getElementById("retiro-enc-nombre").value=nombrePersona(enc);
       document.getElementById("retiro-enc-cedula").value=enc.cedula||"";
     }
   }catch{}
@@ -16158,8 +16510,8 @@ async function generarConstanciaRetiro(){
   const est=todos?.find(e=>e.id==eid);
   if(!est){sa("alert-retiro-modal","Estudiante no encontrado.","danger");return;}
   retiroEstId=eid;
-  retiroEstNombre=`${est.primer_apellido} ${est.segundo_apellido||''}, ${est.nombre}`;
-  let auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  retiroEstNombre=nombrePersona(est);
+  let auxNombre=nombrePersona(ME);
   let auxCedula=ME.cedula||"";
   if(!auxCedula){try{const m=await api("/api/auth/me");auxCedula=m?.usuario?.cedula||"";}catch{}}
   const nivel=document.getElementById("retiro-nivel").value||"";
@@ -16181,7 +16533,7 @@ async function generarConstanciaRetiro(){
     <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;">CONSTANCIA DE RETIRO DE ESTUDIANTE</h2>
     <div style="font-size:16px;line-height:1.8;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
       <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
-      <strong>${est.primer_apellido} ${est.segundo_apellido||''}, ${est.nombre}</strong>,
+    <strong>${nombrePersona(est)}</strong>,
       portador(a) de la cédula de identidad número <strong>${est.cedula}</strong>,
       estuvo matriculado(a) en esta institución educativa durante el curso lectivo
       <strong>${retiroAnioT.toUpperCase()}</strong>, cursando el nivel de <strong>${nivel}</strong>.</p>
@@ -16245,12 +16597,12 @@ function renderArchivo(){
   const lista=q?archivoData.filter(e=>`${e.primer_apellido} ${e.segundo_apellido||''} ${e.nombre}`.toLowerCase().includes(q)||(e.cedula||"").includes(q)):archivoData;
   if(!lista.length){if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay estudiantes archivados.</td></tr>`;return;}
   if(tbody) tbody.innerHTML=lista.map((e,i)=>{
-    const nombreSafe = `${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}`.replace(/'/g,"\\'");
+    const nombreSafe = nombrePersona(e).replace(/'/g,"\\'");
     // Solo admin/auxiliar (canManage) ven el botón de reactivar
     const puedeReactivar = ['admin','auxiliar'].includes(ME.rol);
     return `<tr>
     <td style="color:var(--muted)">${i+1}</td>
-    <td><strong>${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}</strong></td>
+    <td><strong>${nombrePersona(e)}</strong></td>
     <td>${e.cedula}</td>
     <td>${e.seccion_nombre||'—'}</td>
     <td>${e.fecha_archivo?fmtF(e.fecha_archivo):'—'}</td>
@@ -16303,7 +16655,7 @@ function filtrarArchivo(){renderArchivo();}
 async function verDetalleArchivado(id){
   const e = archivoData.find(x => x.id === id);
   if(!e) return;
-  const nombre = `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/\s+/g,' ').trim();
+  const nombre = nombrePersona(e);
   document.getElementById('darch-titulo').textContent = `📁 ${nombre}`;
   document.getElementById('darch-contenido').innerHTML =
     '<div style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>';
@@ -16332,7 +16684,7 @@ async function verDetalleArchivado(id){
 
     // Aviso de archivado con datos completos: quién retiró, cuándo y por qué
     const retiradoPor = e.retirado_por_nombre
-      ? `${e.retirado_por_ap1||''} ${e.retirado_por_nombre}`.trim()
+      ? nombreDesdeCampos(e.retirado_por_nombre,e.retirado_por_ap1,e.retirado_por_ap2)
       : null;
     const rolCap = e.retirado_por_rol
       ? e.retirado_por_rol.charAt(0).toUpperCase() + e.retirado_por_rol.slice(1).replace('_',' ')
@@ -16386,7 +16738,7 @@ async function verDetalleArchivado(id){
       encsHtml = '<div style="color:var(--muted);font-style:italic;">Sin encargados registrados.</div>';
     } else {
       encsHtml = encs.map(enc => {
-        const nomEnc = `${enc.primer_apellido||''} ${enc.segundo_apellido||''}, ${enc.nombre||''}`.replace(/\s+/g,' ').trim();
+        const nomEnc = nombrePersona(enc);
         return `<div style="border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:6px;background:#f8fafc;">
           <div style="font-weight:bold;font-size:13px;">${nomEnc}${enc.es_principal ? ' <span class="badge b-guia" style="font-size:10px;">Principal</span>' : ''}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">
@@ -16418,7 +16770,7 @@ async function verDetalleArchivado(id){
           <div style="color:var(--muted);">${fmtTS(h.fecha)} · <strong>${h.tipo||'—'}</strong></div>
           ${h.valor_anterior ? `<div>De: ${h.valor_anterior} → ${h.valor_nuevo||''}</div>` : ''}
           ${h.justificacion ? `<div style="color:var(--muted);">${h.justificacion}</div>` : ''}
-          ${(h.u_ap1||h.u_nombre) ? `<div style="color:#475569;margin-top:2px;">Realizado por: <strong>${`${h.u_ap1||''} ${h.u_nombre||''}`.trim()}</strong>${h.u_rol?` (${h.u_rol.replace('_',' ')})`:''}</div>` : ''}
+          ${(h.u_ap1||h.u_nombre) ? `<div style="color:#475569;margin-top:2px;">Realizado por: <strong>${nombreDesdeCampos(h.u_nombre,h.u_ap1,h.u_ap2)}</strong>${h.u_rol?` (${h.u_rol.replace('_',' ')})`:''}</div>` : ''}
         </div>
       `).join('');
       html += seccion('📜 Historial reciente', '#6b7280', filas + (historial.length > 20 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;">Mostrando 20 de ${historial.length}.</div>` : ''));
@@ -16435,7 +16787,7 @@ function abrirArchivarEst(id,nombre){
   // Backward-compat: sacar de caché
   if(!nombre && window.estCache){
     const e = window.estCache.get(id);
-    if(e) nombre = `${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}`;
+    if(e) nombre = nombrePersona(e);
   }
   document.getElementById("archivar-est-id").value=id;
   document.getElementById("archivar-est-nombre").textContent=nombre||"";
@@ -16466,7 +16818,7 @@ async function abrirComiteMatricula(){
   const usuarios=await api("/api/admin/usuarios-activos")||[];
   const sel=document.getElementById("comite-mat-sel");
   if(sel) sel.innerHTML='<option value="">— Seleccionar usuario —</option>'+
-    usuarios.map(u=>`<option value="${u.id}">${u.primer_apellido} ${u.nombre} (${u.rol})</option>`).join("");
+    usuarios.map(u=>`<option value="${u.id}">${nombrePersona(u)} (${u.rol})</option>`).join("");
   await cargarComiteMatricula();
   document.getElementById("modal-comite-matricula").classList.add("show");
 }
@@ -16476,7 +16828,7 @@ async function cargarComiteMatricula(){
   const div=document.getElementById("comite-mat-lista");
   if(!div) return;
   div.innerHTML=rows.length?rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
-    <span>${r.primer_apellido} ${r.nombre} <span style="font-size:11px;color:var(--muted);">(${r.rol})</span></span>
+    <span>${nombrePersona(r)} <span style="font-size:11px;color:var(--muted);">(${r.rol})</span></span>
     <button class="btn btn-danger btn-xs" onclick="quitarComiteMatricula(${r.id})">✕</button>
   </div>`).join(""):'<div style="color:var(--muted);font-size:13px;">Sin miembros asignados.</div>';
 }
@@ -16733,7 +17085,7 @@ async function imprimirFichaMatricula(datos){
   const nivelNom=NIVELES_MAT[nivelNum]||"";
   const ciclo=CICLO_MAT[nivelNum]||"";
   const encs=datos.encargados||getEncargados(); const enc1=encs[0]||{};
-  let auxNom=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  let auxNom=nombrePersona(ME);
   let auxCed=ME.cedula||"";
   if(!auxCed){try{const m=await api("/api/auth/me");auxCed=m?.usuario?.cedula||"";}catch{}}
   const hoy=new Date();
@@ -16742,11 +17094,11 @@ async function imprimirFichaMatricula(datos){
   <div style="font-size:12px;line-height:1.65;">
     <h2 style="text-align:center;font-size:14px;font-weight:bold;margin:16px 0;border-bottom:2px solid #374151;padding-bottom:6px;">DATOS DEL ESTUDIANTE</h2>
     <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-      <tr><td style="padding:3px 6px;width:50%;"><strong>Nombre:</strong> ${pdfTexto(datos.primer_apellido," ")} ${pdfTexto(datos.segundo_apellido," ")}, ${pdfTexto(datos.nombre)}</td>
+      <tr><td style="padding:3px 6px;width:50%;"><strong>Nombre:</strong> ${pdfTexto(nombrePersona(datos))}</td>
           <td style="padding:3px 6px;"><strong>Sexo:</strong> ${datos.sexo==="F"?"Femenino":datos.sexo==="M"?"Masculino":"—"}</td></tr>
       <tr><td style="padding:3px 6px;"><strong>Cédula:</strong> ${pdfTexto(datos.cedula)}</td>
           <td style="padding:3px 6px;"><strong>Nacionalidad:</strong> ${pdfTexto(datos.nacionalidad)}</td></tr>
-      <tr><td style="padding:3px 6px;"><strong>Fecha nacimiento:</strong> ${pdfTexto(datos.fecha_nacimiento)}</td>
+      <tr><td style="padding:3px 6px;"><strong>Fecha nacimiento:</strong> ${pdfTexto(fmtF(datos.fecha_nacimiento))}</td>
           <td style="padding:3px 6px;"><strong>Correo:</strong> ${pdfTexto(datos.correo)}</td></tr>
       <tr><td colspan="2" style="padding:3px 6px;"><strong>Institución procedencia:</strong> ${pdfTexto(datos.institucion_procedencia)}</td></tr>
       <tr><td colspan="2" style="padding:3px 6px;"><strong>Dirección:</strong> ${pdfTexto(datos.provincia)}, ${pdfTexto(datos.canton)}, ${pdfTexto(datos.distrito)}. ${pdfTexto(datos.direccion_exacta," ")}</td></tr>
@@ -16766,7 +17118,7 @@ async function imprimirFichaMatricula(datos){
         <tr><td style="padding:2px 6px;width:33%;"><strong>Parentesco:</strong> ${pdfTexto(e.parentesco)}</td>
             <td style="padding:2px 6px;width:33%;"><strong>Cédula:</strong> ${pdfTexto(e.cedula)}</td>
             <td style="padding:2px 6px;"><strong>Nac.:</strong> ${pdfTexto(e.nacionalidad)}</td></tr>
-        <tr><td colspan="3" style="padding:2px 6px;"><strong>Nombre:</strong> ${pdfTexto(e.primer_apellido," ")} ${pdfTexto(e.segundo_apellido," ")}, ${pdfTexto(e.nombre)}</td></tr>
+        <tr><td colspan="3" style="padding:2px 6px;"><strong>Nombre:</strong> ${pdfTexto(nombrePersona(e))}</td></tr>
         <tr><td style="padding:2px 6px;"><strong>Tel. 1:</strong> ${pdfTexto(e.telefono)}</td>
             <td style="padding:2px 6px;"><strong>Tel. 2:</strong> ${pdfTexto(e.celular)}</td>
             <td style="padding:2px 6px;"><strong>Tel. 3:</strong> ${pdfTexto(e.telefono_trabajo)}</td></tr>
@@ -16776,7 +17128,7 @@ async function imprimirFichaMatricula(datos){
     </div>`).join("")}
     <div class="reporte-materia" style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px;">
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>${pdfTexto(enc1.primer_apellido," ")} ${pdfTexto(enc1.nombre," ")}</div><div>Firma del encargado</div>
+        <div>${pdfTexto(nombrePersona(enc1)," ")}</div><div>Firma del encargado</div>
         <div>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
       </div>
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
@@ -16792,13 +17144,13 @@ async function imprimirCompromiso(){
   if(!matDatosGuardados){ sa("alert-mat-modal","Completá los datos del paso 1 primero.","danger"); return; }
   const d = matDatosGuardados;
   const enc1 = (d.encargados&&d.encargados.length) ? d.encargados[0] : {};
-  const nombre=`${pdfTexto(d.primer_apellido," ")} ${pdfTexto(d.segundo_apellido," ")}, ${pdfTexto(d.nombre)}`.trim();
+  const nombre=pdfTexto(nombrePersona(d));
   const cedEst=pdfTexto(d.cedula);
   const nivelNom=NIVELES_MAT[d.nivel_matricula]||"";
-  const encNom=`${pdfTexto(enc1.primer_apellido," ")} ${pdfTexto(enc1.segundo_apellido," ")}, ${pdfTexto(enc1.nombre)}`.trim();
+  const encNom=pdfTexto(nombrePersona(enc1));
   const encCed=pdfTexto(enc1.cedula);
   const encTel=pdfTexto(enc1.telefono||enc1.celular);
-  const auxNom=pdfTexto(`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`);
+  const auxNom=pdfTexto(nombrePersona(ME));
 
   const contenidoHTML=`
   <div style="font-size:12px;line-height:1.75;text-align:justify;">
@@ -16849,8 +17201,8 @@ async function imprimirAutorizacionImagen(){
   if(!matDatosGuardados){ sa("alert-mat-modal","Completá los datos del paso 1 primero.","danger"); return; }
   const d=matDatosGuardados;
   const enc1=(d.encargados&&d.encargados.length)?d.encargados[0]:{};
-  const estudiante=`${pdfTexto(d.primer_apellido," ")} ${pdfTexto(d.segundo_apellido," ")}, ${pdfTexto(d.nombre)}`.trim();
-  const encargado=`${pdfTexto(enc1.primer_apellido," ")} ${pdfTexto(enc1.segundo_apellido," ")}, ${pdfTexto(enc1.nombre)}`.trim();
+  const estudiante=pdfTexto(nombrePersona(d));
+  const encargado=pdfTexto(nombrePersona(enc1));
   const contenidoHTML=`
   <div style="font-size:13px;line-height:1.8;text-align:justify;">
     <p>Yo, <strong>${encargado}</strong>, portador(a) de la cédula de identidad
@@ -16914,16 +17266,20 @@ async function guardarBecaMatricula(){
 }
 
 async function imprimirFormBeca(resultado,datos){
-  const nombre=`${pdfTexto(document.getElementById("mat-ap1").value," ")} ${pdfTexto(document.getElementById("mat-ap2").value," ")}, ${pdfTexto(document.getElementById("mat-nombre").value)}`;
+  const nombre=pdfTexto(nombreDesdeCampos(
+    document.getElementById("mat-nombre").value,
+    document.getElementById("mat-ap1").value,
+    document.getElementById("mat-ap2").value
+  ));
   const cedEst=pdfTexto(document.getElementById("mat-cedula").value);
   const nivelNom=NIVELES_MAT[parseInt(document.getElementById("mat-nivel").value)||7]||"";
   const encs=getEncargados(); const enc1=encs[0]||{};
-  const auxNom=pdfTexto(`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`);
+  const auxNom=pdfTexto(nombrePersona(ME));
   const contenidoHTML=`
   <div style="font-size:12px;line-height:1.7;">
     <h3 style="text-align:center;font-size:13px;margin:10px 0;">SOLICITUD DE BENEFICIO DE COMEDOR – 2027 · Liceo de Calle Fallas</h3>
     <p><strong>ESTUDIANTE:</strong> ${nombre} &nbsp; Cédula: ${cedEst} &nbsp; Nivel: ${pdfTexto(nivelNom)}</p>
-    <p><strong>ENCARGADO:</strong> ${pdfTexto(enc1.primer_apellido," ")} ${pdfTexto(enc1.nombre," ")} — Cédula: ${pdfTexto(enc1.cedula)} — Tel: ${pdfTexto(enc1.telefono)} — ${pdfTexto(enc1.parentesco," ")}</p>
+    <p><strong>ENCARGADO:</strong> ${pdfTexto(nombrePersona(enc1)," ")} — Cédula: ${pdfTexto(enc1.cedula)} — Tel: ${pdfTexto(enc1.telefono)} — ${pdfTexto(enc1.parentesco," ")}</p>
     <p><strong>FAMILIA:</strong> Personas: ${pdfTexto(datos.personas_hogar)} &nbsp; Vivienda: ${pdfTexto(datos.tipo_vivienda)} &nbsp; Vive con: ${pdfTexto(datos.vive_con)}</p>
     <p><strong>ECONÓMICO:</strong> Ingreso: ₡${Math.round(datos.ingreso_mensual).toLocaleString()} &nbsp; Avancemos: ${datos.recibe_avancemos?"Sí":"No"} &nbsp; Otros: ${pdfTexto(datos.otros_ingresos)}</p>
     <p><strong>MOTIVO:</strong> ${pdfTexto(datos.motivos)}</p>
@@ -16949,21 +17305,25 @@ async function guardarAdecuacion(){
 }
 
 async function imprimirAdecuacion(motivo){
-  const nombre=`${pdfTexto(document.getElementById("mat-ap1").value," ")} ${pdfTexto(document.getElementById("mat-ap2").value," ")}, ${pdfTexto(document.getElementById("mat-nombre").value)}`;
+  const nombre=pdfTexto(nombreDesdeCampos(
+    document.getElementById("mat-nombre").value,
+    document.getElementById("mat-ap1").value,
+    document.getElementById("mat-ap2").value
+  ));
   const cedEst=pdfTexto(document.getElementById("mat-cedula").value);
   const encs=getEncargados(); const enc1=encs[0]||{};
-  const auxNom=pdfTexto(`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`);
+  const auxNom=pdfTexto(nombrePersona(ME));
   const hoy=new Date();
   const contenidoHTML=`
   <div style="font-size:13px;line-height:1.7;">
     <p>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</p>
     <p>Estudiante: <strong>${nombre}</strong> &nbsp; Cédula: <strong>${cedEst}</strong></p>
-    <p>Encargado(a): <strong>${pdfTexto(enc1.nombre," ")} ${pdfTexto(enc1.primer_apellido," ")}</strong> &nbsp; Tel: ${pdfTexto(enc1.telefono)}</p>
+    <p>Encargado(a): <strong>${pdfTexto(nombrePersona(enc1)," ")}</strong> &nbsp; Tel: ${pdfTexto(enc1.telefono)}</p>
     <p><strong>Motivo:</strong><br/>${pdfTexto(motivo)}</p>
     <p><strong>Antecedentes:</strong><br/>${pdfTexto(document.getElementById("adec-antecedentes").value,"N/A")}</p>
     <p>Se solicita valoración para determinar necesidad de adecuación curricular, conforme a los lineamientos del MEP.</p>
     <div class="reporte-materia" style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:55px;">
-      <div style="border-top:1px solid #374151;padding-top:8px;"><div>Firma del solicitante: _______________</div><div>${pdfTexto(enc1.nombre," ")} ${pdfTexto(enc1.primer_apellido," ")}</div></div>
+      <div style="border-top:1px solid #374151;padding-top:8px;"><div>Firma del solicitante: _______________</div><div>${pdfTexto(nombrePersona(enc1)," ")}</div></div>
       <div style="border-top:1px solid #374151;padding-top:8px;"><div>Recibido por: ${auxNom}</div><div>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div></div>
     </div>
   </div>`;
@@ -17018,7 +17378,7 @@ async function cargarEstudiantesConstancia(){
   const sel=document.getElementById("const-estudiante");
   if(!sid){sel.innerHTML='<option value="">— Estudiante —</option>';return;}
   const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);
-  sel.innerHTML='<option value="">— Estudiante —</option>'+(rows||[]).map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</option>`).join("");
+  sel.innerHTML='<option value="">— Estudiante —</option>'+(rows||[]).map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
 }
 
 async function generarConstancia(){
@@ -17028,7 +17388,7 @@ async function generarConstancia(){
   const todos=await api("/api/estudiantes");
   const est=todos?.find(e=>e.id==eid);
   if(!est){sa("alert-const","Estudiante no encontrado.","danger");return;}
-  const auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  const auxNombre=nombrePersona(ME);
   // Obtener cédula actualizada del servidor por si no está en sesión
   let auxCedula = ME.cedula || "";
   if(!auxCedula){
@@ -17059,7 +17419,7 @@ async function generarConstancia(){
       <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE ESTUDIANTE</h2>
       <div style="font-size:16px;line-height:1.8;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
         <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
-        <strong>${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre}</strong>,
+        <strong>${nombrePersona(est)}</strong>,
         portador(a) de la cédula de identidad número <strong>${est.cedula}</strong>,
         se encuentra debidamente matriculado(a) en esta institución educativa durante el presente curso lectivo
         <strong>${anioTexto.toUpperCase()}</strong>, cursando el nivel de <strong>${nivelTexto}</strong>
@@ -17101,7 +17461,7 @@ async function cargarCumplimiento(){
         <thead><tr><th>Profesor</th><th>Rol</th><th>Asignaciones</th><th>Sesiones registradas</th><th>Estado</th></tr></thead>
         <tbody>
           ${d.asistencia.map(p=>`<tr>
-            <td>${p.primer_apellido} ${p.segundo_apellido}, ${p.nombre}</td>
+            <td>${nombrePersona(p)}</td>
             <td><span class="badge ${RBDG[p.rol]||'b-prof'}">${RLBL[p.rol]||p.rol}</span></td>
             <td>${p.asignaciones_total}</td>
             <td style="${colorSesiones(parseInt(p.sesiones_registradas))}">${p.sesiones_registradas}</td>
@@ -17117,7 +17477,7 @@ async function cargarCumplimiento(){
         <thead><tr><th>Profesor Guía</th><th>Sección</th><th>Estudiantes</th><th>Boletas registradas</th><th>Estado</th></tr></thead>
         <tbody>
           ${d.conducta.map(p=>`<tr>
-            <td>${p.primer_apellido} ${p.segundo_apellido}, ${p.nombre}</td>
+            <td>${nombrePersona(p)}</td>
             <td><strong>${p.seccion_nombre}</strong></td>
             <td>${p.total_estudiantes}</td>
             <td style="${colorSesiones(parseInt(p.boletas_registradas))}">${p.boletas_registradas}</td>
@@ -17243,7 +17603,7 @@ async function imprimirInformeSeccionConducta(periodoOpt){
     } catch(_){}  // si falla (es orientador), seguir sin info del guía
   }
   const nombreSec = sec?.nombre || "";
-  const guia = sec ? `${sec.guia_ap1||""} ${sec.guia_nombre||""}`.trim() : "";
+  const guia = sec ? nombreDesdeCampos(sec.guia_nombre,sec.guia_ap1,sec.guia_ap2,{vacio:''}) : "";
   const periodo = periodoLabel;
   const fechaGen = new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"});
 
@@ -17265,7 +17625,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+nombreSec)}
         <thead>
           <tr style="background:#1a3a5c;color:#fff;">
             <th style="padding:4px 6px;text-align:left;width:26px;">#</th>
-            <th style="padding:4px 6px;text-align:left;">Apellidos, Nombre</th>
+            <th style="padding:4px 6px;text-align:left;">Nombre completo</th>
             <th style="padding:4px 6px;text-align:center;width:60px;">Boletas</th>
             ${per === 'anual' ? '<th style="padding:4px 6px;text-align:center;width:80px;">I / II</th>' : ''}
             <th style="padding:4px 6px;text-align:center;width:90px;">Nota de Conducta</th>
@@ -17274,7 +17634,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+nombreSec)}
         <tbody>
           ${datos.map((e,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'};page-break-inside:avoid;">
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${i+1}</td>
-            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</td>
+            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${nombrePersona(e)}</td>
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;">${e.boletas}</td>
             ${per === 'anual' ? `<td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:9.5px;color:#555;">${e.extra||''}</td>` : ''}
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${e.nota>=80?'#166534':e.nota>=60?'#92400e':'#991b1b'};">${e.nota}</td>
@@ -17654,7 +18014,7 @@ async function cargarEstCartas(){
     }
     sa("alert-cart","","");
     selEst.innerHTML += r
-      .map(e=>`<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}${e.subgrupo?` (${e.subgrupo})`:''}</option>`).join("");
+      .map(e=>`<option value="${e.id}">${nombrePersona(e)}${e.subgrupo?` (${e.subgrupo})`:''}</option>`).join("");
   } catch(e){ sa("alert-cart","Error cargando estudiantes: "+e.message,"danger"); }
 }
 
@@ -17694,7 +18054,7 @@ function buscarEstArchivadoCart(){
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.map(e=>{
         const sec = e.seccion_nombre ? ` · ${e.seccion_nombre}` : '';
         const estado = e.archivado ? ' [archivado]' : ' [inactivo]';
-        return `<option value="${e.id}">${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre} (${e.cedula})${sec}${estado}</option>`;
+        return `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${sec}${estado}</option>`;
       }).join("");
     }catch(err){
       sel.innerHTML = '<option value="">— Error al buscar —</option>';
@@ -17780,7 +18140,7 @@ function renderVistaPreviaCarta(asig){
   const p = d.periodo;
   const periodoLbl = p.nombre === 'I Período' ? 'primer' : 'segundo';
   const fechaHoy = fmtF(fechaHoyCR());
-  const nombreEst = `${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}`.trim();
+  const nombreEst = nombrePersona(e);
 
   document.getElementById("carta-contenido").innerHTML = `
     <style id="cart-print-style">
@@ -17937,13 +18297,13 @@ async function verHistorialCartas(){
           <tbody>
             ${r.map(c=>`<tr>
               <td>${fmtF(c.fecha)}</td>
-              <td><strong>${c.est_ap1} ${c.est_ap2||''}, ${c.est_nombre}</strong></td>
+              <td><strong>${nombreDesdeCampos(c.est_nombre,c.est_ap1,c.est_ap2)}</strong></td>
               <td>${c.seccion_nombre || '—'}</td>
               <td>${c.materia}</td>
               <td>${c.periodo}</td>
               <td style="text-align:center;color:var(--rojo);font-weight:bold;">${c.ausencias}</td>
               <td style="text-align:center;color:${c.porcentaje>=20?'var(--rojo)':'var(--text)'};font-weight:bold;">${c.porcentaje}%</td>
-              <td style="font-size:12px;color:var(--muted);">${c.prof_ap1} ${c.prof_nombre}</td>
+              <td style="font-size:12px;color:var(--muted);">${nombreDesdeCampos(c.prof_nombre,c.prof_ap1,c.prof_ap2)}</td>
             </tr>`).join("")}
           </tbody>
         </table></div>
@@ -18147,7 +18507,7 @@ async function cargarHistorialIntercambios(){
               <td>${fmtF(x.created_at)}</td>
               <td>${x.nivel}°</td>
               <td>${x.seccion_nombre}</td>
-              <td>${x.exec_ap1||''} ${x.exec_nombre||''}</td>
+              <td>${nombreDesdeCampos(x.exec_nombre,x.exec_ap1,x.exec_ap2)}</td>
               <td>${x.revertido?'<span style="color:var(--muted)">↩️ Revertido</span>':'<span style="color:var(--verde)">✅ Vigente</span>'}</td>
             </tr>`).join('')}
           </tbody>
@@ -18214,7 +18574,7 @@ function renderPremat(){
   document.getElementById("premat-tbody").innerHTML = lista.length ? lista.map((p,i)=>`<tr>
     <td style="color:var(--muted)">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
     <td><code>${p.cedula}</code></td>
-    <td><strong>${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}</strong></td>
+    <td><strong>${nombrePersona(p)}</strong></td>
     <td style="font-size:12px;">${p.centro_procedencia||'—'}</td>
     <td style="font-weight:bold;color:var(--azul);">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
     <td><span class="badge" style="background:${p.estado==='matriculado'?'#dcfce7':p.estado==='prematriculado'?'#d1fae5':p.estado==='retirado'?'#fee2e2':'#fef9c3'};color:#374151;">${estados[p.estado]||p.estado}</span></td>
@@ -18297,10 +18657,10 @@ async function guardarPM2(){
     const pData = await api(`/api/prematricula/${pmId}`);
     pmData = pData;
     const enc = pData.encargado||{};
-    document.getElementById("pm-res-nombre").textContent=`${pData.primer_apellido} ${pData.segundo_apellido||''}, ${pData.nombre}`;
+    document.getElementById("pm-res-nombre").textContent=nombrePersona(pData);
     document.getElementById("pm-res-cedula").textContent=pData.cedula;
     document.getElementById("pm-res-centro").textContent=pData.centro_procedencia;
-    document.getElementById("pm-res-enc").textContent=`${enc.primer_apellido||''} ${enc.nombre||''} (${enc.parentesco||''})`;
+    document.getElementById("pm-res-enc").textContent=`${nombrePersona(enc)} (${enc.parentesco||''})`;
     document.getElementById("pm-res-consec").textContent="(se asigna al imprimir)";
     sa("alert-premat-modal","","");
     pmPaso(3);
@@ -18314,7 +18674,27 @@ async function verPremat(id){
   if(!p){ sa("alert-premat","No se pudo cargar.","danger"); return; }
   const enc=p.encargado||{};
   const estados={pendiente:"⏳ Pendiente",prematriculado:"✅ Listo para matrícula",matriculado:"🎓 Matriculado",retirado:"❌ Retirado"};
-  alert(`📋 PREMATRÍCULA — ${estados[p.estado]||p.estado}\n\n👤 ESTUDIANTE\nNombre: ${p.primer_apellido} ${p.segundo_apellido||''}, ${p.nombre}\nCédula: ${p.cedula}\nNacimiento: ${p.fecha_nacimiento?.slice(0,10)||'—'}\nNacionalidad: ${p.nacionalidad||'—'}\nCentro procedencia: ${p.centro_procedencia||'—'}\n\n👨‍👩‍👧 ENCARGADO\nParentesco: ${enc.parentesco||'—'}\nNombre: ${enc.primer_apellido||''} ${enc.segundo_apellido||''}, ${enc.nombre||'—'}\nCédula: ${enc.cedula||'—'}\nTeléfono: ${enc.telefono||'—'}\n\n📄 Consecutivo: ${p.consecutivo_prematricula?String(p.consecutivo_prematricula).padStart(3,'0'):'Sin asignar'}`);
+  const consecutivo=p.consecutivo_prematricula?String(p.consecutivo_prematricula).padStart(3,'0'):'Sin asignar';
+  abrirDetalleInstitucional(`📋 Prematrícula · ${estados[p.estado]||p.estado}`,`
+    <div class="detalle-institucional-bloque">
+      <h4>👤 Estudiante</h4>
+      ${filaDetalle('Nombre completo',nombrePersona(p))}
+      ${filaDetalle('Cédula',p.cedula)}
+      ${filaDetalle('Fecha de nacimiento',fmtF(p.fecha_nacimiento))}
+      ${filaDetalle('Nacionalidad',p.nacionalidad||'—')}
+      ${filaDetalle('Centro de procedencia',p.centro_procedencia||'—')}
+      ${p.seccion_nombre?filaDetalle('Sección',p.seccion_nombre):''}
+    </div>
+    <div class="detalle-institucional-bloque verde">
+      <h4>👨‍👩‍👧 Encargado</h4>
+      ${filaDetalle('Nombre completo',nombrePersona(enc))}
+      ${filaDetalle('Parentesco',enc.parentesco||'—')}
+      ${filaDetalle('Cédula',enc.cedula||'—')}
+      ${filaDetalle('Teléfono',enc.telefono||'—')}
+    </div>
+    <div class="detalle-institucional-bloque naranja">
+      ${filaDetalle('Consecutivo',consecutivo)}
+    </div>`);
 }
 
 async function reimprimir(id){
@@ -18352,7 +18732,7 @@ async function imprimirConstanciaPremat(){
   // Cerrar modal para imprimir sin conflicto
   cerrarModal("modal-prematricula");
   await new Promise(r=>setTimeout(r,300));
-  let auxNombre=`${ME.primer_apellido} ${ME.segundo_apellido}, ${ME.nombre}`;
+  let auxNombre=nombrePersona(ME);
   let auxCedula=ME.cedula||"";
   if(!auxCedula){ try{ const m=await api("/api/auth/me"); auxCedula=m?.usuario?.cedula||""; }catch{} }
   const comite=await api("/api/prematricula/comite/lista")||[];
@@ -18382,7 +18762,7 @@ async function imprimirConstanciaPremat(){
       <p style="text-indent:2em;">El suscrito(a), funcionario(a) administrativo(a) del Liceo de Calle Fallas, hace constar que el(la) señor(a)
       <strong>${encNombre}</strong>, portador(a) de la cédula de identidad número <strong>${encCed||'_______________'}</strong>,
       en calidad de encargado(a) legal, ha solicitado el proceso de prematrícula para el(la) estudiante
-      <strong>${pmData.primer_apellido} ${pmData.segundo_apellido||''}, ${pmData.nombre}</strong>,
+      <strong>${nombrePersona(pmData)}</strong>,
       portador(a) de la cédula de identidad número <strong>${pmData.cedula}</strong>,
       proveniente de la institución educativa <strong>${pmData.centro_procedencia}</strong>,
       para cursar el nivel de Sétimo Año del III Ciclo de la Educación General Básica,
@@ -18430,7 +18810,7 @@ function abrirEliminarPremat(id){
   if(!p){ alert("No se pudo cargar la prematrícula."); return; }
   document.getElementById("del-premat-id").value = id;
   document.getElementById("del-premat-nombre").textContent =
-    `${p.primer_apellido||''} ${p.segundo_apellido||''}, ${p.nombre||''} · Cédula ${p.cedula||''}`;
+    `${nombrePersona(p)} · Cédula ${p.cedula||''}`;
   const consec = p.consecutivo_prematricula
     ? `Consecutivo asignado: N°${String(p.consecutivo_prematricula).padStart(3,'0')} (quedará libre)`
     : 'Esta prematrícula no tiene consecutivo asignado.';
@@ -18617,7 +18997,7 @@ function renderEstCarnet(){
       return `<tr>
         <td><input type="checkbox" onchange="carnetToggle(${e.id}, this.checked)" ${checked}/></td>
         <td>${fotoHtml}</td>
-        <td><strong>${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}</strong>${warnFoto}</td>
+        <td><strong>${nombrePersona(e)}</strong>${warnFoto}</td>
         <td><code>${e.cedula||''}</code></td>
         <td><button class="btn btn-outline btn-xs" onclick="previewCarnetUno(${e.id})">👁️ Ver carnet</button></td>
       </tr>`;
@@ -18677,8 +19057,7 @@ function actualizarBotonesCarnet(){
 // Diseño credencial profesional con layout flex vertical (sin position:absolute en los bloques
 // de contenido) para evitar choques entre nombre, cédula y código de barras.
 function construirCarnetHTML(est){
-  const nombre = `${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}`
-    .replace(/\s+/g,' ').trim().replace(/^,\s*/,'').replace(/\s*,\s*$/,'');
+  const nombre = nombrePersona(est);
   const cedula = String(est.cedula||'').replace(/\s+/g,'');
   const anio = new Date().getFullYear();
 
@@ -19077,7 +19456,7 @@ function renderEstBarras(){
   }
 
   tbody.innerHTML = filtrados.map(e => {
-    const nom = `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.trim();
+    const nom = nombrePersona(e);
     const cedLimpia = cbarLimpiar(e.cedula);
     const check = cbarSeleccionados.has(e.id) ? 'checked' : '';
     const sinCed = !cedLimpia
@@ -19147,7 +19526,7 @@ function construirHTMLBarras(estudiantes, incluirScript = true){
     .map(e => ({
       id: e.id,
       cedula: cbarLimpiar(e.cedula),
-      nombre: `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/\s+/g,' ').trim()
+      nombre: nombrePersona(e)
     }));
 
   // 3 códigos por fila (5cm cada uno + márgenes)
@@ -19470,7 +19849,7 @@ async function cargarSimplificado(){
       </thead>
       <tbody>
         ${rows.map(e => {
-          const nombre = `${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/^,\s*/,'').trim();
+          const nombre = nombrePersona(e);
           const guardado = (e.pct_cotidiano != null || e.pct_tareas != null || e.pct_pruebas != null || e.pct_proyectos != null);
           return `<tr data-eid="${e.estudiante_id}">
             <td style="padding:6px 8px;border:1px solid var(--border);"><strong>${nombre}</strong><br/><small style="color:var(--muted);">${e.cedula||'—'}</small></td>
@@ -19852,7 +20231,7 @@ async function abrirCopiarEvaluacion(){
             <div style="flex:1;min-width:200px;">
               <div style="font-weight:bold;font-size:13px;">${e.nombre}</div>
               <div style="font-size:11px;color:var(--muted);margin-top:2px;">
-                📅 ${(e.fecha||'').slice(0,10)} · ${e.cant_indicadores||0} indicador(es)${e.puntaje_total?` · ${e.puntaje_total} pts`:''}
+                📅 ${fmtF(e.fecha)} · ${e.cant_indicadores||0} indicador(es)${e.puntaje_total?` · ${e.puntaje_total} pts`:''}
               </div>
             </div>
             <button class="btn btn-primary btn-sm" onclick="aplicarCopiaEvaluacion(${e.id})">📋 Copiar</button>
@@ -20231,10 +20610,10 @@ function renderGrillaNotas(notasArr){
       const nota100 = tieneNota ? (Number(v)*100)/ptotal : null;
       // Porcentaje obtenido = (puntos/total) × valor porcentual del examen
       const porcentajeObtenido = (tieneNota && valorPorc > 0) ? (Number(v)/ptotal) * valorPorc : null;
-      const nombreSafe = `${e.primer_apellido||''} ${e.nombre||''}`.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      const nombreSafe = nombrePersona(e).replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
         <td>
-          <strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
+          <strong>${nombrePersona(e)}</strong>
           <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span>
           <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
         </td>
@@ -20299,10 +20678,10 @@ function renderGrillaNotas(notasArr){
         ? `${cantBlancos} indicador(es) en blanco se cuentan como 0`
         : '';
       const colorNota = cantBlancos > 0 ? '#dc2626' : 'var(--azul)';
-      const nombreSafe2 = `${e.primer_apellido||''} ${e.nombre||''}`.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      const nombreSafe2 = nombrePersona(e).replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
         <td style="position:sticky;left:0;background:#fff;">
-          <strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
+          <strong>${nombrePersona(e)}</strong>
           <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span>
           <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe2}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
         </td>
@@ -20450,7 +20829,7 @@ function imprimirEvaluacion(){
       const nota = (v !== "" && !isNaN(Number(v))) ? ((Number(v)*100)/ptotal).toFixed(1) : "—";
       return `<tr>
         <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:11px;color:#555;text-align:center;">${idx+1}</td>
-        <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:12px;"><strong>${e.primer_apellido} ${e.segundo_apellido}</strong>, ${e.nombre}</td>
+        <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:12px;"><strong>${nombrePersona(e)}</strong></td>
         <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:11px;color:#555;">${e.cedula}</td>
         <td style="border:1px solid #94a3b8;padding:4px 8px;text-align:center;font-size:12px;">${v!==""?v:"—"}</td>
         <td style="border:1px solid #94a3b8;padding:4px 8px;text-align:center;font-size:12px;font-weight:bold;">${nota}</td>
@@ -20471,7 +20850,7 @@ function imprimirEvaluacion(){
       const nota = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
       return `<tr>
         <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;text-align:center;">${idx+1}</td>
-        <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${e.primer_apellido} ${e.segundo_apellido}</strong>, ${e.nombre}</td>
+        <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombrePersona(e)}</strong></td>
         ${cols}
         <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;font-weight:bold;">${todasLlenas?suma:'—'}</td>
         <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;font-weight:bold;color:#1a3a5c;">${nota}</td>
@@ -20520,8 +20899,8 @@ function imprimirEvaluacion(){
     ? `Asignada: <strong>${fechaAsig}</strong> · Entrega: <strong>${fechaEv}</strong>`
     : `Fecha: <strong>${fechaEv}</strong>`;
 
-  // Profesor (de la sesión actual) — formato: APELLIDO1 APELLIDO2, NOMBRE
-  const profNombre = `${ME.primer_apellido||''} ${ME.segundo_apellido||''}, ${ME.nombre||''}`.replace(/\s+/g,' ').replace(/^,\s*/,'').replace(/,\s*$/,'').trim();
+  // Profesor de la sesión actual, en el formato institucional unificado.
+  const profNombre = nombrePersona(ME);
 
   // Construir HTML imprimible
   let printArea = document.getElementById("print-boleta-area");
@@ -20752,7 +21131,7 @@ function renderPromPeriodo(data){
       const colorEst = total >= aprobMin ? 'var(--verde)' : (total >= aprobMin - 10 ? 'var(--naranja)' : 'var(--rojo)');
       const lblEst = aprobado ? '✓ Aprobado' : '✗ Aplazado';
       return `<tr>
-        <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong>
+        <td><strong>${nombrePersona(e)}</strong>
           <button class="btn-xs" onclick='prom_verDesglose(${JSON.stringify(e).replace(/'/g, "&#39;")})' style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;margin-left:4px;font-size:11px;" title="Ver desglose del cálculo">🔍</button>
           <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
         ${cels}
@@ -20818,7 +21197,7 @@ function renderPromAnual(data){
       const color = aprob ? 'var(--verde)' : (aplaz ? 'var(--rojo)' : 'var(--muted)');
       const lbl = aprob ? '✓ Aprobado' : (aplaz ? '✗ Aplazado' : '—');
       return `<tr>
-        <td><strong>${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}</strong><br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
+        <td><strong>${nombrePersona(e)}</strong><br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
         <td style="text-align:center;">${nI}</td>
         <td style="text-align:center;">${nII}</td>
         <td style="text-align:center;font-weight:bold;font-size:15px;color:${color};">${nA}</td>
@@ -20863,7 +21242,7 @@ async function prom_cerrarPeriodo(){
 function prom_verDesglose(e){
   if(!promDataActual || !promDataActual.regla) return;
   const regla = promDataActual.regla;
-  const nombre = `${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre}`.trim();
+  const nombre = nombrePersona(e);
   const rubros = [
     { key: 'cotidiano', nombre: 'Trabajo cotidiano', peso: Number(regla.porc_cotidiano)||0 },
     { key: 'tarea',     nombre: 'Tareas',            peso: Number(regla.porc_tareas)||0 },
@@ -21068,7 +21447,7 @@ function prom_imprimirActa(){
         const lbl = e.estado || '—';
         return `<tr>
           <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${i+1}</td>
-          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${e.primer_apellido} ${e.segundo_apellido}</strong>, ${e.nombre}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombrePersona(e)}</strong></td>
           <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;">${e.cedula}</td>
           <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${nI}</td>
           <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${nII}</td>
@@ -21115,7 +21494,7 @@ function prom_imprimirActa(){
         const aprob = total >= aprobMin;
         return `<tr>
           <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${i+1}</td>
-          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${e.primer_apellido} ${e.segundo_apellido}</strong>, ${e.nombre}</td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombrePersona(e)}</strong></td>
           <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;">${e.cedula}</td>
           ${colsC}
           ${colAsist}
@@ -21125,8 +21504,7 @@ function prom_imprimirActa(){
       }).join('') + `</tbody>`;
   }
 
-  // Formato: PRIMER_APELLIDO SEGUNDO_APELLIDO, NOMBRE
-  const profNombre = `${ME.primer_apellido||''} ${ME.segundo_apellido||''}, ${ME.nombre||''}`.replace(/\s+/g,' ').replace(/^,\s*/,'').replace(/,\s*$/,'').trim();
+  const profNombre = nombrePersona(ME);
   let printArea = document.getElementById("print-boleta-area");
   if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
   printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
@@ -21180,12 +21558,12 @@ function prom_imprimirBoletas(){
   const vista = document.getElementById("prom-vista").value;
   const nivel = a.seccion_nivel || 7;
   const aprobMin = (nivel >= 10) ? 70 : 65;
-  const profNombre = `${ME.primer_apellido||''} ${ME.nombre||''}`.trim();
+  const profNombre = nombrePersona(ME);
   const fechaEmision = fmtF(fechaHoyCR());
 
   // Renderiza UNA boleta compacta para un estudiante
   const renderBoleta = (e, idx) => {
-    const nombreCompleto = `${e.primer_apellido} ${e.segundo_apellido||''}, ${e.nombre}`.trim();
+    const nombreCompleto = nombrePersona(e);
 
     let cuerpoHTML = '';
     let notaFinal, estadoTxt, estadoColor;
@@ -21536,6 +21914,18 @@ async function pdfZoom(delta){
     <div id="desglose-contenido"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="cerrarModal('modal-desglose')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ventana reutilizable para los botones de consulta / ojo. No se cierra al
+     seleccionar texto ni al hacer clic fuera: únicamente con el botón Cerrar. -->
+<div class="modal-overlay" id="modal-detalle-institucional">
+  <div class="modal" style="max-width:650px;">
+    <h3 id="detalle-institucional-titulo">Detalle</h3>
+    <div id="detalle-institucional-contenido"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="cerrarModal('modal-detalle-institucional')">Cerrar</button>
     </div>
   </div>
 </div>

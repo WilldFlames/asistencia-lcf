@@ -116,7 +116,8 @@ router.get("/:id/historial", requireAuth, async (req, res) => {
   try {
     const r = await pool.query(`
       SELECT h.id, h.tipo, h.valor_anterior, h.valor_nuevo, h.justificacion, h.fecha,
-             u.primer_apellido AS u_ap1, u.nombre AS u_nombre, u.rol AS u_rol
+             u.primer_apellido AS u_ap1, u.segundo_apellido AS u_ap2,
+             u.nombre AS u_nombre, u.rol AS u_rol
       FROM historial_estudiante h
       LEFT JOIN usuarios u ON u.id = h.usuario_id
       WHERE h.estudiante_id = $1
@@ -186,7 +187,7 @@ router.post("/", canManage, async (req, res) => {
       // Notificar reactivación a la sección nueva
       if (seccion_id) {
         const secNombre = await nombreSeccion(seccion_id);
-        const msg = `🔄 Reingreso: ${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()} (${cedula.trim()}) fue reactivado(a) en la sección ${secNombre}.`;
+        const msg = `🔄 Reingreso: ${nombre.trim()} ${primer_apellido.trim()} ${segundo_apellido.trim()} (${cedula.trim()}) fue reactivado(a) en la sección ${secNombre}.`;
         await notificarProfesoresDeSeccion(seccion_id, msg, 'reingreso_estudiante');
       }
       // Historial: reactivación
@@ -208,7 +209,7 @@ router.post("/", canManage, async (req, res) => {
     // Historial: creación
     await logHistorial(nuevoId, 'creacion',
       null,
-      `${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()}` +
+      `${nombre.trim()} ${primer_apellido.trim()} ${segundo_apellido.trim()}` +
         (seccion_id ? ` en sección ${await nombreSeccion(seccion_id)}` : ''),
       null, req.session.usuario?.id);
 
@@ -216,7 +217,7 @@ router.post("/", canManage, async (req, res) => {
     if (seccion_id) {
       const secNombre = await nombreSeccion(seccion_id);
       const subTxt = subgrupo ? ` · Subgrupo ${subgrupo}` : "";
-      const msg = `🆕 Nuevo ingreso: ${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()} (${cedula.trim()}) fue matriculado(a) en la sección ${secNombre}${subTxt}.`;
+      const msg = `🆕 Nuevo ingreso: ${nombre.trim()} ${primer_apellido.trim()} ${segundo_apellido.trim()} (${cedula.trim()}) fue matriculado(a) en la sección ${secNombre}${subTxt}.`;
       await notificarProfesoresDeSeccion(seccion_id, msg, 'nuevo_estudiante');
     }
 
@@ -257,8 +258,8 @@ router.put("/:id", canManage, async (req, res) => {
     return String(d.getUTCDate()).padStart(2,'0') + '/' +
            String(d.getUTCMonth()+1).padStart(2,'0') + '/' + d.getUTCFullYear();
   };
-  const nombreNuevo = `${primer_apellido.trim()} ${segundo_apellido.trim()}, ${nombre.trim()}`;
-  const nombreViejo = `${old.primer_apellido||''} ${old.segundo_apellido||''}, ${old.nombre||''}`;
+  const nombreNuevo = `${nombre.trim()} ${primer_apellido.trim()} ${segundo_apellido.trim()}`;
+  const nombreViejo = `${old.nombre||''} ${old.primer_apellido||''} ${old.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
   if (nombreViejo !== nombreNuevo) {
     await logHistorial(req.params.id, 'edicion_nombre', nombreViejo, nombreNuevo, null, uid);
   }
@@ -375,8 +376,9 @@ router.put("/:id/seccion", canManage, async (req, res) => {
     ? (await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccion_id])).rows[0]?.nombre
     : "Sin sección";
 
-  const msgAnterior = `🔄 El estudiante ${est.primer_apellido} ${est.nombre} fue trasladado FUERA de la sección ${seccionAnteriorNombre}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
-  const msgNueva    = `🔄 El estudiante ${est.primer_apellido} ${est.nombre} fue trasladado a la sección ${secNombreNueva}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
+  const nombreTraslado = `${est.nombre||''} ${est.primer_apellido||''} ${est.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
+  const msgAnterior = `🔄 El estudiante ${nombreTraslado} fue trasladado FUERA de la sección ${seccionAnteriorNombre}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
+  const msgNueva    = `🔄 El estudiante ${nombreTraslado} fue trasladado a la sección ${secNombreNueva}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
 
   // Notificar profesores de la sección ANTERIOR
   if (seccionAnteriorId) {
@@ -420,7 +422,7 @@ router.delete("/:id", canManage, async (req, res) => {
     [req.params.id]
   );
   const est = estR.rows[0];
-  const nombreEst = est ? `${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre} (${est.cedula})` : `ID ${req.params.id}`;
+  const nombreEst = est ? `${est.nombre} ${est.primer_apellido} ${est.segundo_apellido} (${est.cedula})`.replace(/\s+/g,' ').trim() : `ID ${req.params.id}`;
 
   // Desactivar estudiante y guardar auditoría del retiro
   await pool.query(
@@ -432,7 +434,7 @@ router.delete("/:id", canManage, async (req, res) => {
   const admins = await pool.query(
     "SELECT id FROM usuarios WHERE rol='admin' AND activo=true"
   );
-  const nombreUsuario = `${u.primer_apellido} ${u.nombre}`;
+  const nombreUsuario = `${u.nombre||''} ${u.primer_apellido||''} ${u.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
   const mensaje = `Baja de estudiante: ${nombreEst}. Justificación: ${justificacion.trim()}. Registrado por: ${nombreUsuario}.`;
 
   for(const admin of admins.rows){
@@ -488,7 +490,7 @@ router.put("/:id/foto", canManage, async (req, res) => {
 router.get("/archivados", canManage, async (req, res) => {
   const r = await pool.query(`
     SELECT e.*,
-      s.nombre AS seccion_nombre,
+      COALESCE(s.nombre, e.seccion_archivo) AS seccion_nombre,
       u.nombre AS retirado_por_nombre,
       u.primer_apellido AS retirado_por_ap1,
       u.segundo_apellido AS retirado_por_ap2,
@@ -522,8 +524,8 @@ router.post("/:id/archivar", canManage, async (req, res) => {
     return res.status(404).json({ error:"Estudiante no encontrado o ya archivado." });
 
   const est = estR.rows[0];
-  const nombreEst = `${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre}`;
-  const nombreUsuario = `${u.primer_apellido} ${u.nombre}`;
+  const nombreEst = `${est.nombre||''} ${est.primer_apellido||''} ${est.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
+  const nombreUsuario = `${u.nombre||''} ${u.primer_apellido||''} ${u.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
 
   // Archivar — mantener activo=true pero archivado=true
   await pool.query(`
@@ -535,9 +537,10 @@ router.post("/:id/archivar", canManage, async (req, res) => {
       retirado_por=$3,
       fecha_retiro=NOW(),
       motivo_retiro=$1,
+      seccion_archivo=$4,
       seccion_id=NULL
-    WHERE id=$4
-  `, [motivo||null, justificacion.trim(), u.id, req.params.id]);
+    WHERE id=$5
+  `, [motivo||null, justificacion.trim(), u.id, est.seccion_nombre||null, req.params.id]);
 
   // Notificar a profesores de la sección
   if(est.sec_id){
@@ -599,7 +602,7 @@ router.post("/:id/reactivar", canManage, async (req, res) => {
     return res.status(404).json({ error:"Estudiante no encontrado en archivo." });
 
   const est = estR.rows[0];
-  const nombreEst = `${est.primer_apellido||''} ${est.segundo_apellido||''}, ${est.nombre||''}`.replace(/\s+/g,' ').trim();
+  const nombreEst = `${est.nombre||''} ${est.primer_apellido||''} ${est.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
 
   // Validar sección si se indicó
   let secNueva = null;
@@ -625,7 +628,7 @@ router.post("/:id/reactivar", canManage, async (req, res) => {
 
   // Notificar a admins
   const admins = await pool.query("SELECT id FROM usuarios WHERE rol='admin' AND activo=true");
-  const nombreUsuario = `${u.primer_apellido||''} ${u.nombre||''}`.trim();
+  const nombreUsuario = `${u.nombre||''} ${u.primer_apellido||''} ${u.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
   const msg = `El estudiante ${nombreEst} fue REACTIVADO del archivo${secNueva?' y asignado a la sección '+secNueva.nombre:' (sin sección asignada)'}. Por: ${nombreUsuario}.`;
   for (const a of admins.rows) {
     if (a.id !== u.id) {
@@ -741,7 +744,7 @@ router.post("/:id/escape", requireAuth, async (req, res) => {
             VALUES ($1, 'conducta', $2)
           `, [
             guiaR.rows[0].profesor_id,
-            `⚠️ Boleta automática — ${est.primer_apellido} ${est.segundo_apellido}, ${est.nombre} (${est.seccion_nombre || 'Sin sección'}): Fuga de lecciones.`
+            `⚠️ Boleta automática — ${est.nombre} ${est.primer_apellido} ${est.segundo_apellido} (${est.seccion_nombre || 'Sin sección'}): Fuga de lecciones.`
           ]);
         }
       } catch(e) {
