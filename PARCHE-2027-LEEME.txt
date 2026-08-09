@@ -14,6 +14,13 @@ Después de subir este proyecto y esperar que Railway termine el despliegue:
    - asignaciones de profesores;
    - horarios.
 5. En Matrícula 2027, revise estudiantes, cupos y secciones.
+6. Antes de distribuir las secciones, abra "Restricciones" y registre las
+   parejas de estudiantes que no deben quedar juntas, indicando el motivo.
+
+El sistema deshabilita las secciones incompatibles y también valida la regla
+en el servidor. La restricción funciona en ambos sentidos: no importa cuál de
+los dos estudiantes se matricule primero. El cierre de año tampoco se puede
+aplicar mientras exista una pareja restringida dentro de la misma sección.
 
 IMPORTANTE
 ----------
@@ -26,4 +33,3 @@ activo. El mismo cierre no puede ejecutarse dos veces.
 Quienes no estén matriculados al hacer el cambio quedan activos, en espera y
 sin sección. Se les puede completar la matrícula después, incluso en febrero o
 marzo, y entrarán inmediatamente a su sección de 2027.
-

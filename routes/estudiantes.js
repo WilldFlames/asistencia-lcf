@@ -5,6 +5,31 @@ const cldHelper = require("./cloudinary-helper");
 
 const canManage = requireRol("admin","auxiliar");
 
+async function validarRestriccionSeccionActual(estudianteId, seccionId, db = pool){
+  if(!estudianteId || !seccionId) return null;
+  const r = await db.query(`
+    WITH restringidos AS (
+      SELECT CASE WHEN estudiante_a_id=$1 THEN estudiante_b_id ELSE estudiante_a_id END AS otro_id,
+             motivo
+      FROM restricciones_matricula
+      WHERE activa=true
+        AND anio=COALESCE((SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1), EXTRACT(YEAR FROM CURRENT_DATE)::int)
+        AND (estudiante_a_id=$1 OR estudiante_b_id=$1)
+    )
+    SELECT e.nombre,e.primer_apellido,e.segundo_apellido,s.nombre AS seccion_nombre,r.motivo
+    FROM restringidos r JOIN estudiantes e ON e.id=r.otro_id
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.activo=true AND COALESCE(e.archivado,false)=false AND e.seccion_id=$2
+    LIMIT 1
+  `, [estudianteId,seccionId]);
+  return r.rows[0] || null;
+}
+
+function mensajeRestriccionSeccion(conflicto){
+  const nombre=`${conflicto.nombre||''} ${conflicto.primer_apellido||''} ${conflicto.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
+  return `No se puede asignar esta sección: existe una restricción de convivencia con ${nombre}, que ya está en ${conflicto.seccion_nombre}. Motivo: ${conflicto.motivo}. Seleccione otra sección.`;
+}
+
 // Helper: registra un evento en el historial del estudiante.
 // Es "fire-and-forget" — no bloquea la respuesta si falla, solo loggea.
 // Acepta cliente opcional para usar dentro de transacciones.
@@ -174,6 +199,8 @@ router.post("/", canManage, async (req, res) => {
         return res.status(409).json({ error: "Ya existe un estudiante activo con esa cédula" });
       }
       // Estaba eliminado — reactivar con los nuevos datos
+      const conflicto = await validarRestriccionSeccionActual(est.id,seccion_id);
+      if(conflicto) return res.status(409).json({ error:mensajeRestriccionSeccion(conflicto),restriccion:true });
       await pool.query(`
         UPDATE estudiantes SET
           nombre=$1, primer_apellido=$2, segundo_apellido=$3,
@@ -365,6 +392,9 @@ router.put("/:id/seccion", canManage, async (req, res) => {
   const est = estR.rows[0];
   const seccionAnteriorId = est.seccion_id;
   const seccionAnteriorNombre = est.sec_nombre || "Sin sección";
+
+  const conflicto = await validarRestriccionSeccionActual(estId,seccion_id);
+  if(conflicto) return res.status(409).json({ error:mensajeRestriccionSeccion(conflicto),restriccion:true });
 
   // Actualizar sección y guardar justificación
   await pool.query(
@@ -609,6 +639,8 @@ router.post("/:id/reactivar", canManage, async (req, res) => {
     const sR = await pool.query("SELECT id, nombre FROM secciones WHERE id=$1", [seccion_id]);
     if (!sR.rows.length) return res.status(400).json({ error:"Sección destino inválida." });
     secNueva = sR.rows[0];
+    const conflicto = await validarRestriccionSeccionActual(req.params.id,secNueva.id);
+    if(conflicto) return res.status(409).json({ error:mensajeRestriccionSeccion(conflicto),restriccion:true });
   }
 
   await pool.query(`
@@ -664,6 +696,8 @@ router.post("/:id/reactivar", canManage, async (req, res) => {
 router.put("/:id/asignar-seccion", canManage, async (req, res) => {
   const { seccion_id } = req.body;
   if(!seccion_id) return res.status(400).json({ error:"Sección requerida." });
+  const conflicto = await validarRestriccionSeccionActual(req.params.id,seccion_id);
+  if(conflicto) return res.status(409).json({ error:mensajeRestriccionSeccion(conflicto),restriccion:true });
   await pool.query(
     "UPDATE estudiantes SET seccion_id=$1 WHERE id=$2",
     [seccion_id, req.params.id]
@@ -817,6 +851,11 @@ router.post("/importar", canManage, async (req, res) => {
 
       if(inactivos.has(cedula)){
         // Reactivar
+        const conflicto = await validarRestriccionSeccionActual(inactivos.get(cedula),seccion_id,client);
+        if(conflicto){
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error:`No se importó el archivo. ${mensajeRestriccionSeccion(conflicto)}`,restriccion:true });
+        }
         await client.query(`
           UPDATE estudiantes SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,
           fecha_nacimiento=$4,seccion_id=$5,activo=true WHERE id=$6

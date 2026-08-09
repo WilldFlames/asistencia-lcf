@@ -194,6 +194,7 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
   .col-hide-mobile{display:none;}
   /* Informe row en columna */
   .informe-row{grid-template-columns:1fr;}
+  .rm-selector-grid{grid-template-columns:1fr !important;}
   /* Cards encargados */
   .enc-card div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !important;}
 }
@@ -2278,6 +2279,7 @@ tr:hover td{background:#f8fafc;}
         <select id="mat-anio" onchange="matCambioAnio()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:bold;"></select>
         <button class="btn btn-orange btn-sm" id="mat-btn-aplicar" onclick="matAplicarAnio()" style="display:none;">▶️ Aplicar Matrículas</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-frances" onclick="abrirSeccionesFrances()" style="display:none;">🇫🇷 Secciones Francés</button>
+        <button class="btn btn-outline btn-sm" id="mat-btn-restricciones" onclick="abrirRestriccionesMatricula()">🚫 Restricciones</button>
         <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
       </div>
     </div>
@@ -2389,12 +2391,51 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- Restricciones de convivencia para conformar secciones -->
+<div class="modal-overlay" id="modal-restricciones-matricula">
+  <div class="modal" style="max-width:820px;">
+    <h3>🚫 Restricciones de convivencia — <span id="rm-anio"></span></h3>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">
+      Seleccioná dos estudiantes que <strong>no deben quedar en la misma sección</strong>.
+      La restricción funciona en ambos sentidos y solamente para el año indicado.
+    </p>
+    <div id="alert-rm" class="alert"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" class="rm-selector-grid">
+      <div class="fg">
+        <label>Primer estudiante</label>
+        <input id="rm-buscar-a" type="text" placeholder="Buscar por nombre o cédula..." oninput="rmFiltrar('a')" style="margin-bottom:5px;"/>
+        <select id="rm-est-a" size="6" style="width:100%;"></select>
+      </div>
+      <div class="fg">
+        <label>Segundo estudiante</label>
+        <input id="rm-buscar-b" type="text" placeholder="Buscar por nombre o cédula..." oninput="rmFiltrar('b')" style="margin-bottom:5px;"/>
+        <select id="rm-est-b" size="6" style="width:100%;"></select>
+      </div>
+    </div>
+    <div class="fg">
+      <label>Motivo <span style="font-weight:normal;color:var(--muted);">(uso interno)</span></label>
+      <textarea id="rm-motivo" rows="2" maxlength="500" placeholder="Ejemplo: recomendación de Orientación por conflicto previo."></textarea>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+      <button class="btn btn-danger" onclick="rmGuardar()">🚫 Registrar restricción</button>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;">
+      <h4 style="margin:0 0 8px;color:var(--azul);">Restricciones registradas</h4>
+      <div id="rm-lista" class="table-wrap"><div class="empty">Cargando...</div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-restricciones-matricula')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-asignar-seccion">
   <div class="modal" style="max-width:460px;">
     <h3>📚 Asignar Sección <span id="asignar-sec-anio"></span></h3>
     <p id="asignar-sec-nombre" style="font-weight:bold;font-size:14px;margin-bottom:14px;"></p>
     <input type="hidden" id="asignar-sec-est-id"/>
     <input type="hidden" id="asignar-sec-nivel"/>
+    <div id="asignar-restricciones-info" style="display:none;margin-bottom:10px;padding:9px 11px;border-radius:7px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;"></div>
     <div class="fg">
       <label>Sección <span style="font-weight:normal;color:var(--muted);">(cupo máx. 26)</span></label>
       <select id="asignar-sec-select" onchange="asignarCuposInfo()"><option value="">— Seleccionar —</option></select>
@@ -9567,6 +9608,7 @@ let matData = [], matNivelFiltro = 0;
 let matAnio = null;          // año de matrícula seleccionado
 let matCupos = [];           // cupos por sección para matAnio
 let matAsigFuturas = {};     // estudiante_id → asignación futura (si matAnio > actual)
+let matRestricciones = [];   // parejas que no pueden compartir sección en matAnio
 
 function matAnioActual(){ return ANIO_LECTIVO_ACTIVO; }
 
@@ -9591,15 +9633,17 @@ async function iniciarMatricula(){
   const btnFr = document.getElementById("mat-btn-frances");
   if(btnFr) btnFr.style.display = ME.rol === "admin" ? "" : "none";
 
-  const [data, cupos, futuras] = await Promise.all([
+  const [data, cupos, futuras, restricciones] = await Promise.all([
     api(`/api/matricula?anio=${matAnio}`),
     api(`/api/matricula/cupos/${matAnio}`).catch(()=>[]),
-    esFuturo ? api(`/api/matricula/asignaciones/${matAnio}`).catch(()=>[]) : Promise.resolve([])
+    esFuturo ? api(`/api/matricula/asignaciones/${matAnio}`).catch(()=>[]) : Promise.resolve([]),
+    api(`/api/matricula/restricciones/${matAnio}`).catch(()=>[])
   ]);
   matData = data || [];
   matCupos = cupos || [];
   matAsigFuturas = {};
   (futuras||[]).forEach(f => { matAsigFuturas[f.estudiante_id] = f; });
+  matRestricciones = restricciones || [];
   renderCuposWidget();
   renderMatricula();
   renderResumenNiveles();
@@ -9654,6 +9698,103 @@ function renderCuposWidget(){
 
 function matCambioAnio(){ iniciarMatricula(); }
 
+// ── Restricciones de convivencia ─────────────────────────────────────
+function rmNombre(r, lado){
+  return nombreDesdeCampos(r[`estudiante_${lado}_nombre`],r[`estudiante_${lado}_ap1`],r[`estudiante_${lado}_ap2`]);
+}
+
+function rmRelacionEstudiante(r, estudianteId){
+  const ladoPropio = String(r.estudiante_a_id)===String(estudianteId) ? 'a' : 'b';
+  const otro = ladoPropio==='a' ? 'b' : 'a';
+  return {
+    nombre:rmNombre(r,otro),
+    motivo:r.motivo,
+    seccion_id:r[`estudiante_${otro}_seccion_id`],
+    seccion:r[`estudiante_${otro}_seccion`]||'Sin sección asignada'
+  };
+}
+
+function rmFiltrar(lado){
+  const buscar = (document.getElementById(`rm-buscar-${lado}`)?.value||'').trim().toLocaleLowerCase('es-CR');
+  const sel = document.getElementById(`rm-est-${lado}`);
+  if(!sel) return;
+  const valor = sel.value;
+  const lista = (matData||[]).filter(e=>{
+    const texto = `${e.cedula||''} ${nombrePersona(e)}`.toLocaleLowerCase('es-CR');
+    return !buscar || texto.includes(buscar);
+  }).slice(0,150);
+  sel.innerHTML = lista.map(e=>`<option value="${e.id}">${htmlSeguro(nombrePersona(e))} · ${htmlSeguro(e.cedula||'Sin cédula')}</option>`).join('');
+  if(lista.some(e=>String(e.id)===String(valor))) sel.value=valor;
+}
+
+async function abrirRestriccionesMatricula(){
+  document.getElementById('rm-anio').textContent=matAnio;
+  document.getElementById('rm-buscar-a').value='';
+  document.getElementById('rm-buscar-b').value='';
+  document.getElementById('rm-motivo').value='';
+  document.getElementById('alert-rm').className='alert';
+  rmFiltrar('a'); rmFiltrar('b');
+  await rmCargar();
+  document.getElementById('modal-restricciones-matricula').classList.add('show');
+}
+
+async function rmCargar(){
+  try{
+    matRestricciones = await api(`/api/matricula/restricciones/${matAnio}`)||[];
+    rmRender();
+  }catch(e){ sa('alert-rm',e.message,'danger'); }
+}
+
+function rmRender(){
+  const cont=document.getElementById('rm-lista');
+  if(!cont) return;
+  if(!matRestricciones.length){
+    cont.innerHTML='<div class="empty" style="padding:18px;">No hay restricciones registradas para este año.</div>';
+    return;
+  }
+  cont.innerHTML=`<table style="min-width:680px;"><thead><tr><th>Estudiante</th><th>No puede compartir sección con</th><th>Motivo</th><th>Estado</th><th></th></tr></thead><tbody>
+    ${matRestricciones.map(r=>{
+      const secA=r.estudiante_a_seccion||'Sin sección';
+      const secB=r.estudiante_b_seccion||'Sin sección';
+      return `<tr style="${r.conflicto_actual?'background:#fef2f2;':''}">
+        <td><strong>${htmlSeguro(rmNombre(r,'a'))}</strong><div style="font-size:10.5px;color:var(--muted);">${htmlSeguro(secA)}</div></td>
+        <td><strong>${htmlSeguro(rmNombre(r,'b'))}</strong><div style="font-size:10.5px;color:var(--muted);">${htmlSeguro(secB)}</div></td>
+        <td style="font-size:11.5px;max-width:260px;">${htmlSeguro(r.motivo)}</td>
+        <td>${r.conflicto_actual?'<span class="badge" style="background:#fee2e2;color:#991b1b;">⚠️ Misma sección</span>':'<span class="badge" style="background:#dcfce7;color:#166534;">✅ Separados</span>'}</td>
+        <td><button class="btn btn-danger btn-xs" onclick="rmEliminar(${r.id})" title="Eliminar restricción">🗑️</button></td>
+      </tr>`;
+    }).join('')}
+  </tbody></table>`;
+}
+
+async function rmGuardar(){
+  const a=+document.getElementById('rm-est-a').value;
+  const b=+document.getElementById('rm-est-b').value;
+  const motivo=document.getElementById('rm-motivo').value.trim();
+  if(!a||!b){ sa('alert-rm','Seleccione los dos estudiantes.','danger'); return; }
+  if(a===b){ sa('alert-rm','Debe seleccionar dos estudiantes diferentes.','danger'); return; }
+  if(motivo.length<5){ sa('alert-rm','Escriba el motivo de la restricción.','danger'); return; }
+  try{
+    const r=await api('/api/matricula/restricciones','POST',{
+      anio:matAnio,estudiante_a_id:a,estudiante_b_id:b,motivo
+    });
+    document.getElementById('rm-motivo').value='';
+    await rmCargar();
+    sa('alert-rm',r.conflicto_actual
+      ? '⚠️ Restricción guardada, pero ambos estudiantes ya están en la misma sección. Debe cambiar a uno antes de aplicar las matrículas.'
+      : '✅ Restricción guardada. El sistema impedirá que compartan sección.','success');
+  }catch(e){ sa('alert-rm',e.message,'danger'); }
+}
+
+async function rmEliminar(id){
+  if(!confirm('¿Eliminar esta restricción? La eliminación quedará registrada.')) return;
+  try{
+    await api(`/api/matricula/restricciones/${id}`,'DELETE',{});
+    await rmCargar();
+    sa('alert-rm','✅ Restricción eliminada.','success');
+  }catch(e){ sa('alert-rm',e.message,'danger'); }
+}
+
 // ── Secciones de Francés por año (solo admin) ────────────────────
 async function abrirSeccionesFrances(){
   document.getElementById("sf-anio").textContent = matAnio;
@@ -9700,6 +9841,10 @@ async function matAplicarAnio(){
   if(revision.ya_aplicado){ sa("alert-mat",`Las matrículas ${matAnio} ya fueron aplicadas.`,"danger"); return; }
   if(!revision.calendario_completo){
     sa("alert-mat",`Antes de aplicar ${matAnio}, complete las cuatro fechas oficiales en Configurar Año.`,"danger");
+    return;
+  }
+  if(Number(revision.conflictos_restricciones||0)>0){
+    sa("alert-mat",`No se puede aplicar ${matAnio}: hay ${revision.conflictos_restricciones} restricción(es) con estudiantes todavía ubicados en la misma sección. Abra 🚫 Restricciones y corríjalas primero.`,"danger");
     return;
   }
   const conSec = revision.con_matricula;
@@ -9873,8 +10018,24 @@ async function abrirAsignarSeccion(id, nombre, nivel){
   try{ matCupos = await api(`/api/matricula/cupos/${matAnio}`)||[]; }catch{ matCupos = []; }
   const cuposMap = {}; matCupos.forEach(c=>{ cuposMap[c.seccion_id] = c; });
 
-  let secciones = (allSecciones&&allSecciones.length) ? allSecciones : [];
-  if(!secciones.length){ try{ secciones = await api("/api/admin/secciones")||[]; }catch{} }
+  const relaciones = (matRestricciones||[])
+    .filter(r=>String(r.estudiante_a_id)===String(id)||String(r.estudiante_b_id)===String(id))
+    .map(r=>rmRelacionEstudiante(r,id));
+  const porSeccion = new Map();
+  relaciones.filter(r=>r.seccion_id).forEach(r=>{
+    const k=String(r.seccion_id);
+    if(!porSeccion.has(k)) porSeccion.set(k,[]);
+    porSeccion.get(k).push(r);
+  });
+  const avisoRestr=document.getElementById('asignar-restricciones-info');
+  if(relaciones.length){
+    avisoRestr.style.display='';
+    avisoRestr.innerHTML=`<strong>🚫 Tiene ${relaciones.length} restricción${relaciones.length===1?'':'es'} en ${matAnio}:</strong><br>`+
+      relaciones.map(r=>`${htmlSeguro(r.nombre)} · ${htmlSeguro(r.seccion)}<br><span style="font-size:10.5px;opacity:.85;">Motivo: ${htmlSeguro(r.motivo)}</span>`).join('<br>');
+  }else avisoRestr.style.display='none';
+
+  let secciones = (matCupos||[]).map(c=>({id:c.seccion_id,nombre:c.nombre,nivel:c.nivel}));
+  if(!secciones.length){ try{ secciones = await api(`/api/admin/secciones?anio=${matAnio}`)||[]; }catch{} }
   const secFiltradas = nivel ? secciones.filter(s=>parseInt(s.nombre.split('-')[0])===nivel) : secciones;
   const esAdminM = ME.rol === "admin";
   const est = (matData||[]).find(x=>x.id==id) || {};
@@ -9888,10 +10049,13 @@ async function abrirAsignarSeccion(id, nombre, nivel){
       const yaAhi = (fut.seccion_id==s.id) || (!fut.seccion_id && est.seccion_id==s.id && matAnio===matAnioActual());
       const ocupados = c ? c.ocupados - (yaAhi?1:0) : 0;
       const llena = c && ocupados >= c.max;
+      const restringidos = porSeccion.get(String(s.id))||[];
+      const bloqueada = restringidos.length>0;
       const fr = c && c.idioma === 'Francés' ? ' · 🇫🇷 FRANCÉS' : '';
-      const label = c ? `${s.nombre}${fr} — ${ocupados}/${c.max}${llena?' · LLENA':` · ${c.max-ocupados} campos`}` : s.nombre;
-      const dis = (llena && !esAdminM) ? 'disabled' : '';
-      return `<option value="${s.id}" data-llena="${llena?1:0}" data-frances="${c&&c.idioma==='Francés'?1:0}" ${dis}>${label}</option>`;
+      const restrTxt=bloqueada?` · 🚫 RESTRICCIÓN: ${restringidos.map(r=>r.nombre).join(', ')}`:'';
+      const label = c ? `${s.nombre}${fr} — ${ocupados}/${c.max}${llena?' · LLENA':` · ${c.max-ocupados} campos`}${restrTxt}` : s.nombre+restrTxt;
+      const dis = bloqueada || (llena && !esAdminM) ? 'disabled' : '';
+      return `<option value="${s.id}" data-llena="${llena?1:0}" data-frances="${c&&c.idioma==='Francés'?1:0}" data-restriccion="${bloqueada?1:0}" ${dis}>${htmlSeguro(label)}</option>`;
     }).join("");
   if(fut.seccion_id) sel.value = String(fut.seccion_id);
   // Mostrar/ocultar panel de cupos según la selección inicial

@@ -290,6 +290,115 @@ function fechaCR(){
 }
 async function anioActualCR(){ return obtenerAnioActivo(); }
 
+// Las restricciones se guardan una sola vez por pareja y año. Internamente
+// siempre se conserva primero el ID menor, por eso funcionan en ambos sentidos.
+function normalizarPareja(estudianteA, estudianteB){
+  const a = parseInt(estudianteA);
+  const b = parseInt(estudianteB);
+  return a < b ? [a,b] : [b,a];
+}
+
+async function listarRestricciones(anio, estudianteId = null){
+  const activo = await obtenerAnioActivo();
+  const esActual = Number(anio) === activo;
+  const params = [Number(anio), esActual];
+  let filtro = "";
+  if(estudianteId){
+    params.push(Number(estudianteId));
+    filtro = "AND (r.estudiante_a_id=$3 OR r.estudiante_b_id=$3)";
+  }
+  const r = await pool.query(`
+    SELECT r.id, r.anio, r.estudiante_a_id, r.estudiante_b_id, r.motivo,
+      r.creada_at,
+      ea.cedula AS estudiante_a_cedula,
+      ea.nombre AS estudiante_a_nombre, ea.primer_apellido AS estudiante_a_ap1, ea.segundo_apellido AS estudiante_a_ap2,
+      eb.cedula AS estudiante_b_cedula,
+      eb.nombre AS estudiante_b_nombre, eb.primer_apellido AS estudiante_b_ap1, eb.segundo_apellido AS estudiante_b_ap2,
+      CASE WHEN $2::boolean THEN ea.seccion_id ELSE ma.seccion_id END AS estudiante_a_seccion_id,
+      CASE WHEN $2::boolean THEN eb.seccion_id ELSE mb.seccion_id END AS estudiante_b_seccion_id,
+      sa.nombre AS estudiante_a_seccion,
+      sb.nombre AS estudiante_b_seccion,
+      (CASE WHEN $2::boolean THEN ea.seccion_id ELSE ma.seccion_id END IS NOT NULL
+       AND CASE WHEN $2::boolean THEN ea.seccion_id ELSE ma.seccion_id END =
+           CASE WHEN $2::boolean THEN eb.seccion_id ELSE mb.seccion_id END) AS conflicto_actual,
+      TRIM(CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido)) AS creada_por_nombre
+    FROM restricciones_matricula r
+    JOIN estudiantes ea ON ea.id=r.estudiante_a_id
+    JOIN estudiantes eb ON eb.id=r.estudiante_b_id
+    LEFT JOIN matricula ma ON ma.estudiante_id=ea.id AND ma.anio=r.anio
+    LEFT JOIN matricula mb ON mb.estudiante_id=eb.id AND mb.anio=r.anio
+    LEFT JOIN secciones sa ON sa.id=CASE WHEN $2::boolean THEN ea.seccion_id ELSE ma.seccion_id END
+    LEFT JOIN secciones sb ON sb.id=CASE WHEN $2::boolean THEN eb.seccion_id ELSE mb.seccion_id END
+    LEFT JOIN usuarios u ON u.id=r.creada_por
+    WHERE r.anio=$1 AND r.activa=true ${filtro}
+    ORDER BY ea.primer_apellido, ea.segundo_apellido, ea.nombre,
+             eb.primer_apellido, eb.segundo_apellido, eb.nombre
+  `, params);
+  return r.rows;
+}
+
+// ── RESTRICCIONES DE CONVIVENCIA POR AÑO ─────────────────────────────
+router.get("/restricciones/:anio", canAccess, async (req, res) => {
+  const anio = parseInt(req.params.anio);
+  if(!anio) return res.status(400).json({ error:"Año inválido" });
+  res.json(await listarRestricciones(anio, req.query.estudiante_id));
+});
+
+router.post("/restricciones", canAccess, async (req, res) => {
+  const anio = parseInt(req.body.anio);
+  const est1 = parseInt(req.body.estudiante_a_id);
+  const est2 = parseInt(req.body.estudiante_b_id);
+  const motivo = String(req.body.motivo || "").trim();
+  if(!anio || !est1 || !est2) return res.status(400).json({ error:"Seleccione los dos estudiantes y el año." });
+  if(est1 === est2) return res.status(400).json({ error:"Debe seleccionar dos estudiantes diferentes." });
+  if(motivo.length < 5) return res.status(400).json({ error:"Escriba el motivo de la restricción." });
+  if(motivo.length > 500) return res.status(400).json({ error:"El motivo no puede superar 500 caracteres." });
+  const estudiantes = await pool.query(`SELECT id FROM estudiantes
+    WHERE id=ANY($1::int[]) AND activo=true AND COALESCE(archivado,false)=false`, [[est1,est2]]);
+  if(estudiantes.rows.length !== 2)
+    return res.status(404).json({ error:"Uno de los estudiantes no existe o está archivado." });
+  await pool.query("INSERT INTO anios_lectivos (anio,estado) VALUES ($1,'preparacion') ON CONFLICT (anio) DO NOTHING", [anio]);
+  const [a,b] = normalizarPareja(est1,est2);
+  const guardada = await pool.query(`
+    INSERT INTO restricciones_matricula
+      (anio,estudiante_a_id,estudiante_b_id,motivo,activa,creada_por,eliminada_por,eliminada_at)
+    VALUES ($1,$2,$3,$4,true,$5,NULL,NULL)
+    ON CONFLICT (anio,estudiante_a_id,estudiante_b_id) DO UPDATE SET
+      motivo=EXCLUDED.motivo, activa=true, creada_por=EXCLUDED.creada_por,
+      creada_at=NOW(), eliminada_por=NULL, eliminada_at=NULL
+    RETURNING id
+  `, [anio,a,b,motivo,req.session.usuario.id]);
+  const fila = (await listarRestricciones(anio)).find(x=>x.id===guardada.rows[0].id);
+  res.json({ ok:true, restriccion:fila, conflicto_actual:!!fila?.conflicto_actual });
+});
+
+router.delete("/restricciones/:id", canAccess, async (req, res) => {
+  const r = await pool.query(`UPDATE restricciones_matricula
+    SET activa=false,eliminada_por=$1,eliminada_at=NOW()
+    WHERE id=$2 AND activa=true RETURNING id`, [req.session.usuario.id,req.params.id]);
+  if(!r.rows.length) return res.status(404).json({ error:"Restricción no encontrada." });
+  res.json({ ok:true });
+});
+
+async function conflictosEnSeccion(estudianteId, anio, seccionId, esActual){
+  const r = await pool.query(`
+    WITH restringidos AS (
+      SELECT CASE WHEN estudiante_a_id=$1 THEN estudiante_b_id ELSE estudiante_a_id END AS otro_id,
+             motivo
+      FROM restricciones_matricula
+      WHERE anio=$2 AND activa=true AND (estudiante_a_id=$1 OR estudiante_b_id=$1)
+    )
+    SELECT rr.otro_id, rr.motivo, e.nombre, e.primer_apellido, e.segundo_apellido, s.nombre AS seccion_nombre
+    FROM restringidos rr
+    JOIN estudiantes e ON e.id=rr.otro_id AND e.activo=true AND COALESCE(e.archivado,false)=false
+    LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$2
+    LEFT JOIN secciones s ON s.id=CASE WHEN $4::boolean THEN e.seccion_id ELSE m.seccion_id END
+    WHERE CASE WHEN $4::boolean THEN e.seccion_id ELSE m.seccion_id END=$3
+    ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
+  `, [estudianteId,anio,seccionId,esActual]);
+  return r.rows;
+}
+
 // Subgrupo según tecnología:
 //   Inglés Conversacional = A
 //   Diseño Publicitario   = B
@@ -360,6 +469,20 @@ router.post("/asignar", canAccess, async (req, res) => {
 
   const u = req.session.usuario;
   const esActual = a === await anioActualCR();
+
+  // Esta regla nunca se puede forzar, ni siquiera por un administrador.
+  // La pareja es bidireccional: da igual cuál estudiante se matriculó primero.
+  const incompatibles = await conflictosEnSeccion(estudiante_id,a,seccion_id,esActual);
+  if(incompatibles.length){
+    const nombres = incompatibles.map(e=>
+      `${e.nombre||''} ${e.primer_apellido||''} ${e.segundo_apellido||''}`.replace(/\s+/g,' ').trim()
+    ).join(', ');
+    return res.status(409).json({
+      error:`No se puede asignar a esta sección. El estudiante tiene una restricción de convivencia con ${nombres}, que ya está en ${incompatibles[0].seccion_nombre}. Motivo: ${incompatibles[0].motivo}. Seleccione otra sección.`,
+      restriccion:true,
+      incompatibles
+    });
+  }
 
   // ── Verificar cupos (excluyendo al propio estudiante) ──────────────────
   // Cupo total 26 + cupo por subgrupo 13 (aplica en 10° y 11° con tecnologías)
@@ -491,7 +614,13 @@ router.get("/previsualizar-aplicar/:anio", requireAuth, async (req, res) => {
       (SELECT COUNT(*)::int FROM asignaciones WHERE anio=$1) AS asignaciones_destino,
       (SELECT COUNT(*)::int FROM secciones_anio WHERE anio=$1 AND activa=true) AS secciones_destino,
       (SELECT COUNT(*)::int FROM seccion_guia_anio WHERE anio=$1 AND profesor_id IS NOT NULL) AS guias_destino,
-      (SELECT COUNT(*)::int FROM seccion_orientador_anio WHERE anio=$1 AND orientador_id IS NOT NULL) AS orientadores_destino
+      (SELECT COUNT(*)::int FROM seccion_orientador_anio WHERE anio=$1 AND orientador_id IS NOT NULL) AS orientadores_destino,
+      (SELECT COUNT(*)::int
+         FROM restricciones_matricula r
+         JOIN matricula ma ON ma.estudiante_id=r.estudiante_a_id AND ma.anio=r.anio
+         JOIN matricula mb ON mb.estudiante_id=r.estudiante_b_id AND mb.anio=r.anio
+         WHERE r.anio=$1 AND r.activa=true AND ma.seccion_id IS NOT NULL
+           AND ma.seccion_id=mb.seccion_id) AS conflictos_restricciones
     `, [anio, anioOrigen])
   ]);
   const fechasCompletas = !!(calendario.periodo_i_inicio && calendario.periodo_i_fin &&
@@ -541,6 +670,31 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
     if(ya.rows.length){
       await client.query("ROLLBACK");
       return res.status(409).json({ error:`Las matrículas ${anio} ya fueron aplicadas. No se ejecutó ninguna limpieza adicional.` });
+    }
+
+    // Última barrera antes de tocar datos históricos: si se creó una
+    // restricción después de haber asignado las secciones, el cierre se detiene.
+    const conflictosRestriccion = await client.query(`
+      SELECT r.id, s.nombre AS seccion_nombre,
+        TRIM(CONCAT_WS(' ', ea.nombre,ea.primer_apellido,ea.segundo_apellido)) AS estudiante_a,
+        TRIM(CONCAT_WS(' ', eb.nombre,eb.primer_apellido,eb.segundo_apellido)) AS estudiante_b
+      FROM restricciones_matricula r
+      JOIN matricula ma ON ma.estudiante_id=r.estudiante_a_id AND ma.anio=r.anio
+      JOIN matricula mb ON mb.estudiante_id=r.estudiante_b_id AND mb.anio=r.anio
+      JOIN estudiantes ea ON ea.id=r.estudiante_a_id
+      JOIN estudiantes eb ON eb.id=r.estudiante_b_id
+      JOIN secciones s ON s.id=ma.seccion_id
+      WHERE r.anio=$1 AND r.activa=true AND ma.seccion_id IS NOT NULL
+        AND ma.seccion_id=mb.seccion_id
+      ORDER BY s.nombre LIMIT 10
+    `, [anio]);
+    if(conflictosRestriccion.rows.length){
+      await client.query("ROLLBACK");
+      const c = conflictosRestriccion.rows[0];
+      return res.status(409).json({
+        error:`No se puede aplicar ${anio}: hay ${conflictosRestriccion.rows.length} restricción(es) con estudiantes en la misma sección. Revise primero ${c.estudiante_a} y ${c.estudiante_b} en ${c.seccion_nombre}.`,
+        conflictos_restricciones: conflictosRestriccion.rows
+      });
     }
 
     // ── 1. ARCHIVAR RESUMEN ACADÉMICO DEL AÑO ANTERIOR ─────────────────

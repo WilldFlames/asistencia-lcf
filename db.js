@@ -691,7 +691,28 @@ async function initDB() {
         orientador_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
         PRIMARY KEY(seccion_id, anio)
       );
+
+      CREATE TABLE IF NOT EXISTS restricciones_matricula (
+        id               SERIAL PRIMARY KEY,
+        anio             INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        estudiante_a_id  INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        estudiante_b_id  INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        motivo           TEXT NOT NULL,
+        activa           BOOLEAN NOT NULL DEFAULT true,
+        creada_por       INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        creada_at        TIMESTAMP DEFAULT NOW(),
+        eliminada_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        eliminada_at     TIMESTAMP,
+        CHECK (estudiante_a_id < estudiante_b_id),
+        UNIQUE (anio, estudiante_a_id, estudiante_b_id)
+      );
     `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_restricciones_matricula_anio
+      ON restricciones_matricula(anio, activa)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_restricciones_matricula_est_a
+      ON restricciones_matricula(estudiante_a_id, anio) WHERE activa=true`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_restricciones_matricula_est_b
+      ON restricciones_matricula(estudiante_b_id, anio) WHERE activa=true`);
 
     // 2026 conserva las fechas oficiales que ya utilizaba el sistema. El 2027
     // se crea en preparación y el administrador debe registrar sus fechas.
