@@ -1313,7 +1313,7 @@ tr:hover td{background:#f8fafc;}
     <h2>📨 Carta de Ausentismo</h2>
     <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
       Generá una carta dirigida al encargado(a) del estudiante para notificar su nivel de ausentismo en una asignatura, según el REAC vigente.
-      Los datos del estudiante, ausencias y porcentaje se calculan automáticamente para el período actual.
+      Los datos del estudiante, ausencias y porcentaje se calculan automáticamente <strong>desde el inicio oficial del curso lectivo hasta hoy</strong>.
     </p>
     <!-- Tabs Activos / Retirados -->
     <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);">
@@ -1355,6 +1355,26 @@ tr:hover td{background:#f8fafc;}
   </div>
   <div id="carta-contenido"></div>
   <div id="cartas-historial" style="display:none;"></div>
+  <div class="card no-print" id="conv-aus-card" style="margin-top:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+      <div>
+        <h3 style="margin:0 0 5px;color:var(--azul);">🚫 Sin derecho a convocatoria por ausentismo</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:0;max-width:760px;">
+          Cada docente marca únicamente sus estudiantes y asignaturas. El sistema solo habilita la marca cuando el ausentismo supera el 20%, es decir, cuando la asistencia es inferior al 80%.
+        </p>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="cargarControlConvocatoriaAusentismo()">🔄 Actualizar cálculo</button>
+        <button class="btn btn-success btn-sm" id="btn-acta-conv-aus" onclick="imprimirActaConvocatoriaAusentismo()">🖨️ Generar acta</button>
+      </div>
+    </div>
+    <div id="alert-conv-aus" class="alert"></div>
+    <div id="conv-aus-candidatos" style="margin-top:12px;"><div class="empty">Cargando cálculo...</div></div>
+    <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:13px;">
+      <h4 style="margin:0 0 8px;color:var(--azul);">Estudiantes ya marcados</h4>
+      <div id="conv-aus-registros"><div class="empty">Cargando...</div></div>
+    </div>
+  </div>
 </div>
 <!-- /CARTAS DE AUSENTISMO -->
 
@@ -9860,6 +9880,7 @@ let matAnio = null;          // año de matrícula seleccionado
 let matCupos = [];           // cupos por sección para matAnio
 let matAsigFuturas = {};     // estudiante_id → asignación futura (si matAnio > actual)
 let matRestricciones = [];   // parejas que no pueden compartir sección en matAnio
+let rmEstudiantes = [];      // lista institucional completa para restricciones
 
 function matAnioActual(){ return ANIO_LECTIVO_ACTIVO; }
 
@@ -9970,7 +9991,7 @@ function rmFiltrar(lado){
   const sel = document.getElementById(`rm-est-${lado}`);
   if(!sel) return;
   const valor = sel.value;
-  const lista = (matData||[]).filter(e=>{
+  const lista = (rmEstudiantes||[]).filter(e=>{
     const texto = `${e.cedula||''} ${nombrePersona(e)}`.toLocaleLowerCase('es-CR');
     return !buscar || texto.includes(buscar);
   }).slice(0,150);
@@ -9984,6 +10005,13 @@ async function abrirRestriccionesMatricula(){
   document.getElementById('rm-buscar-b').value='';
   document.getElementById('rm-motivo').value='';
   document.getElementById('alert-rm').className='alert';
+  try{
+    // Endpoint institucional: no depende de los grupos asignados al usuario.
+    rmEstudiantes=await api(`/api/matricula/restricciones-estudiantes/${matAnio}`)||[];
+  }catch(e){
+    rmEstudiantes=[];
+    sa('alert-rm','No se pudo cargar la lista institucional: '+e.message,'danger');
+  }
   rmFiltrar('a'); rmFiltrar('b');
   await rmCargar();
   document.getElementById('modal-restricciones-matricula').classList.add('show');
@@ -18829,6 +18857,32 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
   outer.appendChild(wrap);
   document.body.appendChild(outer);
 
+  // html2pdf puede crear una página defectuosa cuando se le ordena mantener
+  // entero un bloque más alto que el espacio útil de una hoja. Esa era la
+  // causa de textos ocultos bajo el pie y continuaciones encima del encabezado.
+  // Conservamos juntos los bloques pequeños (firmas, filas, tarjetas), pero
+  // permitimos dividir los que realmente necesitan más de una página.
+  const estiloPaginacion = document.createElement('style');
+  estiloPaginacion.textContent = `
+    .pdf-no-split{page-break-inside:avoid!important;break-inside:avoid!important;}
+    .pdf-si-split{page-break-inside:auto!important;break-inside:auto!important;}
+    p,li{orphans:3;widows:3;}
+  `;
+  wrap.prepend(estiloPaginacion);
+  // Con ancho 680px, unos 780px de alto dejan holgura dentro de los márgenes
+  // superior e inferior de papel Carta.
+  const maxBloqueEnteroPx = 780;
+  wrap.querySelectorAll('.reporte-materia,[style*="page-break-inside"],[style*="break-inside"]').forEach(el=>{
+    const alto=el.getBoundingClientRect().height;
+    if(alto>maxBloqueEnteroPx){
+      el.classList.add('pdf-si-split');
+      el.style.setProperty('page-break-inside','auto','important');
+      el.style.setProperty('break-inside','auto','important');
+    }else{
+      el.classList.add('pdf-no-split');
+    }
+  });
+
   // 3. Esperar a que las imágenes carguen
   const imgs = wrap.querySelectorAll("img");
   await Promise.all(Array.from(imgs).map(img => {
@@ -18849,7 +18903,7 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
       image:        { type: 'jpeg', quality: 0.95 },
       html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#fff', logging: false },
       jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'], avoid: '.reporte-materia' }
+      pagebreak:    { mode: ['css', 'legacy'], avoid: '.pdf-no-split' }
     };
 
     // 5. Generar el PDF pero interceptar antes de guardar para agregar
@@ -19023,6 +19077,7 @@ async function iniciarCartas(){
       sa("alert-cart","No tenés secciones asignadas. Pedile a admin que te asigne al menos una materia.","danger");
     }
   } catch(e){ sa("alert-cart","Error cargando secciones: "+e.message,"danger"); }
+  await cargarControlConvocatoriaAusentismo();
 }
 
 async function cargarEstCartas(){
@@ -19168,7 +19223,7 @@ function renderVistaPreviaCarta(asig){
   const d = cartasDatos;
   const e = d.estudiante;
   const p = d.periodo;
-  const periodoLbl = p.nombre === 'I Período' ? 'primer' : 'segundo';
+  const rangoLbl = `desde el ${fmtF(p.desde)} hasta el ${fmtF(p.hasta)}`;
   const fechaHoy = fmtF(fechaHoyCR());
   const nombreEst = nombrePersona(e);
 
@@ -19201,7 +19256,7 @@ function renderVistaPreviaCarta(asig){
           <strong>${asig.materia}</strong>, que él o la estudiante
           <strong>${nombreEst}</strong>, de la sección <strong>${e.seccion_nombre || '—'}</strong>,
           presenta a la fecha un total de <strong>${asig.ausencias}</strong> ausencias injustificadas,
-          equivalentes a un <strong>${asig.porcentaje}%</strong> de ausentismo durante el <strong>${periodoLbl}</strong> período del presente curso lectivo.
+          equivalentes a un <strong>${asig.porcentaje}%</strong> de ausentismo, calculado <strong>${rangoLbl}</strong>.
         </p>
 
         <p style="text-align:justify;margin-bottom:10px;">
@@ -19341,6 +19396,129 @@ async function verHistorialCartas(){
   } catch(e){
     document.getElementById("cartas-historial").innerHTML = `<div class="card" style="color:var(--rojo);">❌ Error: ${e.message}</div>`;
   }
+}
+
+// ── SIN DERECHO A CONVOCATORIA POR AUSENTISMO ──────────────────
+let convAusCandidatos=[];
+let convAusRegistros=[];
+
+async function cargarControlConvocatoriaAusentismo(){
+  const cand=document.getElementById('conv-aus-candidatos');
+  const regs=document.getElementById('conv-aus-registros');
+  if(!cand||!regs) return;
+  cand.innerHTML='<div class="empty">⏳ Calculando desde el inicio del curso...</div>';
+  regs.innerHTML='<div class="empty">⏳ Cargando...</div>';
+  try{
+    [convAusCandidatos,convAusRegistros]=await Promise.all([
+      api('/api/cartas/convocatoria/candidatos').catch(()=>[]),
+      api('/api/cartas/convocatoria/registros')
+    ]);
+    convAusCandidatos=convAusCandidatos||[];
+    convAusRegistros=convAusRegistros||[];
+    renderControlConvocatoriaAusentismo();
+  }catch(e){
+    sa('alert-conv-aus','No se pudo cargar el control: '+e.message,'danger');
+    cand.innerHTML='<div class="empty">No disponible.</div>';
+  }
+}
+
+function claveConvAus(x){return `${x.asignacion_id||''}-${x.estudiante_id}`;}
+
+function renderControlConvocatoriaAusentismo(){
+  const cand=document.getElementById('conv-aus-candidatos');
+  const regs=document.getElementById('conv-aus-registros');
+  const marcados=new Set(convAusRegistros.map(claveConvAus));
+  const excedidos=convAusCandidatos.filter(x=>x.sin_derecho && !marcados.has(claveConvAus(x)));
+  const revisados=convAusCandidatos.length;
+  const conserva=convAusCandidatos.filter(x=>!x.sin_derecho).length;
+
+  if(ME.rol==='admin' && !revisados){
+    cand.innerHTML=`<div style="padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;color:#1e3a8a;font-size:12.5px;">
+      Como administrador podés revisar el acta institucional de todas las marcas. Cada profesor realiza la marca desde sus propias asignaturas.
+    </div>`;
+  }else if(!excedidos.length){
+    cand.innerHTML=`<div style="padding:13px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#166534;font-size:12.5px;">
+      ✅ No hay marcas pendientes. Se revisaron ${revisados} registro(s) de estudiante-asignatura; ${conserva} mantienen al menos 80% de asistencia.
+    </div>`;
+  }else{
+    cand.innerHTML=`
+      <div style="font-size:12px;color:var(--muted);margin-bottom:7px;">${excedidos.length} caso(s) superan el 20% de ausentismo y están pendientes de confirmación docente.</div>
+      <div class="table-wrap"><table style="min-width:760px;font-size:12px;"><thead><tr>
+        <th>Estudiante</th><th>Sección</th><th>Asignatura</th><th style="text-align:center;">Ausencias</th><th style="text-align:center;">Porcentaje</th><th></th>
+      </tr></thead><tbody>${excedidos.map(x=>`<tr>
+        <td><strong>${htmlSeguro(nombrePersona(x))}</strong><div style="font-size:10.5px;color:var(--muted);">${htmlSeguro(x.cedula||'')}</div></td>
+        <td>${htmlSeguro(x.seccion_nombre||'—')}</td><td>${htmlSeguro(x.materia)}</td>
+        <td style="text-align:center;">${x.ausencias} de ${x.total_lecciones}</td>
+        <td style="text-align:center;"><span class="badge" style="background:#fee2e2;color:#991b1b;">${x.porcentaje}%</span></td>
+        <td><button class="btn btn-danger btn-xs" onclick="marcarConvocatoriaAusentismo(${x.asignacion_id},${x.estudiante_id})">🚫 Marcar sin derecho</button></td>
+      </tr>`).join('')}</tbody></table></div>`;
+  }
+
+  if(!convAusRegistros.length){
+    regs.innerHTML='<div class="empty" style="padding:14px;">Todavía no hay estudiantes marcados.</div>';
+    document.getElementById('btn-acta-conv-aus').disabled=true;
+  }else{
+    document.getElementById('btn-acta-conv-aus').disabled=false;
+    regs.innerHTML=`<div class="table-wrap"><table style="min-width:850px;font-size:12px;"><thead><tr>
+      <th>Estudiante</th><th>Sección</th><th>Asignatura</th>${ME.rol==='admin'?'<th>Docente</th>':''}<th style="text-align:center;">Ausencias</th><th style="text-align:center;">%</th><th></th>
+    </tr></thead><tbody>${convAusRegistros.map(x=>`<tr>
+      <td><strong>${htmlSeguro(nombrePersona(x))}</strong><div style="font-size:10.5px;color:var(--muted);">${htmlSeguro(x.cedula||'')}</div></td>
+      <td>${htmlSeguro(x.seccion)}</td><td>${htmlSeguro(x.materia)}</td>
+      ${ME.rol==='admin'?`<td>${htmlSeguro(nombreDesdeCampos(x.prof_nombre,x.prof_ap1,x.prof_ap2))}</td>`:''}
+      <td style="text-align:center;">${x.ausencias} de ${x.total_lecciones}</td><td style="text-align:center;font-weight:bold;color:#b91c1c;">${x.porcentaje}%</td>
+      <td><button class="btn btn-outline btn-xs" onclick="quitarConvocatoriaAusentismo(${x.id})" title="Quitar marca">↩️</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+  }
+}
+
+async function marcarConvocatoriaAusentismo(asignacionId,estudianteId){
+  const x=convAusCandidatos.find(c=>c.asignacion_id===asignacionId&&c.estudiante_id===estudianteId);
+  if(!x) return;
+  if(!confirm(`¿Confirmar que ${nombrePersona(x)} no tiene derecho a convocatoria por ausentismo en ${x.materia}?\n\nCálculo: ${x.ausencias} ausencias de ${x.total_lecciones} lecciones (${x.porcentaje}%).`)) return;
+  try{
+    await api('/api/cartas/convocatoria/marcar','POST',{asignacion_id:asignacionId,estudiante_id:estudianteId});
+    sa('alert-conv-aus','✅ Se registró que el estudiante no tiene derecho a convocatoria por ausentismo, solamente para este docente y esta asignatura.','success');
+    await cargarControlConvocatoriaAusentismo();
+  }catch(e){sa('alert-conv-aus',e.message,'danger');}
+}
+
+async function quitarConvocatoriaAusentismo(id){
+  if(!confirm('¿Quitar esta marca? El porcentaje de asistencia no se modifica.')) return;
+  try{
+    await api(`/api/cartas/convocatoria/${id}`,'DELETE',{});
+    await cargarControlConvocatoriaAusentismo();
+    sa('alert-conv-aus','✅ Marca retirada.','success');
+  }catch(e){sa('alert-conv-aus',e.message,'danger');}
+}
+
+async function imprimirActaConvocatoriaAusentismo(){
+  if(!convAusRegistros.length){sa('alert-conv-aus','No hay estudiantes marcados para generar el acta.','danger');return;}
+  const anio=convAusRegistros[0].anio||ANIO_LECTIVO_ACTIVO;
+  const desde=convAusRegistros.map(x=>x.fecha_desde).sort()[0];
+  const hasta=convAusRegistros.map(x=>x.fecha_hasta).sort().slice(-1)[0];
+  const incluirDocente=ME.rol==='admin';
+  const filas=convAusRegistros.map((x,i)=>`<tr>
+    <td style="border:1px solid #aaa;padding:5px;text-align:center;">${i+1}</td>
+    <td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(nombrePersona(x))}</td>
+    <td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(x.seccion)}</td>
+    <td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(x.materia)}</td>
+    ${incluirDocente?`<td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(nombreDesdeCampos(x.prof_nombre,x.prof_ap1,x.prof_ap2))}</td>`:''}
+    <td style="border:1px solid #aaa;padding:5px;text-align:center;">${x.ausencias}/${x.total_lecciones}</td>
+    <td style="border:1px solid #aaa;padding:5px;text-align:center;font-weight:bold;">${x.porcentaje}%</td>
+  </tr>`).join('');
+  const contenido=`<div style="font-size:11px;line-height:1.45;color:#222;">
+    <p style="text-align:right;"><strong>Fecha de emisión:</strong> ${fmtF(fechaHoyCR())}</p>
+    <p>Se hace constar que, una vez revisados los registros de asistencia comprendidos entre el <strong>${fmtF(desde)}</strong> y el <strong>${fmtF(hasta)}</strong> del curso lectivo ${anio}, las siguientes personas estudiantes registran una asistencia inferior al 80% de las lecciones impartidas en la asignatura indicada:</p>
+    <table style="width:100%;border-collapse:collapse;font-size:9.5px;margin:12px 0;"><thead><tr style="background:#eaf0f8;">
+      <th style="border:1px solid #888;padding:5px;">#</th><th style="border:1px solid #888;padding:5px;">Estudiante</th><th style="border:1px solid #888;padding:5px;">Sección</th><th style="border:1px solid #888;padding:5px;">Asignatura</th>${incluirDocente?'<th style="border:1px solid #888;padding:5px;">Docente</th>':''}<th style="border:1px solid #888;padding:5px;">Aus./Lec.</th><th style="border:1px solid #888;padding:5px;">%</th>
+    </tr></thead><tbody>${filas}</tbody></table>
+    <p><strong>Fundamento:</strong> Sección VII del Capítulo II del REAC: para tener derecho a la prueba de ampliación debe haberse asistido al menos al 80% de las lecciones impartidas en la asignatura. Asimismo, se deja constancia del requisito de asistencia previsto en el artículo 60 para la estrategia de promoción.</p>
+    <div class="reporte-materia" style="margin-top:42px;display:grid;grid-template-columns:1fr 1fr;gap:55px;text-align:center;">
+      <div><div style="border-top:1px solid #333;padding-top:4px;">Firma docente / responsable</div></div>
+      <div><div style="border-top:1px solid #333;padding-top:4px;">Visto bueno de Dirección</div></div>
+    </div>
+  </div>`;
+  await imprimirPDFMEP('ACTA DE ESTUDIANTES SIN DERECHO A CONVOCATORIA POR AUSENTISMO',contenido,`acta_convocatoria_ausentismo_${anio}.pdf`);
 }
 
 // ════════════════════════════════════

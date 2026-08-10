@@ -430,6 +430,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
     FROM asignaciones a
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id
+    JOIN secciones_anio san ON san.seccion_id=a.seccion_id AND san.anio=$2 AND san.activa=true
     JOIN materias m ON m.id=a.materia_id
     WHERE COALESCE(a.anio, $1) = $2
     ORDER BY u.primer_apellido, s.nombre, m.nombre
@@ -442,6 +443,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
     FROM asignaciones a
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN secciones s ON s.id=a.seccion_id
+    JOIN secciones_anio san ON san.seccion_id=a.seccion_id AND san.anio=$2 AND san.activa=true
     JOIN materias m ON m.id=a.materia_id
     WHERE COALESCE(a.anio, $3) = $2 AND (
       COALESCE(a.periodo,'I Período') = $1
@@ -473,6 +475,10 @@ router.post("/asignaciones", onlyAdmin, async (req, res) => {
   const anioFinal = parseInt(anio) || await obtenerAnioActivo();
   const periodoFinal = periodo || await periodoActualAdmin();
   try {
+    const seccionActiva = await pool.query(`SELECT 1 FROM secciones_anio
+      WHERE seccion_id=$1 AND anio=$2 AND activa=true`, [seccion_id, anioFinal]);
+    if(!seccionActiva.rows.length)
+      return res.status(409).json({ error:`Esa sección no está habilitada para el ${anioFinal}. Revise Configurar Año.` });
     const dup = await pool.query(`SELECT id FROM asignaciones
       WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3
         AND COALESCE(subgrupo,'')=COALESCE($4::text,'')

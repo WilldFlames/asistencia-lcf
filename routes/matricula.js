@@ -383,6 +383,28 @@ async function listarRestricciones(anio, estudianteId = null){
 }
 
 // ── RESTRICCIONES DE CONVIVENCIA POR AÑO ─────────────────────────────
+// Lista institucional, sin limitarla a los grupos del usuario. Se usa solo
+// dentro del módulo autorizado de restricciones para poder relacionar a dos
+// estudiantes de cualquier sección del colegio.
+router.get("/restricciones-estudiantes/:anio", canAccess, async (req, res) => {
+  const anio = parseInt(req.params.anio);
+  if(!anio) return res.status(400).json({ error:"Año inválido" });
+  const activo = await obtenerAnioActivo();
+  const esActual = anio === activo;
+  const r = await pool.query(`
+    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      e.subgrupo,
+      CASE WHEN $2::boolean THEN e.seccion_id ELSE m.seccion_id END AS seccion_id,
+      s.nombre AS seccion_nombre
+    FROM estudiantes e
+    LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$1
+    LEFT JOIN secciones s ON s.id=CASE WHEN $2::boolean THEN e.seccion_id ELSE m.seccion_id END
+    WHERE e.activo=true AND COALESCE(e.archivado,false)=false
+    ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
+  `, [anio, esActual]);
+  res.json(r.rows);
+});
+
 router.get("/restricciones/:anio", canAccess, async (req, res) => {
   const anio = parseInt(req.params.anio);
   if(!anio) return res.status(400).json({ error:"Año inválido" });

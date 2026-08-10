@@ -720,6 +720,37 @@ async function initDB() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_restricciones_matricula_est_b
       ON restricciones_matricula(estudiante_b_id, anio) WHERE activa=true`);
 
+    // ── SIN DERECHO A CONVOCATORIA POR AUSENTISMO ───────────────────────
+    // Cada docente registra su decisión por estudiante y asignatura. Se
+    // conserva una fotografía del cálculo anual que la justificó, aun si la
+    // asignación se elimina al cerrar el curso lectivo.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS convocatoria_ausentismo (
+        id                  SERIAL PRIMARY KEY,
+        anio                INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE RESTRICT,
+        estudiante_id       INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        asignacion_id       INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        profesor_id         INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+        materia             TEXT NOT NULL,
+        seccion             TEXT NOT NULL,
+        ausencias           INTEGER NOT NULL DEFAULT 0,
+        total_lecciones     INTEGER NOT NULL DEFAULT 0,
+        porcentaje          NUMERIC(5,2) NOT NULL DEFAULT 0,
+        fecha_desde         DATE NOT NULL,
+        fecha_hasta         DATE NOT NULL,
+        fundamento          TEXT NOT NULL,
+        observaciones       TEXT DEFAULT '',
+        activa              BOOLEAN NOT NULL DEFAULT true,
+        marcada_at          TIMESTAMP DEFAULT NOW(),
+        actualizada_at      TIMESTAMP DEFAULT NOW(),
+        UNIQUE(anio, estudiante_id, asignacion_id, profesor_id)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_aus_prof
+      ON convocatoria_ausentismo(anio, profesor_id, activa)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_aus_est
+      ON convocatoria_ausentismo(anio, estudiante_id, activa)`);
+
     // 2026 conserva las fechas oficiales que ya utilizaba el sistema. El 2027
     // se crea en preparación y el administrador debe registrar sus fechas.
     await client.query(`
@@ -754,6 +785,7 @@ async function initDB() {
       INSERT INTO secciones_anio (seccion_id, anio, activa)
       SELECT s.id, a.anio, true FROM secciones s
       CROSS JOIN (SELECT anio FROM anios_lectivos WHERE anio IN (2026, 2027)) a
+      WHERE NOT EXISTS (SELECT 1 FROM secciones_anio existente WHERE existente.anio=a.anio)
       ON CONFLICT (seccion_id, anio) DO NOTHING
     `);
 

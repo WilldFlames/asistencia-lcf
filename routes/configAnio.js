@@ -137,7 +137,10 @@ router.delete("/secciones/:id", onlyAdmin, async (req, res) => {
   if(mat.rows[0].c > 0){
     return res.status(409).json({ error: `No se puede quitar del ${anio}: hay ${mat.rows[0].c} matrícula(s) reservada(s).` });
   }
-  await pool.query("DELETE FROM secciones_anio WHERE seccion_id=$1 AND anio=$2", [id,anio]);
+  // Conservar una marca inactiva evita que una migración de compatibilidad
+  // vuelva a habilitar la sección en un despliegue posterior.
+  await pool.query(`INSERT INTO secciones_anio (seccion_id,anio,activa) VALUES ($1,$2,false)
+    ON CONFLICT (seccion_id,anio) DO UPDATE SET activa=false`, [id,anio]);
   await pool.query("DELETE FROM seccion_guia_anio WHERE seccion_id=$1 AND anio=$2", [id,anio]);
   await pool.query("DELETE FROM seccion_orientador_anio WHERE seccion_id=$1 AND anio=$2", [id,anio]);
   res.json({ ok: true });
