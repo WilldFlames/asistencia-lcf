@@ -3093,7 +3093,16 @@ tr:hover td{background:#f8fafc;}
   <div class="modal" style="max-width:580px;">
     <div class="modal-title">📅 Solicitar cita al encargado</div>
     <div class="form-grid">
-      <div class="fg" style="grid-column:1/-1"><label>Estudiante *</label><select id="cita-doc-estudiante"><option value="">— Seleccione —</option></select></div>
+      <div class="fg" style="grid-column:1/-1">
+        <label>Buscar estudiante *</label>
+        <div style="position:relative;margin-bottom:7px;">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;">🔎</span>
+          <input type="search" id="cita-doc-buscar" oninput="citasFiltrarEstudiantes()" onkeydown="citasBuscarEstudianteTecla(event)"
+            placeholder="Escriba nombre, apellidos, cédula o sección…" autocomplete="off" style="padding-left:38px;"/>
+        </div>
+        <select id="cita-doc-estudiante"><option value="">— Seleccione —</option></select>
+        <div id="cita-doc-resultados" style="font-size:11.5px;color:var(--muted);margin-top:5px;">Escriba para encontrar al estudiante más rápido.</div>
+      </div>
       <div class="fg"><label>Fecha propuesta *</label><input type="date" id="cita-doc-fecha"/></div>
       <div class="fg"><label>Hora propuesta *</label><input type="time" id="cita-doc-hora"/></div>
       <div class="fg"><label>Duración</label><select id="cita-doc-duracion"><option value="15">15 minutos</option><option value="20" selected>20 minutos</option><option value="30">30 minutos</option><option value="40">40 minutos</option><option value="60">60 minutos</option></select></div>
@@ -15672,6 +15681,7 @@ async function escanearComedor(){
 //  CITAS CON ENCARGADOS · VISTA DOCENTE
 // ════════════════════════════════════
 let citasBloques=[];
+let citasEstudiantes=[];
 const CITAS_DIAS=['','Lunes','Martes','Miércoles','Jueves','Viernes'];
 
 async function iniciarCitasDocente(){
@@ -15733,15 +15743,59 @@ async function citasGuardarDisponibilidad(){
 
 async function citasAbrirNueva(){
   try{
-    const estudiantes=await api('/api/citas/estudiantes')||[];
-    document.getElementById('cita-doc-estudiante').innerHTML='<option value="">— Seleccione —</option>'+estudiantes.map(e=>`<option value="${e.id}">${htmlSeguro(nombrePersona(e))} · ${htmlSeguro(e.seccion_nombre)} · ${htmlSeguro(e.materias)}</option>`).join('');
+    citasEstudiantes=await api('/api/citas/estudiantes')||[];
+    document.getElementById('cita-doc-buscar').value='';
+    citasRenderEstudiantes(citasEstudiantes,'');
     document.getElementById('cita-doc-fecha').min=fechaHoyCR();document.getElementById('cita-doc-fecha').value='';document.getElementById('cita-doc-hora').value='';document.getElementById('cita-doc-motivo').value='';
+    document.getElementById('alert-cita-doc-modal').className='alert';
     document.getElementById('modal-cita-docente').classList.add('show');
+    setTimeout(()=>document.getElementById('cita-doc-buscar')?.focus(),100);
   }catch(e){sa('alert-citas',e.message,'danger');}
+}
+
+function citasNormalizarBusqueda(valor){
+  return String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+
+function citasEtiquetaEstudiante(e){
+  return `${nombrePersona(e)} · Cédula ${e.cedula||'—'} · Sección ${e.seccion_nombre||'—'} · ${e.materias||'Sin materia indicada'}`;
+}
+
+function citasRenderEstudiantes(lista,busqueda){
+  const sel=document.getElementById('cita-doc-estudiante');
+  const info=document.getElementById('cita-doc-resultados');
+  const anterior=sel.value;
+  sel.innerHTML=lista.length
+    ? '<option value="">— Seleccione —</option>'+lista.map(e=>`<option value="${e.id}">${htmlSeguro(citasEtiquetaEstudiante(e))}</option>`).join('')
+    : '<option value="">— No se encontraron estudiantes —</option>';
+  if(lista.some(e=>String(e.id)===String(anterior))) sel.value=anterior;
+  else if(busqueda && lista.length===1) sel.value=String(lista[0].id);
+  info.textContent=busqueda
+    ? `${lista.length} coincidencia${lista.length===1?'':'s'}${lista.length===1?' · estudiante seleccionado automáticamente':''}.`
+    : `${lista.length} estudiante${lista.length===1?'':'s'} disponible${lista.length===1?'':'s'}. Podés buscar por nombre, cédula o sección.`;
+}
+
+function citasFiltrarEstudiantes(){
+  const busqueda=document.getElementById('cita-doc-buscar').value;
+  const terminos=citasNormalizarBusqueda(busqueda).split(' ').filter(Boolean);
+  const filtrados=!terminos.length?citasEstudiantes:citasEstudiantes.filter(e=>{
+    const texto=citasNormalizarBusqueda(`${nombrePersona(e)} ${e.cedula||''} ${e.seccion_nombre||''} ${e.materias||''}`);
+    return terminos.every(t=>texto.includes(t));
+  });
+  citasRenderEstudiantes(filtrados,busqueda.trim());
+}
+
+function citasBuscarEstudianteTecla(event){
+  if(event.key!=='Enter') return;
+  event.preventDefault();
+  const sel=document.getElementById('cita-doc-estudiante');
+  if(sel.options.length===2 && !sel.value) sel.selectedIndex=1;
+  if(sel.value) document.getElementById('cita-doc-fecha')?.focus();
 }
 
 async function citasDocSolicitar(){
   const body={estudiante_id:Number(document.getElementById('cita-doc-estudiante').value),fecha:document.getElementById('cita-doc-fecha').value,hora:document.getElementById('cita-doc-hora').value,duracion_min:Number(document.getElementById('cita-doc-duracion').value),motivo:document.getElementById('cita-doc-motivo').value.trim()};
+  if(!body.estudiante_id){sa('alert-cita-doc-modal','Busque y seleccione un estudiante.','danger');return;}
   try{await api('/api/citas/solicitar','POST',body);cerrarModal('modal-cita-docente');sa('alert-citas','✅ Solicitud enviada al encargado.','success');iniciarCitasDocente();}catch(e){sa('alert-cita-doc-modal',e.message,'danger');}
 }
 

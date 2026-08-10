@@ -42,3 +42,12 @@ test("el docente puede publicar horas y responder solicitudes", () => {
   assert.match(html, /id="nav-citas"/);
   assert.match(html, /function citasDocAbrirRespuesta/);
 });
+
+test("el docente puede buscar estudiantes por nombre, cédula, sección o materia", () => {
+  const html = leer("public/index.html");
+  assert.match(html,/id="cita-doc-buscar"/);
+  assert.match(html,/function citasFiltrarEstudiantes/);
+  assert.match(html,/nombrePersona\(e\).*e\.cedula.*e\.seccion_nombre.*e\.materias/);
+  assert.match(html,/terminos\.every\(t=>texto\.includes\(t\)\)/);
+  assert.match(html,/lista\.length===1.*seleccionado automáticamente/);
+});
