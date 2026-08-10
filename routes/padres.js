@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const { pool } = require("../db");
-const { LECCIONES } = require("./horarios");
+const { obtenerLecciones } = require("./horarios");
 const {
   fechaCR,
   obtenerAnioActivo,
@@ -283,7 +283,8 @@ router.get("/config", requirePadre, async (req,res)=>{
 // ── Horario del hijo (grilla del año actual) ──────────────────────────────
 router.get("/hijo/:id/horario", requirePadre, hijoDelPadre, async (req, res) => {
   const anio = await obtenerAnioActivo();
-  if(!req.hijo.seccion_id) return res.json({ lecciones: LECCIONES, celdas: [], seccion: null });
+  const lecciones = obtenerLecciones(anio);
+  if(!req.hijo.seccion_id) return res.json({ lecciones, celdas: [], seccion: null, anio });
   const celdas = await pool.query(`
     SELECT h.dia, h.leccion, h.aula, h.materia_texto, m.nombre AS materia_nombre,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.segundo_apellido AS prof_ap2
@@ -294,7 +295,7 @@ router.get("/hijo/:id/horario", requirePadre, hijoDelPadre, async (req, res) => 
     WHERE h.seccion_id = $1 AND h.anio = $2
     ORDER BY h.dia, h.leccion
   `, [req.hijo.seccion_id, anio]);
-  res.json({ lecciones: LECCIONES, celdas: celdas.rows, seccion: req.hijo.seccion_nombre, anio });
+  res.json({ lecciones, celdas: celdas.rows, seccion: req.hijo.seccion_nombre, anio });
 });
 
 // ── Entradas/salidas de portería ──────────────────────────────────────────
@@ -367,7 +368,7 @@ router.get("/hijo/:id/asistencia-dia", requirePadre, hijoDelPadre, async (req,re
   `,[req.hijo.seccion_id,anio,req.hijo.id,fecha,dia]);
   const ahora=horaCR(), hoy=fechaCR();
   const clases=r.rows.map(x=>{
-    const leccion=LECCIONES.find(l=>l.n===Number(x.leccion));
+    const leccion=obtenerLecciones(anio).find(l=>l.n===Number(x.leccion));
     let situacion="sin_registrar";
     if(x.estado) situacion="registrada";
     else if(fecha>hoy || (fecha===hoy && leccion && ahora<leccion.ini)) situacion="proxima";

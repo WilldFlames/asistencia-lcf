@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
-const { LECCIONES } = require("./horarios");
+const { obtenerLecciones } = require("./horarios");
 
 // ── Fecha/hora Costa Rica (mismo patrón que comedor.js) ────────────────────
 function fechaCR(){
@@ -152,7 +152,7 @@ async function finLeccionesHoy(seccionId, fecha){
   );
   const ultima = r.rows[0] && r.rows[0].ultima;
   if(!ultima) return { horaFin: null, tieneHorario: false, finde: false };
-  const lec = LECCIONES.find(l => l.n === parseInt(ultima));
+  const lec = obtenerLecciones(anio).find(l => l.n === parseInt(ultima));
   return { horaFin: lec ? lec.fin : null, tieneHorario: true, finde: false, ultimaLeccion: parseInt(ultima) };
 }
 

@@ -235,6 +235,12 @@ async function initDB() {
         num_boleta       TEXT DEFAULT '',
         confirmado_por   INTEGER REFERENCES usuarios(id),
         observaciones    TEXT DEFAULT '',
+        convocatoria     BOOLEAN DEFAULT false,
+        convocatoria_estado TEXT DEFAULT NULL,
+        nivel_solicitado INTEGER DEFAULT NULL,
+        nivel_origen     INTEGER DEFAULT NULL,
+        convocatoria_resuelta_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        convocatoria_resuelta_at TIMESTAMP DEFAULT NULL,
         created_at       TIMESTAMP DEFAULT NOW(),
         UNIQUE(estudiante_id, anio)
       );
@@ -798,6 +804,17 @@ async function initDB() {
     // El estado de matrícula también debe pertenecer a un año concreto.
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS completada BOOLEAN DEFAULT false`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'pendiente'`);
+    // Convocatoria: una matrícula puede quedar en espera hasta febrero. Si
+    // aprueba conserva el nivel solicitado; si reprueba vuelve al nivel que
+    // cursaba, pero se le elige una sección nueva de ese nivel.
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS convocatoria BOOLEAN DEFAULT false`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS convocatoria_estado TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS nivel_solicitado INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS nivel_origen INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS convocatoria_resuelta_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS convocatoria_resuelta_at TIMESTAMP DEFAULT NULL`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_matricula_convocatoria_pendiente
+      ON matricula(anio, convocatoria_estado) WHERE convocatoria=true`);
     await client.query(`ALTER TABLE intercambios_periodo ADD COLUMN IF NOT EXISTS anio INTEGER`);
     await client.query(`UPDATE intercambios_periodo SET anio=2026 WHERE anio IS NULL`);
 

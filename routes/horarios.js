@@ -3,9 +3,10 @@ const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 
-// ── HORAS OFICIALES DE LECCIÓN (Curso Lectivo — formato imagen MEP) ────────
-// Formato 24h con cero a la izquierda para poder comparar como texto.
-const LECCIONES = [
+// ── HORAS OFICIALES DE LECCIÓN POR CURSO LECTIVO ─────────────────────────
+// En 2027 cambian las dos últimas lecciones. Se conservan ambos catálogos para
+// que consultar o imprimir 2026 nunca muestre las horas nuevas por accidente.
+const LECCIONES_2026 = [
   { n: 1,  ini: "07:00", fin: "07:40" },
   { n: 2,  ini: "07:40", fin: "08:20" },
   { n: 3,  ini: "08:35", fin: "09:15" },
@@ -20,6 +21,14 @@ const LECCIONES = [
   { n: 12, ini: "15:35", fin: "16:15" },
 ];
 
+const LECCIONES_2027 = LECCIONES_2026.map(l => ({...l}));
+LECCIONES_2027[10] = { n: 11, ini: "15:00", fin: "15:40" };
+LECCIONES_2027[11] = { n: 12, ini: "15:40", fin: "16:20" };
+
+function obtenerLecciones(anio){
+  return Number(anio) >= 2027 ? LECCIONES_2027 : LECCIONES_2026;
+}
+
 // Fecha/hora actual en Costa Rica (UTC-6) — mismo patrón que comedor.js
 function fechaCR(){
   const ahora = new Date();
@@ -28,8 +37,9 @@ function fechaCR(){
   return new Date(localMs).toISOString().slice(0,10);
 }
 // ── CATÁLOGO DE LECCIONES (horas) ──────────────────────────────────────────
-router.get("/lecciones", requireAuth, (req, res) => {
-  res.json(LECCIONES);
+router.get("/lecciones", requireAuth, async (req, res) => {
+  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
+  res.json(obtenerLecciones(anio));
 });
 
 // ── ASIGNACIONES DE UNA SECCIÓN (para llenar el editor — solo admin) ──────
@@ -152,4 +162,5 @@ router.get("/mi-horario", requireAuth, async (req, res) => {
 });
 
 module.exports = router;
-module.exports.LECCIONES = LECCIONES;
+module.exports.LECCIONES = LECCIONES_2026;
+module.exports.obtenerLecciones = obtenerLecciones;

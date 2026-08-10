@@ -5,13 +5,14 @@ const path = require("node:path");
 
 const frontend = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
 
-test("los cinco documentos de matricula usan el generador PDF MEP", () => {
+test("los seis documentos de matricula usan el generador PDF MEP", () => {
   const llamadasEsperadas = [
     'imprimirPDFMEP("FICHA DE MATRÍCULA 2027"',
     'imprimirPDFMEP("DECLARACIÓN DE COMPROMISO DE MATRÍCULA · PERIODO LECTIVO 2027"',
     'imprimirPDFMEP("AUTORIZACIÓN PARA EL USO DE IMAGEN"',
     'imprimirPDFMEP("FORMULARIO PARA SOLICITUD DE BECA DE COMEDOR 2027"',
     'imprimirPDFMEP("SOLICITUD DE VALORACIÓN DE ADECUACIÓN CURRICULAR"',
+    'imprimirPDFMEP(`BIENVENIDA Y HORARIO DE CLASES · CURSO LECTIVO ${anio}`',
   ];
 
   for (const llamada of llamadasEsperadas) {
