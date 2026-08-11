@@ -18836,8 +18836,8 @@ function piePaginaMEP(){
 //  imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo)
 //
 //  Genera un PDF con encabezado MEP y pie MEP oficiales que se REPITEN en
-//  cada página automáticamente. El contenido se pagina solo cuando se
-//  llena la hoja. Usa html2pdf.js (html2canvas + jsPDF).
+//  cada página automáticamente. El contenido se captura con html2canvas y
+//  se divide en zonas seguras antes de crear cada hoja con jsPDF.
 //
 //  El resultado es idéntico en cualquier navegador y se comporta como un
 //  documento de Word: encabezado arriba, pie abajo, contenido en el medio.
@@ -18886,32 +18886,6 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
   outer.appendChild(wrap);
   document.body.appendChild(outer);
 
-  // html2pdf puede crear una página defectuosa cuando se le ordena mantener
-  // entero un bloque más alto que el espacio útil de una hoja. Esa era la
-  // causa de textos ocultos bajo el pie y continuaciones encima del encabezado.
-  // Conservamos juntos los bloques pequeños (firmas, filas, tarjetas), pero
-  // permitimos dividir los que realmente necesitan más de una página.
-  const estiloPaginacion = document.createElement('style');
-  estiloPaginacion.textContent = `
-    .pdf-no-split{page-break-inside:avoid!important;break-inside:avoid!important;}
-    .pdf-si-split{page-break-inside:auto!important;break-inside:auto!important;}
-    p,li{orphans:3;widows:3;}
-  `;
-  wrap.prepend(estiloPaginacion);
-  // Con ancho 680px, unos 780px de alto dejan holgura dentro de los márgenes
-  // superior e inferior de papel Carta.
-  const maxBloqueEnteroPx = 780;
-  wrap.querySelectorAll('.reporte-materia,[style*="page-break-inside"],[style*="break-inside"]').forEach(el=>{
-    const alto=el.getBoundingClientRect().height;
-    if(alto>maxBloqueEnteroPx){
-      el.classList.add('pdf-si-split');
-      el.style.setProperty('page-break-inside','auto','important');
-      el.style.setProperty('break-inside','auto','important');
-    }else{
-      el.classList.add('pdf-no-split');
-    }
-  });
-
   // 3. Esperar a que las imágenes carguen
   const imgs = wrap.querySelectorAll("img");
   await Promise.all(Array.from(imgs).map(img => {
@@ -18920,28 +18894,13 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
   }));
 
   try {
-    // 4. Configurar html2pdf con encabezado + pie repetitivos
-    // Estrategia: generar el PDF sin encabezado/pie con html2pdf, y luego
-    // agregar el encabezado + pie MEP en cada página con jsPDF puro
-    // ANTES de guardar.
-    const opt = {
-      // Márgenes: top 28mm (encabezado), left/right 15mm (aire lateral),
-      // bottom 25mm (pie). Papel: Carta (letter), que es el estándar CR.
-      margin:       [28, 15, 25, 15],
-      filename:     nombreArchivo,
-      image:        { type: 'jpeg', quality: 0.95 },
-      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#fff', logging: false },
-      jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'], avoid: '.pdf-no-split' }
-    };
-
-    // 5. Generar el PDF pero interceptar antes de guardar para agregar
-    //    encabezado y pie MEP en cada página
-    const worker = html2pdf().set(opt).from(wrap);
-    const pdf = await worker.toPdf().get('pdf');
-    const totalPages = pdf.internal.getNumberOfPages();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
+    // 4. Capturar el contenido como una tira continua. No usamos la
+    // paginación automática de html2pdf: esa era la que dibujaba contenido
+    // debajo del pie y omitía el encabezado en páginas alternas.
+    const contentCanvas = await html2canvas(wrap, {
+      scale: 2, useCORS: true, backgroundColor: '#fff', logging: false,
+      windowWidth: 680
+    });
 
     // Convertir el encabezado a imagen para meterla como header
     const headerOuter = document.createElement("div");
@@ -18958,7 +18917,6 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
     }));
     const headerCanvas = await html2canvas(headerDiv, { scale: 2, useCORS: true, backgroundColor: '#fff' });
     const headerData = headerCanvas.toDataURL('image/jpeg', 0.95);
-    const headerHmm = (headerCanvas.height * pageWidth) / headerCanvas.width;
     document.body.removeChild(headerOuter);
 
     // Convertir el pie a imagen
@@ -18976,22 +18934,105 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
     document.body.appendChild(footerOuter);
     const footerCanvas = await html2canvas(footerDiv, { scale: 2, useCORS: true, backgroundColor: '#fff' });
     const footerData = footerCanvas.toDataURL('image/jpeg', 0.95);
-    const footerHmm = (footerCanvas.height * pageWidth) / footerCanvas.width;
     document.body.removeChild(footerOuter);
 
-    // Agregar encabezado y pie en cada página con márgenes laterales
-    // para que se vean centrados y no pegados a los bordes del papel.
-    const marginX = 10;                        // 10mm en cada lado
-    const contentWidth = pageWidth - marginX*2;
-    const headerScaled = (headerCanvas.height * contentWidth) / headerCanvas.width;
-    const footerScaled = (footerCanvas.height * contentWidth) / footerCanvas.width;
-    for(let i = 1; i <= totalPages; i++){
-      pdf.setPage(i);
-      // Encabezado arriba, centrado horizontalmente
-      pdf.addImage(headerData, 'JPEG', marginX, 8, contentWidth, headerScaled);
-      // Pie de página en el borde inferior, centrado horizontalmente
-      pdf.addImage(footerData, 'JPEG', marginX, pageHeight - footerScaled - 8, contentWidth, footerScaled);
+    // 5. Crear cada hoja Carta directamente. El área central se calcula a
+    // partir del tamaño REAL del encabezado y el pie, de modo que nunca se
+    // solapen con el contenido.
+    const JsPDF = window.jspdf && window.jspdf.jsPDF;
+    if(!JsPDF) throw new Error('No se pudo cargar el generador PDF.');
+    const pdf = new JsPDF({ unit:'mm', format:'letter', orientation:'portrait' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margenOficialX = 10;
+    const anchoOficial = pageWidth - margenOficialX*2;
+    const headerScaled = (headerCanvas.height * anchoOficial) / headerCanvas.width;
+    const footerScaled = (footerCanvas.height * anchoOficial) / footerCanvas.width;
+    const headerY = 8;
+    const footerY = pageHeight - footerScaled - 8;
+
+    const margenContenidoX = 15;
+    const anchoContenido = pageWidth - margenContenidoX*2;
+    const contenidoY = Math.max(28, headerY + headerScaled + 3);
+    const contenidoFinY = footerY - 3;
+    const altoContenidoMm = contenidoFinY - contenidoY;
+    if(altoContenidoMm <= 20) throw new Error('El encabezado o pie excede el espacio de la hoja.');
+
+    const pxPorMm = contentCanvas.width / anchoContenido;
+    const maxAltoPx = Math.max(100, Math.floor(altoContenidoMm * pxPorMm));
+    const ctxContenido = contentCanvas.getContext('2d', { willReadFrequently:true });
+
+    // Busca una franja blanca cercana al final de la hoja. Así el corte cae
+    // entre renglones o tarjetas y no atraviesa letras. Los bordes verticales
+    // finos se toleran para poder continuar cuadros largos en la página siguiente.
+    function buscarCorteSeguro(desde, limite){
+      if(limite >= contentCanvas.height) return contentCanvas.height;
+      const retroceso = Math.min(320, Math.floor(maxAltoPx * 0.20));
+      const minimo = Math.max(desde + Math.floor(maxAltoPx * 0.68), limite - retroceso);
+      const altoZona = Math.max(1, limite - minimo);
+      let datos;
+      try{
+        datos = ctxContenido.getImageData(0, minimo, contentCanvas.width, altoZona).data;
+      }catch(_){
+        // Si alguna imagen remota impide leer píxeles, se conserva el corte
+        // geométrico. Aun así el contenido nunca invade el encabezado o el pie.
+        return limite;
+      }
+      let filasClaras = 0;
+      for(let y=limite-1; y>=minimo; y--){
+        const fila=y-minimo;
+        let tinta=0;
+        for(let x=0; x<contentCanvas.width; x+=4){
+          const k=(fila*contentCanvas.width+x)*4;
+          if(datos[k+3]>20 && (datos[k]<242 || datos[k+1]<242 || datos[k+2]<242)) tinta++;
+        }
+        if(tinta < Math.max(8, contentCanvas.width/100)){
+          filasClaras++;
+          if(filasClaras>=4) return Math.min(limite, y+filasClaras);
+        }else{
+          filasClaras=0;
+        }
+      }
+      return limite;
     }
+
+    const cortes=[];
+    let desdePx=0;
+    while(desdePx < contentCanvas.height){
+      const limite=Math.min(contentCanvas.height, desdePx+maxAltoPx);
+      let hastaPx=buscarCorteSeguro(desdePx, limite);
+      if(hastaPx<=desdePx+40) hastaPx=limite;
+      cortes.push([desdePx,hastaPx]);
+      desdePx=hastaPx;
+    }
+    if(!cortes.length) cortes.push([0,Math.max(1,contentCanvas.height)]);
+
+    cortes.forEach(([inicioPx,finPx],indice)=>{
+      if(indice>0) pdf.addPage('letter','portrait');
+      const altoPx=Math.max(1,finPx-inicioPx);
+      const paginaCanvas=document.createElement('canvas');
+      paginaCanvas.width=contentCanvas.width;
+      paginaCanvas.height=altoPx;
+      const paginaCtx=paginaCanvas.getContext('2d');
+      paginaCtx.fillStyle='#fff';
+      paginaCtx.fillRect(0,0,paginaCanvas.width,paginaCanvas.height);
+      paginaCtx.drawImage(contentCanvas,0,inicioPx,contentCanvas.width,altoPx,0,0,contentCanvas.width,altoPx);
+      const contenidoData=paginaCanvas.toDataURL('image/jpeg',0.95);
+      const altoRenderMm=altoPx/pxPorMm;
+
+      pdf.addImage(headerData,'JPEG',margenOficialX,headerY,anchoOficial,headerScaled);
+      pdf.addImage(contenidoData,'JPEG',margenContenidoX,contenidoY,anchoContenido,altoRenderMm);
+      pdf.addImage(footerData,'JPEG',margenOficialX,footerY,anchoOficial,footerScaled);
+      pdf.setFont('helvetica','normal');
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(100,116,139);
+      pdf.text(`Página ${indice+1} de ${cortes.length}`,pageWidth-margenOficialX,footerY-1.5,{align:'right'});
+    });
+
+    // Liberar memoria antes de abrir el archivo en una pestaña nueva.
+    contentCanvas.width=1; contentCanvas.height=1;
+    headerCanvas.width=1; headerCanvas.height=1;
+    footerCanvas.width=1; footerCanvas.height=1;
 
     // 6. Abrir el PDF en una pestaña nueva y disparar el diálogo de impresión
     // (en vez de descargarlo). El usuario puede imprimir directo o cerrar.

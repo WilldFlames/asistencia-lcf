@@ -44,9 +44,13 @@ test('las secciones inactivas no reaparecen en asignaciones ni tras desplegar',(
   assert.match(db,/WHERE NOT EXISTS \(SELECT 1 FROM secciones_anio existente WHERE existente\.anio=a\.anio\)/);
 });
 
-test('el generador PDF solo evita dividir bloques que caben en una hoja',()=>{
-  assert.match(frontend,/const maxBloqueEnteroPx = 780/);
-  assert.match(frontend,/classList\.add\('pdf-si-split'\)/);
-  assert.match(frontend,/avoid: '\.pdf-no-split'/);
-  assert.doesNotMatch(frontend,/avoid: '\.reporte-materia'/);
+test('el generador PDF pagina el contenido sin invadir encabezado ni pie',()=>{
+  assert.match(frontend,/const contentCanvas = await html2canvas\(wrap/);
+  assert.match(frontend,/function buscarCorteSeguro\(desde, limite\)/);
+  assert.match(frontend,/const contenidoY = Math\.max\(28, headerY \+ headerScaled \+ 3\)/);
+  assert.match(frontend,/const contenidoFinY = footerY - 3/);
+  assert.match(frontend,/pdf\.addImage\(headerData,'JPEG'/);
+  assert.match(frontend,/pdf\.addImage\(footerData,'JPEG'/);
+  assert.match(frontend,/Página \$\{indice\+1\} de \$\{cortes\.length\}/);
+  assert.doesNotMatch(frontend,/html2pdf\(\)\.set\(opt\)\.from\(wrap\)/);
 });
