@@ -29,6 +29,15 @@ function obtenerLecciones(anio){
   return Number(anio) >= 2027 ? LECCIONES_2027 : LECCIONES_2026;
 }
 
+// Solo administración puede preparar o consultar un horario futuro. Para
+// cualquier otro perfil se ignora el año enviado por la pantalla o escrito a
+// mano en la URL y se utiliza siempre el curso lectivo marcado como activo.
+async function anioVisiblePara(req){
+  const activo=await obtenerAnioActivo();
+  const solicitado=parseInt(req.query.anio);
+  return req.session?.usuario?.rol==='admin' && solicitado ? solicitado : activo;
+}
+
 // Fecha/hora actual en Costa Rica (UTC-6) — mismo patrón que comedor.js
 function fechaCR(){
   const ahora = new Date();
@@ -38,7 +47,7 @@ function fechaCR(){
 }
 // ── CATÁLOGO DE LECCIONES (horas) ──────────────────────────────────────────
 router.get("/lecciones", requireAuth, async (req, res) => {
-  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
+  const anio = await anioVisiblePara(req);
   res.json(obtenerLecciones(anio));
 });
 
@@ -75,7 +84,7 @@ router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) =>
 // de estudiantes). Devuelve celdas + nombre del profe guía de la sección.
 router.get("/", requireAuth, async (req, res) => {
   const seccionId = req.query.seccion_id;
-  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
+  const anio = await anioVisiblePara(req);
   if(!seccionId) return res.status(400).json({ error: "seccion_id requerido" });
 
   const celdas = await pool.query(`
@@ -148,7 +157,7 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
 
 // ── MI HORARIO (profesor: sus lecciones en todas las secciones) ────────────
 router.get("/mi-horario", requireAuth, async (req, res) => {
-  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
+  const anio = await anioVisiblePara(req);
   const r = await pool.query(`
     SELECT h.dia, h.leccion, h.aula, s.nombre AS seccion_nombre, m.nombre AS materia_nombre
     FROM horarios h

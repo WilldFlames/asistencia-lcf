@@ -81,7 +81,7 @@ router.get("/", requireAuth, async (req, res) => {
       WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
     const params = [];
     if (seccion_id) { params.push(seccion_id); sql += ` AND e.seccion_id=$${params.length}`; }
-    if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }
+    if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.segundo_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }
     sql += " ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre";
     const r = await pool.query(sql, params);
     res.json(r.rows);
@@ -529,7 +529,7 @@ router.get("/archivados", canManage, async (req, res) => {
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN usuarios u ON u.id=e.retirado_por
     WHERE e.archivado=true
-    ORDER BY e.primer_apellido, e.nombre
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `);
   res.json(r.rows);
 });

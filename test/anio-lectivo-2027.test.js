@@ -10,6 +10,7 @@ const db = leer("db.js");
 const matricula = leer("routes/matricula.js");
 const config = leer("routes/configAnio.js");
 const horarios = leer("routes/horarios.js");
+const admin = leer("routes/admin.js");
 const frontend = leer("public/index.html");
 
 test("la configuración académica está separada por curso lectivo", () => {
@@ -39,6 +40,14 @@ test("los horarios y sus asignaciones validan sección y año", () => {
   assert.match(horarios, /a\.anio = \$2/);
   assert.match(horarios, /seccion_id=\$2 AND anio=\$3/);
   assert.match(horarios, /seccion_guia_anio/);
+});
+
+test("solo administración puede ver asignaciones, secciones y horarios futuros", () => {
+  assert.match(horarios, /async function anioVisiblePara/);
+  assert.match(horarios, /req\.session\?\.usuario\?\.rol==='admin'/);
+  assert.match(admin, /req\.session\?\.usuario\?\.rol === 'admin' && solicitado/);
+  assert.match(frontend, /anioInput\.disabled = !esAdminH/);
+  assert.match(frontend, /Los profesores, guías y[\s\S]*curso lectivo activo/);
 });
 
 test("el frontend usa el año activo y el calendario configurado", () => {

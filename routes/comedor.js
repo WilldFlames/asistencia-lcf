@@ -73,7 +73,7 @@ router.get("/estudiantes", requireAuth, async (req, res) => {
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN comedor_asistencia ca ON ca.estudiante_id=e.id AND ca.fecha=$1
     WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL) ${whereSeccion}
-    ORDER BY s.nombre, e.becado DESC, e.primer_apellido, e.segundo_apellido, e.nombre
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, params);
   res.json(r.rows);
 });
@@ -132,7 +132,7 @@ router.get("/asistencia/:fecha", requireAuth, async (req, res) => {
     JOIN estudiantes e ON e.id=ca.estudiante_id
     LEFT JOIN secciones s ON s.id=e.seccion_id
     WHERE ca.fecha=$1
-    ORDER BY e.becado DESC, e.primer_apellido, e.nombre
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [req.params.fecha]);
   res.json(r.rows);
 });

@@ -22,7 +22,7 @@ router.get("/", canAccess, async (req, res) => {
     FROM prematricula p
     LEFT JOIN prematricula_encargado pe ON pe.prematricula_id=p.id
     LEFT JOIN usuarios u ON u.id=p.registrado_por
-    ORDER BY p.created_at DESC
+    ORDER BY p.primer_apellido, p.segundo_apellido, p.nombre
   `);
   res.json(r.rows);
 });

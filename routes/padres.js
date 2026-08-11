@@ -113,7 +113,7 @@ async function hijosDe(cedula){
     WHERE REPLACE(REPLACE(REPLACE(enc.cedula,'-',''),'.',''),' ','') = $1
       AND enc.cedula IS NOT NULL AND enc.cedula <> ''
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
-    ORDER BY e.primer_apellido, e.nombre
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [ced]);
   return r.rows;
 }

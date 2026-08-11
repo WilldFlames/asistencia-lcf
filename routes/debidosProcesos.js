@@ -312,7 +312,7 @@ router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
     JOIN estudiantes e ON e.id = t.estudiante_id
     LEFT JOIN secciones s ON s.id = e.seccion_id
     WHERE t.proceso_id = $1
-    ORDER BY t.id
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [req.params.id]);
 
   // Ofendidos (uno o varios estudiantes). Trae también los encargados de cada uno
@@ -325,7 +325,7 @@ router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
     JOIN estudiantes e ON e.id = o.estudiante_id
     LEFT JOIN secciones s ON s.id = e.seccion_id
     WHERE o.proceso_id = $1
-    ORDER BY o.id
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [req.params.id]);
 
   // Aprobaciones del orientador

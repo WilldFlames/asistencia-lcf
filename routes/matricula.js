@@ -34,7 +34,7 @@ router.get("/", canAccess, async (req, res) => {
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN matricula ma ON ma.estudiante_id=e.id AND ma.anio=$1
     WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
-    ORDER BY e.primer_apellido, e.nombre
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [anio, anio === anioActivo]);
   res.json(r.rows);
 });
@@ -1194,7 +1194,7 @@ router.get("/idioma-tecnologia", canIdiomaTec, async (req, res) => {
     JOIN secciones s ON s.id = e.seccion_id
     WHERE e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
       AND s.nivel = 9 ${filtro}
-    ORDER BY s.nombre, e.primer_apellido, e.segundo_apellido, e.nombre
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, params);
   res.json({ puede_editar: puedeEditar, estudiantes: r.rows });
 });

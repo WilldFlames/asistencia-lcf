@@ -190,7 +190,7 @@ router.get("/:id", requireAuth, async (req, res) => {
       WHERE pp.protocolo_id = $1
       ORDER BY
         CASE pp.rol WHEN 'afectado' THEN 1 WHEN 'ofensor' THEN 2 WHEN 'observador' THEN 3 ELSE 4 END,
-        pp.id
+        e.primer_apellido, e.segundo_apellido, e.nombre, pp.id
     `, [req.params.id]);
 
     // Autocompletar encargados de cada estudiante registrado

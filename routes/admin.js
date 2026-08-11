@@ -129,7 +129,12 @@ router.put("/asignaciones/:id/simplificado", onlyAdmin, async (req, res) => {
 
 // ── SECCIONES ─────────────────────────────────────────────────
 router.get("/secciones", async (req, res) => {
-  const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
+  const anioActivo = await obtenerAnioActivo();
+  const solicitado = parseInt(req.query.anio);
+  // Las secciones futuras forman parte de la preparación administrativa.
+  // Los demás perfiles reciben siempre la estructura del año activo, aunque
+  // intenten escribir ?anio=2027 manualmente.
+  const anio = req.session?.usuario?.rol === 'admin' && solicitado ? solicitado : anioActivo;
   const r = await pool.query(`
     SELECT s.*,
       u.nombre AS guia_nombre, u.primer_apellido AS guia_ap1, u.segundo_apellido AS guia_ap2, u.id AS guia_id, u.cedula AS guia_cedula,
@@ -282,7 +287,7 @@ router.get("/padres/:cedula/hijos", canGestionarPadres, async (req, res) => {
     LEFT JOIN secciones s ON s.id = e.seccion_id
     WHERE REPLACE(REPLACE(REPLACE(en.cedula,'-',''),'.',''),' ','') = $1
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
-    ORDER BY e.primer_apellido, e.nombre
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [cedLimpia]);
   res.json(r.rows);
 });

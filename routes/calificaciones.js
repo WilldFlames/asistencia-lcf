@@ -978,6 +978,8 @@ router.get("/promedio/anual", requireAuth, async (req, res) => {
     estudiantes.sort((a,b) => {
       const c = (a.primer_apellido||'').localeCompare(b.primer_apellido||'', 'es');
       if (c !== 0) return c;
+      const c2 = (a.segundo_apellido||'').localeCompare(b.segundo_apellido||'', 'es');
+      if (c2 !== 0) return c2;
       return (a.nombre||'').localeCompare(b.nombre||'', 'es');
     });
 

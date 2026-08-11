@@ -29,7 +29,7 @@ router.get("/activas", requireAuth, async (req, res) => {
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN usuarios u ON u.id=m.creado_por
     WHERE m.fecha_inicio <= $1::date AND m.fecha_fin >= $1::date
-    ORDER BY m.tipo, e.primer_apellido, e.nombre
+    ORDER BY m.tipo, e.primer_apellido, e.segundo_apellido, e.nombre
   `, [hoy]);
   res.json(r.rows);
 });
@@ -45,7 +45,7 @@ router.get("/tipo/:tipo", requireAuth, async (req, res) => {
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN usuarios u ON u.id=m.creado_por
     WHERE m.tipo=$1
-    ORDER BY m.fecha_fin DESC, e.primer_apellido, e.nombre
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre, m.fecha_fin DESC
   `, [req.params.tipo]);
   res.json(r.rows);
 });

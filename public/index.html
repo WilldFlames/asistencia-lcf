@@ -5145,6 +5145,22 @@ function nombreDesdeCampos(nombre,primerApellido,segundoApellido,opciones={}){
   return nombrePersona({nombre,primer_apellido:primerApellido,segundo_apellido:segundoApellido},opciones);
 }
 
+// Una sola regla para todas las listas y selectores de estudiantes:
+// primer apellido -> segundo apellido -> nombre. El formato visible del
+// nombre se mantiene como Nombre + primer apellido + segundo apellido.
+const _collatorEstudiantes = new Intl.Collator('es-CR', { sensitivity:'base', numeric:true });
+function compararEstudiantes(a,b){
+  const campos=['primer_apellido','segundo_apellido','nombre'];
+  for(const campo of campos){
+    const resultado=_collatorEstudiantes.compare(String(a?.[campo]||'').trim(),String(b?.[campo]||'').trim());
+    if(resultado) return resultado;
+  }
+  return _collatorEstudiantes.compare(String(a?.cedula||''),String(b?.cedula||''));
+}
+function ordenarEstudiantes(lista){
+  return [...(lista||[])].sort(compararEstudiantes);
+}
+
 function htmlSeguro(valor){
   return String(valor??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
@@ -7009,7 +7025,8 @@ async function cargarEstudiantes(){
   let url="/api/estudiantes?";
   if(sid) url+=`seccion_id=${sid}&`;
   if(q) url+=`q=${encodeURIComponent(q)}`;
-  const rows=await api(url);if(!rows)return;
+  const respuesta=await api(url);if(!respuesta)return;
+  const rows=ordenarEstudiantes(respuesta);
   // Cachear filas por id para que los botones solo necesiten pasar id
   // (evita romper HTML cuando nombres tienen apóstrofes, comillas o tildes raras)
   window.estCache = new Map(rows.map(e=>[e.id,e]));
@@ -7673,7 +7690,7 @@ async function cargarListaDia(){
     info.innerHTML=`📅 Sesión guardada: <strong>${d.sesion.lecciones} lección${d.sesion.lecciones>1?"es":""}</strong>`;
     document.getElementById("asis-lecciones").value=d.sesion.lecciones;
   }else{info.style.display="none";}
-  registrosAsist=d.estudiantes.map(e=>({...e}));
+  registrosAsist=ordenarEstudiantes(d.estudiantes).map(e=>({...e}));
   renderTablaAsist();
   // Si el backend devolvió un diagnóstico (lista vacía + razón), mostrarlo al profe.
   if(d._diagnostico && registrosAsist.length === 0){
@@ -8102,7 +8119,7 @@ async function verSesion(fecha, lecc){
     info.style.display="";
     info.innerHTML=`📅 Mostrando lista del <strong>${fmtF(fecha)}</strong> — sin sesión guardada`;
   }
-  registrosAsist=d.estudiantes.map(e=>({...e}));
+  registrosAsist=ordenarEstudiantes(d.estudiantes).map(e=>({...e}));
   renderTablaAsist();
   const tablaEl=document.getElementById("asis-body");
   if(tablaEl) tablaEl.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"});
@@ -9911,7 +9928,7 @@ async function iniciarMatricula(){
     esFuturo ? api(`/api/matricula/asignaciones/${matAnio}`).catch(()=>[]) : Promise.resolve([]),
     api(`/api/matricula/restricciones/${matAnio}`).catch(()=>[])
   ]);
-  matData = data || [];
+  matData = ordenarEstudiantes(data);
   matCupos = cupos || [];
   matAsigFuturas = {};
   (futuras||[]).forEach(f => { matAsigFuturas[f.estudiante_id] = f; });
@@ -10008,6 +10025,7 @@ async function abrirRestriccionesMatricula(){
   try{
     // Endpoint institucional: no depende de los grupos asignados al usuario.
     rmEstudiantes=await api(`/api/matricula/restricciones-estudiantes/${matAnio}`)||[];
+    rmEstudiantes=ordenarEstudiantes(rmEstudiantes);
   }catch(e){
     rmEstudiantes=[];
     sa('alert-rm','No se pudo cargar la lista institucional: '+e.message,'danger');
@@ -10593,7 +10611,7 @@ const MEDIDA_CFG = {
 async function iniciarMedidas(tipo){
   medidaTipoActivo = tipo;
   const cfg = MEDIDA_CFG[tipo];
-  const rows = await api(`/api/medidas/tipo/${tipo}`)||[];
+  const rows = ordenarEstudiantes(await api(`/api/medidas/tipo/${tipo}`));
   medidasData = rows;
   renderMedidas(rows, tipo);
 }
@@ -10654,10 +10672,9 @@ async function cargarEstudiantesMedida(){
   const sel = document.getElementById('medida-estudiante');
   if(!secId){ sel.innerHTML='<option value="">— Seleccionar estudiante —</option>'; return; }
   try{
-    const rows = await api(`/api/estudiantes?seccion_id=${secId}`)||[];
-    sel.innerHTML='<option value="">— Seleccionar estudiante —</option>'+
-      rows.sort((a,b)=>a.primer_apellido.localeCompare(b.primer_apellido))
-    .map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join('');
+    const rows = ordenarEstudiantes(await api(`/api/estudiantes?seccion_id=${secId}`));
+    sel.innerHTML='<option value="">— Seleccionar estudiante —</option>'+ 
+      rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join('');
   }catch{}
 }
 
@@ -15313,7 +15330,7 @@ async function iniciarComedor(){
 
 async function cargarListaComedor(){
   try{
-    const rows = await api('/api/comedor/estudiantes')||[];
+    const rows = ordenarEstudiantes(await api('/api/comedor/estudiantes'));
     comedorData = rows;
     const becados  = rows.filter(e=>e.becado);
     const regulares= rows.filter(e=>!e.becado);
@@ -15771,7 +15788,7 @@ async function citasGuardarDisponibilidad(){
 
 async function citasAbrirNueva(){
   try{
-    citasEstudiantes=await api('/api/citas/estudiantes')||[];
+    citasEstudiantes=ordenarEstudiantes(await api('/api/citas/estudiantes'));
     document.getElementById('cita-doc-buscar').value='';
     citasRenderEstudiantes(citasEstudiantes,'');
     document.getElementById('cita-doc-fecha').min=fechaHoyCR();document.getElementById('cita-doc-fecha').value='';document.getElementById('cita-doc-hora').value='';document.getElementById('cita-doc-motivo').value='';
@@ -16775,15 +16792,15 @@ async function iniciarHorario(){
   const esDocenteH = tieneAlgunRol('profesor','profesor_guia','orientador');
   document.getElementById('hor-btn-mi').style.display = esDocenteH ? '' : 'none';
   const anioInput = document.getElementById('hor-anio');
-  // Poblar dropdown: año actual y siguiente (para preparar el nuevo año antes de aplicar)
+  // Solo admin puede preparar el año siguiente. Los profesores, guías y
+  // orientadores ven exclusivamente el horario del curso lectivo activo.
   const actual = ANIO_LECTIVO_ACTIVO;
-  if(!anioInput.options.length){
-    anioInput.innerHTML = `
+  anioInput.innerHTML = esAdminH ? `
       <option value="${actual}">${actual} (actual)</option>
       <option value="${actual+1}">${actual+1} (próximo)</option>
-    `;
-  }
-  if(!anioInput.value) anioInput.value = String(actual);
+    ` : `<option value="${actual}">${actual} (actual)</option>`;
+  anioInput.value = String(actual);
+  anioInput.disabled = !esAdminH;
   document.getElementById('hor-anio-label').textContent = anioInput.value;
   // Mostrar aviso si es año futuro
   const aviso = document.getElementById('hor-aviso-anio');
@@ -17545,7 +17562,7 @@ async function archivarTrasRetiro(){
 let archivoData=[];
 
 async function iniciarArchivo(){
-  archivoData=await api("/api/estudiantes/archivados")||[];
+  archivoData=ordenarEstudiantes(await api("/api/estudiantes/archivados"));
   renderArchivo();
 }
 
@@ -19767,14 +19784,14 @@ async function cargarHistorialIntercambios(){
 let prematData = [], pmId = null, pmData = null;
 
 async function iniciarPrematricula(){
-  prematData = await api("/api/prematricula") || [];
+  prematData = ordenarEstudiantes(await api("/api/prematricula"));
   renderPremat();
 }
 
 function renderPremat(){
   const q = (document.getElementById("buscar-premat")?.value||"").toLowerCase();
   const lista = q ? prematData.filter(p=>
-    `${p.primer_apellido} ${p.nombre} ${p.cedula}`.toLowerCase().includes(q)
+    `${p.primer_apellido} ${p.segundo_apellido||''} ${p.nombre} ${p.cedula}`.toLowerCase().includes(q)
   ) : prematData;
   // Cachear por id para que los botones no necesiten pasar nombres (evita bug apóstrofe).
   window.prematCache = new Map(prematData.map(p=>[p.id,p]));
@@ -20147,7 +20164,7 @@ async function cargarEstCarnet(){
     return;
   }
   try{
-    const rows = await api(`/api/estudiantes?seccion_id=${encodeURIComponent(secId)}`)||[];
+    const rows = ordenarEstudiantes(await api(`/api/estudiantes?seccion_id=${encodeURIComponent(secId)}`));
     carnetEstData = rows;
     document.getElementById("carnet-titulo-sec").textContent =
       `Estudiantes de la sección`;
@@ -20638,7 +20655,7 @@ async function cargarEstBarras(){
     return;
   }
   try {
-    const rows = await api(`/api/estudiantes?seccion_id=${encodeURIComponent(secId)}`) || [];
+    const rows = ordenarEstudiantes(await api(`/api/estudiantes?seccion_id=${encodeURIComponent(secId)}`));
     cbarEstData = rows;
     renderEstBarras();
   } catch(e){
