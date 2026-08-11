@@ -3,6 +3,15 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#08243d"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="LCF Familias"/>
+<link rel="manifest" href="/manifest.webmanifest"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/lcf-familias-180.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/lcf-familias-32.png"/>
+<link rel="stylesheet" href="/pwa.css"/>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
@@ -842,6 +851,7 @@ tr:hover td{background:#f8fafc;}
     </div>
     <div class="pp-header-actions">
       <span id="pp-refresh-lbl" style="font-size:11px;color:#c8dbea;white-space:nowrap;"></span>
+      <button id="pwa-install-btn" class="pwa-install-btn" type="button" onclick="LCFPWA.instalar()" title="Instalar LCF Familias">Instalar app</button>
       <button class="pp-icon-btn" onclick="ppRefrescarAhora()" title="Actualizar información">↻ Actualizar</button>
       <button class="pp-exit-btn" onclick="ppLogout()">Salir</button>
     </div>
@@ -15886,6 +15896,7 @@ async function iniciarPortalPadres(){
   const p = PP?.padre || {};
   document.getElementById("pp-nombre").textContent = nombrePersona(p,{vacio:p.cedula});
   document.getElementById("portal-padres").style.display = "block";
+  window.LCFPWA?.mostrarInstalacionPadres();
   const escudoFuente=document.querySelector("#login-screen .auth-box img");
   if(escudoFuente) document.getElementById("pp-shield").src=escudoFuente.src;
   try{
@@ -23209,5 +23220,6 @@ async function pdfZoom(delta){
   </div>
 </div>
 
+<script src="/pwa.js"></script>
 </body>
 </html>

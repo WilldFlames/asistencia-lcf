@@ -1,0 +1,43 @@
+{
+  "id": "/?app=familias",
+  "name": "LCF Familias",
+  "short_name": "LCF Familias",
+  "description": "Portal para padres, madres y personas encargadas del Liceo de Calle Fallas.",
+  "lang": "es-CR",
+  "start_url": "/?app=familias",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f4f7fb",
+  "theme_color": "#08243d",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/lcf-familias-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/lcf-familias-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/lcf-familias-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ingresar al portal",
+      "short_name": "Ingresar",
+      "url": "/?app=familias",
+      "icons": [{ "src": "/icons/lcf-familias-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

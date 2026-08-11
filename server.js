@@ -91,6 +91,9 @@ app.use((req, res, next) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
+  if(['/sw.js', '/manifest.webmanifest', '/pwa.js', '/pwa.css'].includes(req.path)) {
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  }
   next();
 });
 app.use(express.static(path.join(__dirname, "public")));
