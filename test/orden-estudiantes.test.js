@@ -69,7 +69,7 @@ test("las listas principales consultan los tres componentes del orden alfabétic
 
   assert.match(
     leer("routes/prematricula.js"),
-    /ORDER BY p\.primer_apellido, p\.segundo_apellido, p\.nombre/
+    /ORDER BY p\.consecutivo_prematricula ASC NULLS LAST, p\.created_at DESC/
   );
   assert.match(
     leer("routes/asistencia.js"),
@@ -97,7 +97,7 @@ test("las pantallas que vuelven a formar listas conservan el mismo orden", () =>
   assert.match(frontend, /const rows=ordenarEstudiantes\(respuesta\)/);
   assert.match(frontend, /matData = ordenarEstudiantes\(data\)/);
   assert.match(frontend, /registrosAsist=ordenarEstudiantes\(d\.estudiantes\)/);
-  assert.match(frontend, /prematData = ordenarEstudiantes\(await api\("\/api\/prematricula"\)\)/);
+  assert.match(frontend, /prematData = await api\("\/api\/prematricula"\) \|\| \[\]/);
   assert.match(frontend, /citasEstudiantes=ordenarEstudiantes/);
   assert.match(frontend, /archivoData=ordenarEstudiantes/);
 });

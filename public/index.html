@@ -19796,7 +19796,8 @@ async function cargarHistorialIntercambios(){
 let prematData = [], pmId = null, pmData = null;
 
 async function iniciarPrematricula(){
-  prematData = ordenarEstudiantes(await api("/api/prematricula"));
+  // Prematrícula es la excepción institucional: se presenta por consecutivo.
+  prematData = await api("/api/prematricula") || [];
   renderPremat();
 }
 
