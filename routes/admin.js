@@ -2,6 +2,7 @@ const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const { pool } = require("../db");
 const { requireRol, requireAuth } = require("../middleware/auth");
+const { saveSession } = require("../middleware/security");
 const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 const onlyAdmin = requireRol("admin");
 
@@ -223,6 +224,47 @@ router.post("/subgrupos-invertir/:seccion_id", onlyAdmin, async (req, res) => {
 const canGestionarPadres = requireRol("admin", "auxiliar");
 
 function limpiarCed(c){ return String(c||'').replace(/[\s\-.\/\\]/g,''); }
+
+// Vista de prueba del portal de familias. Conserva la sesion administrativa
+// y no modifica contrasenas ni sesiones reales de las familias.
+router.post("/padres/:cedula/vista-prueba", onlyAdmin, async (req, res) => {
+  const cedula = limpiarCed(req.params.cedula);
+  const encargado = await pool.query(`
+    SELECT nombre, primer_apellido, segundo_apellido
+    FROM encargados
+    WHERE REPLACE(REPLACE(REPLACE(cedula,'-',''),'.',''),' ','')=$1
+    ORDER BY COALESCE(es_principal,false) DESC, id
+    LIMIT 1
+  `, [cedula]);
+  if(!encargado.rows.length)
+    return res.status(404).json({ error: "Encargado no encontrado." });
+
+  const hijos = await pool.query(`
+    SELECT DISTINCT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      e.seccion_id, s.nombre AS seccion_nombre
+    FROM encargados enc
+    JOIN estudiantes e ON e.id=enc.estudiante_id
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE REPLACE(REPLACE(REPLACE(enc.cedula,'-',''),'.',''),' ','')=$1
+      AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
+  `, [cedula]);
+  if(!hijos.rows.length)
+    return res.status(404).json({ error: "El encargado no tiene estudiantes activos asociados." });
+
+  const datos = encargado.rows[0];
+  const padre = {
+    cedula,
+    nombre: datos.nombre || "",
+    primer_apellido: datos.primer_apellido || "",
+    segundo_apellido: datos.segundo_apellido || "",
+    modo_prueba: true,
+    administrador_id: req.session.usuario.id,
+  };
+  req.session.padre = padre;
+  await saveSession(req);
+  res.json({ ok:true, padre, hijos:hijos.rows, solo_lectura:true });
+});
 
 // Buscar padres/encargados: por cédula, nombre o apellido.
 // Devuelve una fila por cédula única con la lista de hijos y estado de cuenta.

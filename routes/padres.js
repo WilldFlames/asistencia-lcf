@@ -122,6 +122,13 @@ async function hijosDe(cedula){
 async function requirePadre(req, res, next){
   const p = req.session && req.session.padre;
   if(!p) return res.status(401).json({ error: "No autorizado" });
+  if(p.modo_prueba){
+    if(req.session?.usuario?.rol !== "admin" || req.session.usuario.id !== p.administrador_id)
+      return res.status(401).json({ error: "Vista de prueba no autorizada" });
+    if(req.method !== "GET")
+      return res.status(403).json({ error: "La vista de prueba es de solo lectura. No se guardó ningún cambio." });
+    return next();
+  }
   try {
     const r = await pool.query("SELECT sid_activo, activo FROM padres_acceso WHERE cedula=$1", [p.cedula]);
     if(!r.rows.length || !r.rows[0].activo)
@@ -246,6 +253,11 @@ router.post("/cambiar-password", requirePadre, async (req, res) => {
 });
 
 router.post("/logout", async (req, res) => {
+  if(req.session?.padre?.modo_prueba && req.session?.usuario?.rol === "admin"){
+    delete req.session.padre;
+    await saveSession(req);
+    return res.json({ ok:true, modo_prueba:true });
+  }
   if(req.session && req.session.padre){
     await pool.query("UPDATE padres_acceso SET sid_activo=NULL WHERE cedula=$1 AND sid_activo=$2",
       [req.session.padre.cedula, req.sessionID]).catch(()=>{});
@@ -259,6 +271,17 @@ router.post("/logout", async (req, res) => {
 router.get("/me", async (req, res) => {
   const p = req.session && req.session.padre;
   if(!p) return res.json({ autenticado: false });
+  if(p.modo_prueba){
+    if(req.session?.usuario?.rol !== "admin" || req.session.usuario.id !== p.administrador_id){
+      delete req.session.padre;
+      await saveSession(req);
+      return res.json({ autenticado:false });
+    }
+    const hijos = await hijosDe(p.cedula);
+    const anio = await obtenerAnioActivo();
+    const calendario = await obtenerCalendario(anio);
+    return res.json({ autenticado:true, padre:p, primer_login:false, hijos, anio_activo:anio, calendario, solo_lectura:true });
+  }
   // Verificar sesión única también aquí
   const r = await pool.query("SELECT sid_activo, primer_login, activo FROM padres_acceso WHERE cedula=$1", [p.cedula]);
   if(!r.rows.length || !r.rows[0].activo || r.rows[0].sid_activo !== req.sessionID){

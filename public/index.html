@@ -808,6 +808,7 @@ tr:hover td{background:#f8fafc;}
   .pp-brand-title{font-size:16px;font-weight:850;letter-spacing:.1px;}
   .pp-brand-sub{font-size:11.5px;color:#c8dbea;margin-top:2px;}
   .pp-header-actions{display:flex;align-items:center;gap:8px;}
+  .pp-preview-banner{display:none;max-width:1180px;margin:12px auto 0;padding:11px 14px;border:1px solid #f2cf66;border-radius:11px;background:#fff7d6;color:#755600;font-size:12.5px;line-height:1.4;box-shadow:0 3px 12px rgba(117,86,0,.08);}
   .pp-icon-btn,.pp-exit-btn{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:9px;padding:8px 11px;cursor:pointer;font-size:12.5px;}
   .pp-main{max-width:1180px;margin:0 auto;padding:18px;}
   .pp-student-strip{display:flex;gap:10px;overflow-x:auto;padding:1px 1px 12px;scrollbar-width:thin;}
@@ -837,6 +838,7 @@ tr:hover td{background:#f8fafc;}
   .pp-actions .yes{border-color:#86d5a5;color:#08783b}.pp-actions .no{border-color:#f1aaa6;color:#b42318}
   @media(max-width:1024px){
     .pp-header-inner{padding-top:calc(9px + env(safe-area-inset-top));padding-right:calc(12px + env(safe-area-inset-right));padding-bottom:9px;padding-left:calc(12px + env(safe-area-inset-left));}
+    .pp-preview-banner{margin:10px 12px 0;}
     .pp-brand-sub,#pp-refresh-lbl{display:none}.pp-shield{width:40px;height:40px}.pp-brand-title{font-size:13.5px}.pp-header-actions{gap:5px}.pp-icon-btn{width:38px;height:38px;padding:0;font-size:0}.pp-icon-btn::after{content:"↻";font-size:21px}.pp-exit-btn{height:38px;padding:7px 10px}
     .pp-main{width:100%;max-width:100vw;padding-top:12px;padding-right:calc(12px + env(safe-area-inset-right));padding-bottom:calc(22px + env(safe-area-inset-bottom));padding-left:calc(12px + env(safe-area-inset-left));}
     .pp-tabs{max-width:100%;-webkit-overflow-scrolling:touch}.pp-home-grid{grid-template-columns:1fr}.pp-form-grid{grid-template-columns:1fr}.pp-field.full{grid-column:auto}.pp-field input,.pp-field select,.pp-field textarea{max-width:100%;min-width:0}.pp-today-row{grid-template-columns:72px minmax(0,1fr) auto;gap:7px}.pp-today-row .pp-teacher{display:none}.pp-student-card{min-width:min(215px,calc(100vw - 48px))}.pp-panel{min-width:0;padding:13px}.pp-panel .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}#portal-padres .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}.citas-bloque{grid-template-columns:1fr 1fr!important}.citas-bloque button{grid-column:1/-1}
@@ -853,9 +855,11 @@ tr:hover td{background:#f8fafc;}
       <span id="pp-refresh-lbl" style="font-size:11px;color:#c8dbea;white-space:nowrap;"></span>
       <button id="pwa-install-btn" class="pwa-install-btn" type="button" onclick="LCFPWA.instalar()" title="Instalar LCF Familias">Instalar app</button>
       <button class="pp-icon-btn" onclick="ppRefrescarAhora()" title="Actualizar información">↻ Actualizar</button>
-      <button class="pp-exit-btn" onclick="ppLogout()">Salir</button>
+      <button id="pp-exit-btn" class="pp-exit-btn" onclick="ppLogout()">Salir</button>
     </div>
   </div></header>
+
+  <div id="pp-preview-banner" class="pp-preview-banner"><strong>Vista de prueba del administrador.</strong> Puede revisar toda la información de esta familia. El modo es de solo lectura: no enviará citas ni guardará cambios.</div>
 
   <main class="pp-main">
     <!-- Selector de hijo -->
@@ -6633,6 +6637,9 @@ async function gpBuscar(){
       const btnCerrar = c && c.sesion_activa
         ? `<button class="btn btn-outline btn-xs" onclick="gpCerrarSesion('${p.cedula}')" title="Forzar cierre de sesión">🔓 Cerrar sesión</button>`
         : '';
+      const btnPrueba = ME?.rol === 'admin'
+        ? `<button class="btn btn-primary btn-xs" onclick="gpProbarPortal('${p.cedula}')" title="Abrir una vista de prueba de esta familia">👁 Probar portal</button>`
+        : '';
       return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;flex-wrap:wrap;">
           <div style="flex:1;min-width:220px;">
@@ -6642,6 +6649,7 @@ async function gpBuscar(){
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;">
             <button class="btn btn-outline btn-xs" onclick="gpVerHijos('${p.cedula}')" title="Ver hijos">👶 Hijos</button>
+            ${btnPrueba}
             ${btnReset}
             ${btnToggle}
             ${btnCerrar}
@@ -6651,6 +6659,19 @@ async function gpBuscar(){
       </div>`;
     }).join("");
   }catch(e){ cont.innerHTML = `<div style="color:#dc2626;padding:20px;text-align:center;">${e.message}</div>`; }
+}
+
+async function gpProbarPortal(cedula){
+  try{
+    const d = await api(`/api/admin/padres/${encodeURIComponent(cedula)}/vista-prueba`, 'POST', {});
+    if(!d) return;
+    PP = { padre:d.padre, hijos:d.hijos };
+    cerrarModal('modal-gestion-padres');
+    document.getElementById('login-screen').classList.remove('show');
+    iniciarPortalPadres();
+  }catch(e){
+    sa('alert-gp', e.message, 'danger');
+  }
 }
 
 async function gpVerHijos(cedula){
@@ -15895,7 +15916,11 @@ let ppTabActual = 'inicio';
 async function iniciarPortalPadres(){
   const p = PP?.padre || {};
   document.getElementById("pp-nombre").textContent = nombrePersona(p,{vacio:p.cedula});
-  document.getElementById("portal-padres").style.display = "block";
+  const portal = document.getElementById("portal-padres");
+  portal.style.display = "block";
+  portal.classList.toggle("pp-preview", !!p.modo_prueba);
+  document.getElementById("pp-preview-banner").style.display = p.modo_prueba ? "block" : "none";
+  document.getElementById("pp-exit-btn").textContent = p.modo_prueba ? "Volver al sistema" : "Salir";
   window.LCFPWA?.mostrarInstalacionPadres();
   const escudoFuente=document.querySelector("#login-screen .auth-box img");
   if(escudoFuente) document.getElementById("pp-shield").src=escudoFuente.src;
@@ -19815,6 +19840,15 @@ async function cargarHistorialIntercambios(){
   const d=await api("/api/auth/me");
   if(d?.autenticado){
     ME=d.usuario;
+    try{
+      const vista=await api("/api/padres/me");
+      if(vista?.autenticado && vista.padre?.modo_prueba){
+        PP={ padre:vista.padre, hijos:vista.hijos };
+        document.getElementById("login-screen").classList.remove("show");
+        iniciarPortalPadres();
+        return;
+      }
+    }catch{}
     document.getElementById("login-screen").classList.remove("show");
     if(ME.primer_login){
       document.getElementById("cambiar-pass-screen").classList.add("show");
