@@ -181,6 +181,7 @@ router.post("/solicitar", requireDocente, async (req, res) => {
   if(!asig) return res.status(403).json({ error:"Solo puede solicitar citas con estudiantes a quienes imparte clases." });
   const encR = await pool.query(`
     SELECT cedula FROM encargados WHERE estudiante_id=$1 AND COALESCE(cedula,'')<>''
+      AND COALESCE(es_principal,false)=true
     ORDER BY es_principal DESC, id LIMIT 1
   `, [estudianteId]);
   if(!encR.rows.length) return res.status(400).json({ error:"El estudiante no tiene un encargado con cédula registrada." });

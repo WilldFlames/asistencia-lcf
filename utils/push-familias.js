@@ -79,6 +79,7 @@ async function suscripcionesPorEstudiante(estudianteId) {
     WHERE EXISTS (
       SELECT 1 FROM encargados enc
       WHERE enc.estudiante_id=$1
+        AND COALESCE(enc.es_principal,false)=true
         AND regexp_replace(upper(COALESCE(enc.cedula,'')),'[^0-9A-Z]','','g')
           = regexp_replace(upper(pa.cedula),'[^0-9A-Z]','','g')
     )
@@ -107,7 +108,8 @@ async function suscripcionesPorSecciones(secciones = null) {
       ON regexp_replace(upper(COALESCE(enc.cedula,'')),'[^0-9A-Z]','','g')
        = regexp_replace(upper(pa.cedula),'[^0-9A-Z]','','g')
     JOIN estudiantes e ON e.id=enc.estudiante_id
-    WHERE e.activo=true AND COALESCE(e.archivado,false)=false
+    WHERE COALESCE(enc.es_principal,false)=true
+      AND e.activo=true AND COALESCE(e.archivado,false)=false
       AND ($1::int[] IS NULL OR e.seccion_id=ANY($1::int[]))
   `, [ids]);
   return r.rows;

@@ -113,6 +113,7 @@ async function hijosDe(cedula){
     LEFT JOIN secciones s ON s.id = e.seccion_id
     WHERE REPLACE(REPLACE(REPLACE(enc.cedula,'-',''),'.',''),' ','') = $1
       AND enc.cedula IS NOT NULL AND enc.cedula <> ''
+      AND COALESCE(enc.es_principal,false) = true
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [ced]);
@@ -166,7 +167,7 @@ router.post("/login", loginPadresLimiter, async (req, res) => {
   // 1. Debe ser encargado de al menos un estudiante activo
   const hijos = await hijosDe(ced);
   if(!hijos.length)
-    return res.status(404).json({ error: "Esta cédula no está registrada como encargado de ningún estudiante activo. Verificá en la institución que su cédula esté en el expediente." });
+    return res.status(404).json({ error: "Esta cédula no está designada como encargado principal de ningún estudiante activo. Verificá la designación en la institución." });
 
   // 2. ¿Esta cédula también pertenece a personal del liceo?
   //    Si sí, se valida con la contraseña de personal (docente/guía/etc.).

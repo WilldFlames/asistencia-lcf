@@ -96,6 +96,17 @@ router.post("/guardar", canAccess, async (req, res) => {
   if(!cedula||!nombre||!primer_apellido)
     return res.status(400).json({ error:"Datos incompletos." });
 
+  const encargadosValidos = Array.isArray(encargados)
+    ? encargados.filter(e => String(e?.nombre||"").trim())
+    : [];
+  const principales = encargadosValidos.filter(e => e.es_principal === true);
+  if(!encargadosValidos.length)
+    return res.status(400).json({ error:"La matrícula debe tener al menos un encargado." });
+  if(principales.length !== 1)
+    return res.status(400).json({ error:"Debe designar exactamente un encargado principal." });
+  if(!String(principales[0].cedula||"").trim() || !String(principales[0].primer_apellido||"").trim())
+    return res.status(400).json({ error:"El encargado principal debe tener cédula, nombre y primer apellido." });
+
   const uid = req.session.usuario.id;
   
   // Verificar que las columnas nuevas existen (pueden no existir en DB antigua)
@@ -145,21 +156,27 @@ router.post("/guardar", canAccess, async (req, res) => {
   }
 
   // Guardar encargados
-  if(Array.isArray(encargados) && encargados.length){
-    await pool.query("DELETE FROM encargados WHERE estudiante_id=$1", [estId]);
-    for(let i=0; i<encargados.length; i++){
-      const e = encargados[i];
-      if(!e.nombre) continue;
-      await pool.query(`
-        INSERT INTO encargados
-          (estudiante_id, parentesco, cedula, nombre, primer_apellido,
-           segundo_apellido, nacionalidad, profesion, lugar_trabajo,
-           telefono, celular, telefono_trabajo, email, es_principal)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-      `, [estId, e.parentesco||null, e.cedula||null, e.nombre||null, e.primer_apellido||null,
-          e.segundo_apellido||null, e.nacionalidad||null, e.profesion||null, e.lugar_trabajo||null,
-          e.telefono||null, e.celular||null, e.telefono_trabajo||null, e.email||null, i===0]);
-    }
+  if(encargadosValidos.length){
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("DELETE FROM encargados WHERE estudiante_id=$1", [estId]);
+      for(const e of encargadosValidos){
+        await client.query(`
+          INSERT INTO encargados
+            (estudiante_id, parentesco, cedula, nombre, primer_apellido,
+             segundo_apellido, nacionalidad, profesion, lugar_trabajo,
+             telefono, celular, telefono_trabajo, email, es_principal)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        `, [estId, e.parentesco||null, e.cedula||null, e.nombre||null, e.primer_apellido||null,
+            e.segundo_apellido||null, e.nacionalidad||null, e.profesion||null, e.lugar_trabajo||null,
+            e.telefono||null, e.celular||null, e.telefono_trabajo||null, e.email||null, e.es_principal===true]);
+      }
+      await client.query("COMMIT");
+    } catch(e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally { client.release(); }
   }
 
   // Marcar prematrícula como matriculado

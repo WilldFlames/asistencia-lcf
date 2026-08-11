@@ -90,7 +90,7 @@ async function initDB() {
         lugar_trabajo    TEXT DEFAULT '',
         email            TEXT DEFAULT '',
         direccion        TEXT DEFAULT '',
-        es_principal     BOOLEAN DEFAULT true,
+        es_principal     BOOLEAN DEFAULT false,
         created_at       TIMESTAMP DEFAULT NOW()
       );
 
@@ -380,6 +380,30 @@ async function initDB() {
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS cedula TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS lugar_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS telefono_trabajo TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE encargados ALTER COLUMN es_principal SET DEFAULT false`);
+    await client.query(`UPDATE encargados SET es_principal=false WHERE es_principal IS NULL`);
+    // Cada estudiante conserva exactamente un principal entre sus encargados.
+    // Si los datos antiguos tenÃ­an ninguno o varios, se prioriza el que ya
+    // estaba marcado y, como desempate, el registro mÃ¡s antiguo.
+    await client.query(`
+      WITH ordenados AS (
+        SELECT id,
+          ROW_NUMBER() OVER (
+            PARTITION BY estudiante_id
+            ORDER BY CASE WHEN es_principal THEN 0 ELSE 1 END, id
+          ) AS posicion
+        FROM encargados
+        WHERE estudiante_id IS NOT NULL
+      )
+      UPDATE encargados e
+      SET es_principal=(o.posicion=1)
+      FROM ordenados o
+      WHERE e.id=o.id AND e.es_principal IS DISTINCT FROM (o.posicion=1)
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS encargados_un_principal_por_estudiante
+      ON encargados(estudiante_id) WHERE es_principal=true
+    `);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS foto_url TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS archivado BOOLEAN DEFAULT false`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS fecha_archivo DATE DEFAULT NULL`);

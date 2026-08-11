@@ -246,6 +246,7 @@ router.post("/padres/:cedula/vista-prueba", onlyAdmin, async (req, res) => {
     JOIN estudiantes e ON e.id=enc.estudiante_id
     LEFT JOIN secciones s ON s.id=e.seccion_id
     WHERE REPLACE(REPLACE(REPLACE(enc.cedula,'-',''),'.',''),' ','')=$1
+      AND COALESCE(enc.es_principal,false)=true
       AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [cedula]);
@@ -280,6 +281,7 @@ router.get("/padres/buscar", canGestionarPadres, async (req, res) => {
       MAX(enc.segundo_apellido)FILTER (WHERE enc.cedula IS NOT NULL) AS segundo_apellido
     FROM encargados enc
     WHERE enc.cedula IS NOT NULL AND enc.cedula <> ''
+      AND COALESCE(enc.es_principal,false)=true
       AND (
         REPLACE(REPLACE(REPLACE(enc.cedula,'-',''),'.',''),' ','') = $1
         OR enc.nombre ILIKE $2
@@ -298,6 +300,7 @@ router.get("/padres/buscar", canGestionarPadres, async (req, res) => {
       FROM encargados en
       JOIN estudiantes e ON e.id = en.estudiante_id
       WHERE REPLACE(REPLACE(REPLACE(en.cedula,'-',''),'.',''),' ','') = $1
+        AND COALESCE(en.es_principal,false)=true
         AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
     `, [cedLimpia]);
     const acc = await pool.query(`
@@ -328,6 +331,7 @@ router.get("/padres/:cedula/hijos", canGestionarPadres, async (req, res) => {
     JOIN estudiantes e ON e.id = en.estudiante_id
     LEFT JOIN secciones s ON s.id = e.seccion_id
     WHERE REPLACE(REPLACE(REPLACE(en.cedula,'-',''),'.',''),' ','') = $1
+      AND COALESCE(en.es_principal,false)=true
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [cedLimpia]);
@@ -337,6 +341,13 @@ router.get("/padres/:cedula/hijos", canGestionarPadres, async (req, res) => {
 // Reiniciar contraseña: la deja igual a la cédula y fuerza cambio al ingresar.
 router.put("/padres/:cedula/reset-password", canGestionarPadres, async (req, res) => {
   const cedLimpia = limpiarCed(req.params.cedula);
+  const principal = await pool.query(`
+    SELECT 1 FROM encargados
+    WHERE REPLACE(REPLACE(REPLACE(cedula,'-',''),'.',''),' ','')=$1
+      AND COALESCE(es_principal,false)=true LIMIT 1
+  `, [cedLimpia]);
+  if(!principal.rows.length)
+    return res.status(400).json({ error:"Solo el encargado principal puede tener acceso al portal familiar." });
   // No permitir reiniciar si es personal (esa contraseña se maneja aparte)
   const esPersonal = await pool.query("SELECT id FROM usuarios WHERE cedula=$1", [cedLimpia]);
   if(esPersonal.rows.length){

@@ -232,6 +232,14 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .fg input:focus,.fg select:focus{outline:none;border-color:var(--azul2);}
 .fg textarea{resize:vertical;min-height:65px;}
 .form-actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;}
+/* SelecciÃ³n del encargado principal durante la matrÃ­cula */
+.mat-enc-card{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:#fff;transition:border-color .15s,box-shadow .15s,background .15s;}
+.mat-enc-card.is-principal{border:2px solid var(--verde);background:#f0fdf4;box-shadow:0 0 0 3px rgba(22,163,74,.08);}
+.mat-enc-header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.mat-principal-selector{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--azul);font-size:12px;font-weight:bold;cursor:pointer;user-select:none;}
+.mat-principal-selector input{width:17px;height:17px;accent-color:var(--verde);margin:0;cursor:pointer;}
+.mat-enc-card.is-principal .mat-principal-selector{border-color:var(--verde);color:#166534;}
+@media(max-width:480px){.mat-principal-selector{width:100%;justify-content:center}.mat-enc-header>.btn{margin-left:auto}}
 /* BUTTONS */
 .btn{padding:8px 16px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:bold;transition:opacity .15s;}
 .btn:hover{opacity:.85;}
@@ -2952,6 +2960,7 @@ tr:hover td{background:#f8fafc;}
 
         <!-- Encargados legales -->
         <div style="font-weight:bold;color:var(--azul);font-size:12px;margin:10px 0 6px;">👤 ENCARGADOS LEGALES</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:9px;">Marcá una sola persona como <strong>encargado principal</strong>. Esa persona será el contacto y acceso principal de la familia.</div>
         <div id="mat-encargados-container"></div>
         <button class="btn btn-outline btn-sm" onclick="agregarEncargadoMat()" style="margin-top:4px;">+ Agregar encargado</button>
       </div>
@@ -4525,7 +4534,7 @@ tr:hover td{background:#f8fafc;}
         <div class="fg"><label>Nombre *</label><input type="text" id="enc-nombre"/></div>
         <div class="fg"><label>Primer Apellido *</label><input type="text" id="enc-ap1"/></div>
         <div class="fg"><label>Segundo Apellido</label><input type="text" id="enc-ap2"/></div>
-        <div class="fg"><label>Encargado Principal</label>
+        <div class="fg"><label>¿Es el encargado principal?</label>
           <select id="enc-principal"><option value="true">Sí</option><option value="false">No</option></select>
         </div>
         <div class="fg"><label>Teléfono Casa</label><input type="text" id="enc-tel"/></div>
@@ -7491,7 +7500,10 @@ function abrirEncargados(estId,nombre){
 
 async function cargarEncargadosLista(){
   const rows=await api(`/api/encargados/estudiante/${encEstId}`);if(!rows)return;
+  window.encargadosCantidadActual=rows.length;
   const div=document.getElementById("enc-lista");
+  if(!document.getElementById("enc-edit-id").value)
+    document.getElementById("enc-principal").value=rows.length?"false":"true";
   if(!rows.length){div.innerHTML='<div style="color:var(--muted);font-size:13px;margin-bottom:8px;">Sin encargados registrados.</div>';return;}
   div.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${rows.length} encargado${rows.length!==1?"s":""} registrado${rows.length!==1?"s":""}</div>`+
   rows.map((e,i)=>`
@@ -7503,6 +7515,7 @@ async function cargarEncargadosLista(){
           ${e.es_principal?'<span class="badge b-prof" style="margin-left:6px;">⭐ Principal</span>':""}
         </div>
         <div style="display:flex;gap:6px;">
+          ${!e.es_principal?`<button class="btn btn-success btn-xs" onclick="marcarEncargadoPrincipal(${e.id})" title="Designar como principal">⭐ Hacer principal</button>`:""}
           <button class="btn btn-outline btn-xs" onclick="editarEncargado(${e.id})" title="Editar">✏️ Editar</button>
           <button class="btn btn-danger btn-xs" onclick="eliminarEncargado(${e.id})" title="Eliminar">🗑️</button>
         </div>
@@ -7586,15 +7599,26 @@ function limpiarFormEnc(){
     const el = document.getElementById(id);
     if(el) el.value="";
   });
-  document.getElementById("enc-principal").value="true";
+  document.getElementById("enc-principal").value=window.encargadosCantidadActual>0?"false":"true";
   document.getElementById("enc-form-titulo").textContent="➕ Agregar Encargado";
   document.getElementById("alert-enc").className="alert";
 }
 
 async function eliminarEncargado(id){
   if(!confirm("¿Eliminar este encargado?"))return;
-  await api(`/api/encargados/${id}`,"DELETE");
-  cargarEncargadosLista();
+  try{
+    await api(`/api/encargados/${id}`,"DELETE");
+    await cargarEncargadosLista();
+  }catch(e){sa("alert-enc",e.message,"danger");}
+}
+
+async function marcarEncargadoPrincipal(id){
+  if(!confirm("¿Designar a esta persona como encargado principal?"))return;
+  try{
+    await api(`/api/encargados/${id}/principal`,"PUT",{});
+    await cargarEncargadosLista();
+    sa("alert-enc","✅ Encargado principal actualizado.","success");
+  }catch(e){sa("alert-enc",e.message,"danger");}
 }
 
 
@@ -18157,13 +18181,21 @@ async function cargarDatosMatricula(){
 
 function agregarEncargadoMat(data=null){
   const idx=matEncIdx++;
+  const container=document.getElementById("mat-encargados-container");
+  const esPrimero=container.querySelectorAll("[id^='enc-mat-']").length===0;
+  const marcarPrincipal=data?.es_principal===true || (esPrimero && data?.es_principal!==false);
   const div=document.createElement("div");
   div.id=`enc-mat-${idx}`;
-  div.style.cssText="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;";
+  div.className="mat-enc-card";
   div.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <strong style="font-size:13px;color:var(--azul);">Encargado ${idx===0?"Principal":"#"+(idx+1)}</strong>
-      ${idx>0?`<button class="btn btn-danger btn-xs" onclick="document.getElementById('enc-mat-${idx}').remove()">✕</button>`:""}
+    <div class="mat-enc-header">
+      <strong data-enc-title style="font-size:13px;color:var(--azul);">Encargado #${idx+1}</strong>
+      <label class="mat-principal-selector" title="Esta persona tendrá el acceso principal para la familia">
+        <input type="radio" id="enc${idx}-principal" name="mat-encargado-principal" value="${idx}"
+          ${marcarPrincipal?"checked":""} onchange="matActualizarEncargadosPrincipal()"/>
+        <span>⭐ Encargado principal</span>
+      </label>
+      <button type="button" class="btn btn-danger btn-xs" onclick="eliminarEncargadoMat(${idx})" title="Quitar encargado">✕</button>
     </div>
     <div class="form-grid">
       <div class="fg"><label>Parentesco</label>
@@ -18190,9 +18222,38 @@ function agregarEncargadoMat(data=null){
       <div class="fg"><label>Teléfono 3</label><input type="text" id="enc${idx}-tel3" value="${data?.telefono_trabajo||''}"/></div>
       <div class="fg"><label>Correo</label><input type="email" id="enc${idx}-email" value="${data?.email||''}"/></div>
     </div>`;
-  document.getElementById("mat-encargados-container").appendChild(div);
+  container.appendChild(div);
   if(data?.parentesco) document.getElementById(`enc${idx}-parentesco`).value=data.parentesco;
   if(data?.nacionalidad) document.getElementById(`enc${idx}-nac`).value=data.nacionalidad;
+  matActualizarEncargadosPrincipal();
+}
+
+function matActualizarEncargadosPrincipal(){
+  const cards=[...document.querySelectorAll("#mat-encargados-container .mat-enc-card")];
+  cards.forEach((card,pos)=>{
+    const radio=card.querySelector('input[name="mat-encargado-principal"]');
+    const principal=!!radio?.checked;
+    card.classList.toggle("is-principal",principal);
+    const titulo=card.querySelector("[data-enc-title]");
+    if(titulo) titulo.textContent=principal?"Encargado principal":`Encargado #${pos+1}`;
+  });
+}
+
+function eliminarEncargadoMat(idx){
+  const container=document.getElementById("mat-encargados-container");
+  const cards=[...container.querySelectorAll(".mat-enc-card")];
+  if(cards.length<=1){
+    sa("alert-mat-modal","La matrícula debe conservar al menos un encargado.","warning");
+    return;
+  }
+  const card=document.getElementById(`enc-mat-${idx}`);
+  const eraPrincipal=!!card?.querySelector('input[name="mat-encargado-principal"]:checked');
+  card?.remove();
+  if(eraPrincipal){
+    const primero=container.querySelector('input[name="mat-encargado-principal"]');
+    if(primero) primero.checked=true;
+  }
+  matActualizarEncargadosPrincipal();
 }
 
 function getEncargados(){
@@ -18214,9 +18275,10 @@ function getEncargados(){
       celular:document.getElementById(`enc${id}-tel2`)?.value?.trim()||null,
       telefono_trabajo:document.getElementById(`enc${id}-tel3`)?.value?.trim()||null,
       email:document.getElementById(`enc${id}-email`)?.value?.trim()||null,
+      es_principal:!!document.getElementById(`enc${id}-principal`)?.checked,
     });
   });
-  return result;
+  return result.sort((a,b)=>Number(b.es_principal)-Number(a.es_principal));
 }
 
 async function guardarMat1(){
@@ -18225,6 +18287,13 @@ async function guardarMat1(){
   const ap1=document.getElementById("mat-ap1").value.trim();
   const nivel=parseInt(document.getElementById("mat-nivel").value)||0;
   if(!cedula||!nombre||!ap1||!nivel){ sa("alert-mat-modal","Cédula, nombre, apellido y nivel son obligatorios.","danger"); return; }
+  const encargados=getEncargados();
+  const principales=encargados.filter(e=>e.es_principal);
+  if(!encargados.length){ sa("alert-mat-modal","Debés registrar al menos un encargado.","danger"); return; }
+  if(principales.length!==1){ sa("alert-mat-modal","Seleccioná exactamente un encargado principal.","danger"); return; }
+  if(!principales[0].cedula||!principales[0].primer_apellido){
+    sa("alert-mat-modal","El encargado principal debe tener cédula, nombre y primer apellido.","danger"); return;
+  }
   const tipo=document.querySelector('input[name="mat-tipo"]:checked')?.value||"regular";
   // Solo guardar datos localmente — la BD se actualiza al finalizar (paso 4)
   matDatosGuardados = {
@@ -18247,7 +18316,7 @@ async function guardarMat1(){
     enfermedad:document.getElementById("mat-enfermedad").value,
     medicamento:document.getElementById("mat-medicamento").value,
     telefonos_emergencia:document.getElementById("mat-tels-emergencia").value,
-    encargados:getEncargados()
+    encargados
   };
   sa("alert-mat-modal","","");
   matPaso(2);
