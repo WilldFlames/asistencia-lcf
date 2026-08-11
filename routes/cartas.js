@@ -342,7 +342,7 @@ router.get("/convocatoria/candidatos", requireDocente, async (req, res) => {
       AND LOWER(m.nombre) NOT LIKE '%guía%' AND LOWER(m.nombre) NOT LIKE '%guia%'
       AND LOWER(m.nombre) NOT LIKE '%orientac%'
       AND COALESCE(st.total_lecciones,0)>0
-    ORDER BY s.nivel,s.nombre,m.nombre,e.primer_apellido,e.segundo_apellido,e.nombre
+    ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre,s.nivel,s.nombre,m.nombre
   `, [u.id,anio,rango.desde,rango.hasta,(await periodoActual()).nombre]);
   const salida=r.rows.map(x=>{
     const porcentaje=x.total_lecciones

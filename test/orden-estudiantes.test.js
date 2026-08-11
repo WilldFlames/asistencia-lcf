@@ -8,6 +8,27 @@ const raiz = path.join(__dirname, "..");
 const leer = archivo => fs.readFileSync(path.join(raiz, archivo), "utf8");
 const frontend = leer("public/index.html");
 
+test("las listas muestran apellidos primero y luego los nombres", () => {
+  const inicio = frontend.indexOf("function nombreEstudianteLista");
+  const fin = frontend.indexOf("const _collatorEstudiantes", inicio);
+  assert.ok(inicio >= 0 && fin > inicio, "No se encontró el formato visual para listas");
+
+  const contexto = { resultado: null };
+  vm.runInNewContext(
+    `${frontend.slice(inicio, fin)}\nresultado=nombreEstudianteLista({primer_apellido:'Alvarado',segundo_apellido:'Fernández',nombre:'Sebastián Eduardo'});`,
+    contexto
+  );
+  assert.equal(contexto.resultado, "Alvarado Fernández, Sebastián Eduardo");
+
+  assert.match(frontend, /<td>\$\{nombreEstudianteLista\(e\)\}<\/td>/);
+  assert.match(frontend, /\$\{nombreStyle\}">\$\{nombreEstudianteLista\(e\)\}/);
+  assert.match(frontend, /htmlSeguro\(nombreEstudianteLista\(x\)\)/);
+  assert.ok(
+    (frontend.match(/nombreEstudianteLista\(/g) || []).length >= 35,
+    "El formato de listas no se aplicó de manera amplia"
+  );
+});
+
 test("el comparador institucional ordena primer apellido, segundo apellido y nombre", () => {
   const inicio = frontend.indexOf("const _collatorEstudiantes");
   const fin = frontend.indexOf("function htmlSeguro", inicio);
@@ -57,6 +78,10 @@ test("las listas principales consultan los tres componentes del orden alfabétic
   assert.match(
     leer("routes/reportes.js"),
     /ORDER BY primer_apellido,segundo_apellido,nombre/
+  );
+  assert.match(
+    leer("routes/cartas.js"),
+    /ORDER BY e\.primer_apellido,e\.segundo_apellido,e\.nombre,s\.nivel,s\.nombre,m\.nombre/
   );
   assert.match(
     leer("routes/debidosProcesos.js"),

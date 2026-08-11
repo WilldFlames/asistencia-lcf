@@ -5145,6 +5145,18 @@ function nombreDesdeCampos(nombre,primerApellido,segundoApellido,opciones={}){
   return nombrePersona({nombre,primer_apellido:primerApellido,segundo_apellido:segundoApellido},opciones);
 }
 
+// Formato exclusivo para listas, tablas y selectores de estudiantes.
+// Permite leer y comprobar visualmente el mismo orden usado para clasificarlos.
+function nombreEstudianteLista(estudiante, opciones={}){
+  const vacio = Object.prototype.hasOwnProperty.call(opciones,"vacio") ? String(opciones.vacio??"") : "—";
+  if(!estudiante) return vacio;
+  const apellidos=[estudiante.primer_apellido,estudiante.segundo_apellido]
+    .map(v=>String(v??"").trim()).filter(Boolean).join(" ");
+  const nombres=String(estudiante.nombre??"").trim();
+  let resultado=apellidos && nombres ? `${apellidos}, ${nombres}` : (apellidos||nombres||vacio);
+  return opciones.mayusculas ? resultado.toLocaleUpperCase("es-CR") : resultado;
+}
+
 // Una sola regla para todas las listas y selectores de estudiantes:
 // primer apellido -> segundo apellido -> nombre. El formato visible del
 // nombre se mantiene como Nombre + primer apellido + segundo apellido.
@@ -6142,7 +6154,7 @@ async function cargarDashboard(){
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">
           ${d.ausenciasFrecuentes.map(e=>`
             <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:7px;padding:9px 12px;font-size:13px;">
-              <div style="font-weight:bold;">${nombrePersona(e)}</div>
+              <div style="font-weight:bold;">${nombreEstudianteLista(e)}</div>
               ${e.seccion_nombre?`<div style="font-size:11px;color:var(--azul);font-weight:bold;">📚 ${e.seccion_nombre}</div>`:""}
               ${e.materia_nombre?`<div style="font-size:11px;color:var(--muted);display:none;">📖 ${e.materia_nombre}</div>`:""}
               <div style="color:var(--rojo);font-weight:bold;margin-top:3px;">${e.total_ausencias} lecciones ausente</div>
@@ -6158,7 +6170,7 @@ async function cargarDashboard(){
       if(esProf&&d&&d.asignaciones){const ss=new Set(d.asignaciones.map(a=>a.seccion_id).filter(Boolean));mFilt=allMedidasActivas.filter(m=>ss.has(m.seccion_id));}
       if(mFilt.length>0){
         const susp=mFilt.filter(m=>m.tipo==='suspension'),prec=mFilt.filter(m=>m.tipo==='precautoria'),hibr=mFilt.filter(m=>m.tipo==='educacion_hibrida');
-        const mRow=m=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid var(--border);"><span><strong>${nombrePersona(m)}</strong> <span style="color:var(--muted);">${m.seccion_nombre||''}</span></span><span style="color:var(--muted);white-space:nowrap;">vence ${fmtF(m.fecha_fin)}</span></div>`;
+        const mRow=m=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-bottom:1px solid var(--border);"><span><strong>${nombreEstudianteLista(m)}</strong> <span style="color:var(--muted);">${m.seccion_nombre||''}</span></span><span style="color:var(--muted);white-space:nowrap;">vence ${fmtF(m.fecha_fin)}</span></div>`;
         let mHtml='';
         if(susp.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#991b1b;margin:5px 0 2px;">🚫 Suspendidos (${susp.length})</div>${susp.map(mRow).join('')}`;
         if(prec.length) mHtml+=`<div style="font-size:11px;font-weight:bold;color:#854d0e;margin:5px 0 2px;">⚠️ Precautoria (${prec.length})</div>${prec.map(mRow).join('')}`;
@@ -6265,7 +6277,7 @@ async function abrirListaNivel(nivel){
     }
 
     const rows = filtrados.map((e, i) => {
-      const nom = nombrePersona(e);
+      const nom = nombreEstudianteLista(e);
       return `<tr>
         <td style="text-align:center;color:var(--muted);font-size:12px;">${i+1}</td>
         <td>${nom}</td>
@@ -6335,7 +6347,7 @@ async function imprimirListaNivel(){
   const logoMEP = (typeof MEP_LOGO !== 'undefined') ? MEP_LOGO : '';
 
   const filas = estudiantes.map((e, i) => {
-    const nom = nombrePersona(e);
+    const nom = nombreEstudianteLista(e);
     return `<tr>
       <td style="text-align:center;">${i+1}</td>
       <td>${nom}</td>
@@ -6641,7 +6653,7 @@ async function gpVerHijos(cedula){
     const hijos = await api(`/api/admin/padres/${encodeURIComponent(cedula)}/hijos`)||[];
     div.innerHTML = hijos.length
       ? '<div style="font-size:12px;font-weight:bold;margin-bottom:4px;">Hijos activos:</div>' +
-      hijos.map(h=>`<div style="font-size:12px;margin:2px 0;">🎒 ${nombrePersona(h)} — <span style="color:var(--muted);">Sección ${h.seccion_nombre||'—'}</span></div>`).join("")
+      hijos.map(h=>`<div style="font-size:12px;margin:2px 0;">🎒 ${nombreEstudianteLista(h)} — <span style="color:var(--muted);">Sección ${h.seccion_nombre||'—'}</span></div>`).join("")
       : '<div style="color:var(--muted);font-size:12px;">Sin hijos activos.</div>';
   }catch(e){ div.innerHTML = `<div style="color:#dc2626;font-size:12px;">${e.message}</div>`; }
 }
@@ -7036,7 +7048,7 @@ async function cargarEstudiantes(){
   tbody.innerHTML=rows.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
-      <td>${nombrePersona(e)}</td>
+      <td>${nombreEstudianteLista(e)}</td>
     <td>${e.seccion_nombre||"—"}</td>
     <td>${e.becado?'<span class="badge b-guia">🎓 Becado</span>':''}</td>
     <td>${fmtF(e.fecha_nacimiento)}</td>
@@ -7560,7 +7572,7 @@ async function buscarEstudianteConsulta(){
             ${rows.map(e=>`
               <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;cursor:pointer;" onclick="document.getElementById('consulta-cedula').value='${e.cedula}';buscarEstudianteConsulta()">
                 <div>
-                  <strong>${nombrePersona(e)}</strong>
+                  <strong>${nombreEstudianteLista(e)}</strong>
                   <span style="font-size:12px;color:var(--muted);margin-left:8px;">${e.seccion_nombre||'Sin sección'}</span>
                 </div>
                 <span style="font-size:12px;color:var(--muted);">${e.cedula}</span>
@@ -7728,7 +7740,7 @@ function renderTablaAsist(){
     return `<tr style="${rowStyle}">
     <td style="color:var(--muted);font-size:11px">${i+1}</td>
     <td style="font-size:13px">
-          <span style="${nombreStyle}">${nombrePersona(e)}</span>${medidaBadge}
+          <span style="${nombreStyle}">${nombreEstudianteLista(e)}</span>${medidaBadge}
       <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span>
       ${e.escapado?`<br/><span style="font-size:11px;color:var(--naranja);font-weight:bold;">⚠️ Escapado</span>`:""}
     </td>
@@ -8364,7 +8376,7 @@ async function initReportes(){
 async function cargarEstReporte(){
   const sid=document.getElementById("rep-seccion").value;if(!sid)return;
   const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);if(!rows)return;
-  document.getElementById("rep-estudiante").innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
+  document.getElementById("rep-estudiante").innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}</option>`).join("");
 }
 
 // ── REPORTE: tab activos vs retirados ────────────────────────
@@ -8404,7 +8416,7 @@ function buscarEstArchivado(){
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.map(e=>{
         const sec = e.seccion_nombre ? ` · ${e.seccion_nombre}` : '';
         const estado = e.archivado ? ' [archivado]' : ' [inactivo]';
-    return `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${sec}${estado}</option>`;
+    return `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${sec}${estado}</option>`;
       }).join("");
     }catch(err){
       sel.innerHTML = '<option value="">— Error al buscar —</option>';
@@ -8767,7 +8779,7 @@ async function cargarEstInforme(){
   if(!rows) return;
   document.getElementById("mi-estudiante").innerHTML=
     '<option value="">— Seleccionar estudiante —</option>'+
-      rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
+      rows.map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}</option>`).join("");
 }
 
 async function enviarInforme(){
@@ -8904,7 +8916,7 @@ async function cargarEstConducta(){
   if(!rows) return;
   document.getElementById("cond-estudiante").innerHTML=
     '<option value="">— Seleccionar estudiante —</option>'+
-      rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
+      rows.map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}</option>`).join("");
 }
 
 async function verConductaEstudiante(){
@@ -9440,7 +9452,7 @@ async function previsualizarExcel(){
     const tbody = document.getElementById("excel-tbody");
     tbody.innerHTML = procesadas.slice(0, 50).map(e => `<tr>
       <td>${e.cedula}</td>
-      <td>${nombrePersona(e)}</td>
+      <td>${nombreEstudianteLista(e)}</td>
       <td>${e.seccion_id ? (secciones.find(s=>s.id===e.seccion_id)?.nombre||'—') : '—'}</td>
       <td>${fmtF(e.fecha_nacimiento)}</td>
     </tr>`).join('') + (procesadas.length > 50 ? `<tr><td colspan="4" style="text-align:center;color:var(--muted);">... y ${procesadas.length-50} más</td></tr>` : '');
@@ -9644,7 +9656,7 @@ ${encabezadoMEP("LISTA DE ESTUDIANTES — "+periodo)}
           <tbody>
             ${ests.map((e,i)=>`<tr style="background:${i%2===0?'#fff':'#f9fafb'};">
               <td style="padding:5px 8px;border:1px solid #e2e8f0;">${i+1}</td>
-        <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;">${nombrePersona(e)}</td>
+        <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:bold;">${nombreEstudianteLista(e)}</td>
               <td style="padding:5px 8px;border:1px solid #e2e8f0;">${e.cedula}</td>
               <td style="padding:5px 8px;border:1px solid #e2e8f0;">${fmtF(e.fecha_nacimiento)}</td>
             </tr>`).join("")}
@@ -10009,10 +10021,10 @@ function rmFiltrar(lado){
   if(!sel) return;
   const valor = sel.value;
   const lista = (rmEstudiantes||[]).filter(e=>{
-    const texto = `${e.cedula||''} ${nombrePersona(e)}`.toLocaleLowerCase('es-CR');
+    const texto = `${e.cedula||''} ${nombreEstudianteLista(e)} ${nombrePersona(e)}`.toLocaleLowerCase('es-CR');
     return !buscar || texto.includes(buscar);
   }).slice(0,150);
-  sel.innerHTML = lista.map(e=>`<option value="${e.id}">${htmlSeguro(nombrePersona(e))} · ${htmlSeguro(e.cedula||'Sin cédula')}</option>`).join('');
+  sel.innerHTML = lista.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.cedula||'Sin cédula')}</option>`).join('');
   if(lista.some(e=>String(e.id)===String(valor))) sel.value=valor;
 }
 
@@ -10228,7 +10240,7 @@ function renderMatricula(){
     return `<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td><code>${e.cedula}</code></td>
-      <td><strong>${nombrePersona(e)}</strong>${badgeBoleta}</td>
+      <td><strong>${nombreEstudianteLista(e)}</strong>${badgeBoleta}</td>
     <td><span class="badge" style="background:${COLORES_TIPO[e.tipo_ingreso]||'#e0f2fe'};color:#374151;">${tipos[e.tipo_ingreso]||e.tipo_ingreso}</span></td>
     <td style="font-weight:bold;">${NIVELES_MAT[e.nivel_matricula]||'—'}</td>
     <td>${matSeccionCelda(e)}
@@ -10631,7 +10643,7 @@ function renderMedidas(rows, tipo){
                  : vencida?`<span class="badge" style="background:#f1f5f9;color:#64748b;">Vencida</span>`
                  : `<span class="badge" style="background:#f0fdf4;color:#166534;">Próxima</span>`;
     return `<tr style="${activa?`background:${cfg.bg};border-left:4px solid ${cfg.border};`:''}">
-      <td><strong>${nombrePersona(r)}</strong><br/><span style="font-size:11px;color:var(--muted);">${r.cedula}</span></td>
+      <td><strong>${nombreEstudianteLista(r)}</strong><br/><span style="font-size:11px;color:var(--muted);">${r.cedula}</span></td>
       <td style="font-size:12px;">${r.seccion_nombre||'—'}</td>
       <td style="font-size:12px;">${fmtF(r.fecha_inicio)}</td>
       <td style="font-size:12px;font-weight:bold;color:${activa?cfg.color:'#64748b'};">${fmtF(r.fecha_fin)}</td>
@@ -10674,7 +10686,7 @@ async function cargarEstudiantesMedida(){
   try{
     const rows = ordenarEstudiantes(await api(`/api/estudiantes?seccion_id=${secId}`));
     sel.innerHTML='<option value="">— Seleccionar estudiante —</option>'+ 
-      rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join('');
+      rows.map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}</option>`).join('');
   }catch{}
 }
 
@@ -10790,7 +10802,7 @@ async function cargarDPLista(estado){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
             <div style="flex:1;min-width:0;">
               <div style="font-size:11px;color:var(--muted);">${nro}</div>
-        <strong style="font-size:14px;color:#0f172a;line-height:1.3;">${nombrePersona(p)}</strong>
+        <strong style="font-size:14px;color:#0f172a;line-height:1.3;">${nombreEstudianteLista(p)}</strong>
               <div style="font-size:11px;color:var(--muted);">${p.cedula} · ${p.seccion_nombre||'—'}</div>
             </div>
             ${badge}
@@ -10834,14 +10846,14 @@ async function cargarDPPendientes(){
     wrap.style.display = '';
     const html = [];
     pendProf.forEach(p => {
-      const nombre = nombrePersona(p);
+      const nombre = nombreEstudianteLista(p);
       const tipoLbl = DP_TIPOS_PASO[p.tipo]?.nombre || p.tipo;
       html.push(`<div style="padding:4px 0;">📋 <strong>N°${p.numero}-${p.anio}</strong> · ${tipoLbl} · ${nombre} (${p.seccion_nombre||'—'})
         <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirDPDetalle(${p.proceso_id})">Ver proceso</button>
       </div>`);
     });
     pendOrient.forEach(p => {
-    const nombre = nombrePersona(p);
+    const nombre = nombreEstudianteLista(p);
       html.push(`<div style="padding:4px 0;">🧑‍⚖️ <strong>N°${p.numero}-${p.anio}</strong> · Aprobá acta sesión · ${nombre} (${p.seccion_nombre||'—'}) · Propuesta: <strong>${p.decision_sesion}</strong>
         <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirDPDetalle(${p.proceso_id})">Ver proceso</button>
       </div>`);
@@ -10914,7 +10926,7 @@ function dpBuscarEstudiante(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-      `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+      `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
   }, 300);
@@ -11307,11 +11319,11 @@ function renderDPPasos(d){
     // Etiqueta de testigo o ofendido
     let extraLabel = '';
     if(ps.testigo){
-      extraLabel = ` — ${nombrePersona(ps.testigo)}`;
+      extraLabel = ` — ${nombreEstudianteLista(ps.testigo)}`;
       if(ps.testigo.seccion_nombre) extraLabel += ` (${ps.testigo.seccion_nombre})`;
     }
     if(ps.ofendido){
-      extraLabel = ` — ${nombrePersona(ps.ofendido)}`;
+      extraLabel = ` — ${nombreEstudianteLista(ps.ofendido)}`;
       if(ps.ofendido.seccion_nombre) extraLabel += ` (${ps.ofendido.seccion_nombre})`;
     }
 
@@ -11406,7 +11418,7 @@ function renderDPPasos(d){
   if(puedeEditarOfendidos || ofendidos.length){
     const listaOfen = ofendidos.length
       ? ofendidos.map((o, i) => {
-        const nomO = nombrePersona(o);
+        const nomO = nombreEstudianteLista(o);
           const secO = o.seccion_nombre ? ` (${o.seccion_nombre})` : '';
           const btnQuitar = puedeEditarOfendidos
             ? `<button class="btn btn-danger btn-xs" onclick="quitarOfendidoDP(${o.id}, '${nomO.replace(/'/g,"\\'")}')">🗑️ Quitar</button>`
@@ -11435,7 +11447,7 @@ function renderDPPasos(d){
   if(dp.estado === 'en_curso' && esGuia){
     const listaTest = d.testigos.length
       ? d.testigos.map((t, i) => {
-        const nomT = nombrePersona(t);
+        const nomT = nombreEstudianteLista(t);
           const secT = t.seccion_nombre ? ` (${t.seccion_nombre})` : '';
           return `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-top:6px;">
             <span style="font-size:12.5px;"><strong>Testigo ${i+1}:</strong> ${nomT}${secT}</span>
@@ -12125,7 +12137,7 @@ function dpBuscarOfendido(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-    `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+    `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
   }, 300);
@@ -12170,7 +12182,7 @@ function dpBuscarTestigo(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-    `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+    `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     } catch { sel.innerHTML = '<option value="">— Error —</option>'; }
   }, 300);
@@ -14166,7 +14178,7 @@ function npBuscarEstudiante(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-    `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+    `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     }catch{ sel.innerHTML='<option value="">— Error —</option>'; }
   }, 300);
@@ -14728,7 +14740,7 @@ function ppBuscarEstudiante(){
       const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
-    `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
+    `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
       ).join('');
     }catch{ sel.innerHTML='<option value="">— Error —</option>'; }
   }, 300);
@@ -15202,7 +15214,7 @@ async function cargarEstConsec(tipo){
   try{
     const rows=await api(`/api/estudiantes?seccion_id=${secId}`)||[];
     sel.innerHTML='<option value="">— Estudiante —</option>'+
-      rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
+      rows.map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}</option>`).join("");
   }catch{}
 }
 
@@ -15345,7 +15357,7 @@ async function cargarListaComedor(){
     const rowBecado = (e,i) => `<tr style="background:#f0fdf4;">
       <td><input type="checkbox" id="cd-${e.id}" checked onchange="actualizarStatsBeca()"/></td>
       <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-      <td><strong>${nombrePersona(e)}</strong></td>
+      <td><strong>${nombreEstudianteLista(e)}</strong></td>
       <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
       <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
     </tr>`;
@@ -15354,7 +15366,7 @@ async function cargarListaComedor(){
     const rowRegular = (e,i) => `<tr>
       <td><input type="checkbox" id="cd-${e.id}" onchange="actualizarStatsBeca()"/></td>
       <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-      <td><strong>${nombrePersona(e)}</strong></td>
+      <td><strong>${nombreEstudianteLista(e)}</strong></td>
       <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
       <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
     </tr>`;
@@ -15397,14 +15409,14 @@ function filtrarSeccionComedor(){
   const rowBecado = (e,i) => `<tr style="background:#f0fdf4;">
     <td><input type="checkbox" id="cd-${e.id}" checked onchange="actualizarStatsBeca()"/></td>
     <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-      <td><strong>${nombrePersona(e)}</strong></td>
+      <td><strong>${nombreEstudianteLista(e)}</strong></td>
     <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
     <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
   </tr>`;
   const rowRegular = (e,i) => `<tr>
     <td><input type="checkbox" id="cd-${e.id}" onchange="actualizarStatsBeca()"/></td>
     <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-      <td><strong>${nombrePersona(e)}</strong></td>
+      <td><strong>${nombreEstudianteLista(e)}</strong></td>
     <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
     <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
   </tr>`;
@@ -15474,7 +15486,7 @@ async function cargarResumenComedor(){
           <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th><th>Hora</th></tr></thead>
           <tbody>${rows.filter(r=>r.becado).map((r,i)=>`<tr>
             <td style="color:var(--muted)">${i+1}</td>
-      <td><strong>${nombrePersona(r)}</strong></td>
+      <td><strong>${nombreEstudianteLista(r)}</strong></td>
             <td style="font-size:11px;">${r.cedula}</td>
             <td style="font-size:11px;">${r.seccion_nombre||'—'}</td>
             <td style="font-size:11px;">${r.hora||'—'}</td>
@@ -15487,7 +15499,7 @@ async function cargarResumenComedor(){
           <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección</th><th>Hora</th></tr></thead>
           <tbody>${rows.filter(r=>!r.becado).map((r,i)=>`<tr>
             <td style="color:var(--muted)">${i+1}</td>
-      <td>${nombrePersona(r)}</td>
+      <td>${nombreEstudianteLista(r)}</td>
             <td style="font-size:11px;">${r.cedula}</td>
             <td style="font-size:11px;">${r.seccion_nombre||'—'}</td>
             <td style="font-size:11px;">${r.hora||'—'}</td>
@@ -15523,7 +15535,7 @@ async function imprimirReporteComedor(){
 
   const rowHtml = (r,i) => `<tr style="page-break-inside:avoid;">
     <td style="padding:4px 6px;text-align:center;">${i+1}</td>
-      <td style="padding:4px 6px;"><strong>${nombrePersona(r)}</strong></td>
+      <td style="padding:4px 6px;"><strong>${nombreEstudianteLista(r)}</strong></td>
     <td style="padding:4px 6px;">${r.cedula}</td>
     <td style="padding:4px 6px;">${r.seccion_nombre||'—'}</td>
     <td style="padding:4px 6px;text-align:center;">${r.hora||'—'}</td>
@@ -15803,7 +15815,7 @@ function citasNormalizarBusqueda(valor){
 }
 
 function citasEtiquetaEstudiante(e){
-  return `${nombrePersona(e)} · Cédula ${e.cedula||'—'} · Sección ${e.seccion_nombre||'—'} · ${e.materias||'Sin materia indicada'}`;
+  return `${nombreEstudianteLista(e)} · Cédula ${e.cedula||'—'} · Sección ${e.seccion_nombre||'—'} · ${e.materias||'Sin materia indicada'}`;
 }
 
 function citasRenderEstudiantes(lista,busqueda){
@@ -15824,7 +15836,7 @@ function citasFiltrarEstudiantes(){
   const busqueda=document.getElementById('cita-doc-buscar').value;
   const terminos=citasNormalizarBusqueda(busqueda).split(' ').filter(Boolean);
   const filtrados=!terminos.length?citasEstudiantes:citasEstudiantes.filter(e=>{
-    const texto=citasNormalizarBusqueda(`${nombrePersona(e)} ${e.cedula||''} ${e.seccion_nombre||''} ${e.materias||''}`);
+    const texto=citasNormalizarBusqueda(`${nombreEstudianteLista(e)} ${nombrePersona(e)} ${e.cedula||''} ${e.seccion_nombre||''} ${e.materias||''}`);
     return terminos.every(t=>texto.includes(t));
   });
   citasRenderEstudiantes(filtrados,busqueda.trim());
@@ -15896,7 +15908,7 @@ function ppRenderHijosTabs(){
   const hijos = PP?.hijos || [];
   document.getElementById("pp-hijos-tabs").innerHTML = hijos.map(h=>`
     <button class="pp-student-card ${ppHijoActual&&h.id===ppHijoActual.id?'active':''}" onclick="ppSelHijo(${h.id})">
-      <div style="font-weight:800;font-size:13.5px;">🎒 ${htmlSeguro(nombrePersona(h))}</div>
+      <div style="font-weight:800;font-size:13.5px;">🎒 ${htmlSeguro(nombreEstudianteLista(h))}</div>
       <div style="font-size:11.5px;color:#6b7f92;margin-top:4px;">Sección ${htmlSeguro(h.seccion_nombre||'—')} · Curso lectivo ${ANIO_LECTIVO_ACTIVO}</div>
     </button>`).join("");
 }
@@ -16688,7 +16700,7 @@ function itRender(){
   const dis = itPuedeEditar ? '' : 'disabled';
   tbody.innerHTML = lista.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
-      <td><strong>${nombrePersona(e)}</strong></td>
+      <td><strong>${nombreEstudianteLista(e)}</strong></td>
     <td><code>${e.cedula}</code></td>
     <td>${e.seccion_nombre}</td>
     <td>${itPuedeEditar ? `
@@ -17276,7 +17288,7 @@ async function ptCargarRegistros(){
         : '<span style="color:#dc2626;font-weight:bold;">⛔</span>';
       return `<tr title="${(r.detalle||'').replace(/"/g,'&quot;')}">
         <td style="white-space:nowrap;">${r.hora}</td>
-      <td>${nombrePersona(r)}</td>
+      <td>${nombreEstudianteLista(r)}</td>
         <td>${r.seccion_nombre||'—'}</td>
         <td>${r.tipo==='entrada'?'⬇️ Entrada':'⬆️ Salida'}</td>
         <td>${res}</td>
@@ -17452,7 +17464,7 @@ async function cargarEstudiantesRetiro(){
   if(!sid){selEst.innerHTML='<option value="">— Estudiante —</option>';return;}
   const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`)||[];
   selEst.innerHTML='<option value="">— Estudiante —</option>'+
-    rows.map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
+    rows.map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}</option>`).join("");
   let secciones=(allSecciones&&allSecciones.length)?allSecciones:[];
   if(!secciones.length){try{secciones=await api("/api/admin/secciones")||[];}catch{}}
   const sec=secciones.find(s=>s.id==sid);
@@ -17572,12 +17584,12 @@ function renderArchivo(){
   const lista=q?archivoData.filter(e=>`${e.primer_apellido} ${e.segundo_apellido||''} ${e.nombre}`.toLowerCase().includes(q)||(e.cedula||"").includes(q)):archivoData;
   if(!lista.length){if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay estudiantes archivados.</td></tr>`;return;}
   if(tbody) tbody.innerHTML=lista.map((e,i)=>{
-    const nombreSafe = nombrePersona(e).replace(/'/g,"\\'");
+    const nombreSafe = nombreEstudianteLista(e).replace(/'/g,"\\'");
     // Solo admin/auxiliar (canManage) ven el botón de reactivar
     const puedeReactivar = ['admin','auxiliar'].includes(ME.rol);
     return `<tr>
     <td style="color:var(--muted)">${i+1}</td>
-    <td><strong>${nombrePersona(e)}</strong></td>
+    <td><strong>${nombreEstudianteLista(e)}</strong></td>
     <td>${e.cedula}</td>
     <td>${e.seccion_nombre||'—'}</td>
     <td>${e.fecha_archivo?fmtF(e.fecha_archivo):'—'}</td>
@@ -18453,7 +18465,7 @@ async function cargarEstudiantesConstancia(){
   const sel=document.getElementById("const-estudiante");
   if(!sid){sel.innerHTML='<option value="">— Estudiante —</option>';return;}
   const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);
-  sel.innerHTML='<option value="">— Estudiante —</option>'+(rows||[]).map(e=>`<option value="${e.id}">${nombrePersona(e)}</option>`).join("");
+  sel.innerHTML='<option value="">— Estudiante —</option>'+(rows||[]).map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}</option>`).join("");
 }
 
 async function generarConstancia(){
@@ -18709,7 +18721,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+nombreSec)}
         <tbody>
           ${datos.map((e,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'};page-break-inside:avoid;">
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${i+1}</td>
-            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${nombrePersona(e)}</td>
+            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${nombreEstudianteLista(e)}</td>
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;">${e.boletas}</td>
             ${per === 'anual' ? `<td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:9.5px;color:#555;">${e.extra||''}</td>` : ''}
             <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${e.nota>=80?'#166534':e.nota>=60?'#92400e':'#991b1b'};">${e.nota}</td>
@@ -19116,7 +19128,7 @@ async function cargarEstCartas(){
     }
     sa("alert-cart","","");
     selEst.innerHTML += r
-      .map(e=>`<option value="${e.id}">${nombrePersona(e)}${e.subgrupo?` (${e.subgrupo})`:''}</option>`).join("");
+      .map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}${e.subgrupo?` (${e.subgrupo})`:''}</option>`).join("");
   } catch(e){ sa("alert-cart","Error cargando estudiantes: "+e.message,"danger"); }
 }
 
@@ -19156,7 +19168,7 @@ function buscarEstArchivadoCart(){
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.map(e=>{
         const sec = e.seccion_nombre ? ` · ${e.seccion_nombre}` : '';
         const estado = e.archivado ? ' [archivado]' : ' [inactivo]';
-        return `<option value="${e.id}">${nombrePersona(e)} (${e.cedula})${sec}${estado}</option>`;
+        return `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${sec}${estado}</option>`;
       }).join("");
     }catch(err){
       sel.innerHTML = '<option value="">— Error al buscar —</option>';
@@ -19463,7 +19475,7 @@ function renderControlConvocatoriaAusentismo(){
       <div class="table-wrap"><table style="min-width:760px;font-size:12px;"><thead><tr>
         <th>Estudiante</th><th>Sección</th><th>Asignatura</th><th style="text-align:center;">Ausencias</th><th style="text-align:center;">Porcentaje</th><th></th>
       </tr></thead><tbody>${excedidos.map(x=>`<tr>
-        <td><strong>${htmlSeguro(nombrePersona(x))}</strong><div style="font-size:10.5px;color:var(--muted);">${htmlSeguro(x.cedula||'')}</div></td>
+        <td><strong>${htmlSeguro(nombreEstudianteLista(x))}</strong><div style="font-size:10.5px;color:var(--muted);">${htmlSeguro(x.cedula||'')}</div></td>
         <td>${htmlSeguro(x.seccion_nombre||'—')}</td><td>${htmlSeguro(x.materia)}</td>
         <td style="text-align:center;">${x.ausencias} de ${x.total_lecciones}</td>
         <td style="text-align:center;"><span class="badge" style="background:#fee2e2;color:#991b1b;">${x.porcentaje}%</span></td>
@@ -19479,7 +19491,7 @@ function renderControlConvocatoriaAusentismo(){
     regs.innerHTML=`<div class="table-wrap"><table style="min-width:850px;font-size:12px;"><thead><tr>
       <th>Estudiante</th><th>Sección</th><th>Asignatura</th>${ME.rol==='admin'?'<th>Docente</th>':''}<th style="text-align:center;">Ausencias</th><th style="text-align:center;">%</th><th></th>
     </tr></thead><tbody>${convAusRegistros.map(x=>`<tr>
-      <td><strong>${htmlSeguro(nombrePersona(x))}</strong><div style="font-size:10.5px;color:var(--muted);">${htmlSeguro(x.cedula||'')}</div></td>
+      <td><strong>${htmlSeguro(nombreEstudianteLista(x))}</strong><div style="font-size:10.5px;color:var(--muted);">${htmlSeguro(x.cedula||'')}</div></td>
       <td>${htmlSeguro(x.seccion)}</td><td>${htmlSeguro(x.materia)}</td>
       ${ME.rol==='admin'?`<td>${htmlSeguro(nombreDesdeCampos(x.prof_nombre,x.prof_ap1,x.prof_ap2))}</td>`:''}
       <td style="text-align:center;">${x.ausencias} de ${x.total_lecciones}</td><td style="text-align:center;font-weight:bold;color:#b91c1c;">${x.porcentaje}%</td>
@@ -19491,7 +19503,7 @@ function renderControlConvocatoriaAusentismo(){
 async function marcarConvocatoriaAusentismo(asignacionId,estudianteId){
   const x=convAusCandidatos.find(c=>c.asignacion_id===asignacionId&&c.estudiante_id===estudianteId);
   if(!x) return;
-  if(!confirm(`¿Confirmar que ${nombrePersona(x)} no tiene derecho a convocatoria por ausentismo en ${x.materia}?\n\nCálculo: ${x.ausencias} ausencias de ${x.total_lecciones} lecciones (${x.porcentaje}%).`)) return;
+  if(!confirm(`¿Confirmar que ${nombreEstudianteLista(x)} no tiene derecho a convocatoria por ausentismo en ${x.materia}?\n\nCálculo: ${x.ausencias} ausencias de ${x.total_lecciones} lecciones (${x.porcentaje}%).`)) return;
   try{
     await api('/api/cartas/convocatoria/marcar','POST',{asignacion_id:asignacionId,estudiante_id:estudianteId});
     sa('alert-conv-aus','✅ Se registró que el estudiante no tiene derecho a convocatoria por ausentismo, solamente para este docente y esta asignatura.','success');
@@ -19516,7 +19528,7 @@ async function imprimirActaConvocatoriaAusentismo(){
   const incluirDocente=ME.rol==='admin';
   const filas=convAusRegistros.map((x,i)=>`<tr>
     <td style="border:1px solid #aaa;padding:5px;text-align:center;">${i+1}</td>
-    <td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(nombrePersona(x))}</td>
+    <td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(nombreEstudianteLista(x))}</td>
     <td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(x.seccion)}</td>
     <td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(x.materia)}</td>
     ${incluirDocente?`<td style="border:1px solid #aaa;padding:5px;">${htmlSeguro(nombreDesdeCampos(x.prof_nombre,x.prof_ap1,x.prof_ap2))}</td>`:''}
@@ -19799,7 +19811,7 @@ function renderPremat(){
   document.getElementById("premat-tbody").innerHTML = lista.length ? lista.map((p,i)=>`<tr>
     <td style="color:var(--muted)">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
     <td><code>${p.cedula}</code></td>
-    <td><strong>${nombrePersona(p)}</strong></td>
+    <td><strong>${nombreEstudianteLista(p)}</strong></td>
     <td style="font-size:12px;">${p.centro_procedencia||'—'}</td>
     <td style="font-weight:bold;color:var(--azul);">${p.consecutivo_prematricula ? String(p.consecutivo_prematricula).padStart(3,'0') : '—'}</td>
     <td><span class="badge" style="background:${p.estado==='matriculado'?'#dcfce7':p.estado==='prematriculado'?'#d1fae5':p.estado==='retirado'?'#fee2e2':'#fef9c3'};color:#374151;">${estados[p.estado]||p.estado}</span></td>
@@ -20222,7 +20234,7 @@ function renderEstCarnet(){
       return `<tr>
         <td><input type="checkbox" onchange="carnetToggle(${e.id}, this.checked)" ${checked}/></td>
         <td>${fotoHtml}</td>
-        <td><strong>${nombrePersona(e)}</strong>${warnFoto}</td>
+        <td><strong>${nombreEstudianteLista(e)}</strong>${warnFoto}</td>
         <td><code>${e.cedula||''}</code></td>
         <td><button class="btn btn-outline btn-xs" onclick="previewCarnetUno(${e.id})">👁️ Ver carnet</button></td>
       </tr>`;
@@ -20681,7 +20693,7 @@ function renderEstBarras(){
   }
 
   tbody.innerHTML = filtrados.map(e => {
-    const nom = nombrePersona(e);
+    const nom = nombreEstudianteLista(e);
     const cedLimpia = cbarLimpiar(e.cedula);
     const check = cbarSeleccionados.has(e.id) ? 'checked' : '';
     const sinCed = !cedLimpia
@@ -21074,7 +21086,7 @@ async function cargarSimplificado(){
       </thead>
       <tbody>
         ${rows.map(e => {
-          const nombre = nombrePersona(e);
+          const nombre = nombreEstudianteLista(e);
           const guardado = (e.pct_cotidiano != null || e.pct_tareas != null || e.pct_pruebas != null || e.pct_proyectos != null);
           return `<tr data-eid="${e.estudiante_id}">
             <td style="padding:6px 8px;border:1px solid var(--border);"><strong>${nombre}</strong><br/><small style="color:var(--muted);">${e.cedula||'—'}</small></td>
@@ -21835,10 +21847,10 @@ function renderGrillaNotas(notasArr){
       const nota100 = tieneNota ? (Number(v)*100)/ptotal : null;
       // Porcentaje obtenido = (puntos/total) × valor porcentual del examen
       const porcentajeObtenido = (tieneNota && valorPorc > 0) ? (Number(v)/ptotal) * valorPorc : null;
-      const nombreSafe = nombrePersona(e).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      const nombreSafe = nombreEstudianteLista(e).replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
         <td>
-          <strong>${nombrePersona(e)}</strong>
+          <strong>${nombreEstudianteLista(e)}</strong>
           <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span>
           <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
         </td>
@@ -21903,10 +21915,10 @@ function renderGrillaNotas(notasArr){
         ? `${cantBlancos} indicador(es) en blanco se cuentan como 0`
         : '';
       const colorNota = cantBlancos > 0 ? '#dc2626' : 'var(--azul)';
-      const nombreSafe2 = nombrePersona(e).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      const nombreSafe2 = nombreEstudianteLista(e).replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
         <td style="position:sticky;left:0;background:#fff;">
-          <strong>${nombrePersona(e)}</strong>
+          <strong>${nombreEstudianteLista(e)}</strong>
           <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span>
           <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe2}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
         </td>
@@ -22054,7 +22066,7 @@ function imprimirEvaluacion(){
       const nota = (v !== "" && !isNaN(Number(v))) ? ((Number(v)*100)/ptotal).toFixed(1) : "—";
       return `<tr>
         <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:11px;color:#555;text-align:center;">${idx+1}</td>
-        <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:12px;"><strong>${nombrePersona(e)}</strong></td>
+        <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:12px;"><strong>${nombreEstudianteLista(e)}</strong></td>
         <td style="border:1px solid #94a3b8;padding:4px 8px;font-size:11px;color:#555;">${e.cedula}</td>
         <td style="border:1px solid #94a3b8;padding:4px 8px;text-align:center;font-size:12px;">${v!==""?v:"—"}</td>
         <td style="border:1px solid #94a3b8;padding:4px 8px;text-align:center;font-size:12px;font-weight:bold;">${nota}</td>
@@ -22075,7 +22087,7 @@ function imprimirEvaluacion(){
       const nota = todasLlenas && sumaMax > 0 ? ((suma*100)/sumaMax).toFixed(1) : "—";
       return `<tr>
         <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;text-align:center;">${idx+1}</td>
-        <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombrePersona(e)}</strong></td>
+        <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombreEstudianteLista(e)}</strong></td>
         ${cols}
         <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;font-weight:bold;">${todasLlenas?suma:'—'}</td>
         <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;font-weight:bold;color:#1a3a5c;">${nota}</td>
@@ -22356,7 +22368,7 @@ function renderPromPeriodo(data){
       const colorEst = total >= aprobMin ? 'var(--verde)' : (total >= aprobMin - 10 ? 'var(--naranja)' : 'var(--rojo)');
       const lblEst = aprobado ? '✓ Aprobado' : '✗ Aplazado';
       return `<tr>
-        <td><strong>${nombrePersona(e)}</strong>
+        <td><strong>${nombreEstudianteLista(e)}</strong>
           <button class="btn-xs" onclick='prom_verDesglose(${JSON.stringify(e).replace(/'/g, "&#39;")})' style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;margin-left:4px;font-size:11px;" title="Ver desglose del cálculo">🔍</button>
           <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
         ${cels}
@@ -22422,7 +22434,7 @@ function renderPromAnual(data){
       const color = aprob ? 'var(--verde)' : (aplaz ? 'var(--rojo)' : 'var(--muted)');
       const lbl = aprob ? '✓ Aprobado' : (aplaz ? '✗ Aplazado' : '—');
       return `<tr>
-        <td><strong>${nombrePersona(e)}</strong><br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
+        <td><strong>${nombreEstudianteLista(e)}</strong><br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
         <td style="text-align:center;">${nI}</td>
         <td style="text-align:center;">${nII}</td>
         <td style="text-align:center;font-weight:bold;font-size:15px;color:${color};">${nA}</td>
@@ -22672,7 +22684,7 @@ function prom_imprimirActa(){
         const lbl = e.estado || '—';
         return `<tr>
           <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${i+1}</td>
-          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombrePersona(e)}</strong></td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombreEstudianteLista(e)}</strong></td>
           <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;">${e.cedula}</td>
           <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${nI}</td>
           <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${nII}</td>
@@ -22719,7 +22731,7 @@ function prom_imprimirActa(){
         const aprob = total >= aprobMin;
         return `<tr>
           <td style="border:1px solid #94a3b8;padding:3px 6px;text-align:center;font-size:11px;">${i+1}</td>
-          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombrePersona(e)}</strong></td>
+          <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;"><strong>${nombreEstudianteLista(e)}</strong></td>
           <td style="border:1px solid #94a3b8;padding:3px 6px;font-size:11px;color:#555;">${e.cedula}</td>
           ${colsC}
           ${colAsist}
