@@ -1,4 +1,4 @@
-const CACHE_VERSION = "lcf-familias-v2";
+const CACHE_VERSION = "lcf-familias-v3";
 const APP_ASSETS = [
   "/offline.html",
   "/manifest.webmanifest",
@@ -37,8 +37,11 @@ self.addEventListener("push", event => {
     badge: "/icons/lcf-familias-192.png",
     tag: datos.tag || "lcf-familias",
     renotify: true,
+    silent: false,
+    timestamp: Date.now(),
+    vibrate: [180, 80, 180],
     requireInteraction: datos.requireInteraction === true,
-    data: { url: datos.url || "/?app=familias" },
+    data: { url: datos.url || "/?app=familias", recibido:Date.now() },
   };
   const trabajos = [self.registration.showNotification(titulo, opciones)];
   if (self.navigator && "setAppBadge" in self.navigator) trabajos.push(self.navigator.setAppBadge(1).catch(() => {}));
@@ -52,11 +55,21 @@ self.addEventListener("notificationclick", event => {
     const ventanas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const ventana of ventanas) {
       if (new URL(ventana.url).origin !== self.location.origin) continue;
-      if ("navigate" in ventana) await ventana.navigate(destino);
-      await ventana.focus();
+      try {
+        if ("navigate" in ventana) await ventana.navigate(destino);
+      } catch (_) {
+        // Algunos iPhone rechazan navigate() sobre una PWA suspendida; el
+        // mensaje inferior abre la pestaña correcta cuando vuelve a primer plano.
+      }
+      try { await ventana.focus(); } catch (_) {}
+      try { ventana.postMessage({ type:"LCF_OPEN_NOTIFICATION", url:destino }); } catch (_) {}
       return;
     }
-    if (self.clients.openWindow) await self.clients.openWindow(destino);
+    if (self.clients.openWindow) {
+      try { await self.clients.openWindow(destino); } catch (_) {
+        await self.clients.openWindow("/?app=familias");
+      }
+    }
   })());
 });
 

@@ -205,7 +205,7 @@ router.post("/solicitar", requireDocente, async (req, res) => {
       RETURNING id
     `, [anio, estudianteId, profesorId, asig.id, cedula, fecha, hora, duracion, motivo]);
     await client.query("COMMIT");
-    void notificarCedula(cedula, {
+    await notificarCedula(cedula, {
       title:"📅 Nueva solicitud de cita",
       body:`Un docente propuso una cita para el ${fechaTexto(fecha)} a las ${hora}. Su confirmación está pendiente.`,
       url:"/?app=familias&abrir=citas",
@@ -253,7 +253,7 @@ router.put("/:id/responder", requireDocente, async (req, res) => {
     }
     await client.query("COMMIT");
     const estadoAviso=accion==="confirmar"?"confirmó":accion==="rechazar"?"rechazó":"propuso otra fecha para";
-    void notificarCedula(cita.encargado_cedula, {
+    await notificarCedula(cita.encargado_cedula, {
       title:"Respuesta a solicitud de cita",
       body:`El docente ${estadoAviso} la cita. Ingrese al portal para revisar los detalles.`,
       url:"/?app=familias&abrir=citas",
@@ -274,7 +274,7 @@ router.put("/:id/cancelar", requireDocente, async (req, res) => {
     WHERE id=$2 AND profesor_id=$3 AND estado IN ('pendiente','confirmada') RETURNING id,encargado_cedula`,
     [String(req.body.mensaje || "").trim(), req.params.id, req.session.usuario.id]);
   if(!r.rows.length) return res.status(404).json({ error:"La cita no existe o ya no puede cancelarse." });
-  void notificarCedula(r.rows[0].encargado_cedula, {
+  await notificarCedula(r.rows[0].encargado_cedula, {
     title:"Cita cancelada",
     body:"El docente canceló una cita pendiente o confirmada. Ingrese al portal para revisar la información.",
     url:"/?app=familias&abrir=citas",

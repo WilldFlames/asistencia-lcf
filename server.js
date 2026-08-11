@@ -74,6 +74,8 @@ app.use("/api/config-anio",requireAuth, require("./routes/configAnio"));
 app.use("/api/citas",      requireAuth, require("./routes/citas"));
 app.use("/api/padres",     require("./routes/padres")); // auth propia (portal de encargados)
 app.use("/api/inventario", requireAuth, require("./routes/inventario"));
+app.use("/api/rendimiento",requireAuth, require("./routes/rendimiento"));
+app.use("/api/adecuaciones",requireAuth, require("./routes/adecuaciones"));
 
 // Force no-cache for HTML to ensure users always get latest version
 // Versión actual del sistema — se calcula al arrancar el proceso.

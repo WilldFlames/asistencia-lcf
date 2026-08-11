@@ -785,7 +785,7 @@ router.post("/:id/escape", requireAuth, async (req, res) => {
         console.error('notificar-guia-escape error:', e.message);
       }
 
-      void notificarEstudiante(estId, {
+      await notificarEstudiante(estId, {
         title: "⚠️ Alerta de escape de lección",
         body: "Se registró un escape de lección para {estudiante}. Ingrese al portal para revisar la información.",
         url: "/?app=familias&abrir=conducta",

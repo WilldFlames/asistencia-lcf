@@ -435,8 +435,13 @@ router.get("/evaluaciones/:id/notas", requireAuth, async (req, res) => {
   // Si la evaluación tiene subgrupo, SOLO estudiantes con ese subgrupo exacto.
   // Si la evaluación no tiene subgrupo (toda la sección), todos los activos.
   const estudiantes = await pool.query(`
-    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido, e.subgrupo
+    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido, e.subgrupo,
+      COALESCE(ad.no_significativa,false) AS adecuacion_no_significativa,
+      COALESCE(ad.significativa,false) AS adecuacion_significativa,
+      COALESCE(ad.acceso,false) AS adecuacion_acceso,
+      COALESCE(ad.observacion,'') AS adecuacion_observacion
     FROM estudiantes e
+    LEFT JOIN adecuaciones_estudiante ad ON ad.estudiante_id=e.id
     WHERE e.seccion_id = $1 AND e.activo = true
       AND (($2::text IS NULL) OR e.subgrupo = $2)
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
@@ -585,8 +590,13 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
 
   // 3. Cargar todos los estudiantes activos de esta asignación
   const estudiantesR = await pool.query(`
-    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido, e.subgrupo
+    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido, e.subgrupo,
+      COALESCE(ad.no_significativa,false) AS adecuacion_no_significativa,
+      COALESCE(ad.significativa,false) AS adecuacion_significativa,
+      COALESCE(ad.acceso,false) AS adecuacion_acceso,
+      COALESCE(ad.observacion,'') AS adecuacion_observacion
     FROM estudiantes e
+    LEFT JOIN adecuaciones_estudiante ad ON ad.estudiante_id=e.id
     WHERE e.seccion_id = $1 AND e.activo = true
       AND (($2::text IS NULL) OR e.subgrupo = $2)
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
@@ -668,6 +678,9 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
       return {
         estudiante_id: e.id, cedula: e.cedula, nombre: e.nombre,
         primer_apellido: e.primer_apellido, segundo_apellido: e.segundo_apellido,
+        adecuacion_no_significativa:e.adecuacion_no_significativa,
+        adecuacion_significativa:e.adecuacion_significativa,
+        adecuacion_acceso:e.adecuacion_acceso,adecuacion_observacion:e.adecuacion_observacion,
         rubros: {
           cotidiano: { pct: pCot, peso: pesos.cotidiano, nota_100: pCot },
           tarea:     { pct: pTar, peso: pesos.tareas,    nota_100: pTar },
@@ -873,6 +886,9 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
       primer_apellido: e.primer_apellido,
       segundo_apellido: e.segundo_apellido,
       subgrupo: e.subgrupo,
+      adecuacion_no_significativa:e.adecuacion_no_significativa,
+      adecuacion_significativa:e.adecuacion_significativa,
+      adecuacion_acceso:e.adecuacion_acceso,adecuacion_observacion:e.adecuacion_observacion,
       rubros: {
         cotidiano: { ...r.cotidiano, nota_100: notaCotid, pct: pctCotid, peso: pesos.cotidiano },
         tarea:     { ...r.tarea,     nota_100: notaTar,   pct: pctTar,   peso: pesos.tareas },
@@ -967,6 +983,10 @@ router.get("/promedio/anual", requireAuth, async (req, res) => {
         primer_apellido: ref.primer_apellido,
         segundo_apellido: ref.segundo_apellido,
         subgrupo: ref.subgrupo,
+        adecuacion_no_significativa:ref.adecuacion_no_significativa,
+        adecuacion_significativa:ref.adecuacion_significativa,
+        adecuacion_acceso:ref.adecuacion_acceso,
+        adecuacion_observacion:ref.adecuacion_observacion,
         nota_I: notaI,
         nota_II: notaII,
         promedio_anual: anual,
@@ -1569,3 +1589,7 @@ module.exports.calcularPromediosParaArchivo = async function(client, profesor_id
     return null;
   }
 };
+
+// Reutilización institucional para el tablero de Rendimiento. Mantiene una
+// sola fórmula oficial para docentes, actas y estadísticas administrativas.
+module.exports.calcularPromediosInstitucional = calcularPromediosAsignacion;

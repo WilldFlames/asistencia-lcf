@@ -75,7 +75,7 @@ async function suscripcionesPorEstudiante(estudianteId) {
   const r = await pool.query(`
     SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
     FROM push_suscripciones ps
-    JOIN padres_acceso pa ON pa.id=ps.padre_acceso_id AND pa.activo=true
+    JOIN padres_acceso pa ON pa.id=ps.padre_acceso_id AND pa.activo=true AND pa.servicio_habilitado=true
     WHERE EXISTS (
       SELECT 1 FROM encargados enc
       WHERE enc.estudiante_id=$1
@@ -92,7 +92,7 @@ async function suscripcionesPorCedula(cedula) {
   const r = await pool.query(`
     SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
     FROM push_suscripciones ps
-    JOIN padres_acceso pa ON pa.id=ps.padre_acceso_id AND pa.activo=true
+    JOIN padres_acceso pa ON pa.id=ps.padre_acceso_id AND pa.activo=true AND pa.servicio_habilitado=true
     WHERE regexp_replace(upper(pa.cedula),'[^0-9A-Z]','','g')=$1
   `, [limpia.toUpperCase()]);
   return r.rows;
@@ -103,7 +103,7 @@ async function suscripcionesPorSecciones(secciones = null) {
   const r = await pool.query(`
     SELECT DISTINCT ps.endpoint, ps.p256dh, ps.auth
     FROM push_suscripciones ps
-    JOIN padres_acceso pa ON pa.id=ps.padre_acceso_id AND pa.activo=true
+    JOIN padres_acceso pa ON pa.id=ps.padre_acceso_id AND pa.activo=true AND pa.servicio_habilitado=true
     JOIN encargados enc
       ON regexp_replace(upper(COALESCE(enc.cedula,'')),'[^0-9A-Z]','','g')
        = regexp_replace(upper(pa.cedula),'[^0-9A-Z]','','g')

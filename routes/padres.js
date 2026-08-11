@@ -132,8 +132,8 @@ async function requirePadre(req, res, next){
     return next();
   }
   try {
-    const r = await pool.query("SELECT sid_activo, activo FROM padres_acceso WHERE cedula=$1", [p.cedula]);
-    if(!r.rows.length || !r.rows[0].activo)
+    const r = await pool.query("SELECT sid_activo, activo, servicio_habilitado FROM padres_acceso WHERE cedula=$1", [p.cedula]);
+    if(!r.rows.length || !r.rows[0].activo || !r.rows[0].servicio_habilitado)
       return res.status(401).json({ error: "Acceso deshabilitado" });
     if(r.rows[0].sid_activo !== req.sessionID){
       // Alguien inició sesión en otro dispositivo con esta cédula → esta sesión muere
@@ -169,6 +169,17 @@ router.post("/login", loginPadresLimiter, async (req, res) => {
   if(!hijos.length)
     return res.status(404).json({ error: "Esta cédula no está designada como encargado principal de ningún estudiante activo. Verificá la designación en la institución." });
 
+  // El servicio familiar es de activación institucional. No se crea solo:
+  // primero la institución confirma el pago y habilita la cuenta.
+  const servicioR = await pool.query(
+    "SELECT activo,servicio_habilitado FROM padres_acceso WHERE cedula=$1",
+    [ced]
+  );
+  if(!servicioR.rows.length || !servicioR.rows[0].servicio_habilitado)
+    return res.status(403).json({ error:"El servicio familiar todavía no ha sido habilitado por la institución." });
+  if(!servicioR.rows[0].activo)
+    return res.status(403).json({ error:"Acceso bloqueado. Contacte a la institución." });
+
   // 2. ¿Esta cédula también pertenece a personal del liceo?
   //    Si sí, se valida con la contraseña de personal (docente/guía/etc.).
   //    Así una docente que además es madre entra al portal con SU MISMA
@@ -196,13 +207,7 @@ router.post("/login", loginPadresLimiter, async (req, res) => {
     // 3. NO es personal: flujo normal de padres (cédula como contraseña inicial)
     let acc = await pool.query("SELECT * FROM padres_acceso WHERE cedula=$1", [ced]);
     if(!acc.rows.length){
-      if(password.trim() !== ced)
-        return res.status(401).json({ error: "Contraseña incorrecta. Si es su primer ingreso, use su número de cédula como contraseña." });
-      const hash = await bcrypt.hash(ced, 10);
-      acc = await pool.query(`
-        INSERT INTO padres_acceso (cedula, password_hash, primer_login) VALUES ($1,$2,true)
-        ON CONFLICT (cedula) DO UPDATE SET cedula=EXCLUDED.cedula RETURNING *
-      `, [ced, hash]);
+      return res.status(403).json({ error:"El servicio familiar todavía no ha sido habilitado por la institución." });
     } else {
       if(!acc.rows[0].activo) return res.status(403).json({ error: "Acceso deshabilitado. Contacte a la institución." });
       const ok = await bcrypt.compare(password, acc.rows[0].password_hash);
@@ -285,8 +290,8 @@ router.get("/me", async (req, res) => {
     return res.json({ autenticado:true, padre:p, primer_login:false, hijos, anio_activo:anio, calendario, solo_lectura:true });
   }
   // Verificar sesión única también aquí
-  const r = await pool.query("SELECT sid_activo, primer_login, activo FROM padres_acceso WHERE cedula=$1", [p.cedula]);
-  if(!r.rows.length || !r.rows[0].activo || r.rows[0].sid_activo !== req.sessionID){
+  const r = await pool.query("SELECT sid_activo, primer_login, activo, servicio_habilitado FROM padres_acceso WHERE cedula=$1", [p.cedula]);
+  if(!r.rows.length || !r.rows[0].activo || !r.rows[0].servicio_habilitado || r.rows[0].sid_activo !== req.sessionID){
     req.session.destroy(()=>{});
     return res.json({ autenticado: false });
   }
@@ -330,16 +335,6 @@ router.post("/push/suscribir", requirePadre, async (req,res)=>{
     RETURNING id
   `,[req.session.padre.cedula,endpoint,p256dh,auth,String(req.get("user-agent")||"").slice(0,500)]);
   if(!r.rows.length) return res.status(404).json({error:"No se encontró la cuenta familiar."});
-  res.json({ok:true});
-});
-
-router.delete("/push/suscribir", requirePadre, async (req,res)=>{
-  const endpoint=String(req.body?.endpoint||"").trim();
-  if(!endpoint) return res.status(400).json({error:"Suscripción requerida."});
-  await pool.query(`
-    DELETE FROM push_suscripciones ps USING padres_acceso pa
-    WHERE ps.padre_acceso_id=pa.id AND ps.endpoint=$1 AND pa.cedula=$2
-  `,[endpoint,req.session.padre.cedula]);
   res.json({ok:true});
 });
 

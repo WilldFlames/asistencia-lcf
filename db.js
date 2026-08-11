@@ -2075,10 +2075,16 @@ async function initDB() {
         password_hash TEXT NOT NULL,
         primer_login  BOOLEAN DEFAULT true,
         activo        BOOLEAN DEFAULT true,
+        servicio_habilitado BOOLEAN DEFAULT false,
+        servicio_habilitado_at TIMESTAMP DEFAULT NULL,
+        servicio_habilitado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
         sid_activo    TEXT DEFAULT NULL,
         created_at    TIMESTAMP DEFAULT NOW()
       )
     `);
+    await client.query(`ALTER TABLE padres_acceso ADD COLUMN IF NOT EXISTS servicio_habilitado BOOLEAN DEFAULT false`);
+    await client.query(`ALTER TABLE padres_acceso ADD COLUMN IF NOT EXISTS servicio_habilitado_at TIMESTAMP DEFAULT NULL`);
+    await client.query(`ALTER TABLE padres_acceso ADD COLUMN IF NOT EXISTS servicio_habilitado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
 
     // Cada teléfono/navegador autorizado por una familia conserva su propia
     // suscripción Web Push. El endpoint es único: si el dispositivo cambia de
@@ -2098,6 +2104,64 @@ async function initDB() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_push_suscripciones_padre
       ON push_suscripciones(padre_acceso_id)`);
+
+    // Funciones institucionales asignadas desde Admin → Asignaciones.
+    // Son permisos adicionales; no sustituyen el rol base de la persona.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS funciones_institucionales (
+        id          SERIAL PRIMARY KEY,
+        usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        tipo        TEXT NOT NULL CHECK(tipo IN ('coordinador','comite_apoyo')),
+        asignado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at  TIMESTAMP DEFAULT NOW(),
+        UNIQUE(usuario_id,tipo)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_funciones_institucionales_tipo
+      ON funciones_institucionales(tipo,usuario_id)`);
+
+    // Registro único y vigente de adecuaciones por estudiante.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS adecuaciones_estudiante (
+        estudiante_id       INTEGER PRIMARY KEY REFERENCES estudiantes(id) ON DELETE CASCADE,
+        no_significativa     BOOLEAN NOT NULL DEFAULT false,
+        significativa        BOOLEAN NOT NULL DEFAULT false,
+        acceso               BOOLEAN NOT NULL DEFAULT false,
+        observacion          TEXT DEFAULT '',
+        actualizado_por      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        updated_at           TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    // Conserva las adecuaciones que ya se digitaban durante matrícula.
+    await client.query(`
+      INSERT INTO adecuaciones_estudiante(estudiante_id,no_significativa,significativa)
+      SELECT id,
+        LOWER(COALESCE(adecuacion,'')) IN ('no_significativa','no significativa'),
+        LOWER(COALESCE(adecuacion,'')) IN ('significativa','significativa curricular')
+      FROM estudiantes
+      WHERE LOWER(COALESCE(adecuacion,'')) NOT IN ('','ninguna','no')
+      ON CONFLICT(estudiante_id) DO NOTHING
+    `);
+
+    // Solicitudes docentes; la aprobación deja trazabilidad y actualiza el
+    // registro vigente de la persona estudiante.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS solicitudes_adecuacion_docente (
+        id              SERIAL PRIMARY KEY,
+        estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        profesor_id     INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        tipo            TEXT NOT NULL CHECK(tipo IN ('no_significativa','significativa','acceso')),
+        motivo          TEXT NOT NULL,
+        estado          TEXT NOT NULL DEFAULT 'pendiente' CHECK(estado IN ('pendiente','aprobada','rechazada')),
+        respuesta       TEXT DEFAULT '',
+        resuelta_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        resuelta_at     TIMESTAMP DEFAULT NULL,
+        created_at      TIMESTAMP DEFAULT NOW(),
+        updated_at      TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_solicitudes_adecuacion_estado
+      ON solicitudes_adecuacion_docente(estado,created_at DESC)`);
 
     // ── CITAS ENCARGADOS ↔ DOCENTES ─────────────────────────────────────
     // Cada docente publica bloques semanales disponibles. El portal genera

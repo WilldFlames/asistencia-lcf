@@ -199,8 +199,13 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
   // Luego ordenamos alfabéticamente con una subconsulta
   let estQuery = `SELECT * FROM (
     SELECT DISTINCT ON (e.cedula) e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      COALESCE(ad.no_significativa,false) AS adecuacion_no_significativa,
+      COALESCE(ad.significativa,false) AS adecuacion_significativa,
+      COALESCE(ad.acceso,false) AS adecuacion_acceso,
+      COALESCE(ad.observacion,'') AS adecuacion_observacion,
       false AS escapado
     FROM estudiantes e
+    LEFT JOIN adecuaciones_estudiante ad ON ad.estudiante_id=e.id
     WHERE e.seccion_id=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
   const estParams = [seccion_id];
   // Si la asignación tiene subgrupo → mostrar SOLO estudiantes de ese subgrupo
@@ -359,7 +364,7 @@ router.post("/", requireDocente, async (req, res) => {
                 "UPDATE asistencia SET boleta_ausencia_id=$1 WHERE id=$2",
                 [boletaId, asistRow.id]
               );
-              void notificarEstudiante(reg.estudiante_id, {
+              await notificarEstudiante(reg.estudiante_id, {
                 title: "Nueva boleta de conducta",
                 body: "Se registró una boleta por ausencia injustificada para {estudiante}. Ingrese al portal para revisarla.",
                 url: "/?app=familias&abrir=conducta",

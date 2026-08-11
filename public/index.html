@@ -764,6 +764,14 @@ tr:hover td{background:#f8fafc;}
   .fullscreen{padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);}
   button,.btn,.nav-btn{-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 }
+.adecuacion-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:6px;border-radius:50%;background:#7c3aed;color:#fff;font-size:11px;font-weight:800;vertical-align:middle;box-shadow:0 2px 5px rgba(124,58,237,.22);cursor:help;}
+.rendimiento-hero,.adecuaciones-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;background:linear-gradient(135deg,#fff 0%,#f3f8ff 100%);border-left:5px solid var(--azul);}
+.rendimiento-hero p,.adecuaciones-hero p{margin:0;color:var(--muted);font-size:13px;}
+.rend-filtros{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}.rend-filtros .fg{min-width:145px;margin:0;}
+.rend-grupo{border-top:4px solid var(--azul);}.rend-metricas{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:12px 0;}
+.rend-metrica{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:11px;text-align:center;}.rend-metrica strong{display:block;font-size:22px;color:var(--azul);}.rend-barra{height:9px;border-radius:10px;background:#fee2e2;overflow:hidden;margin-top:7px;}.rend-barra>span{display:block;height:100%;background:linear-gradient(90deg,#16a34a,#22c55e);}
+.adec-tabla th:not(:first-child){text-align:center;}.adec-tabla td:nth-child(2),.adec-tabla td:nth-child(3),.adec-tabla td:nth-child(4){text-align:center;}.adec-check{width:20px;height:20px;accent-color:#7c3aed;}.adec-observacion{min-width:240px;width:100%;padding:7px;border:1px solid var(--border);border-radius:7px;}.solicitud-adec{border:1px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:12px;margin-bottom:9px;background:#fff;}.solicitud-adec.resuelta{border-left-color:#94a3b8;background:#f8fafc;}.fi-miembro{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:7px;background:#f8fafc;}
+@media(max-width:700px){.rend-filtros,.rend-filtros .fg,.rend-filtros .btn{width:100%;}.rend-metricas{grid-template-columns:1fr 1fr;}.adec-tabla{min-width:820px;}.rendimiento-hero,.adecuaciones-hero{align-items:stretch;}}
 </style>
 </head>
 <body>
@@ -1083,6 +1091,8 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
   <button class="nav-btn" data-page="horario" id="nav-horario" onclick="goTo('horario')" style="display:none"><span class="icon">🕐</span><span>Horario</span></button>
   <button class="nav-btn" data-page="citas" id="nav-citas" onclick="goTo('citas')" style="display:none"><span class="icon">📅</span><span>Citas con encargados</span></button>
+  <button class="nav-btn" data-page="rendimiento" id="nav-rendimiento" onclick="goTo('rendimiento')" style="display:none"><span class="icon">🎯</span><span>Rendimiento</span></button>
+  <button class="nav-btn" data-page="adecuaciones" id="nav-adecuaciones" onclick="goTo('adecuaciones')" style="display:none"><span class="icon">🧩</span><span>Adecuaciones</span></button>
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
   <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
   <button class="nav-btn" data-page="reportes" id="nav-reportes" onclick="goTo('reportes')" style="display:none"><span class="icon">📊</span><span>Reportes</span></button>
@@ -1144,6 +1154,18 @@ tr:hover td{background:#f8fafc;}
 
 <!-- ASIGNACIONES -->
 <div class="page" id="page-asignaciones">
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <h2 style="margin:0 0 4px;">🏫 Funciones institucionales</h2>
+        <p style="margin:0;color:var(--muted);font-size:13px;">Asigne quién coordina Rendimiento y quién administra el Comité de Apoyo.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="abrirFuncionInstitucional('coordinador')">🎯 Asignar coordinador</button>
+        <button class="btn btn-outline btn-sm" onclick="abrirFuncionInstitucional('comite_apoyo')">🧩 Asignar Comité de Apoyo</button>
+      </div>
+    </div>
+  </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
     <div class="card">
       <h2>📚 Materias</h2>
@@ -1581,6 +1603,54 @@ tr:hover td{background:#f8fafc;}
         <tbody id="prom-tbody"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- RENDIMIENTO INSTITUCIONAL -->
+<div class="page" id="page-rendimiento">
+  <div class="card rendimiento-hero">
+    <div>
+      <h2 style="margin:0 0 5px;">🎯 Rendimiento académico</h2>
+      <p>Lectura institucional por sección y materia. La nota mínima es 65 en 7.º–9.º y 70 en 10.º–11.º.</p>
+    </div>
+    <div class="rend-filtros">
+      <div class="fg"><label>Sección</label><select id="rend-seccion"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Materia</label><select id="rend-materia"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Período</label><select id="rend-periodo"><option>I Período</option><option>II Período</option></select></div>
+      <button class="btn btn-primary" onclick="cargarRendimiento()">🔎 Analizar</button>
+    </div>
+    <div id="alert-rendimiento" class="alert"></div>
+  </div>
+  <div id="rend-resumen" class="stats" style="display:none;"></div>
+  <div id="rend-contenido"><div class="card empty">Seleccione los filtros y presione Analizar.</div></div>
+</div>
+
+<!-- ADECUACIONES -->
+<div class="page" id="page-adecuaciones">
+  <div class="card adecuaciones-hero">
+    <div>
+      <h2 style="margin:0 0 5px;">🧩 Adecuaciones</h2>
+      <p id="adec-descripcion">Consulta institucional de apoyos para cada estudiante.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btn-adec-solicitar" onclick="abrirSolicitudAdecuacion()">✉️ Solicitar adecuación</button>
+      <button class="btn btn-success" id="btn-adec-imprimir" onclick="imprimirListaAdecuaciones()" style="display:none;">🖨️ Imprimir lista completa</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tabs" style="margin-bottom:14px;">
+      <button class="tab active" id="tab-adec-lista" onclick="cambiarTabAdecuaciones('lista')">📋 Lista por sección</button>
+      <button class="tab" id="tab-adec-solicitudes" onclick="cambiarTabAdecuaciones('solicitudes')">📨 Solicitudes</button>
+    </div>
+    <div id="adec-panel-lista">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
+        <div class="fg" style="min-width:220px;"><label>Sección</label><select id="adec-seccion" onchange="cargarSeccionAdecuaciones()"><option value="">— Seleccione —</option></select></div>
+        <button class="btn btn-success" id="btn-adec-guardar" onclick="guardarAdecuacionesSeccion()" style="display:none;">💾 Guardar lista</button>
+      </div>
+      <div id="alert-adecuaciones" class="alert"></div>
+      <div class="table-wrap"><table class="adec-tabla"><thead><tr><th>Estudiante</th><th>No significativa</th><th>Significativa</th><th>De acceso</th><th>Observación</th></tr></thead><tbody id="adec-body"><tr><td colspan="5" class="empty">Seleccione una sección.</td></tr></tbody></table></div>
+    </div>
+    <div id="adec-panel-solicitudes" style="display:none;"><div id="adec-solicitudes-lista" class="empty">Cargando solicitudes…</div></div>
   </div>
 </div>
 
@@ -2570,7 +2640,7 @@ tr:hover td{background:#f8fafc;}
   <div class="modal" style="max-width:820px;">
     <h3>👨‍👩‍👧 Gestión de Padres / Encargados</h3>
     <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">
-      Buscá por <strong>cédula, nombre o apellido</strong> del encargado. Desde acá podés reiniciar su contraseña (queda igual a la cédula, con cambio obligatorio al ingresar), desactivar temporalmente su acceso, o forzar el cierre de su sesión activa.
+      Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Primero habilitá el servicio cuando confirme el pago. También podés reiniciar su contraseña, bloquearlo por seguridad o cerrar su sesión activa.
     </p>
     <div id="alert-gp" class="alert"></div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
@@ -5010,6 +5080,33 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- Modal de funciones institucionales -->
+<div class="modal-overlay" id="modal-funcion-institucional">
+  <div class="modal" style="max-width:560px;">
+    <h3 id="fi-titulo">Función institucional</h3>
+    <p id="fi-ayuda" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></p>
+    <input type="hidden" id="fi-tipo"/>
+    <div id="fi-lista" style="margin-bottom:14px;min-height:42px;"></div>
+    <div class="fg"><label>Agregar funcionario</label><div style="display:flex;gap:8px;"><select id="fi-usuario" style="flex:1;"><option value="">— Seleccionar —</option></select><button class="btn btn-success" onclick="agregarFuncionInstitucional()">+ Agregar</button></div></div>
+    <div id="alert-fi" class="alert"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-funcion-institucional')">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- Modal para que un docente solicite una adecuación -->
+<div class="modal-overlay" id="modal-solicitud-adecuacion">
+  <div class="modal" style="max-width:600px;">
+    <h3>✉️ Solicitar adecuación</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">La solicitud llegará al Comité de Apoyo y quedará en su registro.</p>
+    <div class="fg"><label>Buscar estudiante</label><input id="adec-sol-buscar" placeholder="Escriba nombre, apellido, cédula o sección…" oninput="filtrarEstudiantesSolicitudAdecuacion()"/></div>
+    <div class="fg"><label>Estudiante *</label><select id="adec-sol-estudiante"><option value="">— Seleccione —</option></select></div>
+    <div class="fg"><label>Tipo *</label><select id="adec-sol-tipo"><option value="no_significativa">Adecuación no significativa</option><option value="significativa">Adecuación significativa</option><option value="acceso">Adecuación de acceso</option></select></div>
+    <div class="fg"><label>Motivo *</label><textarea id="adec-sol-motivo" rows="4" placeholder="Explique la necesidad observada…"></textarea></div>
+    <div id="alert-adec-sol" class="alert"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-solicitud-adecuacion')">Cancelar</button><button class="btn btn-primary" onclick="enviarSolicitudAdecuacion()">Enviar solicitud</button></div>
+  </div>
+</div>
+
 <!-- Modal Archivar Año -->
 <div class="modal-overlay" id="modal-archivar">
   <div class="modal" style="max-width:440px;">
@@ -5224,6 +5321,20 @@ function ordenarEstudiantes(lista){
 
 function htmlSeguro(valor){
   return String(valor??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function descripcionAdecuacion(estudiante){
+  const tipos=[];
+  if(estudiante?.adecuacion_no_significativa) tipos.push("Adecuación no significativa");
+  if(estudiante?.adecuacion_significativa) tipos.push("Adecuación significativa");
+  if(estudiante?.adecuacion_acceso) tipos.push("Adecuación de acceso");
+  const obs=String(estudiante?.adecuacion_observacion||"").trim();
+  return tipos.length ? `${tipos.join(" · ")}${obs?` — ${obs}`:""}` : "";
+}
+
+function badgeAdecuacion(estudiante){
+  const detalle=descripcionAdecuacion(estudiante);
+  return detalle ? `<span class="adecuacion-badge" title="${htmlSeguro(detalle)}" aria-label="${htmlSeguro(detalle)}">A</span>` : "";
 }
 
 function filaDetalle(etiqueta,valor){
@@ -5448,6 +5559,8 @@ function goTo(page){
   if(page==="calificaciones") iniciarCalificaciones();
   if(page==="evaluaciones") iniciarEvaluaciones();
   if(page==="promedio")     iniciarPromedio();
+  if(page==="rendimiento")  iniciarRendimiento();
+  if(page==="adecuaciones") iniciarAdecuaciones();
   if(page==="calificar")    iniciarCalificar();
   if(page==="cumplimiento") {
     const hoy=fechaHoyCR();
@@ -5509,6 +5622,8 @@ async function iniciarApp(){
   const esAdminIst  = ME.rol === "administrativo";
   const esOrientador= ME.rol === "orientador" || fx.includes("orientador");
   const esGuia      = ME.rol === "profesor_guia" || fx.includes("profesor_guia");
+  const esCoordinador = fx.includes("coordinador");
+  const esComiteApoyo = fx.includes("comite_apoyo");
 
   // ── DOCENTE ──────────────────────────────────────────────────
   // Asistencia: admin, profe, guía, orientador
@@ -5530,6 +5645,14 @@ async function iniciarApp(){
   // Admin también puede ver Promedio (para reabrir períodos cerrados)
   if(esAdmin){
     document.getElementById("nav-promedio").style.display="";
+  }
+  if(esAdmin||esCoordinador){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-rendimiento").style.display="";
+  }
+  if(esAdmin||esComiteApoyo||esProfesor||esGuia||esOrientador){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-adecuaciones").style.display="";
   }
   // Conducta: admin, guía, orientador, auxiliar
   if(esAdmin||esGuia||esOrientador||esAuxiliar){
@@ -5628,18 +5751,18 @@ async function iniciarApp(){
   // qué medidas tiene un estudiante de su sección, incluso las vencidas.
   const rolesMedidasLectura = ["admin","auxiliar","orientador","secretaria","administrativo","profesor_guia","profesor"];
   const puedeEditarMedidas  = ["admin","auxiliar","orientador","secretaria","administrativo","profesor_guia"].includes(ME.rol);
-  window.medidasSoloLectura = !puedeEditarMedidas;
-  if(rolesMedidasLectura.includes(ME.rol)){
+  window.puedeEditarMedida = tipo => puedeEditarMedidas || (esCoordinador && tipo==="educacion_hibrida");
+  window.medidasSoloLectura = !puedeEditarMedidas && !esCoordinador;
+  if(rolesMedidasLectura.includes(ME.rol)||esCoordinador){
     document.getElementById("nav-precautoria").style.display="";
     document.getElementById("nav-suspension").style.display="";
     document.getElementById("nav-hibrida").style.display="";
     // Si es solo lectura (profesor sin otros roles), ocultar los botones "+ Nueva ..."
-    if(window.medidasSoloLectura){
-      ["btn-nueva-precautoria","btn-nueva-suspension","btn-nueva-hibrida"].forEach(id=>{
-        const b = document.getElementById(id);
-        if(b) b.style.display = "none";
-      });
-    }
+    const botonesMedida={"btn-nueva-precautoria":"precautoria","btn-nueva-suspension":"suspension","btn-nueva-hibrida":"educacion_hibrida"};
+    Object.entries(botonesMedida).forEach(([id,tipo])=>{
+      const b=document.getElementById(id);
+      if(b) b.style.display=window.puedeEditarMedida(tipo)?"":"none";
+    });
   }
 
   // ── DEBIDOS PROCESOS ────────────────────────────────────────────
@@ -6652,9 +6775,11 @@ async function gpBuscar(){
         badges += '<span class="badge b-admin" style="margin-right:4px;">🏫 Personal del liceo</span>';
       }
       if(!c){
-        estado = '<span style="color:#94a3b8;font-size:12px;">Nunca ha ingresado al portal</span>';
+        estado = '<span style="color:#dc2626;font-size:12px;font-weight:bold;">● Servicio no habilitado</span>';
       } else {
         const est = [];
+        if(c.servicio_habilitado) est.push('<span style="color:var(--verde);font-weight:bold;">💳 Servicio habilitado</span>');
+        else                      est.push('<span style="color:#dc2626;font-weight:bold;">💳 Servicio no habilitado</span>');
         if(c.activo)        est.push('<span style="color:var(--verde);font-weight:bold;">● Activo</span>');
         else                est.push('<span style="color:#dc2626;font-weight:bold;">✖ Bloqueado</span>');
         if(c.primer_login)  est.push('<span style="color:#ea580c;font-size:11.5px;">Contraseña sin cambiar</span>');
@@ -6663,7 +6788,10 @@ async function gpBuscar(){
       }
       const btnReset = p.es_personal
         ? '<button class="btn btn-outline btn-xs" disabled title="Personal del liceo — reiniciar desde Admin → Usuarios">🔑 Reset</button>'
-        : `<button class="btn btn-outline btn-xs" onclick="gpReset('${p.cedula}','${nombre.replace(/'/g,"\\'")}')">🔑 Reset contraseña</button>`;
+        : `<button class="btn btn-outline btn-xs" ${!c?.servicio_habilitado?'disabled title="Primero habilite el servicio"':''} onclick="gpReset('${p.cedula}','${nombre.replace(/'/g,"\\'")}')">🔑 Reset contraseña</button>`;
+      const btnServicio = c?.servicio_habilitado
+        ? `<button class="btn btn-danger btn-xs" onclick="gpServicio('${p.cedula}','${nombre.replace(/'/g,"\\'")}',false)">💳 Desactivar servicio</button>`
+        : `<button class="btn btn-success btn-xs" onclick="gpServicio('${p.cedula}','${nombre.replace(/'/g,"\\'")}',true)">💳 Habilitar servicio</button>`;
       const btnToggle = c
         ? (c.activo
             ? `<button class="btn btn-danger btn-xs" onclick="gpToggle('${p.cedula}','${nombre.replace(/'/g,"\\'")}', true)">🚫 Bloquear</button>`
@@ -6684,6 +6812,7 @@ async function gpBuscar(){
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;">
             <button class="btn btn-outline btn-xs" onclick="gpVerHijos('${p.cedula}')" title="Ver hijos">👶 Hijos</button>
+            ${btnServicio}
             ${btnPrueba}
             ${btnReset}
             ${btnToggle}
@@ -6741,6 +6870,19 @@ async function gpToggle(cedula, nombre, actualmenteActivo){
     sa("alert-gp", `✅ ${nombre}: acceso ${r.activo?'reactivado':'bloqueado'}.`, "success");
     await gpBuscar();
   }catch(e){ sa("alert-gp", e.message, "danger"); }
+}
+
+async function gpServicio(cedula,nombre,habilitar){
+  const accion=habilitar?"HABILITAR":"DESACTIVAR";
+  const detalle=habilitar
+    ? "La familia podrá ingresar. Si es su primera vez, la contraseña inicial será la cédula."
+    : "La sesión se cerrará y dejará de recibir notificaciones hasta un nuevo pago.";
+  if(!confirm(`¿${accion} el servicio familiar de:\n\n${nombre}\nCédula: ${cedula}\n\n${detalle}`)) return;
+  try{
+    await api(`/api/admin/padres/${encodeURIComponent(cedula)}/servicio`,"PUT",{habilitado:habilitar});
+    sa("alert-gp",`✅ ${nombre}: servicio ${habilitar?'habilitado':'desactivado'}.`,"success");
+    await gpBuscar();
+  }catch(e){sa("alert-gp",e.message,"danger");}
 }
 
 async function gpCerrarSesion(cedula){
@@ -7821,7 +7963,7 @@ function renderTablaAsist(){
     return `<tr style="${rowStyle}">
     <td style="color:var(--muted);font-size:11px">${i+1}</td>
     <td style="font-size:13px">
-          <span style="${nombreStyle}">${nombreEstudianteLista(e)}</span>${medidaBadge}
+          <span style="${nombreStyle}">${nombreEstudianteLista(e)}</span>${medidaBadge}${badgeAdecuacion(e)}
       <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span>
       ${e.escapado?`<br/><span style="font-size:11px;color:var(--naranja);font-weight:bold;">⚠️ Escapado</span>`:""}
     </td>
@@ -10730,7 +10872,7 @@ function renderMedidas(rows, tipo){
       <td style="font-size:12px;font-weight:bold;color:${activa?cfg.color:'#64748b'};">${fmtF(r.fecha_fin)}</td>
       <td>${estado}</td>
       <td style="font-size:12px;color:var(--muted);">${nombreDesdeCampos(r.creado_nombre,r.creado_ap1,r.creado_ap2)}</td>
-      <td>${window.medidasSoloLectura ? '<span style="color:var(--muted);font-size:11px;" title="Solo lectura">👁️</span>' : `<button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button>`}</td>
+      <td>${!window.puedeEditarMedida?.(tipo) ? '<span style="color:var(--muted);font-size:11px;" title="Solo lectura">👁️</span>' : `<button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button>`}</td>
     </tr>`;
   }).join('');
 }
@@ -19009,6 +19151,163 @@ function piePaginaMEP(){
 //    - contenidoHTML: HTML del contenido central (sin encabezado ni pie)
 //    - nombreArchivo: nombre del PDF descargado (ej: "constancia_estudiante.pdf")
 // ────────────────────────────────────────────────────────────────────────
+// ── Funciones institucionales: Coordinación y Comité de Apoyo ─────────────
+async function abrirFuncionInstitucional(tipo){
+  const cfg={
+    coordinador:{titulo:"🎯 Coordinador de Rendimiento",ayuda:"Puede consultar Rendimiento institucional y editar únicamente Educación Híbrida."},
+    comite_apoyo:{titulo:"🧩 Comité de Apoyo",ayuda:"Administra adecuaciones, observaciones y solicitudes docentes de toda la institución."}
+  }[tipo];
+  if(!cfg) return;
+  document.getElementById("fi-tipo").value=tipo;
+  document.getElementById("fi-titulo").textContent=cfg.titulo;
+  document.getElementById("fi-ayuda").textContent=cfg.ayuda;
+  document.getElementById("modal-funcion-institucional").classList.add("show");
+  document.getElementById("alert-fi").className="alert";
+  await cargarFuncionInstitucional();
+}
+
+async function cargarFuncionInstitucional(){
+  const tipo=document.getElementById("fi-tipo").value;
+  const [funciones,usuarios]=await Promise.all([
+    api(`/api/admin/funciones-institucionales?tipo=${encodeURIComponent(tipo)}`),
+    api("/api/admin/usuarios")
+  ]);
+  const actuales=(funciones||[]).filter(f=>f.tipo===tipo);
+  document.getElementById("fi-lista").innerHTML=actuales.length?actuales.map(f=>`<div class="fi-miembro"><span><strong>${htmlSeguro(nombrePersona({nombre:f.nombre,primer_apellido:f.primer_apellido,segundo_apellido:f.segundo_apellido}))}</strong><br/><small>${htmlSeguro(f.cedula||"")}</small></span><button class="btn btn-danger btn-xs" onclick="eliminarFuncionInstitucional(${f.id})">Quitar</button></div>`).join(""):'<div class="empty">Todavía no hay una persona asignada.</div>';
+  const usados=new Set(actuales.map(f=>Number(f.usuario_id)));
+  const lista=(Array.isArray(usuarios)?usuarios:(usuarios?.usuarios||[])).filter(u=>u.activo!==false&&!usados.has(Number(u.id)));
+  document.getElementById("fi-usuario").innerHTML='<option value="">— Seleccionar —</option>'+lista.map(u=>`<option value="${u.id}">${htmlSeguro(nombrePersona(u))} · ${htmlSeguro(u.cedula||"")}</option>`).join("");
+}
+
+async function agregarFuncionInstitucional(){
+  const tipo=document.getElementById("fi-tipo").value;
+  const usuario_id=Number(document.getElementById("fi-usuario").value);
+  if(!usuario_id){sa("alert-fi","Seleccione un funcionario.","warning");return;}
+  try{await api("/api/admin/funciones-institucionales","POST",{tipo,usuario_id});sa("alert-fi","Asignación guardada.","success");await cargarFuncionInstitucional();}
+  catch(e){sa("alert-fi",e.message,"danger");}
+}
+
+async function eliminarFuncionInstitucional(id){
+  if(!confirm("¿Quitar esta función institucional?")) return;
+  try{await api(`/api/admin/funciones-institucionales/${id}`,"DELETE");await cargarFuncionInstitucional();}
+  catch(e){sa("alert-fi",e.message,"danger");}
+}
+
+// ── Rendimiento institucional ─────────────────────────────────────────────
+let rendimientoFiltrosCargados=false;
+async function iniciarRendimiento(){
+  if(!rendimientoFiltrosCargados){
+    try{
+      const d=await api("/api/rendimiento/filtros");
+      document.getElementById("rend-seccion").innerHTML='<option value="">Todas</option>'+d.secciones.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join("");
+      document.getElementById("rend-materia").innerHTML='<option value="">Todas</option>'+d.materias.map(m=>`<option value="${m.id}">${htmlSeguro(m.nombre)}</option>`).join("");
+      rendimientoFiltrosCargados=true;
+    }catch(e){sa("alert-rendimiento",e.message,"danger");return;}
+  }
+  await cargarRendimiento();
+}
+
+function rendMetrica(etiqueta,valor,color="var(--azul)"){
+  return `<div class="rend-metrica"><strong style="color:${color}">${htmlSeguro(valor)}</strong><span>${htmlSeguro(etiqueta)}</span></div>`;
+}
+
+function tablaDetalleRendimiento(estudiantes,minima){
+  if(!estudiantes.length) return '<div class="empty">Sin notas registradas.</div>';
+  return `<div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>Nota</th><th>Estado</th></tr></thead><tbody>${ordenarEstudiantes(estudiantes).map(e=>`<tr><td>${htmlSeguro(nombreEstudianteLista(e))}<br/><small>${htmlSeguro(e.cedula||"")}</small></td><td style="text-align:center;font-weight:bold;">${Number(e.nota).toFixed(1)}</td><td style="text-align:center;color:${e.aprobado?'var(--verde)':'var(--rojo)'};font-weight:bold;">${e.aprobado?'Aprobó':'Menos de '+minima}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+async function cargarRendimiento(){
+  const q=new URLSearchParams({periodo:document.getElementById("rend-periodo").value});
+  const sid=document.getElementById("rend-seccion").value,mid=document.getElementById("rend-materia").value;
+  if(sid)q.set("seccion_id",sid);if(mid)q.set("materia_id",mid);
+  const cont=document.getElementById("rend-contenido");cont.innerHTML='<div class="card empty">Calculando rendimiento…</div>';
+  try{
+    const d=await api(`/api/rendimiento/resumen?${q}`),grupos=d.grupos||[];
+    const total=grupos.reduce((s,g)=>s+g.promedio.total,0),aprob=grupos.reduce((s,g)=>s+g.promedio.aprobados,0),exam=grupos.reduce((s,g)=>s+g.examenes.length,0);
+    const pct=total?((aprob*100)/total).toFixed(1):"0.0";
+    const resumen=document.getElementById("rend-resumen");resumen.style.display="grid";resumen.innerHTML=rendMetrica("Grupos analizados",grupos.length)+rendMetrica("Registros de estudiantes",total)+rendMetrica("Aprobación de promedio",pct+"%","var(--verde)")+rendMetrica("Exámenes analizados",exam,"var(--naranja)");
+    if(!grupos.length){cont.innerHTML='<div class="card empty">No hay asignaciones para esos filtros.</div>';return;}
+    cont.innerHTML=grupos.map(g=>`<div class="card rend-grupo"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;"><div><h2 style="margin:0;">${htmlSeguro(g.seccion_nombre)} · ${htmlSeguro(g.materia_nombre)}${g.subgrupo?` · Grupo ${htmlSeguro(g.subgrupo)}`:""}</h2><small>${htmlSeguro(nombreDesdeCampos(g.prof_nombre,g.prof_ap1,g.prof_ap2))}</small></div><span class="badge badge-blue">Mínimo ${g.nota_minima}</span></div><div class="rend-metricas">${rendMetrica("Estudiantes",g.promedio.total)}${rendMetrica("Aprobaron promedio",g.promedio.aprobados,"var(--verde)")}${rendMetrica("No alcanzaron mínimo",g.promedio.reprobados,"var(--rojo)")}${rendMetrica("Aprobación",g.promedio.porcentaje_aprobacion+"%","var(--verde)")}</div><div class="rend-barra"><span style="width:${Math.min(100,g.promedio.porcentaje_aprobacion)}%"></span></div><details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:bold;">Ver estudiantes por promedio</summary>${tablaDetalleRendimiento(g.promedio.estudiantes,g.nota_minima)}</details>${g.examenes.map(ex=>`<details style="margin-top:10px;border-top:1px solid var(--border);padding-top:9px;"><summary style="cursor:pointer;font-weight:bold;">📝 ${htmlSeguro(ex.nombre)} · ${ex.porcentaje_aprobacion}% aprobó (${ex.aprobados} de ${ex.evaluados})</summary>${tablaDetalleRendimiento(ex.estudiantes,g.nota_minima)}</details>`).join("")}</div>`).join("");
+  }catch(e){sa("alert-rendimiento",e.message,"danger");cont.innerHTML='';}
+}
+
+// ── Adecuaciones y solicitudes docentes ──────────────────────────────────
+let adecuacionesEditable=false,adecEstudiantesSolicitud=[];
+const ADECUACION_TIPOS={no_significativa:"No significativa",significativa:"Significativa",acceso:"De acceso"};
+async function iniciarAdecuaciones(){
+  const fx=ME.funciones_extra||[];
+  adecuacionesEditable=ME.rol==="admin"||fx.includes("comite_apoyo");
+  document.getElementById("btn-adec-imprimir").style.display=adecuacionesEditable?"":"none";
+  document.getElementById("btn-adec-guardar").style.display=adecuacionesEditable?"":"none";
+  document.getElementById("btn-adec-solicitar").style.display=adecuacionesEditable?"none":"";
+  document.getElementById("adec-descripcion").textContent=adecuacionesEditable?"Administre los apoyos de toda la institución y revise solicitudes docentes.":"Consulte los apoyos de sus estudiantes y envíe solicitudes al Comité de Apoyo.";
+  try{
+    const secs=await api("/api/adecuaciones/secciones");
+    document.getElementById("adec-seccion").innerHTML='<option value="">— Seleccione —</option>'+secs.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join("");
+  }catch(e){sa("alert-adecuaciones",e.message,"danger");}
+  await cargarSolicitudesAdecuacion();
+}
+
+async function cargarSeccionAdecuaciones(){
+  const id=document.getElementById("adec-seccion").value,body=document.getElementById("adec-body");
+  if(!id){body.innerHTML='<tr><td colspan="5" class="empty">Seleccione una sección.</td></tr>';return;}
+  body.innerHTML='<tr><td colspan="5" class="empty">Cargando…</td></tr>';
+  try{
+    const d=await api(`/api/adecuaciones/seccion/${id}`);adecuacionesEditable=!!d.editable;
+    document.getElementById("btn-adec-guardar").style.display=adecuacionesEditable?"":"none";
+    body.innerHTML=d.estudiantes.length?d.estudiantes.map(e=>`<tr data-estudiante="${e.id}"><td><strong>${htmlSeguro(nombreEstudianteLista(e))}</strong>${badgeAdecuacion(e)}<br/><small>${htmlSeguro(e.cedula||"")}</small></td><td><input class="adec-check adec-no" type="checkbox" ${e.adecuacion_no_significativa?'checked':''} ${adecuacionesEditable?'':'disabled'}/></td><td><input class="adec-check adec-si" type="checkbox" ${e.adecuacion_significativa?'checked':''} ${adecuacionesEditable?'':'disabled'}/></td><td><input class="adec-check adec-ac" type="checkbox" ${e.adecuacion_acceso?'checked':''} ${adecuacionesEditable?'':'disabled'}/></td><td>${adecuacionesEditable?`<input class="adec-observacion" value="${htmlSeguro(e.adecuacion_observacion||"")}" placeholder="Observación para docentes…"/>`:`<span>${htmlSeguro(e.adecuacion_observacion||"—")}</span>`}</td></tr>`).join(""):'<tr><td colspan="5" class="empty">No hay estudiantes activos.</td></tr>';
+  }catch(e){sa("alert-adecuaciones",e.message,"danger");body.innerHTML='';}
+}
+
+async function guardarAdecuacionesSeccion(){
+  const id=document.getElementById("adec-seccion").value;
+  const registros=[...document.querySelectorAll("#adec-body tr[data-estudiante]")].map(tr=>({estudiante_id:Number(tr.dataset.estudiante),no_significativa:tr.querySelector(".adec-no").checked,significativa:tr.querySelector(".adec-si").checked,acceso:tr.querySelector(".adec-ac").checked,observacion:tr.querySelector(".adec-observacion").value.trim()}));
+  if(!id||!registros.length)return;
+  try{await api(`/api/adecuaciones/seccion/${id}`,"PUT",{registros});sa("alert-adecuaciones","Lista de adecuaciones guardada.","success");await cargarSeccionAdecuaciones();}
+  catch(e){sa("alert-adecuaciones",e.message,"danger");}
+}
+
+function cambiarTabAdecuaciones(tab){
+  document.getElementById("adec-panel-lista").style.display=tab==="lista"?"":"none";document.getElementById("adec-panel-solicitudes").style.display=tab==="solicitudes"?"":"none";
+  document.getElementById("tab-adec-lista").classList.toggle("active",tab==="lista");document.getElementById("tab-adec-solicitudes").classList.toggle("active",tab==="solicitudes");
+  if(tab==="solicitudes")cargarSolicitudesAdecuacion();
+}
+
+async function abrirSolicitudAdecuacion(){
+  try{adecEstudiantesSolicitud=ordenarEstudiantes(await api("/api/adecuaciones/mis-estudiantes"));filtrarEstudiantesSolicitudAdecuacion();document.getElementById("adec-sol-buscar").value="";document.getElementById("adec-sol-motivo").value="";document.getElementById("modal-solicitud-adecuacion").classList.add("show");}
+  catch(e){sa("alert-adecuaciones",e.message,"danger");}
+}
+function filtrarEstudiantesSolicitudAdecuacion(){
+  const q=String(document.getElementById("adec-sol-buscar")?.value||"").toLocaleLowerCase("es-CR");
+  const list=adecEstudiantesSolicitud.filter(e=>`${nombreEstudianteLista(e)} ${e.cedula||""} ${e.seccion_nombre||""}`.toLocaleLowerCase("es-CR").includes(q));
+  document.getElementById("adec-sol-estudiante").innerHTML='<option value="">— Seleccione —</option>'+list.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.seccion_nombre||"")}</option>`).join("");
+}
+async function enviarSolicitudAdecuacion(){
+  const payload={estudiante_id:Number(document.getElementById("adec-sol-estudiante").value),tipo:document.getElementById("adec-sol-tipo").value,motivo:document.getElementById("adec-sol-motivo").value.trim()};
+  try{await api("/api/adecuaciones/solicitudes","POST",payload);cerrarModal("modal-solicitud-adecuacion");await cargarSolicitudesAdecuacion();cambiarTabAdecuaciones("solicitudes");}
+  catch(e){sa("alert-adec-sol",e.message,"danger");}
+}
+
+async function cargarSolicitudesAdecuacion(){
+  const cont=document.getElementById("adec-solicitudes-lista");if(!cont)return;
+  try{
+    const d=await api("/api/adecuaciones/solicitudes"),rows=d.solicitudes||[];
+    cont.innerHTML=rows.length?rows.map(s=>`<div class="solicitud-adec ${s.estado==='pendiente'?'':'resuelta'}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div><strong>${htmlSeguro(nombreDesdeCampos(s.nombre,s.primer_apellido,s.segundo_apellido))}</strong> · ${htmlSeguro(s.seccion_nombre||"")}<br/><small>Solicita: ${htmlSeguro(nombreDesdeCampos(s.prof_nombre,s.prof_ap1,s.prof_ap2))}</small></div><span class="badge ${s.estado==='aprobada'?'badge-green':s.estado==='rechazada'?'badge-red':'badge-orange'}">${htmlSeguro(s.estado)}</span></div><p style="margin:8px 0;"><strong>${htmlSeguro(ADECUACION_TIPOS[s.tipo]||s.tipo)}:</strong> ${htmlSeguro(s.motivo)}</p>${s.respuesta?`<div style="font-size:12px;color:var(--muted);">Respuesta: ${htmlSeguro(s.respuesta)}</div>`:""}${d.puede_resolver&&s.estado==='pendiente'?`<div style="display:flex;gap:7px;justify-content:flex-end;"><button class="btn btn-outline btn-sm" onclick="resolverSolicitudAdecuacion(${s.id},'rechazada')">Rechazar</button><button class="btn btn-success btn-sm" onclick="resolverSolicitudAdecuacion(${s.id},'aprobada')">Aprobar y registrar</button></div>`:""}</div>`).join(""):'<div class="empty">No hay solicitudes registradas.</div>';
+  }catch(e){cont.innerHTML=`<div class="alert show danger">${htmlSeguro(e.message)}</div>`;}
+}
+async function resolverSolicitudAdecuacion(id,decision){
+  const respuesta=prompt(decision==="aprobada"?"Observación que verán los docentes (opcional):":"Indique el motivo del rechazo (opcional):","");if(respuesta===null)return;
+  try{await api(`/api/adecuaciones/solicitudes/${id}/resolver`,"PUT",{decision,respuesta});await cargarSolicitudesAdecuacion();if(document.getElementById("adec-seccion").value)await cargarSeccionAdecuaciones();}
+  catch(e){alert(e.message);}
+}
+async function imprimirListaAdecuaciones(){
+  try{
+    const rows=await api("/api/adecuaciones/lista");
+    const contenido=`<p><strong>Curso lectivo:</strong> ${ANIO_LECTIVO_ACTIVO}</p><table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr><th style="border:1px solid #94a3b8;padding:5px;">Estudiante</th><th style="border:1px solid #94a3b8;padding:5px;">Sección</th><th style="border:1px solid #94a3b8;padding:5px;">Adecuación</th><th style="border:1px solid #94a3b8;padding:5px;">Observación</th></tr></thead><tbody>${rows.map(e=>`<tr><td style="border:1px solid #94a3b8;padding:5px;">${htmlSeguro(nombreEstudianteLista(e))}<br/>${htmlSeguro(e.cedula||"")}</td><td style="border:1px solid #94a3b8;padding:5px;">${htmlSeguro(e.seccion_nombre||"")}</td><td style="border:1px solid #94a3b8;padding:5px;">${htmlSeguro(e.adecuacion_tipos||"")}</td><td style="border:1px solid #94a3b8;padding:5px;">${htmlSeguro(e.adecuacion_observacion||"")}</td></tr>`).join("")}</tbody></table>`;
+    await imprimirPDFMEP("LISTA INSTITUCIONAL DE ADECUACIONES",contenido,`adecuaciones_${ANIO_LECTIVO_ACTIVO}.pdf`);
+  }catch(e){sa("alert-adecuaciones",e.message,"danger");}
+}
+
 async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
   // 1. Construir el HTML del contenedor con encabezado + contenido
   const encabezadoHTML = `
@@ -22063,7 +22362,7 @@ function renderGrillaNotas(notasArr){
       const nombreSafe = nombreEstudianteLista(e).replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
         <td>
-          <strong>${nombreEstudianteLista(e)}</strong>
+          <strong>${nombreEstudianteLista(e)}</strong>${badgeAdecuacion(e)}
           <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span>
           <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
         </td>
@@ -22131,7 +22430,7 @@ function renderGrillaNotas(notasArr){
       const nombreSafe2 = nombreEstudianteLista(e).replace(/'/g,"\\'").replace(/"/g,'&quot;');
       return `<tr>
         <td style="position:sticky;left:0;background:#fff;">
-          <strong>${nombreEstudianteLista(e)}</strong>
+          <strong>${nombreEstudianteLista(e)}</strong>${badgeAdecuacion(e)}
           <span style="font-size:11px;color:var(--muted);">(${e.cedula})</span>
           <button class="btn btn-outline btn-xs" onclick="verHistorialPrevio(${e.id}, '${nombreSafe2}')" title="Ver notas previas de este estudiante en otra sección" style="margin-left:6px;padding:2px 8px;">📋</button>
         </td>
@@ -22581,7 +22880,7 @@ function renderPromPeriodo(data){
       const colorEst = total >= aprobMin ? 'var(--verde)' : (total >= aprobMin - 10 ? 'var(--naranja)' : 'var(--rojo)');
       const lblEst = aprobado ? '✓ Aprobado' : '✗ Aplazado';
       return `<tr>
-        <td><strong>${nombreEstudianteLista(e)}</strong>
+        <td><strong>${nombreEstudianteLista(e)}</strong>${badgeAdecuacion(e)}
           <button class="btn-xs" onclick='prom_verDesglose(${JSON.stringify(e).replace(/'/g, "&#39;")})' style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;margin-left:4px;font-size:11px;" title="Ver desglose del cálculo">🔍</button>
           <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
         ${cels}
@@ -22647,7 +22946,7 @@ function renderPromAnual(data){
       const color = aprob ? 'var(--verde)' : (aplaz ? 'var(--rojo)' : 'var(--muted)');
       const lbl = aprob ? '✓ Aprobado' : (aplaz ? '✗ Aplazado' : '—');
       return `<tr>
-        <td><strong>${nombreEstudianteLista(e)}</strong><br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
+        <td><strong>${nombreEstudianteLista(e)}</strong>${badgeAdecuacion(e)}<br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
         <td style="text-align:center;">${nI}</td>
         <td style="text-align:center;">${nII}</td>
         <td style="text-align:center;font-weight:bold;font-size:15px;color:${color};">${nA}</td>

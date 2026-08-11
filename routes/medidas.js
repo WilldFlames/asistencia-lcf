@@ -9,7 +9,11 @@ function canAccess(req, res, next){
   const u = req.session.usuario;
   if(!u) return res.status(401).json({ error:"No autorizado" });
   if(ROLES_MEDIDAS.includes(u.rol)) return next();
-  return res.status(403).json({ error:"Sin permisos" });
+  const coordinador=(u.funciones_extra||[]).includes("coordinador");
+  if(coordinador && req.body?.tipo==="educacion_hibrida") return next();
+  pool.query("SELECT 1 FROM funciones_institucionales WHERE usuario_id=$1 AND tipo='coordinador'",[u.id])
+    .then(r=>r.rows.length && req.body?.tipo==="educacion_hibrida" ? next() : res.status(403).json({error:"Sin permisos"}))
+    .catch(()=>res.status(403).json({error:"Sin permisos"}));
 }
 
 const fechaCR = () => new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
@@ -65,7 +69,15 @@ router.post("/", canAccess, async (req, res) => {
 });
 
 // ── ELIMINAR medida ──────────────────────────────────────────────────────────
-router.delete("/:id", canAccess, async (req, res) => {
+router.delete("/:id", requireAuth, async (req, res) => {
+  const u=req.session.usuario;
+  if(!ROLES_MEDIDAS.includes(u.rol)){
+    const medida=await pool.query("SELECT tipo FROM medidas_estudiantiles WHERE id=$1",[req.params.id]);
+    const coordinador=(u.funciones_extra||[]).includes("coordinador") ||
+      (await pool.query("SELECT 1 FROM funciones_institucionales WHERE usuario_id=$1 AND tipo='coordinador'",[u.id])).rows.length>0;
+    if(!medida.rows.length) return res.status(404).json({error:"Registro no encontrado"});
+    if(!coordinador || medida.rows[0].tipo!=="educacion_hibrida") return res.status(403).json({error:"Sin permisos"});
+  }
   await pool.query("DELETE FROM medidas_estudiantiles WHERE id=$1", [req.params.id]);
   res.json({ ok:true });
 });

@@ -13,6 +13,24 @@ const loginLimiter = createRateLimiter({
   message: "Demasiados intentos de ingreso. Espere 15 minutos e intente nuevamente.",
 });
 
+async function obtenerFuncionesExtra(usuarioId) {
+  const funciones = [];
+  const esGuia = await pool.query("SELECT 1 FROM seccion_guia WHERE profesor_id=$1 LIMIT 1", [usuarioId]);
+  if (esGuia.rows.length > 0) funciones.push("profesor_guia");
+  else {
+    const esOrientador = await pool.query("SELECT 1 FROM seccion_orientador WHERE orientador_id=$1 LIMIT 1", [usuarioId]);
+    if (esOrientador.rows.length > 0) funciones.push("orientador");
+  }
+  const institucionales = await pool.query(
+    "SELECT tipo FROM funciones_institucionales WHERE usuario_id=$1 ORDER BY tipo",
+    [usuarioId]
+  );
+  for (const fila of institucionales.rows) {
+    if (!funciones.includes(fila.tipo)) funciones.push(fila.tipo);
+  }
+  return funciones;
+}
+
 router.post("/login", loginLimiter, async (req, res) => {
   const { cedula, password } = req.body;
   if (!cedula || !password) return res.status(400).json({ error: "Datos incompletos" });
@@ -23,16 +41,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: "Cédula o contraseña incorrectos" });
 
-    // Verificar función extra: guía O orientador (no ambas)
-    const esGuia = await pool.query("SELECT 1 FROM seccion_guia WHERE profesor_id=$1 LIMIT 1", [user.id]);
-    const funciones_extra = [];
-    if (esGuia.rows.length > 0) {
-      funciones_extra.push("profesor_guia");
-    } else {
-      // Solo verificar orientador si no es guía
-      const esOrientador = await pool.query("SELECT 1 FROM seccion_orientador WHERE orientador_id=$1 LIMIT 1", [user.id]);
-      if (esOrientador.rows.length > 0) funciones_extra.push("orientador");
-    }
+    const funciones_extra = await obtenerFuncionesExtra(user.id);
 
     const usuarioSesion = {
       id: user.id,
@@ -60,9 +69,14 @@ router.post("/logout", (req, res, next) => {
   });
 });
 
-router.get("/me", (req, res) => {
-  if (req.session && req.session.usuario)
+router.get("/me", async (req, res) => {
+  if (req.session && req.session.usuario) {
+    try {
+      req.session.usuario.funciones_extra = await obtenerFuncionesExtra(req.session.usuario.id);
+      await saveSession(req);
+    } catch(e) { console.error("actualizar funciones de sesión:", e.message); }
     return res.json({ autenticado: true, usuario: req.session.usuario });
+  }
   res.json({ autenticado: false });
 });
 

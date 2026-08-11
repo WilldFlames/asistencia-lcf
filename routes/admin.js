@@ -304,7 +304,8 @@ router.get("/padres/buscar", canGestionarPadres, async (req, res) => {
         AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
     `, [cedLimpia]);
     const acc = await pool.query(`
-      SELECT activo, primer_login, sid_activo IS NOT NULL AS sesion_activa, created_at
+      SELECT activo, servicio_habilitado, servicio_habilitado_at,
+        primer_login, sid_activo IS NOT NULL AS sesion_activa, created_at
       FROM padres_acceso WHERE cedula = $1
     `, [cedLimpia]);
     const esPersonal = await pool.query("SELECT id FROM usuarios WHERE cedula=$1", [cedLimpia]);
@@ -376,6 +377,53 @@ router.put("/padres/:cedula/toggle-activo", canGestionarPadres, async (req, res)
   `, [cedLimpia]);
   if(!r.rows.length) return res.status(404).json({ error: "No hay cuenta creada para este padre. Solo se pueden activar/desactivar cuentas que ya hayan ingresado al menos una vez." });
   res.json({ ok: true, activo: r.rows[0].activo });
+});
+
+// Habilitación comercial del portal familiar. Al habilitar por primera vez
+// se crea la cuenta con contraseña inicial igual a la cédula.
+router.put("/padres/:cedula/servicio", canGestionarPadres, async (req, res) => {
+  const cedLimpia = limpiarCed(req.params.cedula);
+  const habilitado = req.body?.habilitado === true;
+  const principal = await pool.query(`
+    SELECT 1 FROM encargados
+    WHERE REPLACE(REPLACE(REPLACE(cedula,'-',''),'.',''),' ','')=$1
+      AND COALESCE(es_principal,false)=true LIMIT 1
+  `, [cedLimpia]);
+  if(!principal.rows.length)
+    return res.status(400).json({ error:"Solo se puede habilitar al encargado principal." });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const actual = await client.query("SELECT id FROM padres_acceso WHERE cedula=$1 FOR UPDATE", [cedLimpia]);
+    if(!actual.rows.length){
+      if(!habilitado){
+        await client.query("ROLLBACK");
+        return res.json({ ok:true, servicio_habilitado:false });
+      }
+      const hash = await bcrypt.hash(cedLimpia, 10);
+      await client.query(`
+        INSERT INTO padres_acceso
+          (cedula,password_hash,primer_login,activo,servicio_habilitado,servicio_habilitado_at,servicio_habilitado_por)
+        VALUES ($1,$2,true,true,true,NOW(),$3)
+      `, [cedLimpia,hash,req.session.usuario.id]);
+    } else {
+      await client.query(`
+        UPDATE padres_acceso
+        SET servicio_habilitado=$1,
+            servicio_habilitado_at=CASE WHEN $1 THEN NOW() ELSE servicio_habilitado_at END,
+            servicio_habilitado_por=CASE WHEN $1 THEN $2 ELSE servicio_habilitado_por END,
+            activo=CASE WHEN $1 THEN true ELSE activo END,
+            sid_activo=CASE WHEN $1 THEN sid_activo ELSE NULL END
+        WHERE cedula=$3
+      `, [habilitado,req.session.usuario.id,cedLimpia]);
+    }
+    await client.query("COMMIT");
+    res.json({ ok:true, servicio_habilitado:habilitado });
+  } catch(e) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error:e.message });
+  } finally { client.release(); }
 });
 
 // Forzar cierre de sesión activa (útil si sospechan uso no autorizado)
@@ -814,6 +862,39 @@ router.post("/borrar-fotos", onlyAdmin, async (req, res) => {
     console.error("borrar-fotos:", e);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── FUNCIONES INSTITUCIONALES (Coordinación y Comité de Apoyo) ─────────
+router.get("/funciones-institucionales", onlyAdmin, async (req,res)=>{
+  const r=await pool.query(`
+    SELECT fi.id,fi.tipo,fi.usuario_id,fi.created_at,
+      u.cedula,u.nombre,u.primer_apellido,u.segundo_apellido,u.rol
+    FROM funciones_institucionales fi
+    JOIN usuarios u ON u.id=fi.usuario_id
+    ORDER BY fi.tipo,u.primer_apellido,u.segundo_apellido,u.nombre
+  `);
+  res.json(r.rows);
+});
+
+router.post("/funciones-institucionales", onlyAdmin, async (req,res)=>{
+  const usuarioId=Number(req.body?.usuario_id);
+  const tipo=String(req.body?.tipo||"");
+  if(!usuarioId || !["coordinador","comite_apoyo"].includes(tipo))
+    return res.status(400).json({error:"Datos de asignación inválidos."});
+  const usu=await pool.query("SELECT 1 FROM usuarios WHERE id=$1 AND activo=true",[usuarioId]);
+  if(!usu.rows.length) return res.status(404).json({error:"Usuario activo no encontrado."});
+  const r=await pool.query(`
+    INSERT INTO funciones_institucionales(usuario_id,tipo,asignado_por)
+    VALUES($1,$2,$3)
+    ON CONFLICT(usuario_id,tipo) DO UPDATE SET asignado_por=EXCLUDED.asignado_por
+    RETURNING id
+  `,[usuarioId,tipo,req.session.usuario.id]);
+  res.json({ok:true,id:r.rows[0].id});
+});
+
+router.delete("/funciones-institucionales/:id", onlyAdmin, async (req,res)=>{
+  await pool.query("DELETE FROM funciones_institucionales WHERE id=$1",[req.params.id]);
+  res.json({ok:true});
 });
 
 module.exports = router;

@@ -101,6 +101,7 @@
     document.getElementById("pp-push-title").textContent = titulo;
     document.getElementById("pp-push-detail").textContent = detalle;
     const botonPush = document.getElementById("pp-push-action");
+    botonPush.hidden = tipo === "active";
     botonPush.textContent = accion;
     botonPush.disabled = deshabilitado;
     botonPush.dataset.active = tipo === "active" ? "1" : "0";
@@ -132,7 +133,10 @@
       const registro = await navigator.serviceWorker.ready;
       const suscripcion = await registro.pushManager.getSubscription();
       if (suscripcion && Notification.permission === "granted") {
-        pintarPush({ tipo:"active", titulo:"Notificaciones activadas", detalle:"Este dispositivo recibirá boletas, escapes, anuncios, citas y permisos de salida.", accion:"Desactivar" });
+        // Renueva la relación dispositivo-cuenta en cada ingreso. Esto corrige
+        // suscripciones que el teléfono conservó pero quedaron sin asociar en BD.
+        await apiPush("/api/padres/push/suscribir", "POST", { subscription:suscripcion.toJSON() });
+        pintarPush({ tipo:"active", titulo:"Notificaciones activadas", detalle:"Este dispositivo recibirá avisos aunque la aplicación esté cerrada. Para verlos en pantalla, permita Avisos/Banners e Insignias en los ajustes del teléfono.", accion:"Activadas", deshabilitado:true });
       } else {
         pintarPush({ titulo:"Active las notificaciones importantes", detalle:"El liceo podrá avisarle aunque la aplicación esté cerrada.", accion:"Activar" });
       }
@@ -151,13 +155,6 @@
     try {
       const registro = await navigator.serviceWorker.ready;
       const existente = await registro.pushManager.getSubscription();
-      if (botonPush.dataset.active === "1" && existente) {
-        await apiPush("/api/padres/push/suscribir", "DELETE", { endpoint: existente.endpoint });
-        await existente.unsubscribe();
-        if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
-        await mostrarNotificacionesPadres();
-        return;
-      }
       const configuracion = await apiPush("/api/padres/push/config");
       if (!configuracion.configurada || !configuracion.publicKey) throw new Error("El servicio todavía no está configurado en Railway.");
       const permiso = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
@@ -180,6 +177,7 @@
     if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
     try {
       registroSW = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      await registroSW.update().catch(() => {});
       if (registroSW.waiting && navigator.serviceWorker.controller) mostrarActualizacion(registroSW);
       registroSW.addEventListener("updatefound", () => {
         const worker = registroSW.installing;
@@ -202,6 +200,30 @@
     installPrompt = null;
     sincronizarBoton();
   });
+
+  // El Service Worker usa este mensaje como respaldo cuando el teléfono ya
+  // tenía la aplicación abierta al tocar una notificación.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", event => {
+      if (event.data?.type !== "LCF_OPEN_NOTIFICATION") return;
+      const destino = new URL(event.data.url || "/?app=familias", location.origin);
+      const tab = destino.searchParams.get("abrir");
+      if (typeof window.ppTab === "function" && tab) {
+        window.focus();
+        window.ppTab(tab);
+        history.replaceState({}, "", "/?app=familias");
+      } else {
+        location.assign(destino.href);
+      }
+    });
+  }
+
+  function limpiarBurbujaAlAbrir() {
+    if (document.visibilityState !== "visible") return;
+    if ("clearAppBadge" in navigator) navigator.clearAppBadge().catch(() => {});
+  }
+  document.addEventListener("visibilitychange", limpiarBurbujaAlAbrir);
+  window.addEventListener("focus", limpiarBurbujaAlAbrir);
 
   window.LCFPWA = {
     instalar,

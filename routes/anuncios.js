@@ -29,7 +29,7 @@ router.post("/", canAnunciar, async (req, res) => {
     INSERT INTO anuncios (titulo, cuerpo, para_todos, secciones, creado_por)
     VALUES ($1,$2,$3,$4,$5) RETURNING *
   `, [titulo.trim(), cuerpo.trim(), todos, todos ? [] : secciones.map(Number), req.session.usuario.id]);
-  void notificarSecciones(todos ? null : secciones, {
+  await notificarSecciones(todos ? null : secciones, {
     title: `📣 ${titulo.trim()}`,
     body: cuerpo.trim().slice(0, 240),
     url: "/?app=familias&abrir=avisos",

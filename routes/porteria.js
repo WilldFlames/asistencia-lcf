@@ -133,8 +133,8 @@ router.post("/permisos", canPermisos, async (req, res) => {
       url:"/?app=familias&abrir=permisos",
       tag:`permiso-salida-${permiso.id}`,
     };
-    if(tipo==="individual") void notificarEstudiante(estudiante_id,{...aviso,body:`Se registró un permiso de salida para {estudiante}${hora_salida?` a las ${hora_salida}`:""}, correspondiente al ${fechaTexto}. Ingrese al portal para revisarlo.`});
-    else void notificarSecciones([seccion_id],aviso);
+    if(tipo==="individual") await notificarEstudiante(estudiante_id,{...aviso,body:`Se registró un permiso de salida para {estudiante}${hora_salida?` a las ${hora_salida}`:""}, correspondiente al ${fechaTexto}. Ingrese al portal para revisarlo.`});
+    else await notificarSecciones([seccion_id],aviso);
     res.json({ ok: true, permiso });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -147,8 +147,8 @@ router.put("/permisos/:id/anular", canPermisos, async (req, res) => {
   if(!r.rows.length) return res.status(404).json({ error: "Permiso no encontrado" });
   const permiso=r.rows[0];
   const aviso={title:"Permiso de salida anulado",body:"La institución anuló un permiso de salida registrado anteriormente. Ingrese al portal para revisar el estado.",url:"/?app=familias&abrir=permisos",tag:`permiso-anulado-${permiso.id}`};
-  if(permiso.tipo==="individual") void notificarEstudiante(permiso.estudiante_id,aviso);
-  else void notificarSecciones([permiso.seccion_id],aviso);
+  if(permiso.tipo==="individual") await notificarEstudiante(permiso.estudiante_id,aviso);
+  else await notificarSecciones([permiso.seccion_id],aviso);
   res.json({ ok: true });
 });
 
