@@ -14,6 +14,7 @@ const {
   regenerateSession,
   saveSession,
 } = require("../middleware/security");
+const { estadoConfiguracion } = require("../utils/push-familias");
 
 const loginPadresLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -297,6 +298,48 @@ router.get("/me", async (req, res) => {
 router.get("/config", requirePadre, async (req,res)=>{
   const anio=await obtenerAnioActivo();
   res.json({ anio_activo:anio, calendario:await obtenerCalendario(anio) });
+});
+
+// ── Notificaciones en cada dispositivo de la familia ─────────────────────
+router.get("/push/config", requirePadre, async (req,res)=>{
+  res.json(estadoConfiguracion());
+});
+
+router.post("/push/suscribir", requirePadre, async (req,res)=>{
+  const suscripcion=req.body?.subscription||{};
+  const endpoint=String(suscripcion.endpoint||"").trim();
+  const p256dh=String(suscripcion.keys?.p256dh||"").trim();
+  const auth=String(suscripcion.keys?.auth||"").trim();
+  let endpointUrl;
+  try{ endpointUrl=new URL(endpoint); }catch{}
+  if(!endpointUrl || endpointUrl.protocol!=="https:" || endpoint.length>4096 || !p256dh || !auth || p256dh.length>1000 || auth.length>1000)
+    return res.status(400).json({error:"La suscripción de notificaciones no es válida."});
+  if(!estadoConfiguracion().configurada)
+    return res.status(503).json({error:"Las notificaciones todavía no están configuradas en el servidor."});
+
+  const r=await pool.query(`
+    INSERT INTO push_suscripciones(padre_acceso_id,endpoint,p256dh,auth,user_agent)
+    SELECT id,$2,$3,$4,$5 FROM padres_acceso WHERE cedula=$1 AND activo=true
+    ON CONFLICT(endpoint) DO UPDATE SET
+      padre_acceso_id=EXCLUDED.padre_acceso_id,
+      p256dh=EXCLUDED.p256dh,
+      auth=EXCLUDED.auth,
+      user_agent=EXCLUDED.user_agent,
+      updated_at=NOW()
+    RETURNING id
+  `,[req.session.padre.cedula,endpoint,p256dh,auth,String(req.get("user-agent")||"").slice(0,500)]);
+  if(!r.rows.length) return res.status(404).json({error:"No se encontró la cuenta familiar."});
+  res.json({ok:true});
+});
+
+router.delete("/push/suscribir", requirePadre, async (req,res)=>{
+  const endpoint=String(req.body?.endpoint||"").trim();
+  if(!endpoint) return res.status(400).json({error:"Suscripción requerida."});
+  await pool.query(`
+    DELETE FROM push_suscripciones ps USING padres_acceso pa
+    WHERE ps.padre_acceso_id=pa.id AND ps.endpoint=$1 AND pa.cedula=$2
+  `,[endpoint,req.session.padre.cedula]);
+  res.json({ok:true});
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

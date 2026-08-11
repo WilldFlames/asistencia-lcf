@@ -813,9 +813,17 @@ tr:hover td{background:#f8fafc;}
   .pp-main{max-width:1180px;margin:0 auto;padding:18px;}
   .pp-student-strip{display:flex;gap:10px;overflow-x:auto;padding:1px 1px 12px;scrollbar-width:thin;}
   .pp-student-card{min-width:245px;text-align:left;padding:13px 15px;border-radius:14px;cursor:pointer;border:1px solid #dbe5ef;background:#fff;box-shadow:0 3px 12px rgba(20,50,80,.05);transition:.18s;}
+  .pp-student-strip.single .pp-student-card{width:100%;min-width:0;}
+  .pp-student-name{font-weight:800;font-size:13.5px;line-height:1.3;}
+  .pp-student-meta{font-size:11.5px;color:#6b7f92;margin-top:4px;}
+  .pp-push-panel{display:flex;align-items:center;gap:11px;margin:0 0 12px;padding:11px 13px;border:1px solid #bfdbfe;border-radius:13px;background:linear-gradient(135deg,#eff6ff,#fff);box-shadow:0 3px 13px rgba(20,50,80,.05);}
+  .pp-push-panel[hidden]{display:none!important}.pp-push-panel.active{border-color:#a7e3bd;background:linear-gradient(135deg,#ecfdf3,#fff)}.pp-push-panel.problem{border-color:#fed7aa;background:#fffaf0}
+  .pp-push-icon{font-size:24px;line-height:1}.pp-push-copy{min-width:0;flex:1}.pp-push-title{font-size:12.5px;font-weight:800;color:#173f62}.pp-push-detail{font-size:11px;line-height:1.35;color:#6b7f92;margin-top:2px}
+  .pp-push-action{border:0;border-radius:9px;padding:8px 11px;background:#11689f;color:#fff;font-size:11.5px;font-weight:750;cursor:pointer;white-space:nowrap}.pp-push-panel.active .pp-push-action{background:#17834b}.pp-push-action:disabled{opacity:.55;cursor:not-allowed}
   .pp-student-card.active{border-color:#1b6ca8;background:linear-gradient(135deg,#edf7ff,#fff);box-shadow:0 5px 18px rgba(27,108,168,.16);}
   .pp-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;background:#fff;border:1px solid #e0e8f0;padding:7px;border-radius:13px;box-shadow:0 3px 13px rgba(20,50,80,.05);scrollbar-width:thin;}
-  .pp-tab{border:0!important;background:transparent!important;color:#60758a!important;border-radius:9px!important;padding:9px 12px!important;white-space:nowrap;font-weight:650!important;}
+  .pp-tab{border:0!important;background:transparent!important;color:#60758a!important;border-radius:9px!important;padding:9px 12px!important;white-space:nowrap;font-weight:650!important;display:flex;align-items:center;gap:6px;}
+  .pp-tab-icon{font-size:16px;line-height:1;}
   .pp-tab.active{background:#eaf4ff!important;color:#125b91!important;box-shadow:inset 0 0 0 1px #cae4f8;}
   .pp-panel{background:#fff;border:1px solid #e0e8f0;border-radius:15px;padding:17px;box-shadow:0 5px 18px rgba(20,50,80,.06);}
   .pp-panel h2{color:#173f62;font-weight:800;}
@@ -823,6 +831,11 @@ tr:hover td{background:#f8fafc;}
   .pp-section-title{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px;}
   .pp-section-title h2{font-size:16px;margin:0;}
   .pp-today-row{display:grid;grid-template-columns:94px minmax(150px,1fr) minmax(135px,.7fr) auto;align-items:center;gap:10px;padding:11px 7px;border-bottom:1px solid #edf1f5;font-size:13px;}
+  .pp-today-time{font-weight:750;color:#3f5870;white-space:nowrap;line-height:1.2;}
+  .pp-time-end{display:block;margin-top:2px;color:#718297;font-size:11.5px;font-weight:650;}
+  .pp-lesson-count{display:inline-block;margin-top:4px;color:#718297;font-size:10.5px;font-weight:650;}
+  .pp-date-filter{display:grid;grid-template-columns:minmax(190px,260px) minmax(220px,1fr);gap:12px;align-items:end;}
+  .pp-date-note{padding-bottom:9px;}
   .pp-status{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;white-space:nowrap;}
   .pp-status.ok{background:#dcfce7;color:#167443}.pp-status.bad{background:#fee2e2;color:#b42318}.pp-status.warn{background:#ffedd5;color:#b45309}.pp-status.info{background:#dbeafe;color:#1d4ed8}.pp-status.muted{background:#eef2f6;color:#64748b}
   .pp-news-item{border-left:4px solid #2c7cb7;background:#f7fbff;border-radius:9px;padding:10px 11px;margin-bottom:9px;font-size:12.5px;line-height:1.4;}
@@ -841,9 +854,9 @@ tr:hover td{background:#f8fafc;}
     .pp-preview-banner{margin:10px 12px 0;}
     .pp-brand-sub,#pp-refresh-lbl{display:none}.pp-shield{width:40px;height:40px}.pp-brand-title{font-size:13.5px}.pp-header-actions{gap:5px}.pp-icon-btn{width:38px;height:38px;padding:0;font-size:0}.pp-icon-btn::after{content:"↻";font-size:21px}.pp-exit-btn{height:38px;padding:7px 10px}
     .pp-main{width:100%;max-width:100vw;padding-top:12px;padding-right:calc(12px + env(safe-area-inset-right));padding-bottom:calc(22px + env(safe-area-inset-bottom));padding-left:calc(12px + env(safe-area-inset-left));}
-    .pp-tabs{max-width:100%;-webkit-overflow-scrolling:touch}.pp-home-grid{grid-template-columns:1fr}.pp-form-grid{grid-template-columns:1fr}.pp-field.full{grid-column:auto}.pp-field input,.pp-field select,.pp-field textarea{max-width:100%;min-width:0}.pp-today-row{grid-template-columns:72px minmax(0,1fr) auto;gap:7px}.pp-today-row .pp-teacher{display:none}.pp-student-card{min-width:min(215px,calc(100vw - 48px))}.pp-panel{min-width:0;padding:13px}.pp-panel .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}#portal-padres .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}.citas-bloque{grid-template-columns:1fr 1fr!important}.citas-bloque button{grid-column:1/-1}
+    .pp-tabs{max-width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;overflow:visible;padding:6px}.pp-tab{min-width:0!important;padding:8px 2px!important;white-space:normal;flex-direction:column;justify-content:center;gap:3px;font-size:10.5px!important;line-height:1.1;text-align:center}.pp-tab-icon{font-size:18px}.pp-home-grid{grid-template-columns:1fr}.pp-form-grid{grid-template-columns:1fr}.pp-field.full{grid-column:auto}.pp-field input,.pp-field select,.pp-field textarea{max-width:100%;min-width:0}.pp-today-row{grid-template-columns:82px minmax(0,1fr) auto;gap:8px}.pp-today-row .pp-teacher{display:none}.pp-student-card{min-width:min(215px,calc(100vw - 48px))}.pp-push-panel{align-items:flex-start}.pp-push-action{align-self:center}.pp-panel{min-width:0;padding:13px}.pp-panel .table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.pp-date-filter{grid-template-columns:1fr;gap:7px}.pp-date-note{padding-bottom:0}.pp-field input[type="date"]{min-height:45px;font-size:16px}#portal-padres .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}.citas-bloque{grid-template-columns:1fr 1fr!important}.citas-bloque button{grid-column:1/-1}
   }
-  @media(max-width:390px){.pp-brand-title{max-width:125px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-shield{width:36px;height:36px}.pp-main{padding-left:9px;padding-right:9px}.pp-today-row{grid-template-columns:62px minmax(0,1fr)}.pp-today-row .pp-status{grid-column:2;justify-self:start}.pp-exit-btn{font-size:11px}}
+  @media(max-width:390px){.pp-brand-title{max-width:125px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pp-shield{width:36px;height:36px}.pp-main{padding-left:9px;padding-right:9px}.pp-today-row{grid-template-columns:76px minmax(0,1fr)}.pp-today-row .pp-status{grid-column:2;justify-self:start}.pp-exit-btn{font-size:11px}.pp-tab{font-size:9.75px!important}.pp-tab-icon{font-size:17px}}
 </style>
 <div id="portal-padres">
   <header class="pp-header"><div class="pp-header-inner">
@@ -865,16 +878,22 @@ tr:hover td{background:#f8fafc;}
     <!-- Selector de hijo -->
     <div id="pp-hijos-tabs" class="pp-student-strip"></div>
 
+    <div id="pp-push-panel" class="pp-push-panel" hidden>
+      <div class="pp-push-icon" aria-hidden="true">🔔</div>
+      <div class="pp-push-copy"><div id="pp-push-title" class="pp-push-title">Notificaciones del liceo</div><div id="pp-push-detail" class="pp-push-detail">Reciba avisos importantes aunque la aplicación esté cerrada.</div></div>
+      <button id="pp-push-action" class="pp-push-action" type="button" onclick="LCFPWA.alternarNotificaciones()">Activar</button>
+    </div>
+
     <!-- Tabs de contenido -->
     <div class="pp-tabs">
-      <button class="pp-tab" data-tab="inicio" onclick="ppTab('inicio')">🏠 Inicio</button>
-      <button class="pp-tab" data-tab="asistencia" onclick="ppTab('asistencia')">✅ Asistencia</button>
-      <button class="pp-tab" data-tab="conducta" onclick="ppTab('conducta')">🧭 Conducta</button>
-      <button class="pp-tab" data-tab="avisos" onclick="ppTab('avisos')">📣 Avisos</button>
-      <button class="pp-tab" data-tab="porteria" onclick="ppTab('porteria')">🚪 Entradas y salidas</button>
-      <button class="pp-tab" data-tab="permisos" onclick="ppTab('permisos')">🪪 Permisos</button>
-      <button class="pp-tab" data-tab="horario" onclick="ppTab('horario')">🕐 Horario</button>
-      <button class="pp-tab" data-tab="citas" onclick="ppTab('citas')">📅 Solicitar cita</button>
+      <button class="pp-tab" data-tab="inicio" onclick="ppTab('inicio')"><span class="pp-tab-icon">🏠</span><span>Inicio</span></button>
+      <button class="pp-tab" data-tab="asistencia" onclick="ppTab('asistencia')"><span class="pp-tab-icon">✅</span><span>Asistencia</span></button>
+      <button class="pp-tab" data-tab="conducta" onclick="ppTab('conducta')"><span class="pp-tab-icon">🧭</span><span>Conducta</span></button>
+      <button class="pp-tab" data-tab="avisos" onclick="ppTab('avisos')"><span class="pp-tab-icon">📣</span><span>Avisos</span></button>
+      <button class="pp-tab" data-tab="porteria" onclick="ppTab('porteria')"><span class="pp-tab-icon">🚪</span><span>Entradas</span></button>
+      <button class="pp-tab" data-tab="permisos" onclick="ppTab('permisos')"><span class="pp-tab-icon">🪪</span><span>Permisos</span></button>
+      <button class="pp-tab" data-tab="horario" onclick="ppTab('horario')"><span class="pp-tab-icon">🕐</span><span>Horario</span></button>
+      <button class="pp-tab" data-tab="citas" onclick="ppTab('citas')"><span class="pp-tab-icon">📅</span><span>Citas</span></button>
     </div>
 
     <!-- INICIO: jornada de hoy + novedades -->
@@ -933,9 +952,9 @@ tr:hover td{background:#f8fafc;}
     <div id="pp-cont-asistencia" style="display:none;">
       <div class="pp-panel" style="margin-bottom:14px;">
         <div class="pp-section-title"><h2>Asistencia de un día</h2></div>
-        <div style="display:flex;gap:9px;align-items:end;flex-wrap:wrap;">
-          <div class="pp-field"><label>Seleccione una fecha</label><input type="date" id="pp-as-dia" onchange="ppCargarAsistenciaDia()"/></div>
-          <div class="pp-help" style="padding-bottom:9px;">Puede revisar días anteriores materia por materia.</div>
+        <div class="pp-date-filter">
+          <div class="pp-field"><label>Día, mes y año</label><input type="date" id="pp-as-dia" lang="es-CR" onchange="ppCargarAsistenciaDia()"/></div>
+          <div class="pp-help pp-date-note">Puede revisar cualquier día anterior. Las lecciones consecutivas de una misma materia aparecen juntas.</div>
         </div>
         <div id="pp-as-dia-list" style="margin-top:10px;"></div>
       </div>
@@ -5138,9 +5157,16 @@ const calcularEdad=fechaNac=>{
 
 const fmtF=d=>{
   if(!d) return "—";
-  const s = typeof d === 'string' ? d.slice(0,10) : new Date(d).toISOString().slice(0,10);
-  const [y,m,dia] = s.split("-");
-  return `${dia}/${m}/${y}`;
+  const raw=String(d).trim();
+  const iso=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const fecha=d instanceof Date?d:new Date(raw);
+  if(!Number.isNaN(fecha.getTime())){
+    const dia=String(fecha.getUTCDate()).padStart(2,"0");
+    const mes=String(fecha.getUTCMonth()+1).padStart(2,"0");
+    return `${dia}/${mes}/${fecha.getUTCFullYear()}`;
+  }
+  return raw;
 };
 
 // Formato institucional único para personas: Nombre + primer apellido +
@@ -15936,17 +15962,29 @@ async function iniciarPortalPadres(){
   }
   ppHijoActual = ppHijoActual && hijos.find(h=>h.id===ppHijoActual.id) ? ppHijoActual : hijos[0];
   ppRenderHijosTabs();
-  ppTab('inicio');
+  const tabSolicitada=new URLSearchParams(location.search).get('abrir');
+  const tabsPermitidas=['inicio','asistencia','conducta','avisos','porteria','permisos','horario','citas'];
+  ppTab(tabsPermitidas.includes(tabSolicitada)?tabSolicitada:'inicio');
+  if(tabSolicitada){
+    const urlLimpia=new URL(location.href);urlLimpia.searchParams.delete('abrir');history.replaceState({},'',urlLimpia);
+  }
+  window.LCFPWA?.mostrarNotificacionesPadres({modoPrueba:!!p.modo_prueba});
   ppIniciarAutoRefresh();
 }
 
 function ppRenderHijosTabs(){
   const hijos = PP?.hijos || [];
-  document.getElementById("pp-hijos-tabs").innerHTML = hijos.map(h=>`
+  const contenedor=document.getElementById("pp-hijos-tabs");
+  contenedor.classList.toggle("single",hijos.length===1);
+  contenedor.innerHTML = hijos.map(h=>`
     <button class="pp-student-card ${ppHijoActual&&h.id===ppHijoActual.id?'active':''}" onclick="ppSelHijo(${h.id})">
-      <div style="font-weight:800;font-size:13.5px;">🎒 ${htmlSeguro(nombreEstudianteLista(h))}</div>
-      <div style="font-size:11.5px;color:#6b7f92;margin-top:4px;">Sección ${htmlSeguro(h.seccion_nombre||'—')} · Curso lectivo ${ANIO_LECTIVO_ACTIVO}</div>
+      <div class="pp-student-name">🎒 ${htmlSeguro(ppNombreAmigable(nombrePersona(h)))}</div>
+      <div class="pp-student-meta">Sección ${htmlSeguro(h.seccion_nombre||'—')} · Curso lectivo ${ANIO_LECTIVO_ACTIVO}</div>
     </button>`).join("");
+}
+
+function ppNombreAmigable(valor){
+  return String(valor||'').trim().toLocaleLowerCase('es-CR').replace(/(^|[\s'-])\p{L}/gu,letra=>letra.toLocaleUpperCase('es-CR'));
 }
 
 function ppSelHijo(id){
@@ -15996,7 +16034,7 @@ async function ppCargarInicio(){
     (permisos||[]).filter(p=>!p.anulado&&!p.utilizado&&p.fecha>=hoy).slice(0,2).forEach(p=>items.push(`
       <div class="pp-news-item green"><strong>🪪 Permiso de salida</strong><br>${fmtF(p.fecha)}${p.hora_salida?' · '+p.hora_salida:''} · ${htmlSeguro(p.motivo)}</div>`));
     (alertas||[]).slice(0,3).forEach(a=>items.push(`
-      <div class="pp-news-item orange"><strong>⚠️ ${htmlSeguro(a.estudiante)}</strong><br>${htmlSeguro(a.detalle)} · ${fmtF(a.fecha)}</div>`));
+      <div class="pp-news-item orange"><strong>⚠️ ${htmlSeguro(ppNombreAmigable(a.estudiante))}</strong><br>${htmlSeguro(a.detalle)} · ${fmtF(a.fecha)}</div>`));
     (anuncios||[]).slice(0,2).forEach(a=>items.push(`
       <div class="pp-news-item"><strong>📣 ${htmlSeguro(a.titulo)}</strong><br>${htmlSeguro(String(a.cuerpo||'').slice(0,150))}</div>`));
     novedades.innerHTML=items.length?items.join(''):'<div class="pp-help" style="text-align:center;padding:24px 4px;">Todo está al día. No hay novedades pendientes.</div>';
@@ -16070,6 +16108,25 @@ function ppEstadoAsistenciaFila(c){
   return ['Sin registrar','muted','○'];
 }
 
+function ppAgruparLeccionesConsecutivas(clases){
+  return (clases||[]).reduce((grupos,clase)=>{
+    const anterior=grupos[grupos.length-1];
+    const clave=[
+      clase.asignacion_id||'',clase.materia_nombre||clase.materia_texto||'',clase.aula||'',
+      clase.prof_nombre||'',clase.prof_ap1||'',clase.prof_ap2||'',clase.estado||'',
+      clase.justificada?'1':'0',clase.situacion||''
+    ].join('|');
+    const esContinua=anterior&&anterior._clave===clave&&anterior.hora_fin&&clase.hora_inicio&&anterior.hora_fin===clase.hora_inicio;
+    if(esContinua){
+      anterior.hora_fin=clase.hora_fin||anterior.hora_fin;
+      anterior.cantidad_lecciones+=1;
+      return grupos;
+    }
+    grupos.push({...clase,_clave:clave,cantidad_lecciones:1});
+    return grupos;
+  },[]);
+}
+
 async function ppCargarAsistenciaDia(fecha=null,destinoId='pp-as-dia-list'){
   if(!ppHijoActual)return;
   const input=document.getElementById('pp-as-dia');
@@ -16081,14 +16138,14 @@ async function ppCargarAsistenciaDia(fecha=null,destinoId='pp-as-dia-list'){
   cont.innerHTML='<div class="pp-help">Cargando...</div>';
   try{
     const r=await api(`/api/padres/hijo/${ppHijoActual.id}/asistencia-dia?fecha=${encodeURIComponent(fecha)}`);
-    const clases=r.clases||[];
+    const clases=ppAgruparLeccionesConsecutivas(r.clases||[]);
     if(!clases.length){cont.innerHTML='<div class="pp-help" style="text-align:center;padding:24px;">No hay lecciones programadas para este día.</div>';return;}
     cont.innerHTML=clases.map(c=>{
       const [txt,clase,punto]=ppEstadoAsistenciaFila(c);
       const prof=nombreDesdeCampos(c.prof_nombre,c.prof_ap1,c.prof_ap2,{vacio:'Profesor por definir'});
       return `<div class="pp-today-row">
-        <div style="font-weight:750;color:#3f5870;">${c.hora_inicio||'—'}<br><span class="pp-help">${c.hora_fin||''}</span></div>
-        <div><strong>${htmlSeguro(c.materia_nombre||c.materia_texto||'Materia')}</strong>${c.aula?`<div class="pp-help">Aula ${c.aula}</div>`:''}</div>
+        <div class="pp-today-time"><span>${c.hora_inicio||'—'}</span><span class="pp-time-end">${c.hora_fin||''}</span></div>
+        <div><strong>${htmlSeguro(c.materia_nombre||c.materia_texto||'Materia')}</strong>${c.aula?`<div class="pp-help">Aula ${c.aula}</div>`:''}${c.cantidad_lecciones>1?`<span class="pp-lesson-count">${c.cantidad_lecciones} lecciones consecutivas</span>`:''}</div>
         <div class="pp-teacher" style="color:#60758a;font-size:12px;">${htmlSeguro(prof)}</div>
         <span class="pp-status ${clase}">${punto} ${txt}</span>
       </div>`;

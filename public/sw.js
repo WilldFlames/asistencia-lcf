@@ -1,4 +1,4 @@
-const CACHE_VERSION = "lcf-familias-v1";
+const CACHE_VERSION = "lcf-familias-v2";
 const APP_ASSETS = [
   "/offline.html",
   "/manifest.webmanifest",
@@ -25,6 +25,39 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("message", event => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
+
+self.addEventListener("push", event => {
+  let datos = {};
+  try { datos = event.data ? event.data.json() : {}; } catch { datos = { body: event.data?.text() || "" }; }
+  const titulo = datos.title || "Liceo de Calle Fallas";
+  const opciones = {
+    body: datos.body || "Tiene una nueva notificación institucional.",
+    icon: "/icons/lcf-familias-192.png",
+    badge: "/icons/lcf-familias-192.png",
+    tag: datos.tag || "lcf-familias",
+    renotify: true,
+    requireInteraction: datos.requireInteraction === true,
+    data: { url: datos.url || "/?app=familias" },
+  };
+  const trabajos = [self.registration.showNotification(titulo, opciones)];
+  if (self.navigator && "setAppBadge" in self.navigator) trabajos.push(self.navigator.setAppBadge(1).catch(() => {}));
+  event.waitUntil(Promise.all(trabajos));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const destino = new URL(event.notification.data?.url || "/?app=familias", self.location.origin).href;
+  event.waitUntil((async () => {
+    const ventanas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const ventana of ventanas) {
+      if (new URL(ventana.url).origin !== self.location.origin) continue;
+      if ("navigate" in ventana) await ventana.navigate(destino);
+      await ventana.focus();
+      return;
+    }
+    if (self.clients.openWindow) await self.clients.openWindow(destino);
+  })());
 });
 
 self.addEventListener("fetch", event => {

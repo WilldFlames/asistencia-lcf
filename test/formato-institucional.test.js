@@ -28,7 +28,8 @@ test("los botones de ojo usan una ventana institucional y no un alert de conteni
 });
 
 test("las fechas institucionales se muestran como día, mes y año", () => {
-  assert.match(frontend, /return `\$\{dia\}\/\$\{m\}\/\$\{y\}`/);
+  assert.match(frontend, /const iso=raw\.match\(\/\^\(\\d\{4\}\)\-/);
+  assert.match(frontend, /return `\$\{dia\}\/\$\{mes\}\/\$\{fecha\.getUTCFullYear\(\)\}`/);
   assert.match(frontend, /filaDetalle\('Fecha de nacimiento',fmtF\(p\.fecha_nacimiento\)\)/);
   assert.match(frontend, /<strong>Fecha de emisión:<\/strong> \$\{fmtF\(fechaHoyCR\(\)\)\}/);
 });

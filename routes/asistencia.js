@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireDocente } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
+const { notificarEstudiante } = require("../utils/push-familias");
 
 // ── MIS ASIGNACIONES ──────────────────────────────────────────────────────────
 // Detecta el período lectivo actual según la fecha del servidor.
@@ -358,6 +359,12 @@ router.post("/", requireDocente, async (req, res) => {
                 "UPDATE asistencia SET boleta_ausencia_id=$1 WHERE id=$2",
                 [boletaId, asistRow.id]
               );
+              void notificarEstudiante(reg.estudiante_id, {
+                title: "Nueva boleta de conducta",
+                body: "Se registró una boleta por ausencia injustificada para {estudiante}. Ingrese al portal para revisarla.",
+                url: "/?app=familias&abrir=conducta",
+                tag: `boleta-ausencia-${boletaId}`,
+              });
 
               // ── Notificar al profesor guía de la sección ──
               // Antes no se notificaba — el guía no se enteraba de la boleta automática.

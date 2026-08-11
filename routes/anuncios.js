@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireRol } = require("../middleware/auth");
+const { notificarSecciones } = require("../utils/push-familias");
 
 const canAnunciar = requireRol("admin", "secretaria", "administrativo");
 
@@ -28,6 +29,12 @@ router.post("/", canAnunciar, async (req, res) => {
     INSERT INTO anuncios (titulo, cuerpo, para_todos, secciones, creado_por)
     VALUES ($1,$2,$3,$4,$5) RETURNING *
   `, [titulo.trim(), cuerpo.trim(), todos, todos ? [] : secciones.map(Number), req.session.usuario.id]);
+  void notificarSecciones(todos ? null : secciones, {
+    title: `📣 ${titulo.trim()}`,
+    body: cuerpo.trim().slice(0, 240),
+    url: "/?app=familias&abrir=avisos",
+    tag: `anuncio-${r.rows[0].id}`,
+  });
   res.json({ ok: true, anuncio: r.rows[0] });
 });
 

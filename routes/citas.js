@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireDocente } = require("../middleware/auth");
 const { fechaCR, obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
+const { notificarCedula } = require("../utils/push-familias");
 
 function horaCR(){
   return new Intl.DateTimeFormat("en-GB", {
@@ -12,6 +13,7 @@ function horaCR(){
 function limpiarCedula(c){ return String(c || "").replace(/[\s\-.\/\\]/g, ""); }
 function horaValida(h){ return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(h || "").slice(0,5)); }
 function fechaValida(f){ return /^\d{4}-\d{2}-\d{2}$/.test(String(f || "")); }
+function fechaTexto(f){ const [y,m,d]=String(f||"").slice(0,10).split("-"); return d&&m&&y?`${d}/${m}/${y}`:String(f||""); }
 
 function validarMomento(fecha, hora){
   if(!fechaValida(fecha) || !horaValida(hora)) return "Fecha u hora inválida.";
@@ -202,6 +204,13 @@ router.post("/solicitar", requireDocente, async (req, res) => {
       RETURNING id
     `, [anio, estudianteId, profesorId, asig.id, cedula, fecha, hora, duracion, motivo]);
     await client.query("COMMIT");
+    void notificarCedula(cedula, {
+      title:"📅 Nueva solicitud de cita",
+      body:`Un docente propuso una cita para el ${fechaTexto(fecha)} a las ${hora}. Su confirmación está pendiente.`,
+      url:"/?app=familias&abrir=citas",
+      tag:`cita-pendiente-${r.rows[0].id}`,
+      urgency:"high",
+    });
     res.json({ ok:true, id:r.rows[0].id });
   }catch(e){
     await client.query("ROLLBACK").catch(()=>{});
@@ -242,6 +251,14 @@ router.put("/:id/responder", requireDocente, async (req, res) => {
         es_contrapropuesta=true,respuesta_mensaje=$3,updated_at=NOW() WHERE id=$4`, [fecha, hora, mensaje, cita.id]);
     }
     await client.query("COMMIT");
+    const estadoAviso=accion==="confirmar"?"confirmó":accion==="rechazar"?"rechazó":"propuso otra fecha para";
+    void notificarCedula(cita.encargado_cedula, {
+      title:"Respuesta a solicitud de cita",
+      body:`El docente ${estadoAviso} la cita. Ingrese al portal para revisar los detalles.`,
+      url:"/?app=familias&abrir=citas",
+      tag:`cita-respuesta-${cita.id}-${Date.now()}`,
+      urgency:"high",
+    });
     res.json({ ok:true });
   }catch(e){
     await client.query("ROLLBACK");
@@ -253,9 +270,16 @@ router.put("/:id/responder", requireDocente, async (req, res) => {
 router.put("/:id/cancelar", requireDocente, async (req, res) => {
   const r = await pool.query(`UPDATE citas SET estado='cancelada',pendiente_de=NULL,
     respuesta_mensaje=$1,updated_at=NOW()
-    WHERE id=$2 AND profesor_id=$3 AND estado IN ('pendiente','confirmada') RETURNING id`,
+    WHERE id=$2 AND profesor_id=$3 AND estado IN ('pendiente','confirmada') RETURNING id,encargado_cedula`,
     [String(req.body.mensaje || "").trim(), req.params.id, req.session.usuario.id]);
   if(!r.rows.length) return res.status(404).json({ error:"La cita no existe o ya no puede cancelarse." });
+  void notificarCedula(r.rows[0].encargado_cedula, {
+    title:"Cita cancelada",
+    body:"El docente canceló una cita pendiente o confirmada. Ingrese al portal para revisar la información.",
+    url:"/?app=familias&abrir=citas",
+    tag:`cita-cancelada-${r.rows[0].id}`,
+    urgency:"high",
+  });
   res.json({ ok:true });
 });
 

@@ -67,6 +67,115 @@
     document.body.appendChild(aviso);
   }
 
+  const panelPush = () => document.getElementById("pp-push-panel");
+
+  function claveAplicacion(base64) {
+    const relleno = "=".repeat((4 - base64.length % 4) % 4);
+    const segura = (base64 + relleno).replace(/-/g, "+").replace(/_/g, "/");
+    const datos = atob(segura);
+    return Uint8Array.from([...datos].map(letra => letra.charCodeAt(0)));
+  }
+
+  async function apiPush(ruta, metodo = "GET", cuerpo = null) {
+    const opciones = {
+      method: metodo,
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    };
+    if (cuerpo !== null) {
+      opciones.headers["Content-Type"] = "application/json";
+      opciones.body = JSON.stringify(cuerpo);
+    }
+    const respuesta = await fetch(ruta, opciones);
+    const datos = await respuesta.json().catch(() => ({}));
+    if (!respuesta.ok) throw new Error(datos.error || "No se pudo completar la operación.");
+    return datos;
+  }
+
+  function pintarPush({ tipo = "normal", titulo, detalle, accion = "Activar", deshabilitado = false }) {
+    const panel = panelPush();
+    if (!panel) return;
+    panel.hidden = false;
+    panel.classList.toggle("active", tipo === "active");
+    panel.classList.toggle("problem", tipo === "problem");
+    document.getElementById("pp-push-title").textContent = titulo;
+    document.getElementById("pp-push-detail").textContent = detalle;
+    const botonPush = document.getElementById("pp-push-action");
+    botonPush.textContent = accion;
+    botonPush.disabled = deshabilitado;
+    botonPush.dataset.active = tipo === "active" ? "1" : "0";
+  }
+
+  async function mostrarNotificacionesPadres({ modoPrueba = false } = {}) {
+    portalFamiliasActivo = true;
+    const panel = panelPush();
+    if (!panel) return;
+    if (modoPrueba) { panel.hidden = true; return; }
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window) || !window.isSecureContext) {
+      pintarPush({ tipo:"problem", titulo:"Notificaciones no disponibles", detalle:"Este navegador o dispositivo no permite notificaciones de la aplicación.", accion:"No disponible", deshabilitado:true });
+      return;
+    }
+    if (esIOS() && !instalada()) {
+      pintarPush({ titulo:"Instale LCF Familias para recibir avisos", detalle:"En iPhone primero debe añadir la aplicación a la pantalla de inicio.", accion:"Cómo instalar" });
+      return;
+    }
+    try {
+      const configuracion = await apiPush("/api/padres/push/config");
+      if (!configuracion.configurada) {
+        pintarPush({ tipo:"problem", titulo:"Notificaciones pendientes de configurar", detalle:"La institución todavía debe activar el servicio en Railway.", accion:"Pendiente", deshabilitado:true });
+        return;
+      }
+      if (Notification.permission === "denied") {
+        pintarPush({ tipo:"problem", titulo:"Notificaciones bloqueadas", detalle:"Debe permitirlas desde los ajustes de notificaciones del teléfono.", accion:"Bloqueadas", deshabilitado:true });
+        return;
+      }
+      const registro = await navigator.serviceWorker.ready;
+      const suscripcion = await registro.pushManager.getSubscription();
+      if (suscripcion && Notification.permission === "granted") {
+        pintarPush({ tipo:"active", titulo:"Notificaciones activadas", detalle:"Este dispositivo recibirá boletas, escapes, anuncios, citas y permisos de salida.", accion:"Desactivar" });
+      } else {
+        pintarPush({ titulo:"Active las notificaciones importantes", detalle:"El liceo podrá avisarle aunque la aplicación esté cerrada.", accion:"Activar" });
+      }
+    } catch (error) {
+      pintarPush({ tipo:"problem", titulo:"No se pudo comprobar las notificaciones", detalle:error.message, accion:"Reintentar" });
+    }
+  }
+
+  async function alternarNotificaciones() {
+    const botonPush = document.getElementById("pp-push-action");
+    if (!botonPush || botonPush.disabled) return;
+    if (esIOS() && !instalada()) { mostrarInstruccionesIOS(); return; }
+    botonPush.disabled = true;
+    const textoAnterior = botonPush.textContent;
+    botonPush.textContent = "Procesando...";
+    try {
+      const registro = await navigator.serviceWorker.ready;
+      const existente = await registro.pushManager.getSubscription();
+      if (botonPush.dataset.active === "1" && existente) {
+        await apiPush("/api/padres/push/suscribir", "DELETE", { endpoint: existente.endpoint });
+        await existente.unsubscribe();
+        if ("clearAppBadge" in navigator) await navigator.clearAppBadge().catch(() => {});
+        await mostrarNotificacionesPadres();
+        return;
+      }
+      const configuracion = await apiPush("/api/padres/push/config");
+      if (!configuracion.configurada || !configuracion.publicKey) throw new Error("El servicio todavía no está configurado en Railway.");
+      const permiso = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+      if (permiso !== "granted") throw new Error("No se concedió permiso para mostrar notificaciones.");
+      const suscripcion = existente || await registro.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: claveAplicacion(configuracion.publicKey),
+      });
+      await apiPush("/api/padres/push/suscribir", "POST", { subscription: suscripcion.toJSON() });
+      await mostrarNotificacionesPadres();
+    } catch (error) {
+      pintarPush({ tipo:"problem", titulo:"No se activaron las notificaciones", detalle:error.message, accion:"Reintentar" });
+    } finally {
+      botonPush.disabled = false;
+      if (botonPush.textContent === "Procesando...") botonPush.textContent = textoAnterior;
+    }
+  }
+
   async function registrarServiceWorker() {
     if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
     try {
@@ -96,6 +205,8 @@
 
   window.LCFPWA = {
     instalar,
+    alternarNotificaciones,
+    mostrarNotificacionesPadres,
     mostrarInstalacionPadres() {
       portalFamiliasActivo = true;
       sincronizarBoton();

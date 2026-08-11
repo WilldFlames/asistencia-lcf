@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
+const { notificarEstudiante } = require("../utils/push-familias");
 
 const canManage = requireRol("admin","auxiliar","orientador","profesor_guia");
 
@@ -70,6 +71,12 @@ router.post("/", canManage, async (req, res) => {
     INSERT INTO boletas_conducta (estudiante_id, infraccion_id, asignacion_id, usuario_apoyo_id, registrado_por, fecha, observacion)
     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
   `, [estudiante_id, infraccion_id, asigFinal, apoyoFinal, req.session.usuario.id, fecha, observacion||""]);
+  void notificarEstudiante(estudiante_id, {
+    title: "Nueva boleta de conducta",
+    body: "Se registró una boleta de conducta para {estudiante}. Ingrese al portal para revisar la información.",
+    url: "/?app=familias&abrir=conducta",
+    tag: `boleta-conducta-${r.rows[0].id}`,
+  });
   res.json({ ok: true, id: r.rows[0].id });
 });
 

@@ -29,6 +29,22 @@ APP_ORIGIN=https://www.liccallefallas.com,https://liccallefallas.com
 
 `DATABASE_URL` debe conservar su valor actual. No cree otra base de datos.
 
+## Variables para notificaciones de familias
+
+Genere las claves una sola vez, desde la carpeta del proyecto:
+
+```powershell
+npm run vapid:generar
+```
+
+El comando mostrará `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` y `VAPID_SUBJECT`.
+Agréguelas en **Railway > servicio Web > Variables**. La clave privada no debe
+guardarse en GitHub. Después de desplegar, cada familia activa su propio teléfono
+tocando **Activar notificaciones** dentro de LCF Familias.
+
+No vuelva a generar las claves cuando ya existan teléfonos activos: cambiarlas
+obligaría a todas las familias a activar las notificaciones nuevamente.
+
 ## Despliegue
 
 1. Reemplace en GitHub los archivos del proyecto por el contenido de este paquete.

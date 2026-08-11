@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const { obtenerLecciones } = require("./horarios");
+const { notificarEstudiante, notificarSecciones } = require("../utils/push-familias");
 
 // ── Fecha/hora Costa Rica (mismo patrón que comedor.js) ────────────────────
 function fechaCR(){
@@ -123,7 +124,18 @@ router.post("/permisos", canPermisos, async (req, res) => {
       if(String(e.message).includes("unique") || String(e.message).includes("duplicate")) r = await insertar();
       else throw e;
     }
-    res.json({ ok: true, permiso: r.rows[0] });
+    const permiso=r.rows[0];
+    const [y,m,d]=String(permiso.fecha||fecha).slice(0,10).split("-");
+    const fechaTexto=d&&m&&y?`${d}/${m}/${y}`:String(fecha);
+    const aviso={
+      title:"Permiso de salida registrado",
+      body:`Se registró un permiso de salida${hora_salida?` a las ${hora_salida}`:""} para el ${fechaTexto}. Ingrese al portal para revisarlo.`,
+      url:"/?app=familias&abrir=permisos",
+      tag:`permiso-salida-${permiso.id}`,
+    };
+    if(tipo==="individual") void notificarEstudiante(estudiante_id,{...aviso,body:`Se registró un permiso de salida para {estudiante}${hora_salida?` a las ${hora_salida}`:""}, correspondiente al ${fechaTexto}. Ingrese al portal para revisarlo.`});
+    else void notificarSecciones([seccion_id],aviso);
+    res.json({ ok: true, permiso });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -131,8 +143,12 @@ router.post("/permisos", canPermisos, async (req, res) => {
 
 // ── Anular permiso ────────────────────────────────────────────────────────
 router.put("/permisos/:id/anular", canPermisos, async (req, res) => {
-  const r = await pool.query("UPDATE permisos_salida SET anulado=true WHERE id=$1 RETURNING id", [req.params.id]);
+  const r = await pool.query("UPDATE permisos_salida SET anulado=true WHERE id=$1 RETURNING id,tipo,estudiante_id,seccion_id", [req.params.id]);
   if(!r.rows.length) return res.status(404).json({ error: "Permiso no encontrado" });
+  const permiso=r.rows[0];
+  const aviso={title:"Permiso de salida anulado",body:"La institución anuló un permiso de salida registrado anteriormente. Ingrese al portal para revisar el estado.",url:"/?app=familias&abrir=permisos",tag:`permiso-anulado-${permiso.id}`};
+  if(permiso.tipo==="individual") void notificarEstudiante(permiso.estudiante_id,aviso);
+  else void notificarSecciones([permiso.seccion_id],aviso);
   res.json({ ok: true });
 });
 

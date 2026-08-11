@@ -2056,6 +2056,25 @@ async function initDB() {
       )
     `);
 
+    // Cada teléfono/navegador autorizado por una familia conserva su propia
+    // suscripción Web Push. El endpoint es único: si el dispositivo cambia de
+    // cuenta, queda asociado únicamente al último encargado que lo activó.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS push_suscripciones (
+        id               SERIAL PRIMARY KEY,
+        padre_acceso_id  INTEGER NOT NULL REFERENCES padres_acceso(id) ON DELETE CASCADE,
+        endpoint         TEXT UNIQUE NOT NULL,
+        p256dh           TEXT NOT NULL,
+        auth             TEXT NOT NULL,
+        user_agent       TEXT DEFAULT '',
+        created_at       TIMESTAMP DEFAULT NOW(),
+        updated_at       TIMESTAMP DEFAULT NOW(),
+        last_success_at  TIMESTAMP DEFAULT NULL
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_push_suscripciones_padre
+      ON push_suscripciones(padre_acceso_id)`);
+
     // ── CITAS ENCARGADOS ↔ DOCENTES ─────────────────────────────────────
     // Cada docente publica bloques semanales disponibles. El portal genera
     // las horas posibles dentro de esos bloques y evita reservar dos citas

@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const cldHelper = require("./cloudinary-helper");
+const { notificarEstudiante } = require("../utils/push-familias");
 
 const canManage = requireRol("admin","auxiliar");
 
@@ -783,6 +784,15 @@ router.post("/:id/escape", requireAuth, async (req, res) => {
       } catch(e) {
         console.error('notificar-guia-escape error:', e.message);
       }
+
+      void notificarEstudiante(estId, {
+        title: "⚠️ Alerta de escape de lección",
+        body: "Se registró un escape de lección para {estudiante}. Ingrese al portal para revisar la información.",
+        url: "/?app=familias&abrir=conducta",
+        tag: `escape-${boletaId}`,
+        urgency: "high",
+        requireInteraction: true,
+      });
 
       res.json({ ok: true, escapado: true, boleta_id: boletaId });
 
