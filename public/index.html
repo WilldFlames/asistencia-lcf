@@ -19204,7 +19204,8 @@ async function iniciarRendimiento(){
       rendimientoFiltrosCargados=true;
     }catch(e){sa("alert-rendimiento",e.message,"danger");return;}
   }
-  await cargarRendimiento();
+  document.getElementById("rend-resumen").style.display="none";
+  document.getElementById("rend-contenido").innerHTML='<div class="card empty">Seleccione al menos una sección o una materia y presione Analizar.</div>';
 }
 
 function rendMetrica(etiqueta,valor,color="var(--azul)"){
@@ -19219,6 +19220,7 @@ function tablaDetalleRendimiento(estudiantes,minima){
 async function cargarRendimiento(){
   const q=new URLSearchParams({periodo:document.getElementById("rend-periodo").value});
   const sid=document.getElementById("rend-seccion").value,mid=document.getElementById("rend-materia").value;
+  if(!sid&&!mid){sa("alert-rendimiento","Seleccione al menos una sección o una materia antes de analizar.","warning");return;}
   if(sid)q.set("seccion_id",sid);if(mid)q.set("materia_id",mid);
   const cont=document.getElementById("rend-contenido");cont.innerHTML='<div class="card empty">Calculando rendimiento…</div>';
   try{

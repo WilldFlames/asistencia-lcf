@@ -16,9 +16,13 @@ async function esEncargadoApoyo(u){
 }
 
 async function requireApoyo(req,res,next){
-  if(await esEncargadoApoyo(req.session.usuario)) return next();
-  return res.status(403).json({error:"Solo el Comité de Apoyo puede modificar adecuaciones."});
+  try {
+    if(await esEncargadoApoyo(req.session.usuario)) return next();
+    return res.status(403).json({error:"Solo el Comité de Apoyo puede modificar adecuaciones."});
+  } catch (error) { return next(error); }
 }
+
+const asyncRoute = fn => (req,res,next) => Promise.resolve(fn(req,res,next)).catch(next);
 
 async function profesorPuedeVer(u,estudianteId){
   if(await esEncargadoApoyo(u)) return true;
@@ -46,12 +50,16 @@ const CAMPOS_ADECUACION = `
     CASE WHEN ad.acceso THEN 'De acceso' END
   ) AS adecuacion_tipos`;
 
-router.get("/secciones", requireAuth, async (req,res)=>{
+router.get("/secciones", requireAuth, asyncRoute(async (req,res)=>{
   const u=req.session.usuario;
   const anio=await obtenerAnioActivo();
   if(await esEncargadoApoyo(u)){
-    const r=await pool.query(`SELECT id,nombre,nivel FROM secciones
-      WHERE COALESCE(activa,true)=true ORDER BY nivel,nombre`);
+    const r=await pool.query(`
+      SELECT s.id,s.nombre,s.nivel
+      FROM secciones s
+      JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$1 AND sa.activa=true
+      ORDER BY s.nivel,s.nombre
+    `,[anio]);
     return res.json(r.rows);
   }
   const r=await pool.query(`
@@ -61,9 +69,9 @@ router.get("/secciones", requireAuth, async (req,res)=>{
     ORDER BY s.nivel,s.nombre
   `,[u.id,anio]);
   res.json(r.rows);
-});
+}));
 
-router.get("/seccion/:id", requireAuth, async (req,res)=>{
+router.get("/seccion/:id", requireAuth, asyncRoute(async (req,res)=>{
   const u=req.session.usuario;
   const seccionId=Number(req.params.id);
   if(!seccionId) return res.status(400).json({error:"Sección inválida."});
@@ -83,9 +91,9 @@ router.get("/seccion/:id", requireAuth, async (req,res)=>{
     ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
   `,[seccionId]);
   res.json({editable:await esEncargadoApoyo(u),estudiantes:r.rows});
-});
+}));
 
-router.put("/seccion/:id", requireAuth, requireApoyo, async (req,res)=>{
+router.put("/seccion/:id", requireAuth, requireApoyo, asyncRoute(async (req,res)=>{
   const seccionId=Number(req.params.id);
   const registros=Array.isArray(req.body?.registros)?req.body.registros:[];
   if(!seccionId || !registros.length) return res.status(400).json({error:"No hay datos para guardar."});
@@ -119,9 +127,9 @@ router.put("/seccion/:id", requireAuth, requireApoyo, async (req,res)=>{
     await client.query("ROLLBACK");
     res.status(400).json({error:e.message});
   }finally{client.release();}
-});
+}));
 
-router.get("/mis-estudiantes", requireAuth, async (req,res)=>{
+router.get("/mis-estudiantes", requireAuth, asyncRoute(async (req,res)=>{
   const u=req.session.usuario;
   const anio=await obtenerAnioActivo();
   const r=await pool.query(`
@@ -137,9 +145,9 @@ router.get("/mis-estudiantes", requireAuth, async (req,res)=>{
     ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
   `,[u.id,anio]);
   res.json(r.rows);
-});
+}));
 
-router.post("/solicitudes", requireAuth, async (req,res)=>{
+router.post("/solicitudes", requireAuth, asyncRoute(async (req,res)=>{
   const estudianteId=Number(req.body?.estudiante_id);
   const tipo=String(req.body?.tipo||"");
   const motivo=String(req.body?.motivo||"").trim();
@@ -155,9 +163,9 @@ router.post("/solicitudes", requireAuth, async (req,res)=>{
     (estudiante_id,profesor_id,tipo,motivo) VALUES($1,$2,$3,$4) RETURNING id`,
     [estudianteId,req.session.usuario.id,tipo,motivo]);
   res.json({ok:true,id:r.rows[0].id});
-});
+}));
 
-router.get("/solicitudes", requireAuth, async (req,res)=>{
+router.get("/solicitudes", requireAuth, asyncRoute(async (req,res)=>{
   const u=req.session.usuario;
   const apoyo=await esEncargadoApoyo(u);
   const params=[];
@@ -176,9 +184,9 @@ router.get("/solicitudes", requireAuth, async (req,res)=>{
     ORDER BY CASE sol.estado WHEN 'pendiente' THEN 0 ELSE 1 END,sol.created_at DESC
   `,params);
   res.json({puede_resolver:apoyo,solicitudes:r.rows});
-});
+}));
 
-router.put("/solicitudes/:id/resolver", requireAuth, requireApoyo, async (req,res)=>{
+router.put("/solicitudes/:id/resolver", requireAuth, requireApoyo, asyncRoute(async (req,res)=>{
   const decision=String(req.body?.decision||"");
   const respuesta=String(req.body?.respuesta||"").trim();
   if(!["aprobada","rechazada"].includes(decision)) return res.status(400).json({error:"Decisión inválida."});
@@ -207,9 +215,9 @@ router.put("/solicitudes/:id/resolver", requireAuth, requireApoyo, async (req,re
     res.json({ok:true});
   }catch(e){await client.query("ROLLBACK");res.status(400).json({error:e.message});}
   finally{client.release();}
-});
+}));
 
-router.get("/lista", requireAuth, requireApoyo, async (req,res)=>{
+router.get("/lista", requireAuth, requireApoyo, asyncRoute(async (req,res)=>{
   const r=await pool.query(`
     SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,s.nombre AS seccion_nombre,
       ${CAMPOS_ADECUACION},ad.updated_at
@@ -221,6 +229,6 @@ router.get("/lista", requireAuth, requireApoyo, async (req,res)=>{
     ORDER BY s.nivel,s.nombre,e.primer_apellido,e.segundo_apellido,e.nombre
   `);
   res.json(r.rows);
-});
+}));
 
 module.exports=router;

@@ -10,11 +10,15 @@ async function puedeRendimiento(u){
   return r.rows.length>0;
 }
 async function requireRendimiento(req,res,next){
-  if(await puedeRendimiento(req.session.usuario)) return next();
-  res.status(403).json({error:"Sin permiso para consultar Rendimiento."});
+  try {
+    if(await puedeRendimiento(req.session.usuario)) return next();
+    res.status(403).json({error:"Sin permiso para consultar Rendimiento."});
+  } catch (error) { next(error); }
 }
 
-router.get("/filtros",requireAuth,requireRendimiento,async(req,res)=>{
+const asyncRoute = fn => (req,res,next) => Promise.resolve(fn(req,res,next)).catch(next);
+
+router.get("/filtros",requireAuth,requireRendimiento,asyncRoute(async(req,res)=>{
   const anio=await obtenerAnioActivo();
   const [secs,mats]=await Promise.all([
     pool.query(`SELECT DISTINCT s.id,s.nombre,s.nivel FROM asignaciones a JOIN secciones s ON s.id=a.seccion_id
@@ -24,13 +28,16 @@ router.get("/filtros",requireAuth,requireRendimiento,async(req,res)=>{
         AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático') ORDER BY m.nombre`,[anio])
   ]);
   res.json({anio,secciones:secs.rows,materias:mats.rows});
-});
+}));
 
 function porcentaje(cantidad,total){return total?Number(((cantidad*100)/total).toFixed(2)):0;}
 
-router.get("/resumen",requireAuth,requireRendimiento,async(req,res)=>{
+router.get("/resumen",requireAuth,requireRendimiento,asyncRoute(async(req,res)=>{
   const anio=await obtenerAnioActivo();
   const periodo=["I Período","II Período"].includes(req.query.periodo)?req.query.periodo:"I Período";
+  if(!req.query.seccion_id && !req.query.materia_id){
+    return res.status(400).json({error:"Seleccione al menos una sección o una materia para realizar el análisis."});
+  }
   const params=[anio,periodo];
   let filtros="";
   if(req.query.seccion_id){params.push(Number(req.query.seccion_id));filtros+=` AND a.seccion_id=$${params.length}`;}
@@ -97,6 +104,6 @@ router.get("/resumen",requireAuth,requireRendimiento,async(req,res)=>{
     });
   }
   res.json({anio,periodo,grupos});
-});
+}));
 
 module.exports=router;

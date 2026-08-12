@@ -1,0 +1,19 @@
+CORRECCIÓN DEL ERROR 502
+========================
+
+Este paquete ya incluye todo el parche anterior y corrige:
+
+1. Adecuaciones ahora obtiene las secciones activas desde secciones_anio,
+   que es la tabla correcta para separar 2026, 2027 y los años siguientes.
+
+2. Rendimiento ya no intenta calcular automáticamente todo el colegio al abrir.
+   Primero se debe seleccionar al menos una sección o una materia y luego
+   presionar "Analizar". Esto evita que Railway corte la solicitud por exceso
+   de tiempo y muestre Error 502.
+
+3. Las rutas nuevas capturan correctamente los errores del servidor, para que
+   una consulta que falle no quede esperando hasta convertirse en Error 502.
+
+Después del deploy, cierre y vuelva a abrir la aplicación. Si aparece el aviso
+"Nueva versión disponible", presione "Actualizar".
+

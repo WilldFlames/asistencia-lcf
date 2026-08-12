@@ -46,6 +46,8 @@ test('coordinación tiene Rendimiento y solo edita Educación Híbrida', () => {
   assert.match(medidas, /educacion_hibrida/);
   assert.match(ui, /id="page-rendimiento"/);
   assert.match(ui, /window\.puedeEditarMedida/);
+  assert.match(rendimiento, /Seleccione al menos una sección o una materia/);
+  assert.doesNotMatch(ui, /rendimientoFiltrosCargados=true;[\s\S]{0,180}await cargarRendimiento\(\)/);
 });
 
 test('el Comité de Apoyo administra tres adecuaciones y solicitudes auditables', () => {
@@ -59,5 +61,6 @@ test('el Comité de Apoyo administra tres adecuaciones y solicitudes auditables'
   assert.match(ruta, /decision==="aprobada"|decision === "aprobada"/);
   assert.match(ui, /function badgeAdecuacion/);
   assert.match(ui, /Imprimir lista completa/);
+  assert.match(ruta, /JOIN secciones_anio sa ON sa\.seccion_id=s\.id AND sa\.anio=\$1 AND sa\.activa=true/);
+  assert.doesNotMatch(ruta, /FROM secciones\s+WHERE COALESCE\(activa/);
 });
-
