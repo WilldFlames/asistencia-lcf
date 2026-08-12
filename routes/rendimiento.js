@@ -80,7 +80,7 @@ router.get("/resumen",requireAuth,requireRendimiento,asyncRoute(async(req,res)=>
     for(const ex of examenesR.rows){
       const notas=await pool.query(`
         SELECT e.id AS estudiante_id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
-          ROUND((nx.puntos_obtenidos*100/NULLIF($2,0))::numeric,2) AS nota
+          ROUND((nx.puntos_obtenidos*100/NULLIF($2::numeric,0))::numeric,2) AS nota
         FROM estudiantes e
         LEFT JOIN notas_examen nx ON nx.estudiante_id=e.id AND nx.evaluacion_id=$1
         WHERE e.seccion_id=$3 AND e.activo=true AND COALESCE(e.archivado,false)=false

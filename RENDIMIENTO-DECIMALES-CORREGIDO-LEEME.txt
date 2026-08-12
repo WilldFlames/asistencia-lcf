@@ -1,0 +1,19 @@
+CORRECCION DEL MODULO RENDIMIENTO
+=================================
+
+Problema corregido:
+- Al analizar ciertos examenes, Railway mostraba:
+  invalid input syntax for type integer: "32.00"
+
+Causa:
+- El puntaje total del examen es correctamente decimal, pero la consulta nueva
+  de Rendimiento permitia que PostgreSQL lo interpretara como entero.
+
+Solucion:
+- El calculo declara expresamente el puntaje total como NUMERIC.
+- Se conservan y calculan correctamente puntajes enteros y decimales.
+- No se modifican las calificaciones existentes.
+
+Verificacion:
+- 81 pruebas automatizadas aprobadas.
+

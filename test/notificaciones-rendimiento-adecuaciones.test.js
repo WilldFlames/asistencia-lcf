@@ -42,6 +42,7 @@ test('coordinación tiene Rendimiento y solo edita Educación Híbrida', () => {
   const ui = read('public/index.html');
   assert.match(rendimiento, /nivel\)>=10\?70:65/);
   assert.match(rendimiento, /porcentaje_aprobacion/);
+  assert.match(rendimiento, /NULLIF\(\$2::numeric,0\)/);
   assert.match(medidas, /coordinador/);
   assert.match(medidas, /educacion_hibrida/);
   assert.match(ui, /id="page-rendimiento"/);
