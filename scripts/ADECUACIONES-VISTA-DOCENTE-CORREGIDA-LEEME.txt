@@ -1,0 +1,22 @@
+ADECUACIONES - VISTA DEL DOCENTE
+================================
+
+Se corrigio la separacion entre la vista docente y la del Comite de Apoyo.
+
+Docentes:
+- Solo ven sus secciones activas del curso lectivo actual.
+- Solo ven estudiantes que pertenecen a sus asignaciones.
+- Se respeta el subgrupo A o B cuando corresponde.
+- En la lista solo aparecen estudiantes que el Comite de Apoyo ya marco con
+  adecuacion no significativa, significativa o de acceso.
+- Si no hay casos marcados, se muestra un mensaje explicativo.
+- La opcion Solicitar adecuacion conserva sus estudiantes disponibles para
+  poder iniciar una solicitud nueva.
+
+Comite de Apoyo y administracion:
+- Conservan todas las secciones y todos los estudiantes activos.
+- Pueden marcar, desmarcar, observar y guardar adecuaciones.
+
+Verificacion:
+- 81 pruebas automatizadas aprobadas.
+

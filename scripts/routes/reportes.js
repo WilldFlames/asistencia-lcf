@@ -1,0 +1,414 @@
+const router = require("express").Router();
+const { pool } = require("../db");
+const { requireAuth } = require("../middleware/auth");
+const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
+
+// ── REPORTE ESTUDIANTE ────────────────────────────────────────
+router.get("/estudiante/:id", requireAuth, async (req, res) => {
+  const { desde, hasta } = req.query;
+  const estR = await pool.query(`SELECT e.*, s.nombre AS seccion_nombre FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`, [req.params.id]);
+  if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
+
+  let dateFilter = "";
+  const params = [req.params.id];
+  if (desde) { params.push(desde); dateFilter += ` AND sa.fecha >= $${params.length}`; }
+  if (hasta) { params.push(hasta); dateFilter += ` AND sa.fecha <= $${params.length}`; }
+
+  const r = await pool.query(`
+    SELECT m.nombre AS materia, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1,
+      SUM(sa.lecciones) AS total_lecciones,
+      SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
+      SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
+      -- Tardías ahora SUMA lecciones tardías (no cuenta eventos), igual que ausencias
+      SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') AS tardias,
+      -- Regla MEP: 2 tardías equivalen a 1 ausencia. Se calcula en frontend pero se expone aquí también.
+      FLOOR(SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') / 2.0) AS tardias_equiv_ausencias,
+      JSON_AGG(JSON_BUILD_OBJECT(
+        'fecha',sa.fecha,'lecciones',sa.lecciones,
+        'lecciones_ausentes',a.lecciones_ausentes,
+        'lecciones_tardias',a.lecciones_tardias,
+        'estado',a.estado,'justificada',a.justificada,
+        'motivo',a.motivo,'asistencia_id',a.id
+      ) ORDER BY sa.fecha) FILTER (WHERE a.estado IN ('A','T')) AS detalle
+    FROM asistencia a
+    JOIN sesiones_asistencia sa ON sa.id=a.sesion_id
+    JOIN asignaciones asig ON asig.id=sa.asignacion_id
+    JOIN materias m ON m.id=asig.materia_id
+    JOIN usuarios u ON u.id=asig.profesor_id
+    WHERE a.estudiante_id=$1 ${dateFilter}
+    GROUP BY m.nombre, u.nombre, u.primer_apellido ORDER BY m.nombre
+  `, params);
+
+  // Observaciones del período
+  let obsFilter = ""; const obsParams = [req.params.id];
+  if (desde) { obsParams.push(desde); obsFilter += ` AND o.fecha >= $${obsParams.length}`; }
+  if (hasta) { obsParams.push(hasta); obsFilter += ` AND o.fecha <= $${obsParams.length}`; }
+  const obsR = await pool.query(`
+    SELECT o.*, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
+    FROM observaciones_diarias o JOIN usuarios u ON u.id=o.usuario_id
+    WHERE o.estudiante_id=$1 ${obsFilter} ORDER BY o.fecha DESC
+  `, obsParams);
+
+  const encR = await pool.query("SELECT * FROM encargados WHERE estudiante_id=$1 ORDER BY es_principal DESC", [req.params.id]);
+  res.json({ estudiante: estR.rows[0], materias: r.rows, encargados: encR.rows, observaciones: obsR.rows });
+});
+
+// ── ENVIAR REPORTE POR CORREO ─────────────────────────────────
+router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
+  const { desde, hasta } = req.body;
+  try {
+    const nodemailer = require("nodemailer");
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      return res.status(400).json({ error: "El sistema de correo no está configurado. Contacte al administrador." });
+    }
+
+    // Obtener datos
+    const estR = await pool.query(`SELECT e.*, s.nombre AS seccion_nombre FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`, [req.params.estudiante_id]);
+    if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
+    const est = estR.rows[0];
+
+    const encR = await pool.query("SELECT * FROM encargados WHERE estudiante_id=$1 AND email!='' ORDER BY es_principal DESC", [req.params.estudiante_id]);
+    if (!encR.rows.length) return res.status(400).json({ error: "El estudiante no tiene encargados con correo electrónico registrado." });
+
+    let dateFilter = "";
+    const params = [req.params.estudiante_id];
+    if (desde) { params.push(desde); dateFilter += ` AND sa.fecha >= $${params.length}`; }
+    if (hasta) { params.push(hasta); dateFilter += ` AND sa.fecha <= $${params.length}`; }
+
+    const matR = await pool.query(`
+      SELECT m.nombre AS materia,
+        SUM(sa.lecciones) AS total_lecciones,
+        SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
+        SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
+        SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') AS tardias,
+        FLOOR(SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') / 2.0) AS tardias_equiv_ausencias
+      FROM asistencia a
+      JOIN sesiones_asistencia sa ON sa.id=a.sesion_id
+      JOIN asignaciones asig ON asig.id=sa.asignacion_id
+      JOIN materias m ON m.id=asig.materia_id
+      WHERE a.estudiante_id=$1 ${dateFilter}
+      GROUP BY m.nombre ORDER BY m.nombre
+    `, params);
+
+    const remitente = req.session.usuario;
+    const fmtF = d => { if(!d)return"—"; const dt=new Date(d+"T12:00:00"); return dt.toLocaleDateString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric"}); };
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+        <div style="background:#1a3a5c;color:#fff;padding:20px;border-radius:8px 8px 0 0;text-align:center;">
+          <h2 style="margin:0;">Liceo de Calle Fallas</h2>
+          <p style="margin:4px 0;opacity:.8;font-size:13px;">Directora: Licda. Laura Cruz Jiménez</p>
+          <h3 style="margin:12px 0 0;">Reporte de Asistencia</h3>
+        </div>
+        <div style="border:1px solid #e2e8f0;padding:20px;border-radius:0 0 8px 8px;">
+          <p><strong>Estudiante:</strong> ${est.nombre} ${est.primer_apellido} ${est.segundo_apellido}</p>
+          <p><strong>Sección:</strong> ${est.seccion_nombre||"—"}</p>
+          <p><strong>Período:</strong> ${desde?fmtF(desde):"Inicio"} al ${hasta?fmtF(hasta):"hoy"}</p>
+          <table style="width:100%;border-collapse:collapse;margin-top:16px;font-size:13px;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Materia</th>
+                <th style="padding:8px;border:1px solid #e2e8f0;">Lecciones</th>
+                <th style="padding:8px;border:1px solid #e2e8f0;color:#dc2626;">Ausencias</th>
+                <th style="padding:8px;border:1px solid #e2e8f0;color:#16a34a;">Justificadas</th>
+                <th style="padding:8px;border:1px solid #e2e8f0;color:#d97706;">Tardías</th>
+                <th style="padding:8px;border:1px solid #e2e8f0;">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${matR.rows.map(m => {
+                const tar = parseInt(m.tardias)||0;
+                const tarEq = Math.floor(tar/2);
+                const aus = parseInt(m.ausencias)||0;
+                const ausEf = aus + tarEq;
+                const lecc = parseInt(m.total_lecciones)||0;
+                return `
+                <tr>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;">${m.materia}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;">${lecc}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#dc2626;font-weight:bold;">${aus}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#16a34a;">${m.justificadas||0}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#d97706;">${tar}${tarEq>0?` <span style="font-size:10px;color:#64748b;">(≈${tarEq})</span>`:''}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;">${lecc>0?Math.round(ausEf/lecc*100):0}%</td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+          <p style="margin-top:10px;font-size:11px;color:#64748b;font-style:italic;">
+            Nota: el valor entre paréntesis (≈N) indica las ausencias equivalentes según la regla MEP (2 tardías = 1 ausencia). El % se calcula sumando ausencias y equivalentes.
+          </p>
+          <p style="margin-top:20px;font-size:12px;color:#64748b;">
+            Enviado por: ${remitente.nombre} ${remitente.primer_apellido} ${remitente.segundo_apellido||''} — ${new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric"})}
+          </p>
+        </div>
+      </div>
+    `;
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+
+    const destinatarios = encR.rows.map(e => e.email).filter(Boolean);
+    await transporter.sendMail({
+      from: `"Liceo de Calle Fallas" <${process.env.EMAIL_USER}>`,
+      to: destinatarios.join(", "),
+      subject: `Reporte de Asistencia — ${est.nombre} ${est.primer_apellido} ${est.segundo_apellido||''} (${est.seccion_nombre||""})`,
+      html
+    });
+
+    res.json({ ok: true, enviado_a: destinatarios });
+  } catch(e) { res.status(500).json({ error: "Error al enviar el correo: " + e.message }); }
+});
+
+// ── SECCIONES ACCESIBLES ──────────────────────────────────────
+router.get("/mis-secciones", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const anioActivo = await obtenerAnioActivo();
+  const fx = u.funciones_extra || [];
+  const esGuia      = u.rol === "profesor_guia" || fx.includes("profesor_guia");
+  const esOrientador= u.rol === "orientador"    || fx.includes("orientador");
+
+  if (u.rol === "admin" || u.rol === "auxiliar") {
+    const r = await pool.query(`SELECT s.* FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id
+      WHERE sa.anio=$1 AND sa.activa=true ORDER BY s.nivel,s.nombre`, [anioActivo]);
+    return res.json(r.rows);
+  }
+  if (esGuia) {
+    const r = await pool.query("SELECT s.* FROM secciones s JOIN seccion_guia sg ON sg.seccion_id=s.id WHERE sg.profesor_id=$1 ORDER BY s.nivel,s.nombre", [u.id]);
+    return res.json(r.rows);
+  }
+  if (esOrientador) {
+    const r = await pool.query("SELECT DISTINCT s.* FROM secciones s JOIN seccion_orientador so ON so.seccion_id=s.id WHERE so.orientador_id=$1 ORDER BY s.nivel,s.nombre", [u.id]);
+    return res.json(r.rows);
+  }
+  res.json([]);
+});
+
+router.get("/seccion/:seccion_id/estudiantes", requireAuth, async (req, res) => {
+  const r = await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido FROM estudiantes WHERE seccion_id=$1 AND activo=true ORDER BY primer_apellido,segundo_apellido,nombre`, [req.params.seccion_id]);
+  res.json(r.rows);
+});
+
+// ── BUSCAR ESTUDIANTES ARCHIVADOS / RETIRADOS ──────────────────────────
+// Permite encontrar estudiantes que ya no están activos en una sección
+// para generar reportes históricos de asistencia, cartas de ausentismo, etc.
+// Acepta búsqueda por cédula (exacta o parcial) o por nombre/apellido.
+router.get("/archivados/buscar", requireAuth, async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  if (!q || q.length < 2) return res.json([]);
+  const r = await pool.query(`
+    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+           e.seccion_id, s.nombre AS seccion_nombre,
+           e.activo, e.archivado
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE (e.activo = false OR e.archivado = true)
+      AND (
+        e.cedula ILIKE $1
+        OR e.primer_apellido ILIKE $1
+        OR e.segundo_apellido ILIKE $1
+        OR e.nombre ILIKE $1
+      )
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
+    LIMIT 50
+  `, [`%${q}%`]);
+  res.json(r.rows);
+});
+
+// ── DASHBOARD PROFESOR ───────────────────────────────────────────────────────
+router.get("/dashboard-profesor", requireAuth, async (req, res) => {
+  try {
+  const u = req.session.usuario;
+  const anioActivo = await obtenerAnioActivo();
+  const _crNow = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
+  const hoy = _crNow.getFullYear()+'-'+String(_crNow.getMonth()+1).padStart(2,'0')+'-'+String(_crNow.getDate()).padStart(2,'0');
+
+  // 1 y 2: Paralelo para mayor velocidad
+  const [asigs, informesPendientes] = await Promise.all([
+    pool.query(`
+      SELECT a.id, a.seccion_id, a.subgrupo, s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
+        sa.id AS sesion_hoy, sa.lecciones
+      FROM asignaciones a
+      JOIN secciones s ON s.id=a.seccion_id
+      JOIN materias m ON m.id=a.materia_id
+      LEFT JOIN sesiones_asistencia sa ON sa.asignacion_id=a.id AND sa.fecha=$2
+      WHERE a.profesor_id=$1 AND a.anio=$3
+      ORDER BY s.nombre, m.nombre
+    `, [u.id, hoy, anioActivo]),
+    pool.query(`
+      SELECT COUNT(*) AS c FROM informes
+      WHERE destinatario_id=$1 AND respondido=false AND leido=false
+    `, [u.id])
+  ]);
+
+  // 3. Ausencias frecuentes (estudiantes con más de 10 lecciones ausentes en el período)
+  const fx = u.funciones_extra || [];
+  const esGuia = u.rol==='profesor_guia' || fx.includes('profesor_guia');
+  const esOrientador = u.rol==='orientador' || fx.includes('orientador');
+
+  // Determinar el período lectivo actual (I o II Período 2026).
+  // I Período: 23/feb–3/jul. II Período: 20/jul–9/dic. Si estamos fuera de ambos
+  // (vacaciones de medio año o fin de año), uso el último que cerró.
+  const periodoActual = await obtenerPeriodoActual();
+
+  let ausenciasFrecuentes = [];
+  let seccionesGuia = [];   // array de {id, nombre, nivel} — todas las secciones del usuario
+
+  if (esGuia) {
+    const sg = await pool.query(
+      `SELECT s.id, s.nombre, s.nivel FROM seccion_guia sg
+       JOIN secciones s ON s.id=sg.seccion_id
+       WHERE sg.profesor_id=$1
+       ORDER BY s.nivel, s.nombre`, [u.id]);
+    seccionesGuia = sg.rows;
+  } else if (esOrientador) {
+    const so = await pool.query(
+      `SELECT s.id, s.nombre, s.nivel FROM seccion_orientador so
+       JOIN secciones s ON s.id=so.seccion_id
+       WHERE so.orientador_id=$1
+       ORDER BY s.nivel, s.nombre`, [u.id]);
+    seccionesGuia = so.rows;
+  }
+
+  // Compat hacia atrás: seccionId era un único valor antes
+  const seccionId = seccionesGuia[0]?.id || null;
+
+  if (seccionesGuia.length > 0) {
+    // Ausencias frecuentes en TODAS las secciones del guía/orientador
+    const ids = seccionesGuia.map(s => s.id);
+    const aus = await pool.query(`
+      SELECT e.nombre, e.primer_apellido, e.segundo_apellido,
+        s.nombre AS seccion_nombre,
+        COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) AS total_ausencias
+      FROM estudiantes e
+      LEFT JOIN secciones s ON s.id=e.seccion_id
+      LEFT JOIN asistencia ast ON ast.estudiante_id=e.id AND ast.estado='A' AND ast.justificada=false
+      LEFT JOIN sesiones_asistencia sa ON sa.id=ast.sesion_id
+        AND sa.fecha BETWEEN $2 AND $3
+      WHERE e.seccion_id = ANY($1::int[]) AND e.activo=true
+      GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido, s.nombre
+      HAVING COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) >= 10
+      ORDER BY total_ausencias DESC
+      LIMIT 10
+    `, [ids, periodoActual.desde, periodoActual.hasta]);
+    ausenciasFrecuentes = aus.rows;
+  } else {
+    // Para profesores regulares, sus propios estudiantes
+    const aus = await pool.query(`
+      SELECT e.nombre, e.primer_apellido, e.segundo_apellido,
+        s.nombre AS seccion_nombre,
+        m.nombre AS materia_nombre,
+        COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) AS total_ausencias
+      FROM asignaciones a
+      JOIN materias m ON m.id=a.materia_id
+      JOIN secciones s ON s.id=a.seccion_id
+      JOIN estudiantes e ON e.seccion_id=a.seccion_id AND e.activo=true
+      LEFT JOIN asistencia ast ON ast.estudiante_id=e.id AND ast.estado='A' AND ast.justificada=false
+      LEFT JOIN sesiones_asistencia sa ON sa.id=ast.sesion_id AND sa.asignacion_id=a.id
+        AND sa.fecha BETWEEN $2 AND $3
+      WHERE a.profesor_id=$1 AND a.anio=$4
+      GROUP BY e.id, e.nombre, e.primer_apellido, e.segundo_apellido, s.nombre, m.nombre
+      HAVING COALESCE(SUM(COALESCE(ast.lecciones_ausentes, sa.lecciones)),0) >= 10
+      ORDER BY total_ausencias DESC
+      LIMIT 10
+    `, [u.id, periodoActual.desde, periodoActual.hasta, anioActivo]);
+    ausenciasFrecuentes = aus.rows;
+  }
+
+  // 4. Estado conducta — UNA fila por sección, filtrada por período actual.
+  //    Antes: un solo objeto, todo el histórico → cifras desactualizadas y faltaba la 2ª sección.
+  let estadosConducta = [];
+  if (seccionesGuia.length > 0) {
+    const ids = seccionesGuia.map(s => s.id);
+    const cond = await pool.query(`
+      SELECT
+        s.id AS seccion_id,
+        s.nombre AS seccion_nombre,
+        COUNT(DISTINCT e.id) AS total,
+        COUNT(DISTINCT CASE WHEN (100 - COALESCE(rebajo,0)) < 60 THEN e.id END) AS criticos,
+        COUNT(DISTINCT CASE WHEN (100 - COALESCE(rebajo,0)) < 80
+          AND (100 - COALESCE(rebajo,0)) >= 60 THEN e.id END) AS en_riesgo
+      FROM secciones s
+      LEFT JOIN estudiantes e ON e.seccion_id=s.id AND e.activo=true
+      LEFT JOIN (
+        SELECT bc.estudiante_id, SUM(i.puntos) AS rebajo
+        FROM boletas_conducta bc JOIN infracciones i ON i.id=bc.infraccion_id
+        WHERE bc.fecha BETWEEN $2 AND $3
+        GROUP BY bc.estudiante_id
+      ) r ON r.estudiante_id=e.id
+      WHERE s.id = ANY($1::int[])
+      GROUP BY s.id, s.nombre
+      ORDER BY s.nivel, s.nombre
+    `, [ids, periodoActual.desde, periodoActual.hasta]);
+    estadosConducta = cond.rows;
+  }
+  // Compat hacia atrás: el frontend viejo lee estadoConducta (singular)
+  const estadoConducta = estadosConducta[0] || null;
+
+  // 5. Informes solicitados sin responder (guía/orientador)
+  const informesSolicitados = await pool.query(`
+    SELECT COUNT(*) AS c FROM informes
+    WHERE remitente_id=$1 AND respondido=false
+  `, [u.id]);
+
+  res.json({
+    asignaciones: asigs.rows,
+    informesPendientes: parseInt(informesPendientes.rows[0].c),
+    ausenciasFrecuentes,
+    estadoConducta,        // legacy: primera sección
+    estadosConducta,       // NUEVO: array completo (una entrada por sección)
+    seccionesGuia,         // NUEVO: lista de secciones del usuario (id, nombre, nivel)
+    periodoActual,         // NUEVO: período usado para los filtros
+    informesSolicitados: parseInt(informesSolicitados.rows[0].c),
+    esGuia, esOrientador, seccionId
+  });
+  } catch(err) {
+    console.error("dashboard-profesor error:", err.message, err.stack);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── REPORTE DE CUMPLIMIENTO (admin) ──────────────────────────────────────────
+router.get("/cumplimiento", requireAuth, async (req, res) => {
+  const { desde, hasta } = req.query;
+  const _crNow = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'}));
+  const hoy = _crNow.getFullYear()+'-'+String(_crNow.getMonth()+1).padStart(2,'0')+'-'+String(_crNow.getDate()).padStart(2,'0');
+  const d = desde || hoy.slice(0,8) + '01';
+  const h = hasta || hoy;
+  const anioActivo = await obtenerAnioActivo();
+
+  // Asistencia por profesor: cuántas sesiones han pasado vs cuántas deberían
+  const asistencia = await pool.query(`
+    SELECT u.id, u.nombre, u.primer_apellido, u.segundo_apellido, u.rol,
+      COUNT(DISTINCT sa.id) AS sesiones_registradas,
+      COUNT(DISTINCT a.id) AS asignaciones_total
+    FROM usuarios u
+    LEFT JOIN asignaciones a ON a.profesor_id = u.id AND a.anio=$3
+    LEFT JOIN sesiones_asistencia sa ON sa.asignacion_id = a.id
+      AND sa.fecha BETWEEN $1 AND $2
+    WHERE u.activo = true AND u.rol IN ('profesor','profesor_guia','orientador')
+    GROUP BY u.id, u.nombre, u.primer_apellido, u.segundo_apellido, u.rol
+    ORDER BY u.primer_apellido, u.nombre
+  `, [d, h, anioActivo]);
+
+  // Conducta por sección: boletas registradas por guía
+  const conducta = await pool.query(`
+    SELECT u.id, u.nombre, u.primer_apellido, u.segundo_apellido,
+      s.nombre AS seccion_nombre,
+      COUNT(DISTINCT bc.id) AS boletas_registradas,
+      COUNT(DISTINCT e.id) AS total_estudiantes
+    FROM seccion_guia sg
+    JOIN usuarios u ON u.id = sg.profesor_id
+    JOIN secciones s ON s.id = sg.seccion_id
+    LEFT JOIN estudiantes e ON e.seccion_id = s.id AND e.activo = true
+    LEFT JOIN boletas_conducta bc ON bc.registrado_por = u.id
+      AND bc.fecha BETWEEN $1 AND $2
+    GROUP BY u.id, u.nombre, u.primer_apellido, u.segundo_apellido, s.nombre
+    ORDER BY s.nombre
+  `, [d, h]);
+
+  res.json({ asistencia: asistencia.rows, conducta: conducta.rows, desde: d, hasta: h });
+});
+
+module.exports = router;

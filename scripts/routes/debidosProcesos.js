@@ -1,0 +1,1300 @@
+// ════════════════════════════════════════════════════════════════════════
+// DEBIDOS PROCESOS — Procedimiento correctivo según REAC art. 144
+// ════════════════════════════════════════════════════════════════════════
+//
+// Flujo:
+//  Paso 1  acta_apertura       — cualquier profesor puede iniciar
+//  Paso 2  cita_ofendido        — boleta cita al encargado del supuesto ofendido
+//  Paso 3  decl_ofendido        — declaración del supuesto ofendido
+//  Paso 4  cita_ofensor         — boleta cita al encargado del supuesto ofensor
+//  Paso 5  decl_ofensor         — declaración del supuesto ofensor
+//  Paso 6  cita_testigo         — boleta cita al encargado de cada testigo (N veces)
+//  Paso 7  decl_testigo         — declaración de cada testigo (N veces)
+//  Paso 8  acta_sesion          — acta sesión docente-orientador con decisión:
+//                                  'continuar'  -> paso 9 y 10
+//                                  'desestimar' -> paso 11 (desestima)
+//  Paso 9  traslado_cargos
+//  Paso 10 resolucion_final
+//  Paso 11 desestima             — alternativa al 9 y 10 si se desestima
+//
+// Permisos:
+//  - acta_apertura: cualquier profesor
+//  - resto de pasos: profesor_guia de la sección del ofensor
+//  - declaraciones/citas de testigos en otra sección: se asignan al guía
+//    de esa sección, quien las completa; luego el guía del proceso verifica
+//  - aprobación acta_sesion / resolucion_final: orientador asignado a la
+//    sección del estudiante ofensor
+//
+// El estado del proceso refleja en qué paso va:
+//  - 'en_curso'    — se están registrando pasos
+//  - 'desestimado' — cerrado tras paso 8 con decision='desestimar'
+//  - 'resuelto'    — cerrado tras paso 10 (resolución final)
+
+const router = require("express").Router();
+const { pool } = require("../db");
+const { requireAuth, requireRol } = require("../middleware/auth");
+const { asignarConsecutivoInterno } = require("./consecutivos");
+const { obtenerAnioActivo } = require("../utils/lectivo");
+
+// Roles que pueden iniciar un acta de apertura (cualquier docente/admin)
+const ROLES_INICIAR = ["admin","auxiliar","profesor","profesor_guia","orientador","secretaria","administrativo"];
+// Roles que pueden ver listados completos (todos los profes pueden ver los suyos)
+const ROLES_VER = [...ROLES_INICIAR];
+
+// Helper: obtiene el guía de una sección, o null si no tiene
+async function getGuiaDeSeccion(seccionId) {
+  if (!seccionId) return null;
+  const r = await pool.query(
+    "SELECT profesor_id FROM seccion_guia WHERE seccion_id=$1 LIMIT 1",
+    [seccionId]
+  );
+  return r.rows[0]?.profesor_id || null;
+}
+
+// Helper: obtiene el orientador de una sección.
+// Si por algún motivo hay filas con orientador_id NULL, las saltamos y
+// agarramos la primera fila con un orientador real. Log explícito si no
+// hay resultados o si hay error en la query — eso aparece en Railway logs.
+async function getOrientadorDeSeccion(seccionId) {
+  if (!seccionId) return null;
+  try {
+    const r = await pool.query(
+      `SELECT orientador_id
+       FROM seccion_orientador
+       WHERE seccion_id = $1 AND orientador_id IS NOT NULL
+       ORDER BY id
+       LIMIT 1`,
+      [seccionId]
+    );
+    if (!r.rows.length) {
+      console.log(`[DP] getOrientadorDeSeccion(${seccionId}): sin orientador asignado`);
+      return null;
+    }
+    return r.rows[0].orientador_id;
+  } catch (e) {
+    console.error(`[DP] getOrientadorDeSeccion(${seccionId}) ERROR:`, e.message);
+    return null;
+  }
+}
+
+// Helper: devuelve el ID del guía que tiene el control real del proceso.
+// Si hay un sustituto asignado, manda el sustituto. Si no, el guía original.
+// Usado en todas las validaciones de permiso del expediente.
+function guiaEfectivo(dp) {
+  if (!dp) return null;
+  return dp.guia_sustituto_id || dp.guia_a_cargo || null;
+}
+
+const ROLES_ACCESO_TOTAL = ["admin", "auxiliar", "administrativo", "secretaria"];
+
+async function requireProcesoAccess(req, res, next) {
+  try {
+    const u = req.session && req.session.usuario;
+    if (!u) return res.status(401).json({ error: "No autorizado" });
+
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+
+    let permitido = ROLES_ACCESO_TOTAL.includes(u.rol) ||
+      dp.iniciado_por === u.id ||
+      dp.guia_a_cargo === u.id ||
+      dp.guia_sustituto_id === u.id ||
+      dp.orientador_id === u.id;
+
+    if (!permitido) {
+      const asignado = await pool.query(
+        "SELECT 1 FROM dp_pasos WHERE proceso_id=$1 AND asignado_a=$2 LIMIT 1",
+        [dp.id, u.id]
+      );
+      permitido = asignado.rows.length > 0;
+    }
+
+    if (!permitido) {
+      return res.status(403).json({ error: "No tiene permiso para consultar este proceso." });
+    }
+
+    req.debidoProceso = dp;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Helper: crear una notificación
+async function notificar(usuarioId, tipo, mensaje) {
+  if (!usuarioId) return;
+  try {
+    await pool.query(
+      "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,$2,$3)",
+      [usuarioId, tipo, mensaje]
+    );
+  } catch (e) {
+    console.error("Notif DP:", e.message);
+  }
+}
+
+// ── CATÁLOGO REAC ─────────────────────────────────────────────────────
+// Devuelve los incisos del REAC agrupados por categoría y artículo, para
+// poblar los selects en Acta Sesión, Traslado de Cargos y Resolución Final.
+// Filtros opcionales por query string: ?categoria=falta&gravedad=grave
+router.get("/catalogo/reac", requireAuth, async (req, res) => {
+  try {
+    const { categoria, gravedad } = req.query;
+    const where = ["activo = true"];
+    const params = [];
+    if (categoria) { params.push(categoria); where.push(`categoria = $${params.length}`); }
+    if (gravedad)  { params.push(gravedad);  where.push(`gravedad  = $${params.length}`); }
+    const r = await pool.query(
+      `SELECT id, categoria, articulo, inciso, gravedad, puntos, descripcion
+       FROM reac_catalogo
+       WHERE ${where.join(" AND ")}
+       ORDER BY categoria, articulo, inciso`,
+      params
+    );
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET catálogo REAC:", e);
+    if (e.code === '42P01') return res.json([]);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── LISTAR PROCESOS ───────────────────────────────────────────────────
+// Devuelve los procesos filtrados según rol:
+// - admin/auxiliar/administrativo: todos
+// - profesor_guia: los de su sección o donde es guía a cargo
+// - profesor común: solo los donde figura como iniciado_por o asignado a un paso
+router.get("/", requireAuth, async (req, res) => {
+  try {
+    const u = req.session.usuario;
+    const { estado } = req.query;
+
+    let where = [];
+    let params = [];
+    if (estado) {
+      params.push(estado);
+      where.push(`dp.estado = $${params.length}`);
+    }
+
+    // Filtros por rol
+    const esStaff = ["admin","auxiliar","administrativo","secretaria"].includes(u.rol);
+    if (!esStaff) {
+      // Profesor/guía/orientador: solo ven sus propios procesos relacionados.
+      // También aparece para el guía sustituto si lo hay.
+      params.push(u.id);
+      const iU = params.length;
+      where.push(`(
+        dp.iniciado_por = $${iU}
+        OR dp.guia_a_cargo = $${iU}
+        OR dp.guia_sustituto_id = $${iU}
+        OR dp.orientador_id = $${iU}
+        OR EXISTS (SELECT 1 FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.asignado_a = $${iU})
+      )`);
+    }
+
+    const sql = `
+      SELECT dp.id, dp.numero, dp.anio, dp.estado, dp.decision_sesion, dp.created_at, dp.updated_at,
+             dp.guia_a_cargo, dp.guia_sustituto_id,
+             e.id AS est_id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+             s.id AS seccion_id, s.nombre AS seccion_nombre,
+             g.primer_apellido AS guia_ap1, g.segundo_apellido AS guia_ap2, g.nombre AS guia_nombre,
+             gs.primer_apellido AS sust_ap1, gs.segundo_apellido AS sust_ap2, gs.nombre AS sust_nombre,
+             o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2, o.nombre AS orient_nombre,
+             ini.primer_apellido AS ini_ap1, ini.segundo_apellido AS ini_ap2, ini.nombre AS ini_nombre,
+             (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.completado=true)::int AS pasos_completados,
+             (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id)::int AS pasos_totales
+      FROM debidos_procesos dp
+      JOIN estudiantes e ON e.id = dp.estudiante_id
+      LEFT JOIN secciones s ON s.id = e.seccion_id
+      LEFT JOIN usuarios g ON g.id = dp.guia_a_cargo
+      LEFT JOIN usuarios gs ON gs.id = dp.guia_sustituto_id
+      LEFT JOIN usuarios o ON o.id = dp.orientador_id
+      LEFT JOIN usuarios ini ON ini.id = dp.iniciado_por
+      ${where.length ? "WHERE " + where.join(" AND ") : ""}
+      ORDER BY dp.updated_at DESC, dp.id DESC
+    `;
+    const r = await pool.query(sql, params);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET /api/debidos-procesos error:", e);
+    // Si la tabla no existe, devolver lista vacía con mensaje en lugar de crashear
+    if (e.code === '42P01' || e.message?.includes('does not exist')) {
+      return res.json([]);
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── PROCESOS PENDIENTES DE OTROS PROFESORES (declaraciones por tomar) ─
+// ⚠ Estos endpoints van ANTES de /:id porque si no, Express interpreta
+// "/pendientes/mios" como "/:id" con id="pendientes".
+router.get("/pendientes/mios", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const r = await pool.query(`
+    SELECT dp.id AS proceso_id, dp.numero, dp.anio,
+           pp.id AS paso_id, pp.tipo, pp.orden, pp.completado,
+           e.primer_apellido, e.segundo_apellido, e.nombre, e.cedula,
+           s.nombre AS seccion_nombre
+    FROM dp_pasos pp
+    JOIN debidos_procesos dp ON dp.id = pp.proceso_id
+    JOIN estudiantes e ON e.id = dp.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE pp.asignado_a = $1 AND dp.estado = 'en_curso' AND pp.completado = false
+    ORDER BY dp.created_at DESC
+  `, [u.id]);
+  res.json(r.rows);
+});
+
+// ── PROCESOS PENDIENTES DEL ORIENTADOR ────────────────────────────────
+router.get("/pendientes/orientador", requireAuth, async (req, res) => {
+  const u = req.session.usuario;
+  const r = await pool.query(`
+    SELECT dp.id AS proceso_id, dp.numero, dp.anio, dp.decision_sesion,
+           e.primer_apellido, e.segundo_apellido, e.nombre, e.cedula,
+           s.nombre AS seccion_nombre
+    FROM debidos_procesos dp
+    JOIN estudiantes e ON e.id = dp.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE dp.orientador_id = $1
+      AND dp.decision_sesion IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM dp_aprobaciones_orientador a
+        WHERE a.proceso_id = dp.id AND a.orientador_id = $1
+      )
+      AND dp.estado = 'en_curso'
+    ORDER BY dp.updated_at DESC
+  `, [u.id]);
+  res.json(r.rows);
+});
+
+// ── DETALLE DE UN PROCESO ─────────────────────────────────────────────
+router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
+  const dpR = await pool.query(`
+    SELECT dp.*, e.cedula, e.nombre AS est_nombre, e.primer_apellido AS est_ap1, e.segundo_apellido AS est_ap2,
+           e.seccion_id, s.nombre AS seccion_nombre,
+           g.nombre AS guia_nombre, g.primer_apellido AS guia_ap1, g.segundo_apellido AS guia_ap2, g.cedula AS guia_cedula,
+           gs.nombre AS sust_nombre, gs.primer_apellido AS sust_ap1, gs.segundo_apellido AS sust_ap2, gs.cedula AS sust_cedula,
+           o.nombre AS orient_nombre, o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2, o.cedula AS orient_cedula,
+           ini.nombre AS ini_nombre, ini.primer_apellido AS ini_ap1, ini.segundo_apellido AS ini_ap2
+    FROM debidos_procesos dp
+    JOIN estudiantes e ON e.id = dp.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    LEFT JOIN usuarios g ON g.id = dp.guia_a_cargo
+    LEFT JOIN usuarios gs ON gs.id = dp.guia_sustituto_id
+    LEFT JOIN usuarios o ON o.id = dp.orientador_id
+    LEFT JOIN usuarios ini ON ini.id = dp.iniciado_por
+    WHERE dp.id = $1
+  `, [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  // Pasos
+  const pasosR = await pool.query(`
+    SELECT pp.*, u1.primer_apellido AS comp_ap1, u1.segundo_apellido AS comp_ap2, u1.nombre AS comp_nombre,
+           u2.primer_apellido AS verif_ap1, u2.segundo_apellido AS verif_ap2, u2.nombre AS verif_nombre,
+           u3.primer_apellido AS asig_ap1, u3.segundo_apellido AS asig_ap2, u3.nombre AS asig_nombre,
+           u3.cedula AS asig_cedula, u3.id AS asig_id
+    FROM dp_pasos pp
+    LEFT JOIN usuarios u1 ON u1.id = pp.completado_por
+    LEFT JOIN usuarios u2 ON u2.id = pp.verificado_por
+    LEFT JOIN usuarios u3 ON u3.id = pp.asignado_a
+    WHERE pp.proceso_id = $1
+    ORDER BY pp.orden, pp.id
+  `, [req.params.id]);
+
+  // Testigos
+  const testR = await pool.query(`
+    SELECT t.id, t.estudiante_id, t.paso_cita_id, t.paso_decl_id,
+           e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+           s.nombre AS seccion_nombre, s.id AS seccion_id
+    FROM dp_testigos t
+    JOIN estudiantes e ON e.id = t.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE t.proceso_id = $1
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
+  `, [req.params.id]);
+
+  // Ofendidos (uno o varios estudiantes). Trae también los encargados de cada uno
+  // para que las citas y declaraciones puedan autorrellenar el representante legal.
+  const ofenR = await pool.query(`
+    SELECT o.id, o.estudiante_id, o.paso_cita_id, o.paso_decl_id,
+           e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+           s.nombre AS seccion_nombre, s.id AS seccion_id
+    FROM dp_ofendidos o
+    JOIN estudiantes e ON e.id = o.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE o.proceso_id = $1
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
+  `, [req.params.id]);
+
+  // Aprobaciones del orientador
+  const aprobR = await pool.query(`
+    SELECT a.*, u.primer_apellido AS orient_ap1, u.segundo_apellido AS orient_ap2, u.nombre AS orient_nombre
+    FROM dp_aprobaciones_orientador a
+    LEFT JOIN usuarios u ON u.id = a.orientador_id
+    WHERE a.proceso_id = $1
+    ORDER BY a.fecha DESC
+  `, [req.params.id]);
+
+  // Encargados del estudiante (para autorrellenar la portada y otros pasos).
+  // El principal queda primero — es el que aparece en la portada por defecto.
+  let encargados = [];
+  try {
+    const encR = await pool.query(`
+      SELECT
+        TRIM(CONCAT_WS(' ', nombre, primer_apellido, segundo_apellido)) AS nombre_completo,
+        cedula, telefono, parentesco, es_principal
+      FROM encargados WHERE estudiante_id = $1
+      ORDER BY es_principal DESC NULLS LAST, id
+    `, [dp.estudiante_id]);
+    encargados = encR.rows;
+  } catch (e) {
+    console.error("Cargar encargados DP:", e.message);
+  }
+
+  res.json({
+    proceso: dp,
+    pasos: pasosR.rows,
+    testigos: testR.rows,
+    ofendidos: ofenR.rows,
+    aprobaciones: aprobR.rows,
+    encargados
+  });
+});
+
+// ── INICIAR PROCESO + PASO 1 (acta de apertura) ───────────────────────
+// Cualquier profesor puede crear el proceso. Se asigna automáticamente:
+//  - consecutivo tipo 'proceso'
+//  - guia_a_cargo = guía de la sección del estudiante
+//  - orientador_id = orientador de esa sección
+router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
+  const u = req.session.usuario;
+  const {
+    estudiante_id, contenido_apertura,
+    // Datos del ofendido (víctima). Por defecto el ofendido es otro estudiante,
+    // pero a veces es un docente del centro. Solo se usa para adaptar los
+    // formularios al imprimirlos.
+    ofendido_tipo,           // 'estudiante' (default) | 'docente'
+    ofendido_docente_id,     // si está registrado como usuario
+    ofendido_docente_nombre, // nombre suelto (si no está en sistema)
+    ofendido_docente_cedula, // cédula suelta
+  } = req.body;
+  if (!estudiante_id) return res.status(400).json({ error: "Falta estudiante_id" });
+
+  // Validar tipo y datos del ofendido docente
+  const tipoFinal = (ofendido_tipo === 'docente') ? 'docente' : 'estudiante';
+  let docIdFinal = null, docNombreFinal = null, docCedulaFinal = null;
+  if (tipoFinal === 'docente') {
+    if (ofendido_docente_id) {
+      // Resolver desde usuarios para hacer snapshot del nombre y cédula
+      const dR = await pool.query(
+        "SELECT id, nombre, primer_apellido, segundo_apellido, cedula FROM usuarios WHERE id=$1 AND activo=true",
+        [ofendido_docente_id]
+      );
+      if (!dR.rows.length) return res.status(400).json({ error: "Docente ofendido no encontrado o inactivo." });
+      const d = dR.rows[0];
+      docIdFinal = d.id;
+      docNombreFinal = `${d.nombre||''} ${d.primer_apellido||''} ${d.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
+      docCedulaFinal = d.cedula;
+    } else if (ofendido_docente_nombre && ofendido_docente_nombre.trim()) {
+      // Docente externo (no está en el sistema): aceptamos nombre + cédula sueltos
+      docNombreFinal = ofendido_docente_nombre.trim();
+      docCedulaFinal = (ofendido_docente_cedula || '').trim() || null;
+    } else {
+      return res.status(400).json({ error: "Si el ofendido es docente, indicá el docente del sistema o ingresá nombre y cédula." });
+    }
+  }
+
+  const estR = await pool.query("SELECT id, seccion_id FROM estudiantes WHERE id=$1 AND activo=true", [estudiante_id]);
+  if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado o no activo" });
+  const est = estR.rows[0];
+
+  const guiaId = await getGuiaDeSeccion(est.seccion_id);
+  const orientId = await getOrientadorDeSeccion(est.seccion_id);
+  const anio = await obtenerAnioActivo();
+
+  // Asignar consecutivo tipo 'proceso'
+  let consec;
+  try {
+    consec = await asignarConsecutivoInterno("proceso", u.id, {
+      estudiante_id,
+      seccion_id: est.seccion_id,
+      motivo_proceso: "Debido proceso disciplinario"
+    });
+  } catch (e) {
+    return res.status(400).json({ error: "No se pudo asignar consecutivo: " + e.message });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Crear el proceso (incluye datos del ofendido)
+    const dpR = await client.query(`
+      INSERT INTO debidos_procesos
+        (consecutivo_id, numero, anio, estudiante_id, iniciado_por, guia_a_cargo, orientador_id, estado,
+         ofendido_tipo, ofendido_docente_id, ofendido_docente_nombre, ofendido_docente_cedula)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,'en_curso',$8,$9,$10,$11)
+      RETURNING id, numero, anio
+    `, [consec.id, consec.numero, anio, estudiante_id, u.id, guiaId, orientId,
+        tipoFinal, docIdFinal, docNombreFinal, docCedulaFinal]);
+    const procesoId = dpR.rows[0].id;
+
+    // Crear el Paso 1 (acta apertura) ya completado con el contenido enviado
+    await client.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, completado, completado_por, completado_en, contenido)
+      VALUES ($1, 'acta_apertura', 1, true, $2, NOW(), $3::jsonb)
+    `, [procesoId, u.id, JSON.stringify(contenido_apertura || {})]);
+
+    await client.query("COMMIT");
+
+    // Notificar al guía si NO es quien inició
+    if (guiaId && guiaId !== u.id) {
+      await notificar(guiaId, "debido_proceso",
+        `📋 Se inició un debido proceso (N°${consec.numero}-${anio}) que te toca continuar como guía de la sección.`);
+    }
+    // Notificar al orientador asignado de la sección.
+    // ⚠️ La variable correcta es orientId (línea 296), no orientadorId.
+    if (orientId && orientId !== u.id) {
+      await notificar(orientId, "debido_proceso",
+        `📋 Se inició un debido proceso (N°${consec.numero}-${anio}) en la sección que orientás. Lo vas a revisar cuando se complete el acta sesión.`);
+    }
+
+    res.json({ ok: true, id: procesoId, numero: consec.numero, anio });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("Crear DP:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ── CREAR / ACTUALIZAR UN PASO ────────────────────────────────────────
+// El cliente envía: { tipo, contenido, completar }
+// Si el paso aún no existe (por tipo+orden), se crea. Si ya existe, se
+// actualiza el contenido.
+router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const procesoId = req.params.id;
+  const { tipo, orden, contenido, completar, testigo_id } = req.body;
+  if (!tipo) return res.status(400).json({ error: "Falta tipo" });
+
+  // Validar permisos: el guía del proceso, admin o el asignado pueden modificar
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: `Este proceso está ${dp.estado}; no se pueden modificar pasos.` });
+  }
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  const esGuiaProceso = guiaEfectivo(dp) === u.id;
+  const esIniciador = dp.iniciado_por === u.id && tipo === "acta_apertura";
+
+  // Para pasos asignados a otro profe (declaración de testigo en otra sección)
+  // verificamos si u.id es el asignado
+  let esAsignado = false;
+  if (orden) {
+    const pR = await pool.query(
+      "SELECT asignado_a FROM dp_pasos WHERE proceso_id=$1 AND tipo=$2 AND orden=$3",
+      [procesoId, tipo, orden]
+    );
+    if (pR.rows.length && pR.rows[0].asignado_a === u.id) esAsignado = true;
+  }
+
+  if (!esStaff && !esGuiaProceso && !esIniciador && !esAsignado) {
+    return res.status(403).json({ error: "Sin permisos para modificar este paso" });
+  }
+
+  // Crear o actualizar
+  const ordenFinal = orden || 1;
+  const existente = await pool.query(
+    "SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo=$2 AND orden=$3",
+    [procesoId, tipo, ordenFinal]
+  );
+
+  let pasoId;
+  if (existente.rows.length) {
+    pasoId = existente.rows[0].id;
+    const setComp = completar
+      ? ", completado=true, completado_por=$4, completado_en=NOW()"
+      : "";
+    const params = completar
+      ? [JSON.stringify(contenido || {}), procesoId, pasoId, u.id]
+      : [JSON.stringify(contenido || {}), procesoId, pasoId];
+    await pool.query(
+      `UPDATE dp_pasos SET contenido=$1::jsonb, updated_at=NOW()${setComp}
+       WHERE proceso_id=$2 AND id=$3`,
+      params
+    );
+  } else {
+    const ins = await pool.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, completado, completado_por, completado_en, contenido)
+      VALUES ($1, $2, $3, $4, $5, ${completar ? "NOW()" : "NULL"}, $6::jsonb)
+      RETURNING id
+    `, [procesoId, tipo, ordenFinal, !!completar, completar ? u.id : null, JSON.stringify(contenido || {})]);
+    pasoId = ins.rows[0].id;
+  }
+
+  // Actualizar marca de tiempo del proceso
+  await pool.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [procesoId]);
+
+  res.json({ ok: true, paso_id: pasoId });
+});
+
+// ── AGREGAR TESTIGO ───────────────────────────────────────────────────
+// Crea automáticamente los pasos 6 (cita) y 7 (declaración) para ese testigo.
+// Si el testigo es de OTRA sección, los pasos se asignan al guía de esa sección.
+router.post("/:id/testigos", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const procesoId = req.params.id;
+  const { estudiante_id } = req.body;
+  if (!estudiante_id) return res.status(400).json({ error: "Falta estudiante_id del testigo" });
+
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Solo el guía del proceso puede agregar testigos." });
+  }
+
+  // No duplicar testigos
+  const dup = await pool.query("SELECT id FROM dp_testigos WHERE proceso_id=$1 AND estudiante_id=$2", [procesoId, estudiante_id]);
+  if (dup.rows.length) return res.status(409).json({ error: "Ese estudiante ya está agregado como testigo." });
+
+  const estR = await pool.query("SELECT id, seccion_id, primer_apellido, nombre FROM estudiantes WHERE id=$1 AND activo=true", [estudiante_id]);
+  if (!estR.rows.length) return res.status(404).json({ error: "Estudiante testigo no encontrado o no activo" });
+  const est = estR.rows[0];
+
+  // Determinar si es de otra sección
+  const guiaTestigo = await getGuiaDeSeccion(est.seccion_id);
+  const esOtraSeccion = guiaTestigo && guiaTestigo !== dp.guia_a_cargo;
+  const asignadoA = esOtraSeccion ? guiaTestigo : null;
+
+  // Calcular el orden secuencial (1, 2, 3...) basado en cuántos testigos hay
+  const cont = await pool.query("SELECT COUNT(*)::int AS n FROM dp_testigos WHERE proceso_id=$1", [procesoId]);
+  const ordenTestigo = cont.rows[0].n + 1;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Crear paso cita_testigo
+    const citaR = await client.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, asignado_a, contenido)
+      VALUES ($1, 'cita_testigo', $2, $3, $4::jsonb) RETURNING id
+    `, [procesoId, ordenTestigo, asignadoA, JSON.stringify({ testigo_estudiante_id: estudiante_id })]);
+    // Crear paso decl_testigo
+    const declR = await client.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, asignado_a, contenido)
+      VALUES ($1, 'decl_testigo', $2, $3, $4::jsonb) RETURNING id
+    `, [procesoId, ordenTestigo, asignadoA, JSON.stringify({ testigo_estudiante_id: estudiante_id })]);
+    // Crear registro de testigo
+    await client.query(`
+      INSERT INTO dp_testigos (proceso_id, estudiante_id, paso_cita_id, paso_decl_id)
+      VALUES ($1, $2, $3, $4)
+    `, [procesoId, estudiante_id, citaR.rows[0].id, declR.rows[0].id]);
+    await client.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [procesoId]);
+    await client.query("COMMIT");
+
+    // Notificar al guía de la otra sección
+    if (asignadoA) {
+      await notificar(asignadoA, "debido_proceso_pendiente",
+        `📋 Tenés una declaración de testigo pendiente en el debido proceso N°${dp.numero}-${dp.anio} (testigo: ${est.nombre} ${est.primer_apellido}).`);
+    }
+
+    res.json({ ok: true, paso_cita_id: citaR.rows[0].id, paso_decl_id: declR.rows[0].id, asignado_a: asignadoA });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("Agregar testigo:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ── ELIMINAR TESTIGO ──────────────────────────────────────────────────
+router.delete("/:id/testigos/:testigo_id", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const procesoId = req.params.id;
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Sin permisos" });
+  }
+
+  // Borrar los pasos asociados (los borra en cascada por la FK pero por claridad)
+  const t = await pool.query("SELECT paso_cita_id, paso_decl_id FROM dp_testigos WHERE id=$1 AND proceso_id=$2", [req.params.testigo_id, procesoId]);
+  if (t.rows.length) {
+    if (t.rows[0].paso_cita_id) await pool.query("DELETE FROM dp_pasos WHERE id=$1", [t.rows[0].paso_cita_id]);
+    if (t.rows[0].paso_decl_id) await pool.query("DELETE FROM dp_pasos WHERE id=$1", [t.rows[0].paso_decl_id]);
+  }
+  await pool.query("DELETE FROM dp_testigos WHERE id=$1", [req.params.testigo_id]);
+  res.json({ ok: true });
+});
+
+// ── AGREGAR OFENDIDO ──────────────────────────────────────────────────
+// Igual que testigos pero para ofendidos (víctimas). Cuando el ofendido es
+// de otra sección, la cita y declaración se asignan al guía de esa sección.
+router.post("/:id/ofendidos", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const procesoId = req.params.id;
+  const { estudiante_id } = req.body;
+  if (!estudiante_id) return res.status(400).json({ error: "Falta estudiante_id del ofendido" });
+
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Solo el guía del proceso puede agregar ofendidos." });
+  }
+
+  // No permitir agregar ofendidos si el proceso ya está cerrado
+  if (['archivado','resuelto','desestimado'].includes(dp.estado)) {
+    return res.status(400).json({ error: "No se pueden agregar ofendidos: el proceso ya está cerrado (" + dp.estado + ")." });
+  }
+
+  // No agregar al mismo ofensor como ofendido
+  if (parseInt(estudiante_id) === dp.estudiante_id) {
+    return res.status(400).json({ error: "El ofensor no puede ser también ofendido en el mismo proceso." });
+  }
+
+  // No duplicar (además del UNIQUE en BD, avisamos amable)
+  const dup = await pool.query("SELECT id FROM dp_ofendidos WHERE proceso_id=$1 AND estudiante_id=$2", [procesoId, estudiante_id]);
+  if (dup.rows.length) return res.status(409).json({ error: "Ese estudiante ya está agregado como ofendido." });
+
+  const estR = await pool.query("SELECT id, seccion_id, primer_apellido, nombre FROM estudiantes WHERE id=$1 AND activo=true", [estudiante_id]);
+  if (!estR.rows.length) return res.status(404).json({ error: "Estudiante ofendido no encontrado o no activo" });
+  const est = estR.rows[0];
+
+  // Si el ofendido es de otra sección, la cita y declaración se asignan al guía de esa sección
+  const guiaOfendido = await getGuiaDeSeccion(est.seccion_id);
+  const esOtraSeccion = guiaOfendido && guiaOfendido !== dp.guia_a_cargo;
+  const asignadoA = esOtraSeccion ? guiaOfendido : null;
+
+  // Orden: 1, 2, 3... basado en cuántos ofendidos hay
+  const cont = await pool.query("SELECT COUNT(*)::int AS n FROM dp_ofendidos WHERE proceso_id=$1", [procesoId]);
+  const ordenOfendido = cont.rows[0].n + 1;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const citaR = await client.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, asignado_a, contenido)
+      VALUES ($1, 'cita_ofendido', $2, $3, $4::jsonb) RETURNING id
+    `, [procesoId, ordenOfendido, asignadoA, JSON.stringify({ ofendido_estudiante_id: estudiante_id })]);
+    const declR = await client.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, asignado_a, contenido)
+      VALUES ($1, 'decl_ofendido', $2, $3, $4::jsonb) RETURNING id
+    `, [procesoId, ordenOfendido, asignadoA, JSON.stringify({ ofendido_estudiante_id: estudiante_id })]);
+    await client.query(`
+      INSERT INTO dp_ofendidos (proceso_id, estudiante_id, paso_cita_id, paso_decl_id)
+      VALUES ($1, $2, $3, $4)
+    `, [procesoId, estudiante_id, citaR.rows[0].id, declR.rows[0].id]);
+    await client.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [procesoId]);
+    await client.query("COMMIT");
+
+    if (asignadoA) {
+      await notificar(asignadoA, "debido_proceso_pendiente",
+        `📋 Tenés una declaración de ofendido pendiente en el debido proceso N°${dp.numero}-${dp.anio} (ofendido: ${est.nombre} ${est.primer_apellido}).`);
+    }
+
+    res.json({ ok: true, paso_cita_id: citaR.rows[0].id, paso_decl_id: declR.rows[0].id, asignado_a: asignadoA });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("Agregar ofendido:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ── ELIMINAR OFENDIDO ─────────────────────────────────────────────────
+router.delete("/:id/ofendidos/:ofendido_id", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const procesoId = req.params.id;
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Sin permisos" });
+  }
+
+  const o = await pool.query("SELECT paso_cita_id, paso_decl_id FROM dp_ofendidos WHERE id=$1 AND proceso_id=$2", [req.params.ofendido_id, procesoId]);
+  if (o.rows.length) {
+    if (o.rows[0].paso_cita_id) await pool.query("DELETE FROM dp_pasos WHERE id=$1", [o.rows[0].paso_cita_id]);
+    if (o.rows[0].paso_decl_id) await pool.query("DELETE FROM dp_pasos WHERE id=$1", [o.rows[0].paso_decl_id]);
+  }
+  await pool.query("DELETE FROM dp_ofendidos WHERE id=$1", [req.params.ofendido_id]);
+  res.json({ ok: true });
+});
+
+// ── VERIFICAR PASO (check del guía cuando lo hizo otro profe) ─────────
+router.post("/:id/pasos/:paso_id/verificar", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Solo el guía a cargo puede verificar." });
+  }
+  await pool.query(
+    "UPDATE dp_pasos SET verificado=true, verificado_por=$1, verificado_en=NOW() WHERE id=$2 AND proceso_id=$3",
+    [u.id, req.params.paso_id, req.params.id]
+  );
+  res.json({ ok: true });
+});
+
+// ── DECIDIR EN PASO 8 (continuar / desestimar) ────────────────────────
+// El guía registra la decisión. Queda pendiente de aprobación del orientador.
+router.post("/:id/decidir-sesion", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const { decision, contenido } = req.body;
+  if (!["continuar","desestimar"].includes(decision)) {
+    return res.status(400).json({ error: "decision inválida (debe ser 'continuar' o 'desestimar')" });
+  }
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Solo el guía a cargo puede registrar esta decisión." });
+  }
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: "El proceso no está en curso." });
+  }
+
+  // Guardar/actualizar acta_sesion
+  const contJson = { ...(contenido || {}), decision };
+  const exist = await pool.query(
+    "SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'",
+    [req.params.id]
+  );
+  let pasoId;
+  if (exist.rows.length) {
+    pasoId = exist.rows[0].id;
+    await pool.query(`
+      UPDATE dp_pasos SET contenido=$1::jsonb, completado=true,
+        completado_por=$2, completado_en=NOW(), updated_at=NOW()
+      WHERE id=$3
+    `, [JSON.stringify(contJson), u.id, pasoId]);
+  } else {
+    const ins = await pool.query(`
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, completado, completado_por, completado_en, contenido)
+      VALUES ($1, 'acta_sesion', 8, true, $2, NOW(), $3::jsonb) RETURNING id
+    `, [req.params.id, u.id, JSON.stringify(contJson)]);
+    pasoId = ins.rows[0].id;
+  }
+
+  // Actualizar decision_sesion en el proceso (queda pendiente de aprobación)
+  await pool.query("UPDATE debidos_procesos SET decision_sesion=$1, updated_at=NOW() WHERE id=$2", [decision, req.params.id]);
+
+  // Notificar al orientador para que apruebe
+  if (dp.orientador_id) {
+    await notificar(dp.orientador_id, "debido_proceso_aprobacion",
+      `📋 Tenés una decisión de acta sesión pendiente de aprobar en el debido proceso N°${dp.numero}-${dp.anio}. Decisión propuesta: ${decision}.`);
+  }
+
+  res.json({ ok: true, paso_id: pasoId });
+});
+
+// ── CANCELAR ENVÍO DE DECISIÓN (guía) ─────────────────────────────────
+// Permite al guía revertir el estado del acta sesión cuando ya la envió al
+// orientador pero:
+//   - todavía no fue aprobada (está pendiente)
+//   - o fue rechazada por el orientador
+// NO se puede cancelar si ya fue APROBADA (porque ya se crearon los pasos
+// siguientes: traslado_cargos, resolucion_final o desestima).
+router.post("/:id/cancelar-decision", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  try {
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+
+    // Solo el guía efectivo o staff pueden cancelar
+    const puedeGuia = (guiaEfectivo(dp) === u.id) || ["admin","administrativo","auxiliar"].includes(u.rol);
+    if (!puedeGuia) return res.status(403).json({ error: "Sin permisos." });
+
+    // Verificar que NO haya sido APROBADA
+    const pasoR = await pool.query(
+      "SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'",
+      [req.params.id]
+    );
+    if (pasoR.rows.length) {
+      const aprR = await pool.query(
+        "SELECT decision FROM dp_aprobaciones_orientador WHERE paso_id=$1",
+        [pasoR.rows[0].id]
+      );
+      if (aprR.rows.length && aprR.rows[0].decision === "aprobado") {
+        return res.status(400).json({ error: "La decisión ya fue APROBADA por el orientador y no se puede cancelar. Ya se crearon los pasos siguientes." });
+      }
+      // Borrar aprobaciones pendientes/rechazadas de este paso
+      await pool.query(
+        "DELETE FROM dp_aprobaciones_orientador WHERE paso_id=$1",
+        [pasoR.rows[0].id]
+      );
+    }
+
+    // Resetear decision_sesion y borrar el paso acta_sesion
+    await pool.query(
+      "UPDATE debidos_procesos SET decision_sesion=NULL, updated_at=NOW() WHERE id=$1",
+      [req.params.id]
+    );
+    await pool.query(
+      "DELETE FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'",
+      [req.params.id]
+    );
+
+    console.log(`[DP] Decisión cancelada en N°${dp.numero}-${dp.anio} por usuario ${u.id} (${u.rol})`);
+
+    // Notificar al orientador asignado (si existe) que el envío fue cancelado
+    if (dp.orientador_asignado) {
+      await notificar(dp.orientador_asignado, "debido_proceso",
+        `⏪ El guía canceló el envío de la decisión del DP N°${dp.numero}-${dp.anio}. La va a volver a registrar.`);
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("cancelar-decision:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── APROBAR / RECHAZAR ACTA SESIÓN (orientador) ───────────────────────
+router.post("/:id/aprobar-sesion", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const { decision, observacion } = req.body;  // decision: 'aprobado' | 'rechazado'
+  if (!["aprobado","rechazado"].includes(decision)) {
+    return res.status(400).json({ error: "decision inválida" });
+  }
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esAdmin = ["admin","administrativo"].includes(u.rol);
+  if (!esAdmin && dp.orientador_id !== u.id) {
+    return res.status(403).json({ error: "Solo el orientador asignado puede aprobar." });
+  }
+  if (!dp.decision_sesion) {
+    return res.status(400).json({ error: "Aún no hay decisión propuesta para aprobar." });
+  }
+
+  const pasoR = await pool.query("SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'", [req.params.id]);
+  if (!pasoR.rows.length) return res.status(400).json({ error: "Acta sesión no existe." });
+  const pasoId = pasoR.rows[0].id;
+
+  await pool.query(`
+    INSERT INTO dp_aprobaciones_orientador (proceso_id, paso_id, orientador_id, decision, observacion)
+    VALUES ($1,$2,$3,$4,$5)
+  `, [req.params.id, pasoId, u.id, decision, observacion || null]);
+
+  // Si aprobó y decisión = desestimar, cerrar el proceso
+  if (decision === "aprobado" && dp.decision_sesion === "desestimar") {
+    // Crear paso desestima en blanco para que el guía lo complete
+    const existD = await pool.query("SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo='desestima'", [req.params.id]);
+    if (!existD.rows.length) {
+      await pool.query(`
+        INSERT INTO dp_pasos (proceso_id, tipo, orden, contenido)
+        VALUES ($1, 'desestima', 11, '{}'::jsonb)
+      `, [req.params.id]);
+    }
+    // El estado pasa a 'desestimado' al completar el paso desestima (no acá)
+  } else if (decision === "aprobado" && dp.decision_sesion === "continuar") {
+    // Crear pasos 9 y 10 en blanco
+    for (const [tipo, orden] of [["traslado_cargos", 9], ["resolucion_final", 10]]) {
+      const ex = await pool.query("SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo=$2", [req.params.id, tipo]);
+      if (!ex.rows.length) {
+        await pool.query(`
+          INSERT INTO dp_pasos (proceso_id, tipo, orden, contenido) VALUES ($1, $2, $3, '{}'::jsonb)
+        `, [req.params.id, tipo, orden]);
+      }
+    }
+  } else if (decision === "rechazado") {
+    // 🔧 BUG FIX: al rechazar, hay que RESETEAR decision_sesion a null.
+    // Si no lo hacemos, el frontend chequea `if(!dp.decision_sesion)` para
+    // mostrar el botón "Registrar decisión" y nunca aparece de nuevo,
+    // dejando al guía (o sustituto) sin forma de corregir y volver a
+    // enviar la decisión al orientador.
+    await pool.query(
+      "UPDATE debidos_procesos SET decision_sesion=NULL, updated_at=NOW() WHERE id=$1",
+      [req.params.id]
+    );
+    // También borramos el paso acta_sesion para que el guía pueda re-registrarlo
+    // desde cero (así se vuelve a limpiar el contenido).
+    await pool.query(
+      "DELETE FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'",
+      [req.params.id]
+    );
+  }
+
+  // Notificar al GUÍA EFECTIVO (sustituto si lo hay, si no el original).
+  // Antes solo se notificaba a guia_a_cargo, dejando al sustituto sin aviso.
+  const guiaAvisar = guiaEfectivo(dp);
+  await notificar(guiaAvisar, "debido_proceso",
+    `📋 El orientador ${decision === "aprobado" ? "aprobó" : "rechazó"} el acta sesión del debido proceso N°${dp.numero}-${dp.anio}. ${observacion ? "Observación: " + observacion : ""}${decision === "rechazado" ? " Podés volver a registrar la decisión." : ""}`);
+  // Si el sustituto es distinto del guía original, también avisamos al original
+  // (así se mantiene informado el docente titular aunque no esté a cargo).
+  if (dp.guia_sustituto_id && dp.guia_a_cargo && dp.guia_sustituto_id !== dp.guia_a_cargo) {
+    await notificar(dp.guia_a_cargo, "debido_proceso",
+      `📋 (Informativo) El orientador ${decision === "aprobado" ? "aprobó" : "rechazó"} el acta sesión del DP N°${dp.numero}-${dp.anio} que gestiona tu sustituto.`);
+  }
+
+  await pool.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ── CERRAR PROCESO (al completar resolución final o desestima) ────────
+router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Sin permisos" });
+  }
+
+  let nuevoEstado;
+  if (dp.decision_sesion === "desestimar") {
+    nuevoEstado = "desestimado";
+  } else if (dp.decision_sesion === "continuar") {
+    nuevoEstado = "resuelto";
+  } else {
+    return res.status(400).json({ error: "Debe completarse el acta sesión antes de cerrar." });
+  }
+  await pool.query("UPDATE debidos_procesos SET estado=$1, updated_at=NOW() WHERE id=$2", [nuevoEstado, req.params.id]);
+
+  // Notificaciones: iniciador, orientador, guía original y sustituto si lo hay.
+  const etiqueta = nuevoEstado === "resuelto" ? "✅ resuelto" : "❌ desestimado";
+  const destinatarios = new Set();
+  if (dp.iniciado_por && dp.iniciado_por !== u.id) destinatarios.add(dp.iniciado_por);
+  if (dp.guia_a_cargo && dp.guia_a_cargo !== u.id) destinatarios.add(dp.guia_a_cargo);
+  if (dp.guia_sustituto_id && dp.guia_sustituto_id !== u.id) destinatarios.add(dp.guia_sustituto_id);
+  if (dp.orientador_id && dp.orientador_id !== u.id) destinatarios.add(dp.orientador_id);
+  for (const uid of destinatarios) {
+    await notificar(uid, "debido_proceso",
+      `📋 El debido proceso N°${dp.numero}-${dp.anio} fue cerrado como ${etiqueta}.`);
+  }
+
+  res.json({ ok: true, estado: nuevoEstado });
+});
+
+// ── ELIMINAR un proceso completo (solo admin/administrativo) ──────────
+// Borra el proceso, sus pasos, testigos, aprobaciones e historial. Además
+// libera el consecutivo asociado para que pueda ser reutilizado por otro
+// proceso. Es IRREVERSIBLE — pensada para limpiar registros de prueba.
+// ── REACTIVAR DEBIDO PROCESO ─────────────────────────────────────────
+// Permite a admin/administrativo reabrir un DP que ya fue cerrado
+// (resuelto, desestimado o archivado) para poder corregirlo. El estado
+// vuelve a 'en_curso' y se preserva todo el contenido de los pasos.
+// Uso típico: se detectó un error en la resolución después de cerrado.
+router.post("/:id/reactivar", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  if (!["admin","administrativo"].includes(u.rol)) {
+    return res.status(403).json({ error: "Solo admin/administrativo puede reactivar debidos procesos." });
+  }
+  const { justificacion } = req.body || {};
+  if (!justificacion || !justificacion.trim()) {
+    return res.status(400).json({ error: "La justificación es obligatoria." });
+  }
+  try {
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+    if (dp.estado === "en_curso") {
+      return res.status(400).json({ error: "El proceso ya está en curso." });
+    }
+
+    // Reactivar: estado vuelve a 'en_curso' y limpiamos los campos de archivo
+    // (si estaba archivado). El contenido de los pasos se preserva.
+    await pool.query(`
+      UPDATE debidos_procesos SET
+        estado = 'en_curso',
+        archivo_solicitado_por = NULL,
+        archivo_solicitado_at = NULL,
+        archivo_justificacion = NULL,
+        archivo_aprobado_por = NULL,
+        archivo_aprobado_at = NULL,
+        archivo_decision_orientador = NULL,
+        updated_at = NOW()
+      WHERE id = $1
+    `, [req.params.id]);
+
+    console.log(`[DP] Reactivado N°${dp.numero}-${dp.anio} (estado anterior: ${dp.estado}) por usuario ${u.id} (${u.rol}). Justificación: ${justificacion}`);
+
+    // Notificar al guía efectivo y al orientador asignado
+    const guiaAvisar = guiaEfectivo(dp);
+    if (guiaAvisar) {
+      await notificar(guiaAvisar, "debido_proceso",
+        `🔄 El debido proceso N°${dp.numero}-${dp.anio} fue REACTIVADO por administración. Justificación: ${justificacion.trim()}`);
+    }
+    if (dp.orientador_asignado && dp.orientador_asignado !== guiaAvisar) {
+      await notificar(dp.orientador_asignado, "debido_proceso",
+        `🔄 El debido proceso N°${dp.numero}-${dp.anio} fue REACTIVADO por administración. Justificación: ${justificacion.trim()}`);
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("reactivar DP:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.delete("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  if (!["admin","administrativo"].includes(u.rol)) {
+    return res.status(403).json({ error: "Solo administración puede eliminar procesos." });
+  }
+  const dpR = await pool.query("SELECT id, consecutivo_id, numero, anio FROM debidos_procesos WHERE id=$1", [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Borrar dependientes (las FK tienen ON DELETE CASCADE pero por seguridad
+    // los borramos explícitamente en orden).
+    await client.query("DELETE FROM dp_historial_cambios WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_aprobaciones_orientador WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_testigos WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_ofendidos WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_pasos WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM debidos_procesos WHERE id=$1", [dp.id]);
+    // Liberar el consecutivo asociado
+    if (dp.consecutivo_id) {
+      await client.query("DELETE FROM consecutivos WHERE id=$1", [dp.consecutivo_id]);
+    }
+    await client.query("COMMIT");
+    res.json({ ok: true, consecutivo_liberado: dp.numero, anio: dp.anio });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("DELETE debido proceso:", e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+// ── ASIGNAR GUÍA SUSTITUTO ─────────────────────────────────────────────
+// Solo admin y administrativo. Cuando se asigna, todas las validaciones
+// del proceso usan al sustituto en lugar del guía original. Si se pasa
+// sustituto_id=null, se quita y el guía original vuelve a tomar el caso.
+router.put("/:id/sustituto", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  if (!["admin","administrativo"].includes(u.rol)) {
+    return res.status(403).json({ error: "Solo admin y administrativo pueden asignar sustitutos." });
+  }
+  const { sustituto_id, motivo } = req.body;
+
+  // Verificar que el proceso existe y no esté cerrado
+  const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+  if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+  const dp = dpR.rows[0];
+  if (dp.estado !== "en_curso") {
+    return res.status(400).json({ error: "Solo se puede modificar el guía de un proceso EN CURSO." });
+  }
+
+  // Si manda un sustituto, validar que sea un profesor activo y distinto del guía original
+  let nuevoSustituto = null;
+  if (sustituto_id) {
+    const susR = await pool.query(
+      "SELECT id, nombre, primer_apellido, segundo_apellido, rol, activo FROM usuarios WHERE id=$1",
+      [sustituto_id]
+    );
+    if (!susR.rows.length) return res.status(404).json({ error: "Profesor sustituto no encontrado" });
+    const sus = susR.rows[0];
+    if (!sus.activo) return res.status(400).json({ error: "El profesor sustituto está inactivo." });
+    if (!["profesor","profesor_guia"].includes(sus.rol)) {
+      return res.status(400).json({ error: "El sustituto debe ser un profesor activo del sistema." });
+    }
+    if (sus.id === dp.guia_a_cargo) {
+      return res.status(400).json({ error: "El sustituto no puede ser la misma persona que el guía original." });
+    }
+    nuevoSustituto = sus;
+  }
+
+  await pool.query(
+    "UPDATE debidos_procesos SET guia_sustituto_id=$1, updated_at=NOW() WHERE id=$2",
+    [nuevoSustituto ? nuevoSustituto.id : null, req.params.id]
+  );
+
+  // Log para auditoría
+  if (nuevoSustituto) {
+    const nombreSus = `${nuevoSustituto.nombre||''} ${nuevoSustituto.primer_apellido||''} ${nuevoSustituto.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
+    console.log(`[DP] Sustituto asignado a expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}): ${nombreSus} (${nuevoSustituto.id}). Por usuario ${u.id} (${u.rol}). Motivo: "${(motivo||'').trim()}"`);
+
+    // Notificar al sustituto
+    await notificar(nuevoSustituto.id, "debido_proceso",
+      `📋 Se te asignó como guía sustituto del debido proceso N°${dp.numero}-${dp.anio}. ${motivo ? 'Motivo: '+motivo : ''}`);
+    // Notificar al guía original (para que sepa que ya no tiene el caso)
+    if (dp.guia_a_cargo && dp.guia_a_cargo !== u.id) {
+      await notificar(dp.guia_a_cargo, "debido_proceso",
+        `📋 El debido proceso N°${dp.numero}-${dp.anio} fue reasignado temporalmente a otro profesor. Vas a recuperar el caso cuando se quite el sustituto.`);
+    }
+  } else {
+    console.log(`[DP] Sustituto REMOVIDO de expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}). Por usuario ${u.id} (${u.rol}). Motivo: "${(motivo||'').trim()}"`);
+    // Notificar al guía original que recupera el caso
+    if (dp.guia_a_cargo && dp.guia_a_cargo !== u.id) {
+      await notificar(dp.guia_a_cargo, "debido_proceso",
+        `📋 Volvés a tener el debido proceso N°${dp.numero}-${dp.anio} a cargo (sustituto removido).`);
+    }
+    // Notificar al sustituto saliente
+    if (dp.guia_sustituto_id && dp.guia_sustituto_id !== u.id) {
+      await notificar(dp.guia_sustituto_id, "debido_proceso",
+        `📋 Ya no estás como sustituto del debido proceso N°${dp.numero}-${dp.anio}.`);
+    }
+  }
+
+  res.json({ ok: true, sustituto: nuevoSustituto });
+});
+
+// ════════════════════════════════════════════════════════════════════
+//  ARCHIVAR PROCESO (con aprobación del orientador)
+// ════════════════════════════════════════════════════════════════════
+// Flujo:
+//   - POST /:id/solicitar-archivo: cualquier rol con acceso al proceso lo
+//     solicita. Pasa a estado 'pendiente_archivo'. Se notifica al orientador.
+//   - POST /:id/aprobar-archivo: solo el orientador (o admin/administrativo)
+//     aprueba o rechaza. Si aprueba, el estado pasa a 'archivado'. Si
+//     rechaza, vuelve al estado anterior.
+
+router.post("/:id/solicitar-archivo", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const { motivo } = req.body;
+  if (!motivo || !motivo.trim()) {
+    return res.status(400).json({ error: "El motivo es obligatorio para solicitar el archivo." });
+  }
+  try {
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+
+    // Permisos: guía efectivo (sustituto o titular), iniciador, admin, administrativo
+    const esStaff = ["admin","administrativo"].includes(u.rol);
+    const esGuia = guiaEfectivo(dp) === u.id;
+    const esIniciador = dp.iniciado_por === u.id;
+    if (!esStaff && !esGuia && !esIniciador) {
+      return res.status(403).json({ error: "Sin permisos para solicitar archivo de este proceso." });
+    }
+
+    // Solo procesos cerrados (resuelto/desestimado) o en_curso pueden archivarse
+    if (!['en_curso', 'resuelto', 'desestimado'].includes(dp.estado)) {
+      return res.status(400).json({ error: `El proceso ya está en estado '${dp.estado}'.` });
+    }
+
+    await pool.query(`
+      UPDATE debidos_procesos
+      SET estado='pendiente_archivo',
+          estado_previo_archivo=$1,
+          archivo_solicitado_por=$2,
+          archivo_solicitado_en=NOW(),
+          archivo_motivo=$3,
+          updated_at=NOW()
+      WHERE id=$4
+    `, [dp.estado, u.id, motivo.trim(), req.params.id]);
+
+    // Notificar al orientador para aprobar
+    if (dp.orientador_id && dp.orientador_id !== u.id) {
+      await notificar(dp.orientador_id, "debido_proceso",
+        `📦 Se solicita ARCHIVAR el debido proceso N°${dp.numero}-${dp.anio}. Necesita tu aprobación. Motivo: "${motivo.trim()}"`);
+    }
+    // También al guía si no es el solicitante
+    const gid = guiaEfectivo(dp);
+    if (gid && gid !== u.id) {
+      await notificar(gid, "debido_proceso",
+        `📦 Se solicitó archivar el debido proceso N°${dp.numero}-${dp.anio}. Esperando aprobación del orientador.`);
+    }
+
+    console.log(`[DP] Solicitud de archivo en expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}) por usuario ${u.id} (${u.rol}). Motivo: "${motivo.trim()}"`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("solicitar-archivo:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/:id/aprobar-archivo", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const { aprobar, decision } = req.body; // aprobar: bool, decision: texto opcional
+  try {
+    const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [req.params.id]);
+    if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
+    const dp = dpR.rows[0];
+
+    // Solo orientador asignado, admin o administrativo pueden aprobar/rechazar
+    const esOrientadorAsignado = dp.orientador_id === u.id;
+    const esStaff = ["admin","administrativo"].includes(u.rol);
+    if (!esOrientadorAsignado && !esStaff) {
+      return res.status(403).json({ error: "Solo el orientador asignado, admin o administrativo pueden aprobar/rechazar." });
+    }
+
+    if (dp.estado !== 'pendiente_archivo') {
+      return res.status(400).json({ error: "El proceso no está pendiente de archivo." });
+    }
+
+    if (aprobar) {
+      // Aprobar → estado 'archivado'
+      await pool.query(`
+        UPDATE debidos_procesos
+        SET estado='archivado',
+            archivo_aprobado_por=$1,
+            archivo_aprobado_en=NOW(),
+            archivo_decision_orientador=$2,
+            updated_at=NOW()
+        WHERE id=$3
+      `, [u.id, (decision||'').trim() || null, req.params.id]);
+
+      // Notificar al solicitante y al guía
+      const destinatarios = new Set();
+      if (dp.archivo_solicitado_por && dp.archivo_solicitado_por !== u.id) destinatarios.add(dp.archivo_solicitado_por);
+      const gid = guiaEfectivo(dp);
+      if (gid && gid !== u.id) destinatarios.add(gid);
+      if (dp.iniciado_por && dp.iniciado_por !== u.id) destinatarios.add(dp.iniciado_por);
+      for (const uid of destinatarios) {
+        await notificar(uid, "debido_proceso",
+          `📦✅ El orientador APROBÓ archivar el debido proceso N°${dp.numero}-${dp.anio}.`);
+      }
+      console.log(`[DP] Archivo APROBADO de expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}) por usuario ${u.id} (${u.rol}).`);
+    } else {
+      // Rechazar → vuelve al estado anterior
+      const estadoVuelta = dp.estado_previo_archivo || 'en_curso';
+      await pool.query(`
+        UPDATE debidos_procesos
+        SET estado=$1,
+            archivo_aprobado_por=$2,
+            archivo_aprobado_en=NOW(),
+            archivo_decision_orientador=$3,
+            estado_previo_archivo=NULL,
+            updated_at=NOW()
+        WHERE id=$4
+      `, [estadoVuelta, u.id, (decision||'').trim() || 'Rechazado por el orientador', req.params.id]);
+
+      // Notificar al solicitante
+      if (dp.archivo_solicitado_por && dp.archivo_solicitado_por !== u.id) {
+        await notificar(dp.archivo_solicitado_por, "debido_proceso",
+          `📦❌ El orientador RECHAZÓ archivar el debido proceso N°${dp.numero}-${dp.anio}.${decision ? ' Motivo: '+decision : ''}`);
+      }
+      console.log(`[DP] Archivo RECHAZADO de expediente ${dp.numero}-${dp.anio} (proceso ${dp.id}) por usuario ${u.id} (${u.rol}). Vuelve a estado: ${estadoVuelta}`);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("aprobar-archivo:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+module.exports = router;

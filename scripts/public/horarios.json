@@ -1,0 +1,1428 @@
+[
+  {
+    "teacher": "LIZETH CAMPOS AGUILAR",
+    "subject": "FRANCES",
+    "schedule": {
+      "LUNES": {
+        "7-1": 3,
+        "7-4": 3,
+        "8-4": 3
+      },
+      "MARTES": {
+        "8-3": 3,
+        "8-2": 3
+      },
+      "MIERCOLES": {
+        "7-2": 3,
+        "7-7": 3,
+        "8-6": 3,
+        "7-8": 3
+      },
+      "JUEVES": {
+        "8-5": 3,
+        "Cood": 2
+      },
+      "VIERNES": {
+        "7-6": 3,
+        "7-5": 3,
+        "8-1": 3,
+        "7-3": 3
+      }
+    }
+  },
+  {
+    "teacher": "LIBIA MORALES CALDERON",
+    "subject": "FRANCES",
+    "schedule": {
+      "LUNES": {
+        "9-5": 3,
+        "9-4": 3,
+        "9-7": 3
+      },
+      "MARTES": {
+        "10-3": 2,
+        "11-3": 2
+      },
+      "MIERCOLES": {
+        "9-6": 3,
+        "9-1": 3,
+        "9-3": 3
+      },
+      "VIERNES": {
+        "9-2": 3,
+        "8-7": 3,
+        "10-3": 3,
+        "11-3": 3
+      }
+    }
+  },
+  {
+    "teacher": "MARJORIE ACUÑA DELGADO",
+    "subject": "EDUC. PARA EL HOGAR",
+    "schedule": {
+      "LUNES": {
+        "8-1": 3,
+        "7-8": 3,
+        "7-5": 3,
+        "7-6": 3
+      },
+      "MARTES": {
+        "7-7": 3,
+        "8-2": 3,
+        "8-3": 3
+      },
+      "MIERCOLES": {
+        "8-3": 1,
+        "9-5": 3,
+        "9-4": 3
+      },
+      "JUEVES": {
+        "8-4": 3,
+        "8-5": 3,
+        "8-6": 3,
+        "9-6": 3
+      },
+      "VIERNES": {
+        "9-7": 3,
+        "8-4": 1
+      }
+    }
+  },
+  {
+    "teacher": "CARMEN LEÓN MONTERO",
+    "subject": "EDUC. PARA EL HOGAR",
+    "schedule": {
+      "MIERCOLES": {
+        "7-1": 3,
+        "7-3": 3,
+        "7-2": 3,
+        "7-4": 3
+      },
+      "VIERNES": {
+        "8-7": 3,
+        "9-2": 3,
+        "9-1": 3,
+        "9-3": 3
+      }
+    }
+  },
+  {
+    "teacher": "MAURICIO VÍQUEZ CORDERO",
+    "subject": "ART. INDUSTRIALES",
+    "schedule": {
+      "MARTES": {
+        "7-7": 3,
+        "8-2": 3,
+        "8-3": 3
+      },
+      "MIERCOLES": {
+        "7-1": 3,
+        "7-3": 3,
+        "9-5": 3,
+        "9-4": 3
+      },
+      "JUEVES": {
+        "8-4": 3,
+        "8-5": 3,
+        "8-6": 3,
+        "9-6": 3
+      },
+      "VIERNES": {
+        "8-7": 3,
+        "9-2": 3,
+        "9-1": 3,
+        "9-3": 3
+      }
+    }
+  },
+  {
+    "teacher": "JOSÉ RODRIGO CHACÓN CORDERON",
+    "subject": "ART. INDUSTRIALES",
+    "schedule": {
+      "LUNES": {
+        "8-1": 3,
+        "7-8": 3,
+        "7-5": 3,
+        "7-6": 3
+      },
+      "MIERCOLES": {
+        "7-2": 3,
+        "7-4": 3
+      }
+    }
+  },
+  {
+    "teacher": "ARIANA ZELEDÓN BADILLA",
+    "subject": "ART. PLASTICAS",
+    "schedule": {
+      "JUEVES": {
+        "10-2": 1,
+        "11-1": 1,
+        "11-4": 1,
+        "11-2": 1,
+        "11-5": 1,
+        "10-5": 1,
+        "10-3": 1,
+        "10-4": 1,
+        "11-3": 1,
+        "10-1": 1
+      }
+    }
+  },
+  {
+    "teacher": "JUAN CARLOS FERARIO CHACÓN",
+    "subject": "ART. PLASTICAS",
+    "schedule": {
+      "LUNES": {
+        "8-7": 2,
+        "7-5": 2,
+        "7-2": 2,
+        "8-3": 2,
+        "7-8": 2
+      },
+      "MARTES": {
+        "8-1": 2,
+        "7-1": 2,
+        "7-6": 2,
+        "8-6": 2,
+        "9-5": 2,
+        "7-7": 2
+      },
+      "MIERCOLES": {
+        "8-5": 2,
+        "8-2": 2,
+        "8-4": 2,
+        "7-3": 2,
+        "9-2": 2,
+        "9-7": 2
+      },
+      "VIERNES": {
+        "9-4": 2,
+        "7-4": 2,
+        "9-3": 2,
+        "9-6": 2,
+        "9-1": 2
+      }
+    }
+  },
+  {
+    "teacher": "JONATHAN BARRERA ROLDÁN",
+    "subject": "CIENCIAS",
+    "schedule": {
+      "LUNES": {
+        "7-4": 3,
+        "7-2": 3,
+        "7-8": 2,
+        "7-1": 1
+      },
+      "MARTES": {
+        "7-5": 2,
+        "7-3": 2,
+        "7-2": 2,
+        "7-7": 2
+      },
+      "MIERCOLES": {
+        "Coord": 2,
+        "7-6": 2,
+        "7-1": 2,
+        "7-4": 2,
+        "7-3": 3
+      },
+      "JUEVES": {
+        "7-6": 3,
+        "7-7": 3
+      },
+      "VIERNES": {
+        "7-8": 3,
+        "7-1": 2,
+        "7-5": 3
+      }
+    }
+  },
+  {
+    "teacher": "SONIA FERNANDEZ ARCE",
+    "subject": "CIENCIAS / BIOLOGIA",
+    "schedule": {
+      "LUNES": {
+        "10-5": 1,
+        "11-1": 1,
+        "10-4": 2,
+        "9-2": 3
+      },
+      "MARTES": {
+        "10-5": 2,
+        "10-1": 2,
+        "10-2": 2,
+        "9-1": 2
+      },
+      "MIERCOLES": {
+        "11-1": 2,
+        "11-5": 2,
+        "11-4": 2,
+        "11-2": 2,
+        "11-3": 3
+      },
+      "JUEVES": {
+        "9-1": 3,
+        "10-4": 1,
+        "9-3": 2,
+        "10-3": 2,
+        "11-5": 1,
+        "10-2": 1,
+        "10-1": 1
+      },
+      "VIERNES": {
+        "11-2": 1,
+        "9-3": 3,
+        "9-2": 2,
+        "11-4": 1,
+        "10-3": 1
+      }
+    }
+  },
+  {
+    "teacher": "KIMBERLY CHACON SOTO",
+    "subject": "CIENCIAS",
+    "schedule": {
+      "LUNES": {
+        "8-6": 2,
+        "Club": 2,
+        "8-5": 2,
+        "8-3": 2,
+        "8-5 (Guía)": 1,
+        "8-2": 1
+      },
+      "MARTES": {
+        "8-7": 2,
+        "8-3": 3,
+        "8-5": 3,
+        "9-4": 2
+      },
+      "MIERCOLES": {
+        "8-7": 3,
+        "8-1": 2,
+        "8-2": 2,
+        "8-4": 2
+      },
+      "JUEVES": {
+        "8-2": 2,
+        "8-1": 3,
+        "9-4": 3,
+        "8-6 (Guía)": 1
+      },
+      "VIERNES": {
+        "8-4": 3,
+        "8-6": 3
+      }
+    }
+  },
+  {
+    "teacher": "MARCELA VENEGAS LEIVA",
+    "subject": "CIENCIAS",
+    "schedule": {
+      "MARTES": {
+        "9-7": 2,
+        "9-5": 2
+      },
+      "VIERNES": {
+        "9-5": 2,
+        "9- 5": 1,
+        "9-7": 3
+      }
+    }
+  },
+  {
+    "teacher": "DENIS GUEVARA PORRAS",
+    "subject": "FISICA MATEMATICA",
+    "schedule": {
+      "MIERCOLES": {
+        "11-5": 2,
+        "10-1": 1,
+        "11-4": 1,
+        "10-4": 2,
+        "10-3": 1,
+        "10-2": 2,
+        "10-5": 1
+      },
+      "VIERNES": {
+        "10-1": 2,
+        "10-2": 1,
+        "10-4": 1,
+        "10-3": 2,
+        "11-5": 1,
+        "10-5": 2,
+        "11-4": 2
+      }
+    }
+  },
+  {
+    "teacher": "LEANDRO ARIAS SALAZAR",
+    "subject": "QUIMICA, FISICA Y BIOLOGIA",
+    "schedule": {
+      "LUNES": {
+        "10-2 Quim": 1,
+        "11-2 Quim": 1,
+        "11-1 FM": 2,
+        "10-3 Quim": 1,
+        "10-4 Quim": 1,
+        "11-2 FM": 1,
+        "9-6": 3
+      },
+      "MARTES": {
+        "10-5 Quim": 1,
+        "11-2 FM": 2,
+        "10-4 Quim": 2,
+        "11-5 Quim": 1,
+        "11-1 Quim": 1,
+        "10-2 Quim": 2
+      },
+      "MIERCOLES": {
+        "11-2 Quim": 2,
+        "11-3 Quim": 2,
+        "11-5 Quim": 2,
+        "11-1 Quim": 2,
+        "10-3 Quim": 2
+      },
+      "JUEVES": {
+        "11-3 Quim": 1,
+        "10-1 Quim": 2,
+        "10-5 Quim": 2,
+        "11-4 Quim": 1
+      },
+      "VIERNES": {
+        "10-1 Quim": 1,
+        "11-3 FM": 3,
+        "11-4 Quim": 2,
+        "11-1 FM": 1,
+        "9-6": 2
+      }
+    }
+  },
+  {
+    "teacher": "ANDREA ÁVILA MORÚA",
+    "subject": "INFORMATICA",
+    "schedule": {
+      "LUNES": {
+        "7-3": 2,
+        "7-5": 2,
+        "7-1": 2,
+        "7-4": 2,
+        "7-2": 2,
+        "8-5": 2
+      },
+      "MARTES": {
+        "7-6": 2,
+        "7-8": 2,
+        "8-1": 2,
+        "7-7 (19)": 2
+      },
+      "MIERCOLES": {
+        "9-2": 2,
+        "8-6": 2,
+        "8-4": 2,
+        "8-2": 2
+      },
+      "JUEVES": {
+        "9-4": 2,
+        "9-6": 2,
+        "9-3": 2,
+        "9-5": 2,
+        "8-7": 2
+      },
+      "VIERNES": {
+        "9-1": 2,
+        "9-7": 2,
+        "8-3": 2
+      }
+    }
+  },
+  {
+    "teacher": "ANDRÉS VARGAS GRANADOS",
+    "subject": "ÉTICA Y VALORES",
+    "schedule": {
+      "MARTES": {
+        "10-2": 1,
+        "8-2 (Guía)": 1,
+        "9-6": 1,
+        "11-1": 1,
+        "11-5 (Guía)": 1,
+        "9-4": 1,
+        "10-1": 1
+      },
+      "MIERCOLES": {
+        "8-5": 1,
+        "10-3": 1,
+        "8-7": 1,
+        "7-8": 1,
+        "9-2": 1,
+        "9-7": 1,
+        "7-4": 1,
+        "11-2": 1,
+        "9-1": 1
+      },
+      "JUEVES": {
+        "7-5": 1,
+        "7-3": 1,
+        "11-3": 1,
+        "8-2": 1,
+        "10-5": 1,
+        "11-5": 1,
+        "10-4": 1,
+        "9-3": 1,
+        "8-1": 1
+      },
+      "VIERNES": {
+        "8-4": 1,
+        "7-1": 1,
+        "7-6": 1,
+        "8-6": 1,
+        "7-7": 1,
+        "9-5": 1,
+        "8-3": 1,
+        "11-4": 1,
+        "7-2": 1
+      }
+    }
+  },
+  {
+    "teacher": "MINOR MURILLO ARCE",
+    "subject": "MÚSICA",
+    "schedule": {
+      "LUNES": {
+        "8-7": 2,
+        "8-6": 2,
+        "8-3": 2,
+        "7-7 (19)": 2,
+        "10-4": 1,
+        "10-2": 1,
+        "9-1": 2
+      },
+      "MARTES": {
+        "8-5": 2,
+        "11-4": 1,
+        "10-1": 1,
+        "8-4": 2,
+        "7-8": 2,
+        "11-1": 1,
+        "10-5": 1,
+        "9-3": 2
+      },
+      "MIERCOLES": {
+        "8-1": 2,
+        "10-3": 1,
+        "10-1": 1,
+        "9-2": 2,
+        "9-6": 2,
+        "11-2": 1,
+        "Club": 2
+      },
+      "JUEVES": {
+        "9-4": 2,
+        "9-5": 2,
+        "9-7": 2,
+        "8-2": 2,
+        "8-7 (Guía)": 1,
+        "11-5": 1,
+        "11-3": 1
+      }
+    }
+  },
+  {
+    "teacher": "JOSUÉ MORALES MORA",
+    "subject": "MÚSICA",
+    "schedule": {
+      "VIERNES": {
+        "7-1": 2,
+        "7-4": 2,
+        "7-3": 2,
+        "7-6": 2,
+        "7-2": 2,
+        "7-5": 2
+      }
+    }
+  },
+  {
+    "teacher": "VICTOR CAMPOS MONGE",
+    "subject": "EDUC. FÍSICA",
+    "schedule": {
+      "LUNES": {
+        "10-5": 2,
+        "10-4": 2,
+        "10-2": 2,
+        "11-4": 2,
+        "9-1": 2,
+        "10-3": 2
+      },
+      "MARTES": {
+        "7-8": 2,
+        "8-7": 2,
+        "7-1": 2,
+        "9-4": 2,
+        "Club": 1,
+        "C.T.A": 3
+      },
+      "MIERCOLES": {
+        "8-4": 2,
+        "11-2": 2,
+        "11-1": 2,
+        "9-6": 2
+      },
+      "JUEVES": {
+        "10-1": 2,
+        "8-3": 2
+      }
+    }
+  },
+  {
+    "teacher": "YERLI ROMERO",
+    "subject": "EDUC. FÍSICA",
+    "schedule": {
+      "MARTES": {
+        "11-5": 2,
+        "8-2": 2,
+        "11-3": 2,
+        "9-4": 2,
+        "10-5 G": 1,
+        "11-1 G": 1,
+        "7-3": 2
+      },
+      "MIERCOLES": {
+        "Club": 2,
+        "8-4": 2,
+        "11-2": 2,
+        "11-1": 2,
+        "9-6": 2
+      },
+      "JUEVES": {
+        "9-5": 2,
+        "9-3": 2,
+        "9-2": 2,
+        "8-1": 2,
+        "10-1": 2
+      },
+      "VIERNES": {
+        "8-5": 2,
+        "7-7": 2,
+        "7-6": 2
+      }
+    }
+  },
+  {
+    "teacher": "ALONSO ROJAS CHAVES",
+    "subject": "EDUC. FÍSICA",
+    "schedule": {
+      "LUNES": {
+        "10-5": 2,
+        "10-4": 2,
+        "10-2": 2,
+        "11-4": 2,
+        "9-1": 2,
+        "10-3": 2
+      },
+      "MARTES": {
+        "9-7": 2,
+        "7-5": 2
+      },
+      "JUEVES": {
+        "9-5": 2,
+        "9-3": 2,
+        "9-2": 2,
+        "8-1": 2
+      },
+      "VIERNES": {
+        "8-5": 2,
+        "7-7": 2,
+        "7-6": 2,
+        "7-2": 2,
+        "7-4": 2,
+        "8-6": 2
+      }
+    }
+  },
+  {
+    "teacher": "FRANCISCO ESPINOZA CESPEDES",
+    "subject": "ESPAÑOL",
+    "schedule": {
+      "LUNES": {
+        "7-5": 2,
+        "7-3": 2,
+        "7-7 (19)": 2,
+        "7-6": 3
+      },
+      "MARTES": {
+        "7-6": 2,
+        "8-1": 2,
+        "7-4": 2,
+        "7-1": 2,
+        "7-2": 2
+      },
+      "MIERCOLES": {
+        "7-5": 3,
+        "7-2": 3,
+        "7-1": 3
+      },
+      "JUEVES": {
+        "7-3": 3,
+        "7-4": 3,
+        "7-8": 2
+      },
+      "VIERNES": {
+        "8-1": 3,
+        "7-8": 3,
+        "7-7 (19)": 3
+      }
+    }
+  },
+  {
+    "teacher": "YASNIA CORDERO SEGURA",
+    "subject": "ESPAÑOL",
+    "schedule": {
+      "LUNES": {
+        "11-1": 3,
+        "11-5": 3,
+        "11-2": 2,
+        "10-1": 2
+      },
+      "MARTES": {
+        "10-1": 3,
+        "11-4": 3,
+        "11-3": 3,
+        "11-2": 1
+      },
+      "MIERCOLES": {
+        "11-2": 2,
+        "11-1": 2,
+        "11-5": 2,
+        "11-3": 2,
+        "11-4": 2
+      }
+    }
+  },
+  {
+    "teacher": "MARGARITA CHAVES JIMÉNEZ",
+    "subject": "ESPAÑOL",
+    "schedule": {
+      "LUNES": {
+        "10-2": 2,
+        "10-3": 2,
+        "9-1": 2,
+        "10-5": 3,
+        "10-4": 3
+      },
+      "MARTES": {
+        "9-4": 1,
+        "10-5": 2,
+        "9-3": 2,
+        "9-2": 3
+      },
+      "MIERCOLES": {
+        "9-1": 3,
+        "9-4": 2,
+        "9-3": 3
+      },
+      "JUEVES": {
+        "10-3": 3,
+        "9-2": 2,
+        "Cood": 2,
+        "10-4": 2
+      },
+      "VIERNES": {
+        "9-4": 2,
+        "10-2": 3,
+        "9-1": 1,
+        "10-3": 1
+      }
+    }
+  },
+  {
+    "teacher": "WAGNER RAMIREZ ARROYO",
+    "subject": "EST. SOCIALES",
+    "schedule": {
+      "LUNES": {
+        "9-7": 2,
+        "7-7 (19)": 2,
+        "8-1": 2,
+        "8-2": 2,
+        "7-8": 2,
+        "8-3": 2
+      },
+      "MARTES": {
+        "8-5": 2,
+        "8-6": 2,
+        "8-4": 2,
+        "8-7": 2
+      },
+      "MIERCOLES": {
+        "8-2": 2,
+        "8-1": 2,
+        "7-6": 2,
+        "7-7 (19)": 2,
+        "8-7": 2
+      },
+      "JUEVES": {
+        "7-6": 2,
+        "9-7": 2,
+        "8-3": 2
+      },
+      "VIERNES": {
+        "8-6": 2,
+        "7-8": 2,
+        "8-4": 2,
+        "8-5": 2
+      }
+    }
+  },
+  {
+    "teacher": "ALEJANDRO UMAÑA CASCANTE",
+    "subject": "EST. SOC. / CIVICA",
+    "schedule": {
+      "LUNES": {
+        "9-3 (Cív)": 2,
+        "10-5": 3,
+        "11-5": 2,
+        "10-3": 2
+      },
+      "MARTES": {
+        "10-2": 2,
+        "11-5": 3,
+        "10-1": 2,
+        "8-6 (Civ)": 2,
+        "9-1": 2
+      },
+      "MIERCOLES": {
+        "10-5": 2,
+        "9-1": 2,
+        "10-2 (Guía)": 1,
+        "10-3": 3,
+        "9-6 (Civ)": 2
+      },
+      "JUEVES": {
+        "10-1": 1,
+        "10-4": 3,
+        "9-7 (Cív)": 2
+      },
+      "VIERNES": {
+        "10-4 (Guía)": 1,
+        "10-2": 3,
+        "10-4": 2,
+        "10-1": 2
+      }
+    }
+  },
+  {
+    "teacher": "JOHANNA ESCOBAR UMAÑA",
+    "subject": "EST. SOCIALES",
+    "schedule": {
+      "MARTES": {
+        "7-1": 2,
+        "7-4": 2,
+        "7-3": 2,
+        "7-5": 2,
+        "Coord": 1,
+        "7-3 (Guía)": 1,
+        "7-2": 2
+      },
+      "JUEVES": {
+        "7-5": 2,
+        "7-4 (Guía)": 1,
+        "Coord": 1,
+        "7-3": 2,
+        "7-4": 2,
+        "7-1": 2,
+        "7-2": 2
+      }
+    }
+  },
+  {
+    "teacher": "MINOR VASQUEZ SÁNCHEZ",
+    "subject": "CIVICA",
+    "schedule": {
+      "LUNES": {
+        "9-1": 2,
+        "10-3": 2,
+        "10-1": 2,
+        "11-5": 2
+      },
+      "MARTES": {
+        "11-3": 2,
+        "11-2": 2,
+        "10-5": 2,
+        "10-4": 2
+      },
+      "JUEVES": {
+        "11-4": 2,
+        "11-1": 2,
+        "8-4": 2,
+        "9-2": 2,
+        "10-2": 2
+      }
+    }
+  },
+  {
+    "teacher": "SUSAN MORAN SEGURA",
+    "subject": "EST. SOC. / CIVICA",
+    "schedule": {
+      "LUNES": {
+        "11-3": 3,
+        "9-3": 2,
+        "11-4": 2,
+        "11-2": 2
+      },
+      "MARTES": {
+        "9-6": 2,
+        "9-5": 2,
+        "9-4": 2,
+        "11-2": 3,
+        "C.T.A.": 3
+      },
+      "MIERCOLES": {
+        "9-2": 2,
+        "9-4": 2,
+        "11-1": 2
+      },
+      "JUEVES": {
+        "9-3": 2,
+        "11-3": 3,
+        "9-5": 2,
+        "11-4": 3
+      },
+      "VIERNES": {
+        "11-1": 3,
+        "9-6": 2,
+        "9-2": 2
+      }
+    }
+  },
+  {
+    "teacher": "ROXANA CALDERON CASTRO",
+    "subject": "CIVICA",
+    "schedule": {
+      "LUNES": {
+        "7-7 (19)": 2,
+        "8-3": 2,
+        "9-5": 2,
+        "9-4": 2,
+        "Club": 1,
+        "8-1 (Guía)": 1,
+        "8-2": 2
+      },
+      "MARTES": {
+        "7-8": 2,
+        "8-1": 2,
+        "7-6": 2,
+        "7-8 (Guía": 1
+      }
+    }
+  },
+  {
+    "teacher": "MARCELA JIMENEZ GÚZMAN",
+    "subject": "CIVICA",
+    "schedule": {
+      "LUNES": {
+        "7-3": 2,
+        "7-1": 2,
+        "7-4": 2,
+        "7-2 (Guía)": 1
+      },
+      "MARTES": {
+        "8-5": 2,
+        "8-7": 2
+      },
+      "JUEVES": {
+        "Club": 2,
+        "7-5 (Guía)": 1,
+        "7-2": 2,
+        "7-5": 2
+      }
+    }
+  },
+  {
+    "teacher": "CAROLINA VILLAR BARRANTES",
+    "subject": "INGLÉS",
+    "schedule": {
+      "JUEVES": {
+        "7-7 (19)": 3,
+        "7-8 Audio": 3,
+        "7-6 Audio": 3
+      }
+    }
+  },
+  {
+    "teacher": "ANA VIRGINIA BARRANTES VARGAS",
+    "subject": "INGLÉS",
+    "schedule": {
+      "LUNES": {
+        "11-5": 3,
+        "11-4": 3,
+        "10-2": 3
+      },
+      "MARTES": {
+        "11-2": 2,
+        "Coordinación": 1,
+        "11-1": 3,
+        "10-4": 2,
+        "11-5": 2
+      },
+      "MIERCOLES": {
+        "10-5": 2,
+        "10-4": 2,
+        "10-1": 2,
+        "11-4": 2
+      },
+      "JUEVES": {
+        "Club": 2,
+        "10-4": 1,
+        "10-5": 3,
+        "11-2": 3
+      },
+      "VIERNES": {
+        "10-2": 2,
+        "Coordinación": 1,
+        "10-1": 3,
+        "11-1": 2
+      }
+    }
+  },
+  {
+    "teacher": "MARÍA ZÚÑIGA MARTÍNEZ",
+    "subject": "INGLÉS",
+    "schedule": {
+      "JUEVES": {
+        "7-2": 2,
+        "7-5": 2,
+        "7-1": 2,
+        "7-4": 2
+      },
+      "VIERNES": {
+        "7-1 (9)": 1,
+        "7-3": 3,
+        "7-5": 1,
+        "7-4": 1,
+        "7-2": 1
+      }
+    }
+  },
+  {
+    "teacher": "Profe3",
+    "subject": "",
+    "schedule": {
+      "LUNES": {
+        "9-4": 3,
+        "9-3": 3,
+        "8-1": 3
+      },
+      "MARTES": {
+        "8-4": 3,
+        "9-7": 3,
+        "9-2": 3
+      },
+      "MIERCOLES": {
+        "8-5": 3,
+        "8-3": 3,
+        "9-5 (Guía)": 1
+      },
+      "JUEVES": {
+        "8-6": 3,
+        "9-1": 3,
+        "9-6": 3,
+        "9-4 (Guía)": 1
+      },
+      "VIERNES": {
+        "9-5": 3,
+        "8-2": 3,
+        "8-7": 3,
+        "Club": 1
+      }
+    }
+  },
+  {
+    "teacher": "MONICA ROJAS CASTILLO",
+    "subject": "MATEMÁTICA",
+    "schedule": {
+      "LUNES": {
+        "11-4": 3,
+        "10-2": 1,
+        "11-2": 2,
+        "11-1": 2,
+        "CLUB": 2
+      },
+      "MARTES": {
+        "10-4": 3,
+        "10-2": 2,
+        "10-3": 2,
+        "10-1": 1
+      },
+      "MIERCOLES": {
+        "11-3": 3,
+        "10-3": 2,
+        "10-1": 2
+      },
+      "JUEVES": {
+        "11-2": 3,
+        "10-2": 2,
+        "10-4": 2,
+        "11-3": 2,
+        "Cood.": 2
+      },
+      "VIERNES": {
+        "11-1": 3,
+        "10-3": 1,
+        "10-4": 2,
+        "10-1": 2
+      }
+    }
+  },
+  {
+    "teacher": "SALOMON CHAVES CASCANTE",
+    "subject": "MATEMÁTICA / Cood. Acad.",
+    "schedule": {
+      "LUNES": {
+        "Coord. Acad": 2,
+        "9-7 (Fort)": 1,
+        "7-1(Guía)": 1,
+        "7-6": 2,
+        "8-6 (Fort)": 1,
+        "7-3": 3,
+        "C.A.E.": 2
+      },
+      "MARTES": {
+        "7-4": 2,
+        "Coord. Acad": 4,
+        "7-3": 2,
+        "7-1": 2
+      },
+      "MIERCOLES": {
+        "Coord. Acad": 5,
+        "7-4": 3,
+        "7-6": 3,
+        "7-1": 1
+      },
+      "JUEVES": {
+        "Coord. Acad": 3,
+        "7-6 (Guía) (4)": 1,
+        "7-1 (13)": 2
+      },
+      "VIERNES": {
+        "Coord. Acad": 6
+      }
+    }
+  },
+  {
+    "teacher": "CAROLINA CHACON CESPEDES",
+    "subject": "MATEMÁTICA",
+    "schedule": {
+      "LUNES": {
+        "9-6": 3,
+        "8-7": 3,
+        "8-2 (Forta)": 1,
+        "9-2": 3
+      },
+      "MARTES": {
+        "7-5 (Forta)": 1,
+        "8-7": 2,
+        "9-1": 2,
+        "9-3": 2
+      },
+      "MIERCOLES": {
+        "7-6 (Forta)": 1,
+        "7-7 (Forta)": 1,
+        "9-3": 3,
+        "9-4": 1,
+        "9-2 (Guía)": 1,
+        "7-8 (Forta)": 1,
+        "9-1": 1
+      },
+      "JUEVES": {
+        "9-6": 2,
+        "9-4": 2,
+        "9-5": 2,
+        "9-3 (Guía)": 1,
+        "9-2": 2
+      },
+      "VIERNES": {
+        "9-4": 2,
+        "8-1 (Forta)": 1,
+        "8-3 (Forta)": 1,
+        "9-1": 2,
+        "7-4 (Forta)": 1,
+        "9-5": 3
+      }
+    }
+  },
+  {
+    "teacher": "KAREN ELIZONDO BARRANTES",
+    "subject": "MATEMÁTICA",
+    "schedule": {
+      "LUNES": {
+        "8-4": 3,
+        "8-6": 2,
+        "8-5": 2,
+        "7-7 (19)": 2
+      },
+      "MARTES": {
+        "9-7": 3,
+        "8-4 (Forta)": 1,
+        "7-5": 2,
+        "7-2": 2
+      },
+      "MIERCOLES": {
+        "8-6": 3,
+        "7-5": 3,
+        "7-8": 2,
+        "9-4 (Fort)": 1
+      },
+      "JUEVES": {
+        "7-8": 3,
+        "7-7 (Guía)": 1,
+        "8-4": 2,
+        "7-2": 3,
+        "8-7 (Forta)": 1,
+        "9-7": 2
+      },
+      "VIERNES": {
+        "8-5": 3,
+        "8-5 (Fort)": 1,
+        "7-7 (19)": 3
+      }
+    }
+  },
+  {
+    "teacher": "HUBERTH MONGE BONILLA",
+    "subject": "MATEMÁTICA",
+    "schedule": {
+      "MIERCOLES": {
+        "10-5": 3,
+        "11-5": 2
+      },
+      "VIERNES": {
+        "11-5": 3,
+        "10-5": 2
+      }
+    }
+  },
+  {
+    "teacher": "SUSANA FALLAS GRANADOS",
+    "subject": "MATEMÁTICA",
+    "schedule": {
+      "MIERCOLES": {
+        "8-2": 2,
+        "8-1": 2,
+        "8-3": 3
+      },
+      "JUEVES": {
+        "8-2": 3,
+        "8-3": 2,
+        "8-1": 3
+      }
+    }
+  },
+  {
+    "teacher": "PLAZA VACANTE",
+    "subject": "MATEMÁTICA",
+    "schedule": {
+      "LUNES": {
+        "9-3": 1,
+        "9-5": 1,
+        "9-2": 1,
+        "9-6": 1,
+        "7-3": 1,
+        "9-1": 1,
+        "7-1": 1,
+        "7-2": 1
+      }
+    }
+  },
+  {
+    "teacher": "LAURA MORA SMITH",
+    "subject": "ORIENTACIÓN",
+    "schedule": {
+      "MARTES": {
+        "10-2 (17)": 1,
+        "7-5 (17)": 1,
+        "7-3 (8)": 1
+      },
+      "MIERCOLES": {
+        "7-1 (18)": 1,
+        "10-1 (20)": 1,
+        "7-6 (20)": 1
+      },
+      "JUEVES": {
+        "7-2 (19)": 1
+      },
+      "VIERNES": {
+        "7-8 (24)": 1,
+        "7-7 (19)": 1,
+        "7-4 (1)": 1
+      }
+    }
+  },
+  {
+    "teacher": "SOLEDAD FLORES CORNEJO",
+    "subject": "ORIENTACIÓN",
+    "schedule": {
+      "LUNES": {
+        "9-2 (25)": 1,
+        "9-1 (Mus)": 1,
+        "11-1 (22)": 1,
+        "11-2 (22)": 1
+      },
+      "MARTES": {
+        "11-5 (1)": 1,
+        "9-5 (17)": 1,
+        "11-3 (7)": 1
+      },
+      "MIERCOLES": {
+        "9-6 (15)": 1,
+        "9-4 (4)": 1
+      },
+      "VIERNES": {
+        "9-7 (23)": 1,
+        "11-4 (1)": 1,
+        "9-3 (12)": 1
+      }
+    }
+  },
+  {
+    "teacher": "ILEANA MÚÑOZ BADILLA",
+    "subject": "ORIENTACIÓN",
+    "schedule": {
+      "LUNES": {
+        "8-1 (8)": 1,
+        "8-7 (25)": 1,
+        "10-4 (Bibli)": 1,
+        "10-3 (Mus)": 1,
+        "8-5 (15)": 1
+      },
+      "MARTES": {
+        "8-2 (17)": 1
+      },
+      "MIERCOLES": {
+        "8-6 (13)": 1,
+        "10-5 (13)": 1
+      },
+      "JUEVES": {
+        "8-4 (10)": 1
+      },
+      "VIERNES": {
+        "8-3 (12)": 1
+      }
+    }
+  },
+  {
+    "teacher": "SARITA NAVARRO ROMERO",
+    "subject": "PSICOLOGIA Y ET. Y VALOR",
+    "schedule": {
+      "MIERCOLES": {
+        "10-5 E Y V": 1,
+        "10-1": 3
+      },
+      "JUEVES": {
+        "10-5": 3,
+        "10-2 E Y V": 1,
+        "10-4 E Y V": 1,
+        "10-1 E Y V": 1,
+        "10-2": 3,
+        "10-3": 3
+      },
+      "VIERNES": {
+        "10-4": 3,
+        "10-3 E Y V": 1
+      }
+    }
+  },
+  {
+    "teacher": "EDUARDO GONZÁLEZ MURILLO",
+    "subject": "FILOSOFÍA",
+    "schedule": {
+      "MARTES": {
+        "11-1": 3
+      }
+    }
+  },
+  {
+    "teacher": "ALVIN SOLANO ROJAS",
+    "subject": "FILOSOFÍA",
+    "schedule": {
+      "VIERNES": {
+        "11-5": 3,
+        "11-2": 3,
+        "11-3": 3
+      }
+    }
+  },
+  {
+    "teacher": "ALEJANDRA SOMARRIBAS CALDERÓN",
+    "subject": "FILOSOFÍA",
+    "schedule": {
+      "MIERCOLES": {
+        "11-4": 3
+      }
+    }
+  },
+  {
+    "teacher": "ADA TREJOS ABARCA",
+    "subject": "INGLÉS CONVER",
+    "schedule": {
+      "LUNES": {
+        "10-1": 6,
+        "11-3": 6
+      },
+      "MARTES": {
+        "10-3": 6,
+        "11-4": 6
+      },
+      "MIERCOLES": {
+        "10-2": 6,
+        "10-4": 6
+      },
+      "JUEVES": {
+        "11-5": 6
+      }
+    }
+  },
+  {
+    "teacher": "CINDY CASTRO ZAMORA",
+    "subject": "INGLÉS CONVER",
+    "schedule": {
+      "JUEVES": {
+        "11-5 (Biblio)": 6,
+        "11-1": 6
+      },
+      "VIERNES": {
+        "VIERNES": 1,
+        "10-5": 3,
+        "RECREO": 4,
+        "ALMUERZO": 1,
+        "11-2": 3
+      }
+    }
+  },
+  {
+    "teacher": "STEVEN CECILIANO MADRIGAL",
+    "subject": "DISEÑO PUBLICITARIO",
+    "schedule": {
+      "LUNES": {
+        "10-1": 6,
+        "11-3": 6
+      },
+      "MARTES": {
+        "10-3": 6,
+        "11-4": 6
+      },
+      "MIERCOLES": {
+        "10-2": 6,
+        "10-4": 6
+      },
+      "JUEVES": {
+        "Club": 4,
+        "11-2 Guía": 1,
+        "11-4 Guía": 1,
+        "11-1": 6
+      },
+      "VIERNES": {
+        "10-5": 6,
+        "11-2": 6
+      }
+    }
+  }
+]

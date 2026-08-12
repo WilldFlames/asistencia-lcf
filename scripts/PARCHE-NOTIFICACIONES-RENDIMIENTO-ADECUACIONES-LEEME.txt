@@ -1,0 +1,44 @@
+PARCHE ACUMULATIVO — NOTIFICACIONES, RENDIMIENTO Y ADECUACIONES
+=================================================================
+
+No requiere crear variables nuevas en Railway. Conserva las claves VAPID que ya
+fueron configuradas para las notificaciones.
+
+DESPUÉS DEL DEPLOY
+------------------
+1. Espere a que Railway indique que el servicio está activo.
+2. Ingrese como administrador.
+3. Vaya a Asignaciones > Gestión Padres.
+4. Busque la cédula del encargado principal que pagó el servicio.
+5. Presione "Habilitar servicio".
+6. El encargado ya puede ingresar y activar notificaciones en su teléfono.
+
+Por seguridad y control de pago, las cuentas familiares existentes quedan sin
+servicio hasta que la institución las habilite. Desactivar el servicio cierra la
+sesión familiar y deja de enviar notificaciones a sus dispositivos.
+
+FUNCIONES NUEVAS EN ASIGNACIONES
+--------------------------------
+- "Asignar coordinador": concede Rendimiento y edición de Educación Híbrida.
+- "Asignar Comité de Apoyo": concede administración institucional de adecuaciones.
+
+RENDIMIENTO
+-----------
+El administrador y el coordinador pueden filtrar por sección, materia y período.
+El sistema calcula aprobación de exámenes y de promedio con mínimo 65 para 7.º,
+8.º y 9.º, y mínimo 70 para 10.º y 11.º.
+
+ADECUACIONES
+------------
+El Comité de Apoyo marca adecuación no significativa, significativa o de acceso,
+escribe observaciones, revisa solicitudes docentes e imprime la lista completa.
+Los docentes pueden consultar los apoyos y solicitar una adecuación. Al aprobarla,
+queda registrada automáticamente y aparece la "A" en asistencia y evaluación.
+
+NOTIFICACIONES DEL TELÉFONO
+---------------------------
+El sistema ya envía mientras la app está cerrada y abre el apartado correcto al
+tocar el aviso. El sistema no puede cambiar por sí solo los ajustes privados del
+teléfono: cada familia debe permitir Avisos/Banners e Insignias en los ajustes de
+notificaciones de iPhone o Android.
+

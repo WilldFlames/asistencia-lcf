@@ -1,0 +1,25 @@
+COMITÉ DE MATRÍCULA — GESTIÓN DE PADRES
+=======================================
+
+Este ZIP es acumulativo e incluye también la corrección anterior del Error 502.
+
+Cuando una persona sea agregada al Comité de Matrícula, al ingresar verá:
+
+- Prematrícula
+- Matrícula
+- Gestión de Padres
+
+En Gestión de Padres podrá buscar al encargado principal por cédula, nombre o
+apellido, consultar sus hijos activos y habilitar o deshabilitar el servicio
+familiar cuando se confirme el pago.
+
+Por seguridad, pertenecer al Comité de Matrícula NO permite:
+
+- Reiniciar contraseñas.
+- Bloquear o reactivar cuentas.
+- Cerrar sesiones familiares.
+- Abrir la vista administrativa de prueba.
+- Administrar usuarios o asignaciones.
+
+Esas funciones continúan reservadas a administración y auxiliares.
+

@@ -1,0 +1,32 @@
+PARCHE: ALERTA TEMPRANA Y REGISTRO DE LLAMADAS
+================================================
+
+Este parche agrega el módulo completo de Alerta Temprana.
+
+DOCENTES
+- Abren una alerta desde sus propias secciones y materias.
+- La boleta inicial carga automáticamente los datos del estudiante,
+  encargado, sección, docente y centro educativo.
+- Agregan todos los seguimientos necesarios hasta cerrar la alerta.
+- Registran acciones del Plan de Atención y contactos manuales.
+- Registran llamadas. Si existe una alerta abierta del mismo estudiante y
+  materia, la llamada se enlaza automáticamente al Plan de Atención.
+- Descargan el archivo Excel oficial del MEP lleno.
+
+SUPERVISIÓN INSTITUCIONAL
+- Administrador, Administrativo, Auxiliar y Coordinación ven las alertas de
+  todo el colegio en modo lectura.
+- Reciben una notificación al abrirse una alerta y con cada seguimiento.
+- La notificación abre directamente el expediente correspondiente.
+- Pueden imprimir el Registro consolidado de llamadas de un estudiante,
+  ordenado por fecha y hora e incluyendo todos los docentes y materias.
+
+SEGURIDAD Y AUDITORÍA
+- Cerrada y Eliminada son estados históricos; no borran el expediente.
+- Solo quien abrió la alerta puede modificar su propio expediente.
+- Las categorías confidenciales aparecen identificadas y quedan limitadas a
+  la persona docente responsable y al personal de supervisión autorizado.
+
+DESPLIEGUE
+Suba el ZIP completo como los parches anteriores. Railway creará las tablas
+nuevas automáticamente al iniciar. No requiere una variable nueva.
