@@ -1118,7 +1118,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="expediente" id="nav-expediente" onclick="goTo('expediente')" style="display:none"><span class="icon">📁</span><span>Expediente</span></button>
   <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
   <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
-  <button class="nav-btn" id="nav-gestion-padres" onclick="abrirGestionPadres()" style="display:none"><span class="icon">👨‍👩‍👧</span><span>Gestión de Padres</span></button>
+  <button class="nav-btn" id="nav-gestion-padres" onclick="abrirGestionPadres()" style="display:none"><span class="icon">📱</span><span>LCF Familias</span></button>
   <button class="nav-btn" data-page="config-anio" id="nav-config-anio" onclick="goTo('config-anio')" style="display:none"><span class="icon">📚</span><span>Configurar Año</span></button>
   <button class="nav-btn" data-page="idiomatec" id="nav-idiomatec" onclick="goTo('idiomatec')" style="display:none"><span class="icon">🗣️</span><span>Idioma/Tecnología</span></button>
   <button class="nav-btn" data-page="anuncios" id="nav-anuncios" onclick="goTo('anuncios')" style="display:none"><span class="icon">📣</span><span>Anuncios</span></button>
@@ -1176,12 +1176,15 @@ tr:hover td{background:#f8fafc;}
   <div class="card" style="margin-bottom:14px;">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
       <div>
-        <h2 style="margin:0 0 4px;">🏫 Funciones institucionales</h2>
-        <p style="margin:0;color:var(--muted);font-size:13px;">Asigne quién coordina Rendimiento y quién administra el Comité de Apoyo.</p>
+        <h2 style="margin:0 0 4px;">🏫 Funciones institucionales y comités</h2>
+        <p style="margin:0;color:var(--muted);font-size:13px;">Asigne aquí cada función especial. El acceso solo aparecerá a las personas seleccionadas.</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" onclick="abrirFuncionInstitucional('coordinador')">🎯 Asignar coordinador</button>
         <button class="btn btn-outline btn-sm" onclick="abrirFuncionInstitucional('comite_apoyo')">🧩 Asignar Comité de Apoyo</button>
+        <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Asignar Comité Comedor</button>
+        <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Asignar Comité Matrícula</button>
+        <button class="btn btn-success btn-sm" onclick="abrirFuncionInstitucional('lcf_familias')">📱 Asignar LCF Familias</button>
       </div>
     </div>
   </div>
@@ -1212,11 +1215,8 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
         <h2 style="margin:0">📋 Asignaciones Docentes</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Comité Comedor</button>
-          <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Comité Matrícula</button>
           <button class="btn btn-orange btn-sm" onclick="abrirIntercambioPeriodo()">🔄 Intercambio Hogar↔Industriales (II Período)</button>
           <button class="btn btn-danger btn-sm" onclick="abrirSubgruposEstudiantes()" title="Arreglar subgrupos A/B de estudiantes por sección">🔀 Corregir Subgrupos A/B</button>
-          <button class="btn btn-outline btn-sm" onclick="abrirGestionPadres()" title="Reiniciar contraseñas y gestionar accesos de padres/encargados">👨‍👩‍👧 Gestión Padres</button>
           <button class="btn btn-outline btn-sm" onclick="diagnosticoFotos()" title="Ver cuánto espacio ocupan las fotos en la BD">📊 Diagnóstico Fotos</button>
         </div>
       </div>
@@ -1253,7 +1253,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" id="btn-imprimir-lista" onclick="imprimirListaEstudiantes()">🖨️ Imprimir Lista</button>
         <button class="btn btn-success btn-sm" id="btn-exportar-excel" onclick="exportarEstudiantesExcel()">📊 Exportar Excel</button>
         <button class="btn btn-orange btn-sm" id="btn-importar-excel" onclick="abrirImportarExcel()" style="display:none">📥 Importar Excel</button>
-        <button class="btn btn-outline btn-sm" id="btn-gp-est" onclick="abrirGestionPadres()" style="display:none;" title="Reiniciar contraseñas y gestionar accesos de padres/encargados">👨‍👩‍👧 Gestión Padres</button>
+        <button class="btn btn-outline btn-sm" id="btn-gp-est" onclick="abrirGestionPadres()" style="display:none;" title="Administrar acceso de las familias">📱 LCF Familias</button>
         <button class="btn btn-primary" id="btn-nuevo-est" onclick="abrirModalEstudiante()">+ Nuevo</button>
       </div>
     </div>
@@ -2697,10 +2697,10 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- CORREGIR SUBGRUPOS A/B DE ESTUDIANTES -->
-<!-- GESTIÓN DE PADRES / ENCARGADOS -->
+<!-- LCF FAMILIAS -->
 <div class="modal-overlay" id="modal-gestion-padres">
   <div class="modal" style="max-width:820px;">
-    <h3>👨‍👩‍👧 Gestión de Padres / Encargados</h3>
+    <h3>📱 LCF Familias</h3>
     <p id="gp-descripcion" style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">
       Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Primero habilitá el servicio cuando confirme el pago. También podés reiniciar su contraseña, bloquearlo por seguridad o cerrar su sesión activa.
     </p>
@@ -5486,7 +5486,10 @@ function periodoActualODefault(fechaStr) {
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
 const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario","Matem/AMPROSA"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
-const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa",seguridad:"Seguridad"};
+const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa",seguridad:"Seguridad",coordinador:"Coordinador",comite_apoyo:"Comité de Apoyo",lcf_familias:"LCF Familias"};
+function tieneAccesoLCFFamilias(){
+  return ME?.rol==="admin" || (ME?.funciones_extra||[]).includes("lcf_familias");
+}
 const RBDG={admin:"b-admin",auxiliar:"b-aux",orientador:"b-orient",profesor_guia:"b-guia",profesor:"b-prof",cocinera:"b-orient",secretaria:"b-aux",administrativo:"b-prof",seguridad:"b-aux"};
 
 // ════════════════════════════════════
@@ -5610,9 +5613,9 @@ function goTo(page){
     // (los mismos roles que pueden crear estudiantes uno por uno).
     const btnImportarExcel=document.getElementById("btn-importar-excel");
     if(btnImportarExcel) btnImportarExcel.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
-    // Botón gestión padres: admin y auxiliar (reset contraseñas, bloquear accesos)
+    // LCF Familias: únicamente admin o personal asignado expresamente.
     const btnGpEst=document.getElementById("btn-gp-est");
-    if(btnGpEst) btnGpEst.style.display=tieneAlgunRol("admin","auxiliar")?"":"none";
+    if(btnGpEst) btnGpEst.style.display=tieneAccesoLCFFamilias()?"":"none";
     // Imprimir disponible para todos los que ven la pantalla
     const btnImprimir=document.getElementById("btn-imprimir-lista");
     if(btnImprimir) btnImprimir.style.display="";
@@ -5687,6 +5690,7 @@ async function iniciarApp(){
   const esGuia      = ME.rol === "profesor_guia" || fx.includes("profesor_guia");
   const esCoordinador = fx.includes("coordinador");
   const esComiteApoyo = fx.includes("comite_apoyo");
+  const esLCFFamilias = esAdmin || fx.includes("lcf_familias");
 
   // ── DOCENTE ──────────────────────────────────────────────────
   // Asistencia: admin, profe, guía, orientador
@@ -5740,6 +5744,12 @@ async function iniciarApp(){
     document.getElementById("sec-gestion").style.display="";
     document.getElementById("nav-estudiantes").style.display="";
     document.getElementById("nav-reportes").style.display="";
+  }
+  // LCF Familias no se hereda por rol ni por pertenecer a Matrícula.
+  // El administrador siempre entra; cualquier otra persona debe ser asignada.
+  if(esLCFFamilias){
+    document.getElementById("sec-gestion").style.display="";
+    document.getElementById("nav-gestion-padres").style.display="";
   }
   // Cartas de Ausentismo: TODOS los profesores (incluyendo profesor regular)
   if(esAdmin||esAuxiliar||esGuia||esOrientador||esProfesor){
@@ -5944,13 +5954,13 @@ async function iniciarApp(){
     }
   }catch{}
   try{
-    // Comité matrícula → puede ver Prematrícula y Matrícula
+    // Comité matrícula → puede ver Prematrícula y Matrícula.
+    // LCF Familias se asigna por separado.
     const comiteM = await api("/api/prematricula/comite/lista");
     if(comiteM && comiteM.some(c=>c.usuario_id===ME.id)){
       window.esComiteMatricula = true;
       document.getElementById("nav-prematricula").style.display="";
       document.getElementById("nav-matricula").style.display="";
-      document.getElementById("nav-gestion-padres").style.display="";
       document.getElementById("sec-gestion").style.display="";
     }
   }catch{}
@@ -6116,6 +6126,20 @@ function obtenerHorarioHoy(horarios, nombreUsuario){
   return {dia: hoy, secciones: Object.values(seccionesHoy)};
 }
 
+function tarjetaDashboardLCFFamilias(){
+  return `<div class="card" style="margin:0;border:1px solid #9fd5cf;background:linear-gradient(145deg,#f0fdfa,#eff6ff);overflow:hidden;position:relative;">
+    <div aria-hidden="true" style="position:absolute;right:-18px;top:-24px;font-size:88px;opacity:.08;">📱</div>
+    <div style="position:relative;display:flex;align-items:flex-start;gap:11px;">
+      <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#0f766e,#2563eb);display:grid;place-items:center;font-size:22px;box-shadow:0 7px 16px #0f766e33;">👨‍👩‍👧</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:800;font-size:16px;color:var(--azul);">LCF Familias</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.4;margin-top:2px;">Habilite el servicio y administre el acceso de padres y encargados.</div>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-sm" style="position:relative;width:100%;margin-top:14px;" onclick="abrirGestionPadres()">📱 Abrir LCF Familias</button>
+  </div>`;
+}
+
 async function cargarDashboard(){
   // Evitar carreras: si ya hay una carga en curso, esperar la actual y no
   // disparar otra paralela. Esto previene el parpadeo del bloque
@@ -6131,6 +6155,8 @@ async function cargarDashboard(){
   const fx = ME.funciones_extra||[];
   const esDocente = tieneAlgunRol("profesor","profesor_guia","orientador");
   const esGuiaOri = tieneAlgunRol("profesor_guia","orientador") || fx.includes("profesor_guia") || fx.includes("orientador");
+  const puedeLCFFamilias = tieneAccesoLCFFamilias();
+  const div = document.getElementById("dash-profesor-content");
 
   // Saludo
   const hora = hoy.getHours();
@@ -6152,9 +6178,14 @@ async function cargarDashboard(){
     document.getElementById("dash-stats-admin").style.display="none";
   }
 
-  // Dashboard del profesor/guía/orientador/auxiliar/admin
-  if(!esDocente && !['auxiliar','admin','administrativo','secretaria'].includes(ME.rol)) return;
-  const div = document.getElementById("dash-profesor-content");
+  // Si la persona únicamente tiene asignada LCF Familias, su dashboard sigue
+  // siendo útil y muestra el acceso directo sin consultar módulos docentes.
+  if(!esDocente && !['auxiliar','admin','administrativo','secretaria'].includes(ME.rol)){
+    div.innerHTML=puedeLCFFamilias
+      ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;">${tarjetaDashboardLCFFamilias()}</div>`
+      : "";
+    return;
+  }
   div.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px;">Cargando...</div>';
 
   try{
@@ -6172,6 +6203,9 @@ async function cargarDashboard(){
 
 
     let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;align-items:start;">`;
+
+    // Acceso institucional: solo admin o persona expresamente asignada.
+    if(puedeLCFFamilias) html += tarjetaDashboardLCFFamilias();
 
     // ── TARJETA 1: Asistencia de Hoy ──
     {
@@ -6826,9 +6860,7 @@ async function eliminarMateria(id,n){
 async function abrirGestionPadres(){
   const descripcion=document.getElementById("gp-descripcion");
   if(descripcion){
-    descripcion.innerHTML=window.esComiteMatricula && !["admin","auxiliar"].includes(ME?.rol)
-      ? 'Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Cuando confirme el pago, usá <strong>Habilitar servicio</strong> para darle acceso al portal familiar.'
-      : 'Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Primero habilitá el servicio cuando confirme el pago. También podés reiniciar su contraseña, bloquearlo por seguridad o cerrar su sesión activa.';
+    descripcion.innerHTML='Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Primero habilitá el servicio cuando confirme el pago. También podés reiniciar su contraseña, bloquearlo por seguridad o cerrar su sesión activa.';
   }
   document.getElementById("modal-gestion-padres").classList.add("show");
   document.getElementById("alert-gp").className = "alert";
@@ -6851,7 +6883,7 @@ async function gpBuscar(){
     cont.innerHTML = rows.map(p=>{
     const nombre = nombrePersona(p);
       const c = p.cuenta;
-      const puedeSeguridad = ["admin","auxiliar"].includes(ME?.rol);
+      const puedeSeguridad = tieneAccesoLCFFamilias();
       let estado, badges = '';
       if(p.es_personal){
         badges += '<span class="badge b-admin" style="margin-right:4px;">🏫 Personal del liceo</span>';
@@ -19233,11 +19265,12 @@ function piePaginaMEP(){
 //    - contenidoHTML: HTML del contenido central (sin encabezado ni pie)
 //    - nombreArchivo: nombre del PDF descargado (ej: "constancia_estudiante.pdf")
 // ────────────────────────────────────────────────────────────────────────
-// ── Funciones institucionales: Coordinación y Comité de Apoyo ─────────────
+// ── Funciones institucionales ──────────────────────────────────────────────
 async function abrirFuncionInstitucional(tipo){
   const cfg={
     coordinador:{titulo:"🎯 Coordinador de Rendimiento",ayuda:"Puede consultar Rendimiento institucional y editar únicamente Educación Híbrida."},
-    comite_apoyo:{titulo:"🧩 Comité de Apoyo",ayuda:"Administra adecuaciones, observaciones y solicitudes docentes de toda la institución."}
+    comite_apoyo:{titulo:"🧩 Comité de Apoyo",ayuda:"Administra adecuaciones, observaciones y solicitudes docentes de toda la institución."},
+    lcf_familias:{titulo:"📱 LCF Familias",ayuda:"Administra el servicio, las contraseñas y el acceso de padres y encargados. Este permiso no se obtiene por pertenecer a Matrícula ni por ser auxiliar."}
   }[tipo];
   if(!cfg) return;
   document.getElementById("fi-tipo").value=tipo;

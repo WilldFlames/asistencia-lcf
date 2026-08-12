@@ -1,0 +1,29 @@
+LCF FAMILIAS — ASIGNACIÓN INDEPENDIENTE
+========================================
+
+Este ZIP es acumulativo e incluye los módulos y correcciones anteriores.
+
+¿Qué cambió?
+
+- "Gestión de Padres" ahora se llama "LCF Familias".
+- El administrador siempre puede abrir LCF Familias.
+- Cualquier otra persona solo puede entrar si el administrador le asigna
+  expresamente la función "LCF Familias".
+- Ser auxiliar o pertenecer al Comité de Matrícula ya no concede ese acceso.
+- La autorización se comprueba también en el servidor; no es solamente un
+  botón oculto en la pantalla.
+- Las personas autorizadas reciben un acceso directo en su dashboard.
+
+¿Cómo se asigna?
+
+1. Ingrese como administrador.
+2. Abra Admin > Asignaciones.
+3. En "Funciones institucionales y comités", pulse
+   "Asignar LCF Familias".
+4. Seleccione a la persona y guarde.
+
+En ese mismo bloque quedaron ordenados Coordinación, Comité de Apoyo,
+Comité Comedor, Comité Matrícula y LCF Familias.
+
+Después del despliegue, la base de datos se actualiza automáticamente al
+iniciar el servidor. No hay que crear variables nuevas en Railway.

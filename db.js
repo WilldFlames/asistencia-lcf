@@ -2111,11 +2111,31 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS funciones_institucionales (
         id          SERIAL PRIMARY KEY,
         usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-        tipo        TEXT NOT NULL CHECK(tipo IN ('coordinador','comite_apoyo')),
+        tipo        TEXT NOT NULL CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias')),
         asignado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
         created_at  TIMESTAMP DEFAULT NOW(),
         UNIQUE(usuario_id,tipo)
       )
+    `);
+    // Amplía instalaciones existentes sin perder las asignaciones ya guardadas.
+    // La condición evita recrear el constraint en cada arranque del servidor.
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conrelid='funciones_institucionales'::regclass
+            AND conname='funciones_institucionales_tipo_check'
+            AND pg_get_constraintdef(oid) ILIKE '%lcf_familias%'
+        ) THEN
+          ALTER TABLE funciones_institucionales
+            DROP CONSTRAINT IF EXISTS funciones_institucionales_tipo_check;
+          ALTER TABLE funciones_institucionales
+            ADD CONSTRAINT funciones_institucionales_tipo_check
+            CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias'));
+        END IF;
+      END $$
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_funciones_institucionales_tipo
       ON funciones_institucionales(tipo,usuario_id)`);

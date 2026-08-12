@@ -218,22 +218,25 @@ router.post("/subgrupos-invertir/:seccion_id", onlyAdmin, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  GESTIÓN DE CUENTAS DE PADRES (portal de encargados)
-//  Admin y auxiliares pueden administrar todo. El Comité de Matrícula puede
-//  buscar al encargado principal y habilitar/deshabilitar el servicio pagado,
-//  sin recibir permisos administrativos generales.
+//  LCF FAMILIAS (portal de encargados)
+//  Solo el administrador y las personas asignadas expresamente a la función
+//  institucional "lcf_familias" pueden administrar estas cuentas. Consultar
+//  la BD en cada petición revoca el permiso de inmediato al quitar la función.
 // ═══════════════════════════════════════════════════════════════════════════
 async function canGestionarPadres(req,res,next){
   const u=req.session?.usuario;
   if(!u) return res.status(401).json({error:"No autorizado"});
-  if(["admin","auxiliar"].includes(u.rol)) return next();
+  if(u.rol==="admin") return next();
   try{
-    const r=await pool.query("SELECT 1 FROM matricula_comite WHERE usuario_id=$1",[u.id]);
+    const r=await pool.query(
+      "SELECT 1 FROM funciones_institucionales WHERE usuario_id=$1 AND tipo='lcf_familias'",
+      [u.id]
+    );
     if(r.rows.length) return next();
-    return res.status(403).json({error:"Sin permisos para Gestión de Padres."});
+    return res.status(403).json({error:"Sin permisos para LCF Familias."});
   }catch(error){return next(error);}
 }
-const canAdministrarSeguridadPadres = requireRol("admin", "auxiliar");
+const canAdministrarSeguridadPadres = canGestionarPadres;
 
 function limpiarCed(c){ return String(c||'').replace(/[\s\-.\/\\]/g,''); }
 
@@ -876,7 +879,7 @@ router.post("/borrar-fotos", onlyAdmin, async (req, res) => {
   }
 });
 
-// ── FUNCIONES INSTITUCIONALES (Coordinación y Comité de Apoyo) ─────────
+// ── FUNCIONES INSTITUCIONALES ──────────────────────────────────────────
 router.get("/funciones-institucionales", onlyAdmin, async (req,res)=>{
   const r=await pool.query(`
     SELECT fi.id,fi.tipo,fi.usuario_id,fi.created_at,
@@ -891,7 +894,7 @@ router.get("/funciones-institucionales", onlyAdmin, async (req,res)=>{
 router.post("/funciones-institucionales", onlyAdmin, async (req,res)=>{
   const usuarioId=Number(req.body?.usuario_id);
   const tipo=String(req.body?.tipo||"");
-  if(!usuarioId || !["coordinador","comite_apoyo"].includes(tipo))
+  if(!usuarioId || !["coordinador","comite_apoyo","lcf_familias"].includes(tipo))
     return res.status(400).json({error:"Datos de asignación inválidos."});
   const usu=await pool.query("SELECT 1 FROM usuarios WHERE id=$1 AND activo=true",[usuarioId]);
   if(!usu.rows.length) return res.status(404).json({error:"Usuario activo no encontrado."});

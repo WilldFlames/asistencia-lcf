@@ -76,16 +76,23 @@ test('el Comité de Apoyo administra tres adecuaciones y solicitudes auditables'
   assert.match(ruta, /EXISTS \([\s\S]*?a\.profesor_id=\$2[\s\S]*?UPPER\(a\.subgrupo\)=UPPER\(COALESCE\(e\.subgrupo,''\)\)/);
 });
 
-test('el Comité de Matrícula puede habilitar el servicio familiar sin permisos administrativos completos', () => {
+test('LCF Familias es una función independiente asignada por el administrador', () => {
+  const db = read('db.js');
   const admin = read('routes/admin.js');
   const ui = read('public/index.html');
-  assert.match(admin, /SELECT 1 FROM matricula_comite WHERE usuario_id=\$1/);
+  assert.match(db, /'coordinador','comite_apoyo','lcf_familias'/);
+  assert.match(admin, /tipo='lcf_familias'/);
+  assert.doesNotMatch(admin, /SELECT 1 FROM matricula_comite WHERE usuario_id=\$1/);
   assert.match(admin, /router\.get\("\/padres\/buscar", canGestionarPadres/);
   assert.match(admin, /router\.put\("\/padres\/:cedula\/servicio", canGestionarPadres/);
   assert.match(admin, /router\.put\("\/padres\/:cedula\/reset-password", canAdministrarSeguridadPadres/);
   assert.match(admin, /router\.put\("\/padres\/:cedula\/toggle-activo", canAdministrarSeguridadPadres/);
   assert.match(admin, /router\.put\("\/padres\/:cedula\/cerrar-sesion", canAdministrarSeguridadPadres/);
+  assert.match(admin, /const canAdministrarSeguridadPadres = canGestionarPadres/);
   assert.match(ui, /id="nav-gestion-padres"/);
-  assert.match(ui, /window\.esComiteMatricula = true;[\s\S]{0,300}nav-gestion-padres/);
-  assert.match(ui, /const puedeSeguridad = \["admin","auxiliar"\]/);
+  assert.match(ui, /function tieneAccesoLCFFamilias/);
+  assert.match(ui, /tarjetaDashboardLCFFamilias/);
+  assert.match(ui, /abrirFuncionInstitucional\('lcf_familias'\)/);
+  assert.match(ui, /Comité matrícula → puede ver Prematrícula y Matrícula\.[\s\S]{0,120}LCF Familias se asigna por separado/);
+  assert.match(ui, /const puedeSeguridad = tieneAccesoLCFFamilias\(\)/);
 });
