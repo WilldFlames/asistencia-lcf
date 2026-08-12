@@ -64,3 +64,17 @@ test('el Comité de Apoyo administra tres adecuaciones y solicitudes auditables'
   assert.match(ruta, /JOIN secciones_anio sa ON sa\.seccion_id=s\.id AND sa\.anio=\$1 AND sa\.activa=true/);
   assert.doesNotMatch(ruta, /FROM secciones\s+WHERE COALESCE\(activa/);
 });
+
+test('el Comité de Matrícula puede habilitar el servicio familiar sin permisos administrativos completos', () => {
+  const admin = read('routes/admin.js');
+  const ui = read('public/index.html');
+  assert.match(admin, /SELECT 1 FROM matricula_comite WHERE usuario_id=\$1/);
+  assert.match(admin, /router\.get\("\/padres\/buscar", canGestionarPadres/);
+  assert.match(admin, /router\.put\("\/padres\/:cedula\/servicio", canGestionarPadres/);
+  assert.match(admin, /router\.put\("\/padres\/:cedula\/reset-password", canAdministrarSeguridadPadres/);
+  assert.match(admin, /router\.put\("\/padres\/:cedula\/toggle-activo", canAdministrarSeguridadPadres/);
+  assert.match(admin, /router\.put\("\/padres\/:cedula\/cerrar-sesion", canAdministrarSeguridadPadres/);
+  assert.match(ui, /id="nav-gestion-padres"/);
+  assert.match(ui, /window\.esComiteMatricula = true;[\s\S]{0,300}nav-gestion-padres/);
+  assert.match(ui, /const puedeSeguridad = \["admin","auxiliar"\]/);
+});

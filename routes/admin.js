@@ -219,9 +219,21 @@ router.post("/subgrupos-invertir/:seccion_id", onlyAdmin, async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  GESTIÓN DE CUENTAS DE PADRES (portal de encargados)
-//  Admin y auxiliares pueden buscar padres, ver estado, reiniciar y bloquear.
+//  Admin y auxiliares pueden administrar todo. El Comité de Matrícula puede
+//  buscar al encargado principal y habilitar/deshabilitar el servicio pagado,
+//  sin recibir permisos administrativos generales.
 // ═══════════════════════════════════════════════════════════════════════════
-const canGestionarPadres = requireRol("admin", "auxiliar");
+async function canGestionarPadres(req,res,next){
+  const u=req.session?.usuario;
+  if(!u) return res.status(401).json({error:"No autorizado"});
+  if(["admin","auxiliar"].includes(u.rol)) return next();
+  try{
+    const r=await pool.query("SELECT 1 FROM matricula_comite WHERE usuario_id=$1",[u.id]);
+    if(r.rows.length) return next();
+    return res.status(403).json({error:"Sin permisos para Gestión de Padres."});
+  }catch(error){return next(error);}
+}
+const canAdministrarSeguridadPadres = requireRol("admin", "auxiliar");
 
 function limpiarCed(c){ return String(c||'').replace(/[\s\-.\/\\]/g,''); }
 
@@ -340,7 +352,7 @@ router.get("/padres/:cedula/hijos", canGestionarPadres, async (req, res) => {
 });
 
 // Reiniciar contraseña: la deja igual a la cédula y fuerza cambio al ingresar.
-router.put("/padres/:cedula/reset-password", canGestionarPadres, async (req, res) => {
+router.put("/padres/:cedula/reset-password", canAdministrarSeguridadPadres, async (req, res) => {
   const cedLimpia = limpiarCed(req.params.cedula);
   const principal = await pool.query(`
     SELECT 1 FROM encargados
@@ -369,7 +381,7 @@ router.put("/padres/:cedula/reset-password", canGestionarPadres, async (req, res
 });
 
 // Activar / desactivar acceso de un padre
-router.put("/padres/:cedula/toggle-activo", canGestionarPadres, async (req, res) => {
+router.put("/padres/:cedula/toggle-activo", canAdministrarSeguridadPadres, async (req, res) => {
   const cedLimpia = limpiarCed(req.params.cedula);
   const r = await pool.query(`
     UPDATE padres_acceso SET activo = NOT activo, sid_activo = NULL
@@ -427,7 +439,7 @@ router.put("/padres/:cedula/servicio", canGestionarPadres, async (req, res) => {
 });
 
 // Forzar cierre de sesión activa (útil si sospechan uso no autorizado)
-router.put("/padres/:cedula/cerrar-sesion", canGestionarPadres, async (req, res) => {
+router.put("/padres/:cedula/cerrar-sesion", canAdministrarSeguridadPadres, async (req, res) => {
   const cedLimpia = limpiarCed(req.params.cedula);
   await pool.query("UPDATE padres_acceso SET sid_activo = NULL WHERE cedula = $1", [cedLimpia]);
   res.json({ ok: true });

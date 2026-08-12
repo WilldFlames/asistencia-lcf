@@ -1100,6 +1100,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="expediente" id="nav-expediente" onclick="goTo('expediente')" style="display:none"><span class="icon">📁</span><span>Expediente</span></button>
   <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
   <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
+  <button class="nav-btn" id="nav-gestion-padres" onclick="abrirGestionPadres()" style="display:none"><span class="icon">👨‍👩‍👧</span><span>Gestión de Padres</span></button>
   <button class="nav-btn" data-page="config-anio" id="nav-config-anio" onclick="goTo('config-anio')" style="display:none"><span class="icon">📚</span><span>Configurar Año</span></button>
   <button class="nav-btn" data-page="idiomatec" id="nav-idiomatec" onclick="goTo('idiomatec')" style="display:none"><span class="icon">🗣️</span><span>Idioma/Tecnología</span></button>
   <button class="nav-btn" data-page="anuncios" id="nav-anuncios" onclick="goTo('anuncios')" style="display:none"><span class="icon">📣</span><span>Anuncios</span></button>
@@ -2639,7 +2640,7 @@ tr:hover td{background:#f8fafc;}
 <div class="modal-overlay" id="modal-gestion-padres">
   <div class="modal" style="max-width:820px;">
     <h3>👨‍👩‍👧 Gestión de Padres / Encargados</h3>
-    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">
+    <p id="gp-descripcion" style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">
       Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Primero habilitá el servicio cuando confirme el pago. También podés reiniciar su contraseña, bloquearlo por seguridad o cerrar su sesión activa.
     </p>
     <div id="alert-gp" class="alert"></div>
@@ -5883,6 +5884,7 @@ async function iniciarApp(){
       window.esComiteMatricula = true;
       document.getElementById("nav-prematricula").style.display="";
       document.getElementById("nav-matricula").style.display="";
+      document.getElementById("nav-gestion-padres").style.display="";
       document.getElementById("sec-gestion").style.display="";
     }
   }catch{}
@@ -6749,6 +6751,12 @@ async function eliminarMateria(id,n){
 //  SECCIONES ADMIN
 // ════════════════════════════════════
 async function abrirGestionPadres(){
+  const descripcion=document.getElementById("gp-descripcion");
+  if(descripcion){
+    descripcion.innerHTML=window.esComiteMatricula && !["admin","auxiliar"].includes(ME?.rol)
+      ? 'Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Cuando confirme el pago, usá <strong>Habilitar servicio</strong> para darle acceso al portal familiar.'
+      : 'Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Primero habilitá el servicio cuando confirme el pago. También podés reiniciar su contraseña, bloquearlo por seguridad o cerrar su sesión activa.';
+  }
   document.getElementById("modal-gestion-padres").classList.add("show");
   document.getElementById("alert-gp").className = "alert";
   document.getElementById("gp-buscar").value = "";
@@ -6770,6 +6778,7 @@ async function gpBuscar(){
     cont.innerHTML = rows.map(p=>{
     const nombre = nombrePersona(p);
       const c = p.cuenta;
+      const puedeSeguridad = ["admin","auxiliar"].includes(ME?.rol);
       let estado, badges = '';
       if(p.es_personal){
         badges += '<span class="badge b-admin" style="margin-right:4px;">🏫 Personal del liceo</span>';
@@ -6786,18 +6795,18 @@ async function gpBuscar(){
         if(c.sesion_activa) est.push('<span style="color:var(--azul);font-size:11.5px;">🔵 Sesión activa</span>');
         estado = est.join(' · ');
       }
-      const btnReset = p.es_personal
+      const btnReset = !puedeSeguridad ? '' : (p.es_personal
         ? '<button class="btn btn-outline btn-xs" disabled title="Personal del liceo — reiniciar desde Admin → Usuarios">🔑 Reset</button>'
-        : `<button class="btn btn-outline btn-xs" ${!c?.servicio_habilitado?'disabled title="Primero habilite el servicio"':''} onclick="gpReset('${p.cedula}','${nombre.replace(/'/g,"\\'")}')">🔑 Reset contraseña</button>`;
+        : `<button class="btn btn-outline btn-xs" ${!c?.servicio_habilitado?'disabled title="Primero habilite el servicio"':''} onclick="gpReset('${p.cedula}','${nombre.replace(/'/g,"\\'")}')">🔑 Reset contraseña</button>`);
       const btnServicio = c?.servicio_habilitado
         ? `<button class="btn btn-danger btn-xs" onclick="gpServicio('${p.cedula}','${nombre.replace(/'/g,"\\'")}',false)">💳 Desactivar servicio</button>`
         : `<button class="btn btn-success btn-xs" onclick="gpServicio('${p.cedula}','${nombre.replace(/'/g,"\\'")}',true)">💳 Habilitar servicio</button>`;
-      const btnToggle = c
+      const btnToggle = puedeSeguridad && c
         ? (c.activo
             ? `<button class="btn btn-danger btn-xs" onclick="gpToggle('${p.cedula}','${nombre.replace(/'/g,"\\'")}', true)">🚫 Bloquear</button>`
             : `<button class="btn btn-success btn-xs" onclick="gpToggle('${p.cedula}','${nombre.replace(/'/g,"\\'")}', false)">✅ Activar</button>`)
         : '';
-      const btnCerrar = c && c.sesion_activa
+      const btnCerrar = puedeSeguridad && c && c.sesion_activa
         ? `<button class="btn btn-outline btn-xs" onclick="gpCerrarSesion('${p.cedula}')" title="Forzar cierre de sesión">🔓 Cerrar sesión</button>`
         : '';
       const btnPrueba = ME?.rol === 'admin'
