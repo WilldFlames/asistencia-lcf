@@ -1,0 +1,21 @@
+NUEVAS GRAFICAS DE RENDIMIENTO
+==============================
+
+Cada grupo analizado ahora muestra:
+- Grafica circular de aprobacion general.
+- Barras comparativas para cada examen.
+- Distribucion de promedios por rangos de nota.
+- Cantidades de aprobados, estudiantes por reforzar y notas sin registrar.
+
+Las listas detalladas de estudiantes se conservan debajo de las graficas.
+
+Diseno adaptable:
+- En computadora las graficas se muestran alineadas.
+- En celulares se acomodan verticalmente sin desplazamiento horizontal.
+
+Tambien se incluye la correccion que permite puntajes decimales como 32.00.
+
+Verificacion:
+- 81 pruebas automatizadas aprobadas.
+- Revision visual realizada en computadora y en pantalla movil.
+

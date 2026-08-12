@@ -46,6 +46,10 @@ test('coordinación tiene Rendimiento y solo edita Educación Híbrida', () => {
   assert.match(medidas, /coordinador/);
   assert.match(medidas, /educacion_hibrida/);
   assert.match(ui, /id="page-rendimiento"/);
+  assert.match(ui, /function rendGraficaCircular/);
+  assert.match(ui, /function rendGraficaExamenes/);
+  assert.match(ui, /function rendGraficaDistribucion/);
+  assert.match(ui, /rend-graficas/);
   assert.match(ui, /window\.puedeEditarMedida/);
   assert.match(rendimiento, /Seleccione al menos una sección o una materia/);
   assert.doesNotMatch(ui, /rendimientoFiltrosCargados=true;[\s\S]{0,180}await cargarRendimiento\(\)/);
