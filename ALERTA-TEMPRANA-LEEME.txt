@@ -20,6 +20,8 @@ SUPERVISIÓN INSTITUCIONAL
 - La notificación abre directamente el expediente correspondiente.
 - Pueden imprimir el Registro consolidado de llamadas de un estudiante,
   ordenado por fecha y hora e incluyendo todos los docentes y materias.
+- El botón para imprimir solo aparece después de que el buscador identifique
+  a un único estudiante y muestra su nombre antes de generar el documento.
 
 SEGURIDAD Y AUDITORÍA
 - Cerrada y Eliminada son estados históricos; no borran el expediente.

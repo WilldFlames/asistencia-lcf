@@ -1680,13 +1680,12 @@ tr:hover td{background:#f8fafc;}
     <div class="at-hero-actions">
       <button class="btn btn-orange" id="at-btn-abrir" onclick="atAbrirNueva()">＋ Abrir alerta</button>
       <button class="btn btn-primary" id="at-btn-llamada" onclick="atAbrirLlamada()">📞 Registrar llamada</button>
-      <button class="btn btn-success" id="at-btn-consolidado" onclick="atImprimirConsolidado()" style="display:none">🖨️ Registro consolidado</button>
     </div>
   </div>
   <div class="card">
     <div class="at-tabs"><button class="at-tab active" id="at-tab-alertas" onclick="atCambiarVista('alertas')">🚨 Alertas</button><button class="at-tab" id="at-tab-llamadas" onclick="atCambiarVista('llamadas')">📞 Registro de llamadas</button></div>
     <div class="at-toolbar">
-      <div style="display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap"><div class="fg" id="at-filtro-estado-wrap"><label>Estado</label><select id="at-filtro-estado" onchange="atCargarAlertas()"><option value="">Todos</option><option value="activada">Activada</option><option value="en_proceso">En proceso</option><option value="en_espera">En espera</option><option value="cerrada">Cerrada</option><option value="eliminada">Eliminada</option></select></div><div class="fg"><label>Buscar estudiante</label><input id="at-buscar" placeholder="Apellido, nombre o cédula…" oninput="atRenderActual()"/></div></div>
+      <div style="display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap"><div class="fg" id="at-filtro-estado-wrap"><label>Estado</label><select id="at-filtro-estado" onchange="atCargarAlertas()"><option value="">Todos</option><option value="activada">Activada</option><option value="en_proceso">En proceso</option><option value="en_espera">En espera</option><option value="cerrada">Cerrada</option><option value="eliminada">Eliminada</option></select></div><div class="fg"><label>Buscar estudiante</label><input id="at-buscar" placeholder="Apellido, nombre o cédula…" oninput="atRenderActual()"/></div><button class="btn btn-success" id="at-btn-consolidado" style="display:none">🖨️ Imprimir consolidado</button></div>
       <button class="btn btn-outline" onclick="atRecargar()">↻ Actualizar</button>
     </div>
     <div id="alert-at" class="alert"></div><div id="at-resumen" class="at-summary"></div><div id="at-lista"><div class="empty">Cargando…</div></div>
@@ -23814,13 +23813,13 @@ async function iniciarAlertaTemprana(){
     document.getElementById("at-nueva-asig").innerHTML=opciones;document.getElementById("at-call-asig").innerHTML=opciones;
     document.getElementById("at-btn-abrir").style.display=atInicio.puede_crear?"":"none";
     document.getElementById("at-btn-llamada").style.display=atInicio.puede_crear?"":"none";
-    document.getElementById("at-btn-consolidado").style.display=atInicio.puede_supervisar&&atVista==="llamadas"?"":"none";
+    document.getElementById("at-btn-consolidado").style.display="none";
     document.getElementById("at-catalogo").innerHTML=atInicio.catalogo.map(g=>`<section class="at-categoria ${g.confidencial?'confidencial':''}"><div class="at-categoria-titulo">${g.confidencial?'🔒 ':''}${htmlSeguro(g.categoria)}</div>${g.items.map(i=>`<label class="at-opcion"><input type="checkbox" name="at-codigo" value="${i.codigo}"/><span><b>${i.codigo}.</b> ${htmlSeguro(i.descripcion)}</span></label>`).join("")}</section>`).join("");
     await atRecargar();
   }catch(e){sa("alert-at",e.message,"danger");}
 }
 async function atRecargar(){if(atVista==="alertas")await atCargarAlertas();else await atCargarLlamadas();}
-function atCambiarVista(v){atVista=v;document.getElementById("at-tab-alertas").classList.toggle("active",v==="alertas");document.getElementById("at-tab-llamadas").classList.toggle("active",v==="llamadas");document.getElementById("at-filtro-estado-wrap").style.display=v==="alertas"?"":"none";document.getElementById("at-btn-consolidado").style.display=atInicio?.puede_supervisar&&v==="llamadas"?"":"none";atRecargar();}
+function atCambiarVista(v){atVista=v;document.getElementById("at-tab-alertas").classList.toggle("active",v==="alertas");document.getElementById("at-tab-llamadas").classList.toggle("active",v==="llamadas");document.getElementById("at-filtro-estado-wrap").style.display=v==="alertas"?"":"none";document.getElementById("at-btn-consolidado").style.display="none";atRecargar();}
 async function atCargarAlertas(){
   try{const estado=document.getElementById("at-filtro-estado").value;const d=await api(`/api/alerta-temprana/alertas${estado?`?estado=${estado}`:""}`);atAlertas=d.alertas||[];atRenderAlertas();}catch(e){sa("alert-at",e.message,"danger");}
 }
@@ -23836,8 +23835,17 @@ function atRenderAlertas(){
 function atRenderLlamadas(){
   const q=atFiltroTexto(),rows=atLlamadas.filter(x=>`${x.estudiante_nombre} ${x.cedula} ${x.seccion_nombre} ${x.materia_nombre} ${x.profesor_nombre}`.toLocaleLowerCase("es").includes(q));
   const estudiantes=new Set(rows.map(x=>x.estudiante_id));
+  const btnConsolidado=document.getElementById("at-btn-consolidado");
+  const estudianteUnico=q&&estudiantes.size===1?rows[0]:null;
+  if(btnConsolidado){
+    btnConsolidado.style.display=atInicio?.puede_supervisar&&estudianteUnico?"":"none";
+    if(estudianteUnico){
+      btnConsolidado.textContent=`🖨️ Imprimir consolidado de ${estudianteUnico.estudiante_nombre}`;
+      btnConsolidado.onclick=()=>atImprimirConsolidado(estudianteUnico.estudiante_id);
+    }
+  }
   document.getElementById("at-resumen").innerHTML=`<div class="at-stat"><strong>${rows.length}</strong><span>Registros mostrados</span></div><div class="at-stat"><strong>${estudiantes.size}</strong><span>Estudiantes</span></div><div class="at-stat"><strong>${rows.filter(x=>x.resultado==='efectiva').length}</strong><span>Comunicaciones efectivas</span></div><div class="at-stat"><strong>${rows.filter(x=>x.alerta_id).length}</strong><span>Vinculadas a una alerta</span></div>`;
-  document.getElementById("at-lista").innerHTML=rows.length?rows.map(x=>`<article class="at-card ${x.alerta_id?'en_proceso':''}"><div><h3>${htmlSeguro(x.estudiante_nombre)}</h3><div class="at-card-meta"><span>📅 ${fmtF(x.fecha)} · ${String(x.hora_inicio||'').slice(0,5)}</span><span>📘 ${htmlSeguro(x.materia_nombre||"—")}</span><span>👤 ${htmlSeguro(x.profesor_nombre)}</span><span>${x.resultado==='efectiva'?'✅':'☎️'} ${htmlSeguro(AT_RESULTADO[x.resultado]||x.resultado)}</span>${x.alerta_id?'<span>🔗 Plan de Atención</span>':''}</div></div><div class="at-card-actions">${atInicio?.puede_supervisar?`<button class="btn btn-outline btn-sm" onclick="atImprimirConsolidado(${x.estudiante_id})">🖨️ Consolidado</button>`:''}</div></article>`).join(""):'<div class="empty">No hay llamadas que coincidan con la búsqueda.</div>';
+  document.getElementById("at-lista").innerHTML=rows.length?rows.map(x=>`<article class="at-card ${x.alerta_id?'en_proceso':''}"><div><h3>${htmlSeguro(x.estudiante_nombre)}</h3><div class="at-card-meta"><span>📅 ${fmtF(x.fecha)} · ${String(x.hora_inicio||'').slice(0,5)}</span><span>📘 ${htmlSeguro(x.materia_nombre||"—")}</span><span>👤 ${htmlSeguro(x.profesor_nombre)}</span><span>${x.resultado==='efectiva'?'✅':'☎️'} ${htmlSeguro(AT_RESULTADO[x.resultado]||x.resultado)}</span>${x.alerta_id?'<span>🔗 Plan de Atención</span>':''}</div></div></article>`).join(""):'<div class="empty">No hay llamadas que coincidan con la búsqueda.</div>';
 }
 function atAbrirNueva(){
   document.getElementById("at-nueva-asig").value="";document.getElementById("at-nueva-est").innerHTML='<option value="">— Primero seleccione la materia —</option>';document.getElementById("at-riesgo-aus").checked=false;document.getElementById("at-observacion-inicial").value="";document.querySelectorAll('[name="at-codigo"]').forEach(x=>x.checked=false);document.getElementById("alert-at-nueva").className="alert";document.getElementById("modal-at-nueva").classList.add("show");

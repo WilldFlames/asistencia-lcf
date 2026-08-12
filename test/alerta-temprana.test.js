@@ -51,6 +51,8 @@ test('la interfaz incluye boletas visuales, registro consolidado y Excel MEP', (
   assert.match(ui, /function atAgregarAccion/);
   assert.match(ui, /function atAgregarContacto/);
   assert.match(ui, /function atImprimirConsolidado/);
+  assert.match(ui, /estudianteUnico=q&&estudiantes\.size===1/);
+  assert.match(ui, /Imprimir consolidado de \$\{estudianteUnico\.estudiante_nombre\}/);
   assert.match(ui, /function atDescargarExcel/);
   assert.ok(fs.existsSync(path.join(root,'public','assets','alerta-temprana-mep.xlsx')));
 });
