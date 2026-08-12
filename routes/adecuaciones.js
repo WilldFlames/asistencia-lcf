@@ -64,7 +64,9 @@ router.get("/secciones", requireAuth, asyncRoute(async (req,res)=>{
   }
   const r=await pool.query(`
     SELECT DISTINCT s.id,s.nombre,s.nivel
-    FROM asignaciones a JOIN secciones s ON s.id=a.seccion_id
+    FROM asignaciones a
+    JOIN secciones s ON s.id=a.seccion_id
+    JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$2 AND sa.activa=true
     WHERE a.profesor_id=$1 AND COALESCE(a.anio,$2)=$2 AND COALESCE(a.activa,true)=true
     ORDER BY s.nivel,s.nombre
   `,[u.id,anio]);
@@ -75,22 +77,40 @@ router.get("/seccion/:id", requireAuth, asyncRoute(async (req,res)=>{
   const u=req.session.usuario;
   const seccionId=Number(req.params.id);
   if(!seccionId) return res.status(400).json({error:"Sección inválida."});
-  if(!(await esEncargadoApoyo(u))){
-    const anio=await obtenerAnioActivo();
+  const apoyo=await esEncargadoApoyo(u);
+  const anio=await obtenerAnioActivo();
+  if(!apoyo){
     const acceso=await pool.query(`SELECT 1 FROM asignaciones WHERE profesor_id=$1 AND seccion_id=$2
       AND COALESCE(anio,$3)=$3 AND COALESCE(activa,true)=true LIMIT 1`,[u.id,seccionId,anio]);
     if(!acceso.rows.length) return res.status(403).json({error:"Esta sección no pertenece a sus asignaciones."});
   }
-  const r=await pool.query(`
-    SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,
-      s.nombre AS seccion_nombre, ${CAMPOS_ADECUACION}
-    FROM estudiantes e
-    JOIN secciones s ON s.id=e.seccion_id
-    LEFT JOIN adecuaciones_estudiante ad ON ad.estudiante_id=e.id
-    WHERE e.seccion_id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false
-    ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
-  `,[seccionId]);
-  res.json({editable:await esEncargadoApoyo(u),estudiantes:r.rows});
+  const r=apoyo
+    ? await pool.query(`
+        SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,
+          s.nombre AS seccion_nombre, ${CAMPOS_ADECUACION}
+        FROM estudiantes e
+        JOIN secciones s ON s.id=e.seccion_id
+        LEFT JOIN adecuaciones_estudiante ad ON ad.estudiante_id=e.id
+        WHERE e.seccion_id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false
+        ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
+      `,[seccionId])
+    : await pool.query(`
+        SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,
+          s.nombre AS seccion_nombre, ${CAMPOS_ADECUACION}
+        FROM estudiantes e
+        JOIN secciones s ON s.id=e.seccion_id
+        JOIN adecuaciones_estudiante ad ON ad.estudiante_id=e.id
+        WHERE e.seccion_id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false
+          AND (ad.no_significativa OR ad.significativa OR ad.acceso)
+          AND EXISTS (
+            SELECT 1 FROM asignaciones a
+            WHERE a.profesor_id=$2 AND a.seccion_id=e.seccion_id
+              AND COALESCE(a.anio,$3)=$3 AND COALESCE(a.activa,true)=true
+              AND (COALESCE(a.subgrupo,'')='' OR UPPER(a.subgrupo)=UPPER(COALESCE(e.subgrupo,'')))
+          )
+        ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
+      `,[seccionId,u.id,anio]);
+  res.json({editable:apoyo,estudiantes:r.rows});
 }));
 
 router.put("/seccion/:id", requireAuth, requireApoyo, asyncRoute(async (req,res)=>{

@@ -66,8 +66,14 @@ test('el Comité de Apoyo administra tres adecuaciones y solicitudes auditables'
   assert.match(ruta, /decision==="aprobada"|decision === "aprobada"/);
   assert.match(ui, /function badgeAdecuacion/);
   assert.match(ui, /Imprimir lista completa/);
+  assert.match(ui, /El Comité de Apoyo no ha marcado estudiantes con adecuación en esta sección/);
   assert.match(ruta, /JOIN secciones_anio sa ON sa\.seccion_id=s\.id AND sa\.anio=\$1 AND sa\.activa=true/);
   assert.doesNotMatch(ruta, /FROM secciones\s+WHERE COALESCE\(activa/);
+  assert.match(ruta, /WHERE a\.profesor_id=\$1 AND COALESCE\(a\.anio,\$2\)=\$2/);
+  assert.match(ruta, /JOIN secciones_anio sa ON sa\.seccion_id=s\.id AND sa\.anio=\$2 AND sa\.activa=true/);
+  assert.match(ruta, /JOIN adecuaciones_estudiante ad ON ad\.estudiante_id=e\.id/);
+  assert.match(ruta, /AND \(ad\.no_significativa OR ad\.significativa OR ad\.acceso\)/);
+  assert.match(ruta, /EXISTS \([\s\S]*?a\.profesor_id=\$2[\s\S]*?UPPER\(a\.subgrupo\)=UPPER\(COALESCE\(e\.subgrupo,''\)\)/);
 });
 
 test('el Comité de Matrícula puede habilitar el servicio familiar sin permisos administrativos completos', () => {
