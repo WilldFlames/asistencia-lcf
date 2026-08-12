@@ -1,0 +1,12 @@
+RENDIMIENTO — ESTADOS SIN NOTAS INDIVIDUALES
+=============================================
+
+Este ZIP es acumulativo e incluye LCF Familias y todos los cambios anteriores.
+
+- Los gráficos, porcentajes y cantidades de Rendimiento se conservan.
+- Las listas desplegables ya no muestran la nota exacta de ningún estudiante.
+- Cada estudiante aparece únicamente con su estado:
+  "Aprobó" o "No alcanzó el mínimo".
+- El servidor tampoco envía las notas individuales al navegador desde el
+  módulo Rendimiento; solo entrega el estado y los totales necesarios para
+  construir los gráficos institucionales.

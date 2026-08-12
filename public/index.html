@@ -6754,6 +6754,7 @@ async function cargarUsuarios(){
   const f=q?rows.filter(u=>u.cedula.includes(q)||u.primer_apellido.toLowerCase().includes(q.toLowerCase())||u.nombre.toLowerCase().includes(q.toLowerCase())):rows;
   const tbody=document.getElementById("usuarios-body");
   if(!f.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin usuarios</td></tr>`;return;}
+  const puedeEliminar=ME?.rol==="admin" && String(ME?.cedula||"").replace(/[\s.\-/]/g,"")==="000";
   tbody.innerHTML=f.map(u=>`<tr>
     <td><code>${u.cedula}</code></td>
       <td>${nombrePersona(u)}</td>
@@ -6763,6 +6764,7 @@ async function cargarUsuarios(){
     <td style="white-space:nowrap;">
       <button class="btn btn-outline btn-xs" onclick="editarUsuario(${u.id})">✏️</button>
       <button class="btn btn-orange btn-xs" onclick="resetPass(${u.id},'${nombrePersona(u).replace(/'/g,"\\'")}')" title="Reiniciar contraseña">🔑</button>
+      ${puedeEliminar&&Number(u.id)!==Number(ME.id)?`<button class="btn btn-danger btn-xs" onclick="eliminarUsuario(${u.id},'${nombrePersona(u).replace(/'/g,"\\'")}','${String(u.rol||"").replace(/'/g,"\\'")}' )" title="Eliminar usuario">🗑️</button>`:""}
     </td>
   </tr>`).join("");
 }
@@ -6820,6 +6822,17 @@ async function resetPass(id,nombre){
     const r=await api(`/api/admin/usuarios/${id}/reset-password`,"PUT");
     sa("alert-usuarios","🔑 "+r.mensaje,"success");
     cargarUsuarios();
+  }catch(e){sa("alert-usuarios",e.message,"danger");}
+}
+
+async function eliminarUsuario(id,nombre,rol){
+  const etiquetaRol=RLBL[rol]||rol||"Usuario";
+  if(!confirm(`¿Eliminar este usuario?\n\n${nombre}\n${etiquetaRol}\n\nPerderá inmediatamente el acceso, sus asignaciones vigentes y sus funciones en comités. El historial institucional ya registrado se conservará.\n\nEsta acción no se puede deshacer desde la pantalla.`)) return;
+  try{
+    const r=await api(`/api/admin/usuarios/${id}`,"DELETE");
+    sa("alert-usuarios","✅ "+r.mensaje,"success");
+    await cargarUsuarios();
+    await cargarCatalogos();
   }catch(e){sa("alert-usuarios",e.message,"danger");}
 }
 
@@ -19343,28 +19356,22 @@ function rendGraficaExamenes(examenes){
   return `<section class="rend-grafica-card"><div class="rend-grafica-titulo"><span class="icono">📊</span><span>Comparación de exámenes</span></div>${contenido}</section>`;
 }
 
-function rendGraficaDistribucion(estudiantes,minima){
-  const notas=estudiantes.map(e=>Number(e.nota)).filter(Number.isFinite);
-  const limite=Math.max(0,Number(minima)||65);
-  const bandas=[
-    {etiqueta:"Menos de 50",color:"#ef4444",incluye:n=>n<50},
-    {etiqueta:`50 a ${limite-1}`,color:"#fb923c",incluye:n=>n>=50&&n<limite},
-    {etiqueta:`${limite} a 79`,color:"#facc15",incluye:n=>n>=limite&&n<80},
-    {etiqueta:"80 a 89",color:"#34d399",incluye:n=>n>=80&&n<90},
-    {etiqueta:"90 a 100",color:"#0ea5e9",incluye:n=>n>=90}
-  ].map(b=>({...b,cantidad:notas.filter(b.incluye).length}));
+function rendGraficaDistribucion(distribucion){
+  const colores=["#ef4444","#fb923c","#facc15","#34d399","#0ea5e9"];
+  const bandas=(distribucion||[]).map((b,i)=>({...b,color:colores[i]||"#0ea5e9",cantidad:Number(b.cantidad)||0}));
+  const total=bandas.reduce((s,b)=>s+b.cantidad,0);
   const maximo=Math.max(1,...bandas.map(b=>b.cantidad));
-  const contenido=notas.length?`<div class="rend-histograma" role="img" aria-label="Distribución de promedios">${bandas.map(b=>{const alto=b.cantidad?Math.max(8,(b.cantidad/maximo)*100):0;return `<div class="rend-hist-col" title="${htmlSeguro(b.etiqueta)}: ${b.cantidad} estudiante(s)"><span class="rend-hist-valor">${b.cantidad}</span><div class="rend-hist-bar-wrap"><span class="rend-hist-bar" style="height:${alto}%;background:${b.color}"></span></div><span class="rend-hist-etiqueta">${htmlSeguro(b.etiqueta)}</span></div>`;}).join("")}</div>`:'<div class="rend-grafica-vacia">Todavía no hay promedios para mostrar la distribución.</div>';
+  const contenido=total?`<div class="rend-histograma" role="img" aria-label="Distribución de promedios">${bandas.map(b=>{const alto=b.cantidad?Math.max(8,(b.cantidad/maximo)*100):0;return `<div class="rend-hist-col" title="${htmlSeguro(b.etiqueta)}: ${b.cantidad} estudiante(s)"><span class="rend-hist-valor">${b.cantidad}</span><div class="rend-hist-bar-wrap"><span class="rend-hist-bar" style="height:${alto}%;background:${b.color}"></span></div><span class="rend-hist-etiqueta">${htmlSeguro(b.etiqueta)}</span></div>`;}).join("")}</div>`:'<div class="rend-grafica-vacia">Todavía no hay promedios para mostrar la distribución.</div>';
   return `<section class="rend-grafica-card rend-grafica-distribucion"><div class="rend-grafica-titulo"><span class="icono">📈</span><span>Distribución de promedios</span></div>${contenido}</section>`;
 }
 
 function rendGraficasGrupo(grupo){
-  return `<div class="rend-graficas">${rendGraficaCircular(grupo.promedio)}${rendGraficaExamenes(grupo.examenes||[])}${rendGraficaDistribucion(grupo.promedio?.estudiantes||[],grupo.nota_minima)}</div>`;
+  return `<div class="rend-graficas">${rendGraficaCircular(grupo.promedio)}${rendGraficaExamenes(grupo.examenes||[])}${rendGraficaDistribucion(grupo.promedio?.distribucion||[])}</div>`;
 }
 
-function tablaDetalleRendimiento(estudiantes,minima){
-  if(!estudiantes.length) return '<div class="empty">Sin notas registradas.</div>';
-  return `<div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>Nota</th><th>Estado</th></tr></thead><tbody>${ordenarEstudiantes(estudiantes).map(e=>`<tr><td>${htmlSeguro(nombreEstudianteLista(e))}<br/><small>${htmlSeguro(e.cedula||"")}</small></td><td style="text-align:center;font-weight:bold;">${Number(e.nota).toFixed(1)}</td><td style="text-align:center;color:${e.aprobado?'var(--verde)':'var(--rojo)'};font-weight:bold;">${e.aprobado?'Aprobó':'Menos de '+minima}</td></tr>`).join("")}</tbody></table></div>`;
+function tablaDetalleRendimiento(estudiantes){
+  if(!estudiantes.length) return '<div class="empty">Sin estados registrados.</div>';
+  return `<div class="table-wrap"><table><thead><tr><th>Estudiante</th><th style="text-align:center;">Estado</th></tr></thead><tbody>${ordenarEstudiantes(estudiantes).map(e=>`<tr><td>${htmlSeguro(nombreEstudianteLista(e))}<br/><small>${htmlSeguro(e.cedula||"")}</small></td><td style="text-align:center;color:${e.aprobado?'var(--verde)':'var(--rojo)'};font-weight:bold;">${e.aprobado?'✅ Aprobó':'⚠️ No alcanzó el mínimo'}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
 async function cargarRendimiento(){

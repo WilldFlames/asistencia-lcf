@@ -55,6 +55,20 @@ test('coordinación tiene Rendimiento y solo edita Educación Híbrida', () => {
   assert.doesNotMatch(ui, /rendimientoFiltrosCargados=true;[\s\S]{0,180}await cargarRendimiento\(\)/);
 });
 
+test('Rendimiento conserva los gráficos pero no expone notas individuales', () => {
+  const rendimiento = read('routes/rendimiento.js');
+  const ui = read('public/index.html');
+  assert.match(rendimiento, /function estudianteSoloEstado/);
+  assert.match(rendimiento, /estudiantes:conNota\.map\(estudianteSoloEstado\)/);
+  assert.match(rendimiento, /estudiantes:estudiantesProm\.map\(estudianteSoloEstado\)/);
+  assert.match(rendimiento, /distribucion:distribucionNotas/);
+  assert.match(ui, /function rendGraficaDistribucion\(distribucion\)/);
+  assert.match(ui, /<th style="text-align:center;">Estado<\/th>/);
+  assert.match(ui, /No alcanzó el mínimo/);
+  const tabla = ui.match(/function tablaDetalleRendimiento[\s\S]*?\n}/)?.[0] || '';
+  assert.doesNotMatch(tabla, /<th>Nota<\/th>|e\.nota|toFixed/);
+});
+
 test('el Comité de Apoyo administra tres adecuaciones y solicitudes auditables', () => {
   const db = read('db.js');
   const ruta = read('routes/adecuaciones.js');

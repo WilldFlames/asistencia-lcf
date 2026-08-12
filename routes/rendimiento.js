@@ -32,6 +32,31 @@ router.get("/filtros",requireAuth,requireRendimiento,asyncRoute(async(req,res)=>
 
 function porcentaje(cantidad,total){return total?Number(((cantidad*100)/total).toFixed(2)):0;}
 
+// Rendimiento es un tablero institucional de estados y tendencias. Las notas
+// exactas se usan para calcular los indicadores, pero nunca se envían al
+// navegador desde este módulo.
+function estudianteSoloEstado(e){
+  return {
+    estudiante_id:e.estudiante_id,
+    cedula:e.cedula,
+    nombre:e.nombre,
+    primer_apellido:e.primer_apellido,
+    segundo_apellido:e.segundo_apellido,
+    aprobado:!!e.aprobado
+  };
+}
+
+function distribucionNotas(estudiantes,minima){
+  const notas=estudiantes.map(e=>Number(e.nota)).filter(Number.isFinite);
+  return [
+    {etiqueta:"Menos de 50",cantidad:notas.filter(n=>n<50).length},
+    {etiqueta:`50 a ${minima-1}`,cantidad:notas.filter(n=>n>=50&&n<minima).length},
+    {etiqueta:`${minima} a 79`,cantidad:notas.filter(n=>n>=minima&&n<80).length},
+    {etiqueta:"80 a 89",cantidad:notas.filter(n=>n>=80&&n<90).length},
+    {etiqueta:"90 a 100",cantidad:notas.filter(n=>n>=90).length}
+  ];
+}
+
 router.get("/resumen",requireAuth,requireRendimiento,asyncRoute(async(req,res)=>{
   const anio=await obtenerAnioActivo();
   const periodo=["I Período","II Período"].includes(req.query.periodo)?req.query.periodo:"I Período";
@@ -93,13 +118,17 @@ router.get("/resumen",requireAuth,requireRendimiento,asyncRoute(async(req,res)=>
         id:ex.id,nombre:ex.nombre,fecha:ex.fecha,puntaje_total:Number(ex.puntaje_total),
         evaluados:conNota.length,sin_nota:notas.rows.length-conNota.length,
         aprobados,reprobados:conNota.length-aprobados,
-        porcentaje_aprobacion:porcentaje(aprobados,conNota.length),estudiantes:conNota
+        porcentaje_aprobacion:porcentaje(aprobados,conNota.length),
+        distribucion:distribucionNotas(conNota,minima),
+        estudiantes:conNota.map(estudianteSoloEstado)
       });
     }
     grupos.push({
       ...a,nota_minima:minima,
       promedio:{total:estudiantesProm.length,aprobados:aprobProm,reprobados:estudiantesProm.length-aprobProm,
-        porcentaje_aprobacion:porcentaje(aprobProm,estudiantesProm.length),estudiantes:estudiantesProm},
+        porcentaje_aprobacion:porcentaje(aprobProm,estudiantesProm.length),
+        distribucion:distribucionNotas(estudiantesProm,minima),
+        estudiantes:estudiantesProm.map(estudianteSoloEstado)},
       examenes
     });
   }

@@ -340,6 +340,11 @@ async function initDB() {
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_observaciones TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS justificacion_cambio_seccion TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_login BOOLEAN DEFAULT true`);
+    // Baja segura del personal: la cuenta desaparece de la gestión diaria,
+    // pero sus referencias históricas se conservan para no romper documentos.
+    await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS eliminado BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS eliminado_at TIMESTAMP DEFAULT NULL`);
+    await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS eliminado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE asignaciones ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT NULL`);
     // Marca de vigencia: cuando arranca un año nuevo (Aplicar Matrículas),

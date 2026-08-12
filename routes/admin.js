@@ -6,10 +6,19 @@ const { saveSession } = require("../middleware/security");
 const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 const onlyAdmin = requireRol("admin");
 
+// La eliminación de cuentas es una atribución exclusiva del administrador
+// institucional 000, incluso si existen otras cuentas con rol admin.
+function onlyAdmin000(req,res,next){
+  const u=req.session?.usuario;
+  const cedula=String(u?.cedula||"").replace(/[\s.\-/]/g,"");
+  if(u?.rol==="admin" && cedula==="000") return next();
+  return res.status(403).json({error:"Solo el administrador 000 puede eliminar usuarios."});
+}
+
 // ── USUARIOS ──────────────────────────────────────────────────
 router.get("/usuarios", onlyAdmin, async (req, res) => {
   const r = await pool.query(
-    "SELECT id,cedula,nombre,primer_apellido,segundo_apellido,email,rol,activo,primer_login FROM usuarios ORDER BY primer_apellido,nombre"
+    "SELECT id,cedula,nombre,primer_apellido,segundo_apellido,email,rol,activo,primer_login FROM usuarios WHERE COALESCE(eliminado,false)=false ORDER BY primer_apellido,segundo_apellido,nombre"
   );
   res.json(r.rows);
 });
@@ -17,7 +26,7 @@ router.get("/usuarios", onlyAdmin, async (req, res) => {
 // Lista de usuarios activos — accesible para secretaria (para consecutivos)
 router.get("/usuarios-activos", requireAuth, async (req, res) => {
   const r = await pool.query(
-    "SELECT id,nombre,primer_apellido,segundo_apellido,rol FROM usuarios WHERE activo=true ORDER BY primer_apellido,nombre"
+    "SELECT id,nombre,primer_apellido,segundo_apellido,rol FROM usuarios WHERE activo=true AND COALESCE(eliminado,false)=false ORDER BY primer_apellido,segundo_apellido,nombre"
   );
   res.json(r.rows);
 });
@@ -43,8 +52,9 @@ router.post("/usuarios", onlyAdmin, async (req, res) => {
 router.put("/usuarios/:id", onlyAdmin, async (req, res) => {
   const { nombre, primer_apellido, segundo_apellido, email, rol, activo } = req.body;
   try {
-    await pool.query(`UPDATE usuarios SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,email=$4,rol=$5,activo=$6 WHERE id=$7`,
+    const r=await pool.query(`UPDATE usuarios SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,email=$4,rol=$5,activo=$6 WHERE id=$7 AND COALESCE(eliminado,false)=false`,
       [nombre,primer_apellido,segundo_apellido,email||null,rol,activo,req.params.id]);
+    if(!r.rowCount) return res.status(404).json({error:"Usuario no encontrado"});
     res.json({ ok:true });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
@@ -58,6 +68,54 @@ router.put("/usuarios/:id/reset-password", onlyAdmin, async (req, res) => {
     await pool.query("UPDATE usuarios SET password_hash=$1, primer_login=true WHERE id=$2", [hash, req.params.id]);
     res.json({ ok: true, mensaje: "Contraseña reiniciada. El usuario deberá cambiarla al ingresar." });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Eliminar usuario = baja segura. No se borra físicamente porque numerosas
+// actuaciones oficiales conservan quién las registró. Sí se revocan de
+// inmediato la sesión, las asignaciones vigentes y las funciones operativas.
+router.delete("/usuarios/:id", onlyAdmin000, async (req,res)=>{
+  const usuarioId=Number(req.params.id);
+  if(!Number.isInteger(usuarioId) || usuarioId<=0)
+    return res.status(400).json({error:"Usuario inválido."});
+  if(usuarioId===Number(req.session.usuario.id))
+    return res.status(400).json({error:"El administrador 000 no puede eliminar su propia cuenta."});
+
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const encontrado=await client.query(
+      "SELECT id,cedula,nombre,primer_apellido,segundo_apellido FROM usuarios WHERE id=$1 AND COALESCE(eliminado,false)=false FOR UPDATE",
+      [usuarioId]
+    );
+    if(!encontrado.rows.length){
+      await client.query("ROLLBACK");
+      return res.status(404).json({error:"Usuario no encontrado."});
+    }
+    const cedulaObjetivo=String(encontrado.rows[0].cedula||"").replace(/[\s.\-/]/g,"");
+    if(cedulaObjetivo==="000"){
+      await client.query("ROLLBACK");
+      return res.status(400).json({error:"La cuenta institucional 000 está protegida y no puede eliminarse."});
+    }
+
+    await client.query("UPDATE asignaciones SET activa=false WHERE profesor_id=$1 AND COALESCE(activa,true)=true",[usuarioId]);
+    await client.query("UPDATE seccion_guia SET profesor_id=NULL WHERE profesor_id=$1",[usuarioId]);
+    await client.query("DELETE FROM seccion_orientador WHERE orientador_id=$1",[usuarioId]);
+    await client.query("DELETE FROM comedor_comite WHERE usuario_id=$1",[usuarioId]);
+    await client.query("DELETE FROM matricula_comite WHERE usuario_id=$1",[usuarioId]);
+    await client.query("DELETE FROM funciones_institucionales WHERE usuario_id=$1",[usuarioId]);
+    await client.query(`UPDATE usuarios
+      SET activo=false,eliminado=true,eliminado_at=NOW(),eliminado_por=$2
+      WHERE id=$1`,[usuarioId,req.session.usuario.id]);
+    // connect-pg-simple guarda el usuario dentro de sess. Al borrar esas filas
+    // la persona queda fuera del sistema aun si tenía una pestaña abierta.
+    await client.query(`DELETE FROM "session"
+      WHERE sess::jsonb #>> '{usuario,id}'=$1`,[String(usuarioId)]);
+    await client.query("COMMIT");
+    res.json({ok:true,mensaje:"Usuario eliminado. Se conservó únicamente su historial institucional."});
+  }catch(error){
+    await client.query("ROLLBACK");
+    res.status(500).json({error:"No fue posible eliminar el usuario de forma segura: "+error.message});
+  }finally{client.release();}
 });
 
 // ── MATERIAS ──────────────────────────────────────────────────

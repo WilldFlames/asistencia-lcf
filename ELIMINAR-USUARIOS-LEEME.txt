@@ -1,0 +1,21 @@
+ELIMINACIÓN SEGURA DE USUARIOS
+==============================
+
+Este ZIP es acumulativo e incluye Rendimiento sin notas, LCF Familias y los
+cambios anteriores.
+
+- Únicamente la cuenta administradora con cédula 000 ve el botón de papelera.
+- El servidor también comprueba la cédula 000; ocultar el botón no es la única
+  protección.
+- La cuenta 000 no puede eliminarse a sí misma.
+- Al eliminar una persona:
+  * pierde inmediatamente el acceso al sistema;
+  * se cierran sus sesiones activas;
+  * se desactivan sus asignaciones vigentes;
+  * sale de guías, orientación, comités y funciones institucionales;
+  * desaparece de la lista de usuarios.
+- Sus registros históricos se conservan para no dañar boletas, notas,
+  documentos, alertas ni auditorías ya existentes.
+
+La base de datos se actualiza automáticamente al iniciar Railway. No requiere
+variables nuevas ni pasos manuales.
