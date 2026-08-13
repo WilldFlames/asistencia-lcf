@@ -51,8 +51,19 @@ test('la interfaz incluye boletas visuales, registro consolidado y Excel MEP', (
   assert.match(ui, /function atAgregarAccion/);
   assert.match(ui, /function atAgregarContacto/);
   assert.match(ui, /function atImprimirConsolidado/);
-  assert.match(ui, /estudianteUnico=q&&estudiantes\.size===1/);
+  assert.match(ui, /estudianteUnico=estudiante&&estudiantes\.size===1/);
   assert.match(ui, /Imprimir consolidado de \$\{estudianteUnico\.estudiante_nombre\}/);
   assert.match(ui, /function atDescargarExcel/);
   assert.ok(fs.existsSync(path.join(root,'public','assets','alerta-temprana-mep.xlsx')));
+});
+
+test('el registro de llamadas filtra por secciÃ³n y solo ofrece estudiantes que tienen llamadas', () => {
+  const ruta = read('routes/alertaTemprana.js');
+  const ui = read('public/index.html');
+  assert.match(ruta, /e\.seccion_id,s\.nombre AS seccion_nombre/);
+  assert.match(ruta, /AND rl\.profesor_id=\$\$\{params\.length\}/);
+  assert.match(ui, /id="at-llamadas-seccion"/);
+  assert.match(ui, /id="at-llamadas-estudiante"/);
+  assert.match(ui, /atLlamadas\.filter\(x=>String\(x\.seccion_id\)===seccion\)/);
+  assert.match(ui, /Todos los estudiantes con llamadas/);
 });

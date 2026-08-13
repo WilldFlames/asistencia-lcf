@@ -309,7 +309,7 @@ router.get("/llamadas",requireAuth,requireParticipante,asyncRoute(async(req,res)
   const params=[anio];let filtro="";
   if(!supervisor){params.push(u.id);filtro+=` AND rl.profesor_id=$${params.length}`;}
   if(req.query.estudiante_id){params.push(Number(req.query.estudiante_id));filtro+=` AND rl.estudiante_id=$${params.length}`;}
-  const q=await pool.query(`SELECT rl.*,${nombreApellidos("e")} AS estudiante_nombre,e.cedula,s.nombre AS seccion_nombre,
+  const q=await pool.query(`SELECT rl.*,${nombreApellidos("e")} AS estudiante_nombre,e.cedula,e.seccion_id,s.nombre AS seccion_nombre,
       m.nombre AS materia_nombre,${nombreCompleto("u")} AS profesor_nombre
     FROM registro_llamadas rl JOIN estudiantes e ON e.id=rl.estudiante_id LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN materias m ON m.id=rl.materia_id JOIN usuarios u ON u.id=rl.profesor_id

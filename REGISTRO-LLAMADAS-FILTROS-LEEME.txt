@@ -1,0 +1,21 @@
+REGISTRO DE LLAMADAS - FILTROS POR SECCION Y ESTUDIANTE
+Fecha: 12 de agosto de 2026
+
+Cambios incluidos:
+
+1. En la pestaña Registro de llamadas, la búsqueda libre se reemplaza por:
+   - Selector de sección.
+   - Selector de estudiante con llamadas.
+
+2. Para docentes, las opciones se forman únicamente con sus propios registros,
+   por lo que solo aparecen las secciones y estudiantes a los que han llamado.
+
+3. Un estudiante sin llamadas registradas no aparece en el selector.
+
+4. Auxiliares, coordinación y administración conservan la vista institucional
+   completa, respetando los permisos que ya tenía el sistema.
+
+5. El botón para imprimir el consolidado aparece cuando el personal autorizado
+   selecciona un estudiante específico.
+
+Verificación: 101 pruebas automáticas aprobadas.

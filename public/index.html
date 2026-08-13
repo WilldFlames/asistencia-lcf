@@ -1698,7 +1698,15 @@ tr:hover td{background:#f8fafc;}
   <div class="card">
     <div class="at-tabs"><button class="at-tab active" id="at-tab-alertas" onclick="atCambiarVista('alertas')">🚨 Alertas</button><button class="at-tab" id="at-tab-llamadas" onclick="atCambiarVista('llamadas')">📞 Registro de llamadas</button></div>
     <div class="at-toolbar">
-      <div style="display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap"><div class="fg" id="at-filtro-estado-wrap"><label>Estado</label><select id="at-filtro-estado" onchange="atCargarAlertas()"><option value="">Todos</option><option value="activada">Activada</option><option value="en_proceso">En proceso</option><option value="en_espera">En espera</option><option value="cerrada">Cerrada</option><option value="eliminada">Eliminada</option></select></div><div class="fg"><label>Buscar estudiante</label><input id="at-buscar" placeholder="Apellido, nombre o cédula…" oninput="atRenderActual()"/></div><button class="btn btn-success" id="at-btn-consolidado" style="display:none">🖨️ Imprimir consolidado</button></div>
+      <div style="display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap">
+        <div class="fg" id="at-filtro-estado-wrap"><label>Estado</label><select id="at-filtro-estado" onchange="atCargarAlertas()"><option value="">Todos</option><option value="activada">Activada</option><option value="en_proceso">En proceso</option><option value="en_espera">En espera</option><option value="cerrada">Cerrada</option><option value="eliminada">Eliminada</option></select></div>
+        <div class="fg" id="at-busqueda-alertas"><label>Buscar estudiante</label><input id="at-buscar" placeholder="Apellido, nombre o cédula…" oninput="atRenderActual()"/></div>
+        <div id="at-filtros-llamadas" style="display:none;gap:9px;align-items:flex-end;flex-wrap:wrap">
+          <div class="fg"><label>Sección</label><select id="at-llamadas-seccion" onchange="atActualizarEstudiantesLlamadas()"><option value="">— Seleccione una sección —</option></select></div>
+          <div class="fg"><label>Estudiante con llamadas</label><select id="at-llamadas-estudiante" onchange="atRenderLlamadas()" disabled><option value="">— Primero seleccione la sección —</option></select></div>
+        </div>
+        <button class="btn btn-success" id="at-btn-consolidado" style="display:none">🖨️ Imprimir consolidado</button>
+      </div>
       <button class="btn btn-outline" onclick="atRecargar()">↻ Actualizar</button>
     </div>
     <div id="alert-at" class="alert"></div><div id="at-resumen" class="at-summary"></div><div id="at-lista"><div class="empty">Cargando…</div></div>
@@ -23903,11 +23911,27 @@ async function iniciarAlertaTemprana(){
   }catch(e){sa("alert-at",e.message,"danger");}
 }
 async function atRecargar(){if(atVista==="alertas")await atCargarAlertas();else await atCargarLlamadas();}
-function atCambiarVista(v){atVista=v;document.getElementById("at-tab-alertas").classList.toggle("active",v==="alertas");document.getElementById("at-tab-llamadas").classList.toggle("active",v==="llamadas");document.getElementById("at-filtro-estado-wrap").style.display=v==="alertas"?"":"none";document.getElementById("at-btn-consolidado").style.display="none";atRecargar();}
+function atCambiarVista(v){
+  atVista=v;
+  document.getElementById("at-tab-alertas").classList.toggle("active",v==="alertas");
+  document.getElementById("at-tab-llamadas").classList.toggle("active",v==="llamadas");
+  document.getElementById("at-filtro-estado-wrap").style.display=v==="alertas"?"":"none";
+  document.getElementById("at-busqueda-alertas").style.display=v==="alertas"?"":"none";
+  document.getElementById("at-filtros-llamadas").style.display=v==="llamadas"?"flex":"none";
+  document.getElementById("at-btn-consolidado").style.display="none";
+  atRecargar();
+}
 async function atCargarAlertas(){
   try{const estado=document.getElementById("at-filtro-estado").value;const d=await api(`/api/alerta-temprana/alertas${estado?`?estado=${estado}`:""}`);atAlertas=d.alertas||[];atRenderAlertas();}catch(e){sa("alert-at",e.message,"danger");}
 }
-async function atCargarLlamadas(){try{const d=await api("/api/alerta-temprana/llamadas");atLlamadas=d.llamadas||[];atRenderLlamadas();}catch(e){sa("alert-at",e.message,"danger");}}
+async function atCargarLlamadas(){
+  try{
+    const d=await api("/api/alerta-temprana/llamadas");
+    atLlamadas=d.llamadas||[];
+    atPrepararFiltrosLlamadas();
+    atRenderLlamadas();
+  }catch(e){sa("alert-at",e.message,"danger");}
+}
 function atFiltroTexto(){return document.getElementById("at-buscar").value.trim().toLocaleLowerCase("es");}
 function atRenderActual(){atVista==="alertas"?atRenderAlertas():atRenderLlamadas();}
 function atRenderAlertas(){
@@ -23916,11 +23940,42 @@ function atRenderAlertas(){
   document.getElementById("at-resumen").innerHTML=`<div class="at-stat"><strong>${rows.length}</strong><span>Alertas mostradas</span></div><div class="at-stat"><strong>${abiertas}</strong><span>En seguimiento</span></div><div class="at-stat"><strong>${rows.filter(a=>a.estado==='en_espera').length}</strong><span>En espera</span></div><div class="at-stat"><strong>${rows.filter(a=>a.estado==='cerrada').length}</strong><span>Cerradas</span></div>`;
   document.getElementById("at-lista").innerHTML=rows.length?rows.map(a=>`<article class="at-card ${a.estado}"><div><h3>${htmlSeguro(a.estudiante_nombre)}</h3><div class="at-card-meta"><span>🪪 ${htmlSeguro(a.cedula)}</span><span>🏫 ${htmlSeguro(a.seccion_nombre||"—")}</span><span>📘 ${htmlSeguro(a.materia_nombre||"—")}</span><span>👤 ${htmlSeguro(a.profesor_nombre)}</span><span>📝 ${a.seguimientos} seguimiento(s)</span></div></div><div class="at-card-actions"><span class="at-status ${a.estado}">${AT_ESTADO[a.estado]}</span><button class="btn btn-outline btn-sm" onclick="atVerDetalle(${a.id})">👁️ Ver expediente</button></div></article>`).join(""):'<div class="empty">No hay alertas que coincidan con la búsqueda.</div>';
 }
+function atPrepararFiltrosLlamadas(){
+  const sel=document.getElementById("at-llamadas-seccion");
+  const anterior=sel.value;
+  const secciones=new Map();
+  atLlamadas.forEach(x=>{if(x.seccion_id&&x.seccion_nombre)secciones.set(String(x.seccion_id),x.seccion_nombre);});
+  const opciones=[...secciones.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),"es",{numeric:true}));
+  sel.innerHTML='<option value="">— Seleccione una sección —</option>'+opciones.map(([id,nombre])=>`<option value="${id}">${htmlSeguro(nombre)}</option>`).join("");
+  if(opciones.some(([id])=>id===anterior))sel.value=anterior;
+  else if(opciones.length===1)sel.value=opciones[0][0];
+  atActualizarEstudiantesLlamadas(true);
+}
+function atActualizarEstudiantesLlamadas(conservar=false){
+  const seccion=document.getElementById("at-llamadas-seccion").value;
+  const sel=document.getElementById("at-llamadas-estudiante");
+  const anterior=conservar?sel.value:"";
+  if(!seccion){
+    sel.disabled=true;
+    sel.innerHTML='<option value="">— Primero seleccione la sección —</option>';
+    atRenderLlamadas();
+    return;
+  }
+  const estudiantes=new Map();
+  atLlamadas.filter(x=>String(x.seccion_id)===seccion).forEach(x=>estudiantes.set(String(x.estudiante_id),{nombre:x.estudiante_nombre,cedula:x.cedula}));
+  const opciones=[...estudiantes.entries()].sort((a,b)=>String(a[1].nombre).localeCompare(String(b[1].nombre),"es",{numeric:true}));
+  sel.disabled=false;
+  sel.innerHTML='<option value="">— Todos los estudiantes con llamadas —</option>'+opciones.map(([id,e])=>`<option value="${id}">${htmlSeguro(e.nombre)} · ${htmlSeguro(e.cedula)}</option>`).join("");
+  if(opciones.some(([id])=>id===anterior))sel.value=anterior;
+  atRenderLlamadas();
+}
 function atRenderLlamadas(){
-  const q=atFiltroTexto(),rows=atLlamadas.filter(x=>`${x.estudiante_nombre} ${x.cedula} ${x.seccion_nombre} ${x.materia_nombre} ${x.profesor_nombre}`.toLocaleLowerCase("es").includes(q));
+  const seccion=document.getElementById("at-llamadas-seccion").value;
+  const estudiante=document.getElementById("at-llamadas-estudiante").value;
+  const rows=atLlamadas.filter(x=>(!seccion||String(x.seccion_id)===seccion)&&(!estudiante||String(x.estudiante_id)===estudiante));
   const estudiantes=new Set(rows.map(x=>x.estudiante_id));
   const btnConsolidado=document.getElementById("at-btn-consolidado");
-  const estudianteUnico=q&&estudiantes.size===1?rows[0]:null;
+  const estudianteUnico=estudiante&&estudiantes.size===1?rows[0]:null;
   if(btnConsolidado){
     btnConsolidado.style.display=atInicio?.puede_supervisar&&estudianteUnico?"":"none";
     if(estudianteUnico){
