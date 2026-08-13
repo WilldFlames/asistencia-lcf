@@ -4,6 +4,8 @@
   let installPrompt = null;
   let portalFamiliasActivo = false;
   let registroSW = null;
+  const parametrosIniciales = new URLSearchParams(location.search);
+  const modoPersonal = location.pathname.startsWith("/personal") || parametrosIniciales.get("app") === "personal";
 
   const instalada = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
   const esIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -11,9 +13,11 @@
 
   function sincronizarBoton() {
     const btn = boton();
-    if (!btn) return;
-    const disponible = portalFamiliasActivo && !instalada() && (Boolean(installPrompt) || esIOS());
-    btn.classList.toggle("show", disponible);
+    const instalable = !instalada() && (Boolean(installPrompt) || esIOS());
+    if (btn) btn.classList.toggle("show", portalFamiliasActivo && instalable);
+    document.querySelectorAll("[data-personal-install]").forEach(elemento => {
+      elemento.classList.toggle("show", modoPersonal && instalable);
+    });
   }
 
   function cerrarModal() {
@@ -22,6 +26,8 @@
 
   function mostrarInstruccionesIOS() {
     cerrarModal();
+    const nombreApp = modoPersonal ? "Personal LCF" : "LCF Familias";
+    const iconoApp = modoPersonal ? "/icons/personal-lcf-192.png" : "/icons/lcf-familias-192.png";
     const modal = document.createElement("div");
     modal.id = "pwa-install-modal";
     modal.className = "pwa-modal-overlay";
@@ -31,8 +37,8 @@
     modal.innerHTML = `
       <div class="pwa-modal">
         <div class="pwa-modal-head">
-          <img class="pwa-modal-icon" src="/icons/lcf-familias-192.png" alt="">
-          <div><h2 id="pwa-install-title">Instalar LCF Familias</h2><div class="pwa-modal-sub">Quedará en la pantalla de inicio como cualquier aplicación.</div></div>
+          <img class="pwa-modal-icon" src="${iconoApp}" alt="">
+          <div><h2 id="pwa-install-title">Instalar ${nombreApp}</h2><div class="pwa-modal-sub">Quedará en la pantalla de inicio como cualquier aplicación.</div></div>
         </div>
         <div class="pwa-steps">
           <div class="pwa-step"><span class="pwa-step-num">1</span><span>Abra esta página en <strong>Safari</strong>.</span></div>
@@ -173,6 +179,143 @@
     }
   }
 
+  function estadoPersonal(texto, tipo = "") {
+    const estado = document.getElementById("personal-push-status");
+    if (!estado) return;
+    estado.textContent = texto;
+    estado.classList.toggle("ok", tipo === "ok");
+    estado.classList.toggle("problem", tipo === "problem");
+  }
+
+  function botonPushPersonal() {
+    return document.getElementById("personal-push-action");
+  }
+
+  async function mostrarNotificacionesPersonal() {
+    if (!modoPersonal) return;
+    const botonPush = botonPushPersonal();
+    if (!botonPush) return;
+    botonPush.hidden = false;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window) || !window.isSecureContext) {
+      botonPush.hidden = true;
+      estadoPersonal("Este navegador no permite notificaciones de la aplicación.", "problem");
+      return;
+    }
+    if (esIOS() && !instalada()) {
+      botonPush.textContent = "Instalar primero";
+      estadoPersonal("En iPhone, instale Personal LCF para poder recibir avisos aunque esté cerrada.");
+      return;
+    }
+    try {
+      const configuracion = await apiPush("/api/notificaciones/push/config");
+      if (!configuracion.configurada) {
+        botonPush.hidden = true;
+        estadoPersonal("Las claves de notificaciones todavía no están configuradas en Railway.", "problem");
+        return;
+      }
+      if (Notification.permission === "denied") {
+        botonPush.hidden = true;
+        estadoPersonal("Las notificaciones están bloqueadas en los ajustes del teléfono.", "problem");
+        return;
+      }
+      const registro = await navigator.serviceWorker.ready;
+      const suscripcion = await registro.pushManager.getSubscription();
+      if (suscripcion && Notification.permission === "granted") {
+        await apiPush("/api/notificaciones/push/suscribir", "POST", { subscription:suscripcion.toJSON() });
+        botonPush.hidden = true;
+        estadoPersonal("Notificaciones activadas en este dispositivo.", "ok");
+      } else {
+        botonPush.textContent = "Activar notificaciones";
+        estadoPersonal("Active los avisos para enterarse de citas, seguimientos y tareas importantes.");
+      }
+    } catch (error) {
+      botonPush.textContent = "Reintentar notificaciones";
+      estadoPersonal(error.message || "No se pudieron comprobar las notificaciones.", "problem");
+    }
+  }
+
+  async function activarNotificacionesPersonal() {
+    if (!modoPersonal) {
+      location.assign("/personal?app=personal");
+      return;
+    }
+    const botonPush = botonPushPersonal();
+    if (!botonPush || botonPush.disabled) return;
+    if (esIOS() && !instalada()) { mostrarInstruccionesIOS(); return; }
+    botonPush.disabled = true;
+    botonPush.textContent = "Activando...";
+    try {
+      const configuracion = await apiPush("/api/notificaciones/push/config");
+      if (!configuracion.configurada || !configuracion.publicKey) throw new Error("El servicio todavía no está configurado en Railway.");
+      const permiso = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+      if (permiso !== "granted") throw new Error("No se concedió permiso para mostrar notificaciones.");
+      const registro = await navigator.serviceWorker.ready;
+      const existente = await registro.pushManager.getSubscription();
+      const suscripcion = existente || await registro.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: claveAplicacion(configuracion.publicKey),
+      });
+      await apiPush("/api/notificaciones/push/suscribir", "POST", { subscription:suscripcion.toJSON() });
+      await mostrarNotificacionesPersonal();
+    } catch (error) {
+      botonPush.textContent = "Reintentar notificaciones";
+      estadoPersonal(error.message || "No se activaron las notificaciones.", "problem");
+    } finally {
+      botonPush.disabled = false;
+    }
+  }
+
+  function aplicarIdentidadPersonal() {
+    if (!modoPersonal) return;
+    document.documentElement.classList.add("personal-lcf-mode");
+    document.title = "Personal LCF";
+    const tituloLogin = document.querySelector("#login-view .auth-box h2");
+    if (tituloLogin) tituloLogin.textContent = "Personal LCF";
+    const subtituloLogin = document.querySelector("#login-view .auth-sub");
+    if (subtituloLogin) subtituloLogin.innerHTML = "Aplicación institucional para docentes y personal<br><em style=\"font-size:12px\">Liceo de Calle Fallas</em>";
+    const cambioPadres = document.getElementById("login-toggle");
+    if (cambioPadres) cambioPadres.style.display = "none";
+    const avisoPadres = document.getElementById("login-modo-aviso");
+    if (avisoPadres) avisoPadres.style.display = "none";
+    const subtitulo = document.getElementById("topbar-page-subtitle");
+    if (subtitulo) subtitulo.textContent = "Personal LCF";
+    const marca = document.querySelector(".sidebar-brand-sub");
+    if (marca) marca.textContent = "Personal LCF";
+  }
+
+  function iniciarPersonal() {
+    const panel = document.getElementById("personal-pwa-panel");
+    if (!panel || typeof ME === "undefined" || !ME) return;
+    panel.hidden = false;
+    const enlace = document.getElementById("personal-pwa-open");
+    const botonPush = botonPushPersonal();
+    if (!modoPersonal) {
+      if (enlace) enlace.hidden = false;
+      if (botonPush) botonPush.hidden = true;
+      estadoPersonal("Abra este acceso desde el teléfono para instalar la aplicación.");
+      return;
+    }
+    aplicarIdentidadPersonal();
+    if (enlace) enlace.hidden = true;
+    sincronizarBoton();
+    mostrarNotificacionesPersonal();
+  }
+
+  function abrirDestinoPersonal(urlDestino = location.href) {
+    if (!modoPersonal || typeof ME === "undefined" || !ME || typeof goTo !== "function") return false;
+    const destino = new URL(urlDestino, location.origin);
+    let pagina = destino.searchParams.get("abrir") || "dashboard";
+    const referencia = Number(destino.searchParams.get("ref"));
+    const botonNav = document.querySelector(`[data-page="${CSS.escape(pagina)}"]`);
+    if (pagina !== "dashboard" && (!botonNav || botonNav.style.display === "none")) pagina = "dashboard";
+    goTo(pagina);
+    if (pagina === "alerta-temprana" && referencia && typeof atVerDetalle === "function") {
+      setTimeout(() => atVerDetalle(referencia), 300);
+    }
+    history.replaceState({}, "", "/personal?app=personal");
+    return true;
+  }
+
   async function registrarServiceWorker() {
     if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
     try {
@@ -207,6 +350,11 @@
     navigator.serviceWorker.addEventListener("message", event => {
       if (event.data?.type !== "LCF_OPEN_NOTIFICATION") return;
       const destino = new URL(event.data.url || "/?app=familias", location.origin);
+      if (destino.pathname.startsWith("/personal") || destino.searchParams.get("app") === "personal") {
+        window.focus();
+        if (!abrirDestinoPersonal(destino.href)) location.assign(destino.href);
+        return;
+      }
       const tab = destino.searchParams.get("abrir");
       if (typeof window.ppTab === "function" && tab) {
         window.focus();
@@ -219,6 +367,7 @@
   }
 
   function limpiarBurbujaAlAbrir() {
+    if (modoPersonal) return;
     if (document.visibilityState !== "visible") return;
     if ("clearAppBadge" in navigator) navigator.clearAppBadge().catch(() => {});
   }
@@ -229,6 +378,10 @@
     instalar,
     alternarNotificaciones,
     mostrarNotificacionesPadres,
+    activarNotificacionesPersonal,
+    mostrarNotificacionesPersonal,
+    iniciarPersonal,
+    abrirDestinoPersonal,
     mostrarInstalacionPadres() {
       portalFamiliasActivo = true;
       sincronizarBoton();
@@ -237,11 +390,17 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     const modoFamilias = new URLSearchParams(location.search).get("app") === "familias";
+    aplicarIdentidadPersonal();
     if (modoFamilias) {
       document.title = "LCF Familias";
       if (typeof toggleLoginPadres === "function" && typeof loginEsPadre !== "undefined" && loginEsPadre === false) toggleLoginPadres();
     }
     if (instalada()) document.documentElement.classList.add("pwa-standalone");
+    sincronizarBoton();
     registrarServiceWorker();
+  });
+  window.addEventListener("LCF_PERSONAL_READY", () => {
+    iniciarPersonal();
+    abrirDestinoPersonal();
   });
 })();

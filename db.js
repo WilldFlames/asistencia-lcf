@@ -2110,6 +2110,25 @@ async function initDB() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_push_suscripciones_padre
       ON push_suscripciones(padre_acceso_id)`);
 
+    // Dispositivos del personal. Usa el mismo servicio Web Push, pero cada
+    // suscripción queda ligada al usuario institucional autenticado.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS push_suscripciones_personal (
+        id                   SERIAL PRIMARY KEY,
+        usuario_id           INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        endpoint             TEXT UNIQUE NOT NULL,
+        p256dh               TEXT NOT NULL,
+        auth                 TEXT NOT NULL,
+        user_agent           TEXT DEFAULT '',
+        last_notification_id INTEGER NOT NULL DEFAULT 0,
+        created_at           TIMESTAMP DEFAULT NOW(),
+        updated_at           TIMESTAMP DEFAULT NOW(),
+        last_success_at      TIMESTAMP DEFAULT NULL
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_push_personal_usuario
+      ON push_suscripciones_personal(usuario_id)`);
+
     // Funciones institucionales asignadas desde Admin → Asignaciones.
     // Son permisos adicionales; no sustituyen el rol base de la persona.
     await client.query(`

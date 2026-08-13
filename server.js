@@ -5,6 +5,7 @@ const express   = require("express");
 const session   = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
 const path      = require("path");
+const fs        = require("fs");
 const { pool, initDB } = require("./db");
 const { requireAuth } = require("./middleware/auth");
 const {
@@ -94,10 +95,28 @@ app.use((req, res, next) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
-  if(['/sw.js', '/manifest.webmanifest', '/pwa.js', '/pwa.css'].includes(req.path)) {
+  if(['/sw.js', '/manifest.webmanifest', '/personal.webmanifest', '/pwa.js', '/pwa.css'].includes(req.path)) {
     res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   }
   next();
+});
+
+// Personal LCF reutiliza exactamente el mismo sistema, pero recibe desde el
+// primer byte su propio manifiesto e identidad instalable. No se duplica el
+// enorme index.html ni se crea una segunda aplicación de servidor.
+let personalHtml="";
+app.get(["/personal","/personal/"],(req,res,next)=>{
+  try{
+    if(!personalHtml){
+      personalHtml=fs.readFileSync(path.join(__dirname,"public","index.html"),"utf8")
+        .replace('<meta name="apple-mobile-web-app-title" content="LCF Familias"/>','<meta name="apple-mobile-web-app-title" content="Personal LCF"/>')
+        .replace('<link rel="manifest" href="/manifest.webmanifest"/>','<link rel="manifest" href="/personal.webmanifest"/>')
+        .replace('<link rel="apple-touch-icon" sizes="180x180" href="/icons/lcf-familias-180.png"/>','<link rel="apple-touch-icon" sizes="180x180" href="/icons/personal-lcf-180.png"/>')
+        .replace('<link rel="icon" type="image/png" sizes="32x32" href="/icons/lcf-familias-32.png"/>','<link rel="icon" type="image/png" sizes="32x32" href="/icons/personal-lcf-32.png"/>')
+        .replace('<title>Asistencia – Liceo de Calle Fallas</title>','<title>Personal LCF</title>');
+    }
+    res.type("html").send(personalHtml);
+  }catch(error){next(error);}
 });
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
@@ -130,4 +149,10 @@ initDB().then(() => {
       console.error("[FOTOS] No se pudo cargar el script:", e.message);
     }
   }, 5000); // espera 5s después del arranque
+
+  // Entrega las notificaciones internas al teléfono del funcionario. El
+  // cursor guardado por dispositivo evita reenviar avisos anteriores.
+  const { procesarNotificacionesPersonal } = require("./utils/push-personal");
+  setTimeout(()=>procesarNotificacionesPersonal().catch(()=>{}),7000);
+  setInterval(()=>procesarNotificacionesPersonal().catch(()=>{}),12000);
 }).catch(err => { console.error("Error DB:", err); process.exit(1); });

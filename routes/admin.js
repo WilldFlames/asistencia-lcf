@@ -7,12 +7,12 @@ const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 const onlyAdmin = requireRol("admin");
 
 // La eliminación de cuentas es una atribución exclusiva del administrador
-// institucional 000, incluso si existen otras cuentas con rol admin.
+// institucional 0000000000, incluso si existen otras cuentas con rol admin.
 function onlyAdmin000(req,res,next){
   const u=req.session?.usuario;
   const cedula=String(u?.cedula||"").replace(/[\s.\-/]/g,"");
-  if(u?.rol==="admin" && cedula==="000") return next();
-  return res.status(403).json({error:"Solo el administrador 000 puede eliminar usuarios."});
+  if(u?.rol==="admin" && cedula==="0000000000") return next();
+  return res.status(403).json({error:"Solo el administrador principal 0000000000 puede eliminar usuarios."});
 }
 
 // ── USUARIOS ──────────────────────────────────────────────────
@@ -78,7 +78,7 @@ router.delete("/usuarios/:id", onlyAdmin000, async (req,res)=>{
   if(!Number.isInteger(usuarioId) || usuarioId<=0)
     return res.status(400).json({error:"Usuario inválido."});
   if(usuarioId===Number(req.session.usuario.id))
-    return res.status(400).json({error:"El administrador 000 no puede eliminar su propia cuenta."});
+    return res.status(400).json({error:"El administrador principal 0000000000 no puede eliminar su propia cuenta."});
 
   const client=await pool.connect();
   try{
@@ -92,9 +92,9 @@ router.delete("/usuarios/:id", onlyAdmin000, async (req,res)=>{
       return res.status(404).json({error:"Usuario no encontrado."});
     }
     const cedulaObjetivo=String(encontrado.rows[0].cedula||"").replace(/[\s.\-/]/g,"");
-    if(cedulaObjetivo==="000"){
+    if(cedulaObjetivo==="0000000000"){
       await client.query("ROLLBACK");
-      return res.status(400).json({error:"La cuenta institucional 000 está protegida y no puede eliminarse."});
+      return res.status(400).json({error:"La cuenta institucional 0000000000 está protegida y no puede eliminarse."});
     }
 
     await client.query("UPDATE asignaciones SET activa=false WHERE profesor_id=$1 AND COALESCE(activa,true)=true",[usuarioId]);

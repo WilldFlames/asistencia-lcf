@@ -1,0 +1,51 @@
+PERSONAL LCF — APLICACIÓN PARA DOCENTES Y PERSONAL
+=================================================
+
+Qué incluye
+-----------
+- Aplicación instalable separada de LCF Familias.
+- Usa el mismo usuario y contraseña institucional.
+- Conserva exactamente los módulos y permisos asignados a cada perfil.
+- Puede recibir las notificaciones internas aunque la aplicación esté cerrada.
+- Al tocar una notificación abre Personal LCF y dirige al módulo relacionado.
+- No guarda datos privados de estudiantes para trabajar sin conexión.
+
+Cómo entrar
+-----------
+Después de desplegar este paquete, abra:
+
+https://www.liccallefallas.com/personal?app=personal
+
+También aparecerá un acceso a Personal LCF en el dashboard normal del sistema.
+
+Instalación en iPhone
+---------------------
+1. Abra el enlace anterior en Safari.
+2. Toque Compartir.
+3. Toque “Añadir a pantalla de inicio”.
+4. Active “Abrir como app web” y confirme.
+5. Entre a Personal LCF y toque “Activar notificaciones”.
+
+Instalación en Android
+----------------------
+1. Abra el enlace anterior en Chrome.
+2. Toque “Instalar aplicación” o use el menú de Chrome → “Instalar app”.
+3. Entre a Personal LCF y toque “Activar notificaciones”.
+
+Configuración de Railway
+------------------------
+No necesita variables nuevas. Personal LCF usa las mismas variables VAPID que
+ya se configuraron para LCF Familias:
+
+- VAPID_PUBLIC_KEY
+- VAPID_PRIVATE_KEY
+- VAPID_SUBJECT
+
+La tabla de dispositivos del personal se crea automáticamente durante el deploy.
+
+Nota
+----
+Esta es la primera etapa instalable (PWA). No aumenta de forma importante el
+uso de Railway porque comparte servidor, base de datos y todos los módulos con
+el sistema actual. El acceso biométrico nativo corresponde a la siguiente etapa
+de las aplicaciones oficiales para App Store y Google Play.

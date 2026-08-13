@@ -802,6 +802,7 @@ tr:hover td{background:#f8fafc;}
     <div class="auth-fg"><label>Cédula</label><input type="text" id="l-ced" placeholder="Número de cédula" onkeydown="if(event.key==='Enter')document.getElementById('l-pass').focus()"/></div>
     <div class="auth-fg"><label>Contraseña</label><input type="password" id="l-pass" placeholder="Contraseña" onkeydown="if(event.key==='Enter')doLogin()"/></div>
     <button class="auth-btn blue" onclick="doLogin()">Ingresar</button>
+    <button id="personal-login-install-btn" data-personal-install class="personal-login-install" type="button" onclick="LCFPWA.instalar()">📲 Instalar Personal LCF</button>
     <div id="login-err" class="auth-err danger"></div>
     <div id="login-modo-aviso" style="display:none;margin-top:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;font-size:12.5px;color:#1e40af;text-align:left;">
       👨‍👩‍👧 <strong>Modo encargados:</strong> ingresá con la <strong>cédula registrada como encargado</strong> del estudiante. La primera vez, la contraseña es su misma cédula y el sistema le pedirá cambiarla.
@@ -1152,6 +1153,18 @@ tr:hover td{background:#f8fafc;}
     <div class="stat"><div class="stat-icon">📚</div><div class="num orange" id="ds-asignaciones">—</div><div class="lbl">Asignaciones</div></div>
   </div>
   <div class="card dashboard-welcome"><h2 id="dash-saludo">Bienvenido</h2><p style="font-size:14px;color:var(--muted)" id="dash-msg"></p></div>
+  <section id="personal-pwa-panel" class="personal-pwa-panel" hidden>
+    <div class="personal-pwa-brand">
+      <div class="personal-pwa-icon">📱</div>
+      <div><h2>Personal LCF</h2><p id="personal-pwa-copy">La aplicación móvil para docentes y funcionarios.</p></div>
+    </div>
+    <div class="personal-pwa-actions">
+      <a id="personal-pwa-open" class="personal-pwa-primary" href="/personal?app=personal">Abrir Personal LCF</a>
+      <button id="personal-dashboard-install" data-personal-install class="personal-pwa-primary" type="button" onclick="LCFPWA.instalar()">📲 Instalar aplicación</button>
+      <button id="personal-push-action" class="personal-pwa-secondary" type="button" onclick="LCFPWA.activarNotificacionesPersonal()">🔔 Activar notificaciones</button>
+    </div>
+    <div id="personal-push-status" class="personal-push-status"></div>
+  </section>
   <div id="dash-profesor-content"></div>
 </div>
 
@@ -5981,6 +5994,10 @@ async function iniciarApp(){
   } else {
     cargarDashboard();
   }
+  setTimeout(()=>{
+    window.LCFPWA?.iniciarPersonal();
+    window.dispatchEvent(new Event("LCF_PERSONAL_READY"));
+  },0);
 }
 
 async function cargarCatalogos(){
@@ -6025,6 +6042,11 @@ async function verificarNotif(){
   const cnt=document.getElementById("notif-count");
   if(d.count>0){cnt.classList.add("show");cnt.textContent=d.count;}
   else{cnt.classList.remove("show");}
+  const esPersonal=location.pathname.startsWith("/personal")||new URLSearchParams(location.search).get("app")==="personal";
+  if(esPersonal){
+    if(d.count>0&&"setAppBadge" in navigator) navigator.setAppBadge(d.count).catch(()=>{});
+    if(d.count===0&&"clearAppBadge" in navigator) navigator.clearAppBadge().catch(()=>{});
+  }
 }
 
 function toggleNotif(){
@@ -6754,7 +6776,7 @@ async function cargarUsuarios(){
   const f=q?rows.filter(u=>u.cedula.includes(q)||u.primer_apellido.toLowerCase().includes(q.toLowerCase())||u.nombre.toLowerCase().includes(q.toLowerCase())):rows;
   const tbody=document.getElementById("usuarios-body");
   if(!f.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">Sin usuarios</td></tr>`;return;}
-  const puedeEliminar=ME?.rol==="admin" && String(ME?.cedula||"").replace(/[\s.\-/]/g,"")==="000";
+  const puedeEliminar=ME?.rol==="admin" && String(ME?.cedula||"").replace(/[\s.\-/]/g,"")==="0000000000";
   tbody.innerHTML=f.map(u=>`<tr>
     <td><code>${u.cedula}</code></td>
       <td>${nombrePersona(u)}</td>

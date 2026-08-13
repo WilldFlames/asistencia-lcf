@@ -1,0 +1,25 @@
+{
+  "id": "/personal",
+  "name": "Personal LCF",
+  "short_name": "Personal LCF",
+  "description": "Aplicación institucional para docentes y personal del Liceo de Calle Fallas.",
+  "lang": "es-CR",
+  "start_url": "/personal?app=personal",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#eef5fb",
+  "theme_color": "#123f65",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {"src":"/icons/personal-lcf-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/icons/personal-lcf-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"/icons/personal-lcf-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ],
+  "shortcuts": [
+    {"name":"Panel principal","short_name":"Inicio","url":"/personal?app=personal&abrir=dashboard","icons":[{"src":"/icons/personal-lcf-192.png","sizes":"192x192"}]},
+    {"name":"Pasar asistencia","short_name":"Asistencia","url":"/personal?app=personal&abrir=asistencia","icons":[{"src":"/icons/personal-lcf-192.png","sizes":"192x192"}]},
+    {"name":"Ver horario","short_name":"Horario","url":"/personal?app=personal&abrir=horario","icons":[{"src":"/icons/personal-lcf-192.png","sizes":"192x192"}]}
+  ]
+}

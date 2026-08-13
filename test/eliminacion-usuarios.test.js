@@ -6,13 +6,13 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('solo el administrador 000 puede eliminar usuarios', () => {
+test('solo el administrador principal 0000000000 puede eliminar usuarios', () => {
   const admin = read('routes/admin.js');
   const ui = read('public/index.html');
   assert.match(admin, /function onlyAdmin000/);
-  assert.match(admin, /u\?\.rol==="admin" && cedula==="000"/);
+  assert.match(admin, /u\?\.rol==="admin" && cedula==="0000000000"/);
   assert.match(admin, /router\.delete\("\/usuarios\/:id", onlyAdmin000/);
-  assert.match(ui, /const puedeEliminar=ME\?\.rol==="admin"[\s\S]{0,120}==="000"/);
+  assert.match(ui, /const puedeEliminar=ME\?\.rol==="admin"[\s\S]{0,120}==="0000000000"/);
   assert.match(ui, /onclick="eliminarUsuario\(/);
 });
 

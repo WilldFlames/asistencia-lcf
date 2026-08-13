@@ -1,14 +1,20 @@
-const CACHE_VERSION = "lcf-familias-v3";
+const CACHE_VERSION = "lcf-aplicaciones-v4";
 const APP_ASSETS = [
   "/offline.html",
   "/manifest.webmanifest",
+  "/personal.webmanifest",
   "/pwa.css",
   "/pwa.js",
   "/icons/lcf-familias-32.png",
   "/icons/lcf-familias-180.png",
   "/icons/lcf-familias-192.png",
   "/icons/lcf-familias-512.png",
-  "/icons/lcf-familias-maskable-512.png"
+  "/icons/lcf-familias-maskable-512.png",
+  "/icons/personal-lcf-32.png",
+  "/icons/personal-lcf-180.png",
+  "/icons/personal-lcf-192.png",
+  "/icons/personal-lcf-512.png",
+  "/icons/personal-lcf-maskable-512.png"
 ];
 
 self.addEventListener("install", event => {
@@ -30,18 +36,20 @@ self.addEventListener("message", event => {
 self.addEventListener("push", event => {
   let datos = {};
   try { datos = event.data ? event.data.json() : {}; } catch { datos = { body: event.data?.text() || "" }; }
+  const esPersonal = datos.app === "personal" || String(datos.url || "").startsWith("/personal");
+  const icono = esPersonal ? "/icons/personal-lcf-192.png" : "/icons/lcf-familias-192.png";
   const titulo = datos.title || "Liceo de Calle Fallas";
   const opciones = {
     body: datos.body || "Tiene una nueva notificación institucional.",
-    icon: "/icons/lcf-familias-192.png",
-    badge: "/icons/lcf-familias-192.png",
-    tag: datos.tag || "lcf-familias",
+    icon: icono,
+    badge: icono,
+    tag: datos.tag || (esPersonal ? "personal-lcf" : "lcf-familias"),
     renotify: true,
     silent: false,
     timestamp: Date.now(),
     vibrate: [180, 80, 180],
     requireInteraction: datos.requireInteraction === true,
-    data: { url: datos.url || "/?app=familias", recibido:Date.now() },
+    data: { url: datos.url || (esPersonal ? "/personal?app=personal" : "/?app=familias"), recibido:Date.now() },
   };
   const trabajos = [self.registration.showNotification(titulo, opciones)];
   if (self.navigator && "setAppBadge" in self.navigator) trabajos.push(self.navigator.setAppBadge(1).catch(() => {}));
@@ -53,8 +61,14 @@ self.addEventListener("notificationclick", event => {
   const destino = new URL(event.notification.data?.url || "/?app=familias", self.location.origin).href;
   event.waitUntil((async () => {
     const ventanas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    for (const ventana of ventanas) {
-      if (new URL(ventana.url).origin !== self.location.origin) continue;
+    const destinoPersonal = new URL(destino).pathname.startsWith("/personal");
+    const candidatas = ventanas.filter(ventana => {
+      const urlVentana = new URL(ventana.url);
+      if (urlVentana.origin !== self.location.origin) return false;
+      const ventanaPersonal = urlVentana.pathname.startsWith("/personal") || urlVentana.searchParams.get("app") === "personal";
+      return ventanaPersonal === destinoPersonal;
+    });
+    for (const ventana of candidatas) {
       try {
         if ("navigate" in ventana) await ventana.navigate(destino);
       } catch (_) {
@@ -67,7 +81,8 @@ self.addEventListener("notificationclick", event => {
     }
     if (self.clients.openWindow) {
       try { await self.clients.openWindow(destino); } catch (_) {
-        await self.clients.openWindow("/?app=familias");
+        const respaldo = new URL(destino).pathname.startsWith("/personal") ? "/personal?app=personal" : "/?app=familias";
+        await self.clients.openWindow(respaldo);
       }
     }
   })());
