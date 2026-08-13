@@ -2,9 +2,10 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
+const { exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
 
 // ── REPORTE ESTUDIANTE ────────────────────────────────────────
-router.get("/estudiante/:id", requireAuth, async (req, res) => {
+router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
   const { desde, hasta } = req.query;
   const estR = await pool.query(`SELECT e.*, s.nombre AS seccion_nombre FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`, [req.params.id]);
   if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
@@ -54,7 +55,7 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
 });
 
 // ── ENVIAR REPORTE POR CORREO ─────────────────────────────────
-router.post("/enviar-email/:estudiante_id", requireAuth, async (req, res) => {
+router.post("/enviar-email/:estudiante_id", requireAuth, exigirAccesoEstudiante(req=>req.params.estudiante_id), async (req, res) => {
   const { desde, hasta } = req.body;
   try {
     const nodemailer = require("nodemailer");

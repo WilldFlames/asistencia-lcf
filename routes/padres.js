@@ -236,8 +236,8 @@ router.post("/login", loginPadresLimiter, async (req, res) => {
 
 router.post("/cambiar-password", requirePadre, async (req, res) => {
   const { password_actual, password_nuevo } = req.body;
-  if(!password_nuevo || password_nuevo.length < 6)
-    return res.status(400).json({ error: "La nueva contraseña debe tener al menos 6 caracteres" });
+  if(!password_nuevo || password_nuevo.length < 10)
+    return res.status(400).json({ error: "La nueva contraseña debe tener al menos 10 caracteres" });
   const ced = req.session.padre.cedula;
   // Si es también personal del liceo, su contraseña la maneja el sistema de
   // usuarios (no la puede cambiar desde el portal de padres — debería hacerlo

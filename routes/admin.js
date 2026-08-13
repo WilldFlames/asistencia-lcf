@@ -51,12 +51,31 @@ router.post("/usuarios", onlyAdmin, async (req, res) => {
 
 router.put("/usuarios/:id", onlyAdmin, async (req, res) => {
   const { nombre, primer_apellido, segundo_apellido, email, rol, activo } = req.body;
+  const rolesValidos=["admin","auxiliar","orientador","profesor_guia","profesor","cocinera","secretaria","administrativo","junta","seguridad"];
+  if(!rolesValidos.includes(rol)) return res.status(400).json({error:"Rol inválido"});
+  const usuarioId=Number(req.params.id);
+  if(!Number.isInteger(usuarioId)||usuarioId<=0) return res.status(400).json({error:"Usuario inválido"});
+  const client=await pool.connect();
   try {
-    const r=await pool.query(`UPDATE usuarios SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,email=$4,rol=$5,activo=$6 WHERE id=$7 AND COALESCE(eliminado,false)=false`,
-      [nombre,primer_apellido,segundo_apellido,email||null,rol,activo,req.params.id]);
-    if(!r.rowCount) return res.status(404).json({error:"Usuario no encontrado"});
+    await client.query("BEGIN");
+    const anterior=await client.query("SELECT cedula,rol,activo FROM usuarios WHERE id=$1 AND COALESCE(eliminado,false)=false FOR UPDATE",[usuarioId]);
+    if(!anterior.rows.length){await client.query("ROLLBACK");return res.status(404).json({error:"Usuario no encontrado"});}
+    const cedula=String(anterior.rows[0].cedula||"").replace(/[\s.\-/]/g,"");
+    if(cedula==="0000000000" && (rol!=="admin" || activo===false)){
+      await client.query("ROLLBACK");
+      return res.status(400).json({error:"La cuenta institucional 0000000000 debe permanecer activa y con rol Administrador."});
+    }
+    await client.query(`UPDATE usuarios SET nombre=$1,primer_apellido=$2,segundo_apellido=$3,email=$4,rol=$5,activo=$6 WHERE id=$7`,
+      [nombre,primer_apellido,segundo_apellido,email||null,rol,activo,usuarioId]);
+    // Si cambian sus permisos o se desactiva, cualquier sesión abierta deja de
+    // ser válida inmediatamente; no hay que esperar a que cierre el navegador.
+    if(anterior.rows[0].rol!==rol || Boolean(anterior.rows[0].activo)!==Boolean(activo)){
+      await client.query(`DELETE FROM "session" WHERE sess::jsonb #>> '{usuario,id}'=$1`,[String(usuarioId)]);
+    }
+    await client.query("COMMIT");
     res.json({ ok:true });
-  } catch(e) { res.status(500).json({ error:e.message }); }
+  } catch(e) { await client.query("ROLLBACK"); res.status(500).json({ error:e.message }); }
+  finally{client.release();}
 });
 
 // Reiniciar contraseña → vuelve a ser la cédula, obliga cambio
@@ -962,11 +981,13 @@ router.post("/funciones-institucionales", onlyAdmin, async (req,res)=>{
     ON CONFLICT(usuario_id,tipo) DO UPDATE SET asignado_por=EXCLUDED.asignado_por
     RETURNING id
   `,[usuarioId,tipo,req.session.usuario.id]);
+  await pool.query(`DELETE FROM "session" WHERE sess::jsonb #>> '{usuario,id}'=$1`,[String(usuarioId)]);
   res.json({ok:true,id:r.rows[0].id});
 });
 
 router.delete("/funciones-institucionales/:id", onlyAdmin, async (req,res)=>{
-  await pool.query("DELETE FROM funciones_institucionales WHERE id=$1",[req.params.id]);
+  const r=await pool.query("DELETE FROM funciones_institucionales WHERE id=$1 RETURNING usuario_id",[req.params.id]);
+  if(r.rows[0]) await pool.query(`DELETE FROM "session" WHERE sess::jsonb #>> '{usuario,id}'=$1`,[String(r.rows[0].usuario_id)]);
   res.json({ok:true});
 });
 

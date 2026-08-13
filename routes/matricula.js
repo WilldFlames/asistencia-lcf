@@ -810,11 +810,16 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
     `, [anioAnt]);
 
     let archivadas = 0, saltadas = 0;
+    const erroresArchivo = [];
     for(const a of asigsR.rows){
       try {
         // Calcular promedios por estudiante (usando la lógica existente)
         const data = await calcularPromediosParaArchivo(client, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.periodo);
-        if(!data || !data.estudiantes){ saltadas++; continue; }
+        if(!data || !Array.isArray(data.estudiantes)){
+          saltadas++;
+          erroresArchivo.push(`Asignación ${a.asig_id} (${a.seccion_nombre} - ${a.materia_nombre}): no produjo un resumen válido.`);
+          continue;
+        }
         const profNom = `${a.prof_nombre||''} ${a.prof_ap1||''}`.trim();
         for(const est of data.estudiantes){
           const rb = est.rubros || {};
@@ -853,7 +858,17 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       } catch(e) {
         console.warn(`Archivo asig ${a.asig_id}:`, e.message);
         saltadas++;
+        erroresArchivo.push(`Asignación ${a.asig_id} (${a.seccion_nombre} - ${a.materia_nombre}): ${e.message}`);
       }
+    }
+
+    // Regla de seguridad: si una sola asignación no pudo archivarse, no se
+    // borra absolutamente nada del año anterior. El ROLLBACK deja todo igual.
+    if(erroresArchivo.length){
+      const error = new Error(`No se aplicó ${anio}: ${erroresArchivo.length} asignación(es) no pudieron archivarse. No se borró ningún dato. Revise el detalle e inténtelo nuevamente.`);
+      error.status = 409;
+      error.detalles = erroresArchivo.slice(0, 20);
+      throw error;
     }
 
     // Resumen de conducta por período/año → guardar como una "materia virtual" Conducta
@@ -889,7 +904,11 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
           `, [parseInt(eid), anioAnt, per, dat.secc, nota]);
         }
       }
-    } catch(e) { console.warn("Archivo conducta:", e.message); }
+    } catch(e) {
+      const error = new Error(`No se aplicó ${anio}: no fue posible archivar la conducta. No se borró ningún dato. Detalle: ${e.message}`);
+      error.status = 409;
+      throw error;
+    }
 
     // ── 2. BORRAR DATOS CRUDOS DEL AÑO ANTERIOR ───────────────────────
     // Todo ligado a asignaciones se borra en cascada al eliminar la asignación.
@@ -989,7 +1008,7 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
   } catch(e) {
     await client.query("ROLLBACK");
     console.error("Aplicar matrículas:", e);
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message, detalles: e.detalles || undefined });
   } finally {
     client.release();
   }

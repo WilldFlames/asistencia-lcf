@@ -286,6 +286,14 @@
   function iniciarPersonal() {
     const panel = document.getElementById("personal-pwa-panel");
     if (!panel || typeof ME === "undefined" || !ME) return;
+    // El acceso promocional pertenece al teléfono. En una computadora el
+    // sistema institucional conserva su panel normal sin mostrar esta tarjeta.
+    const esTelefono = /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent || "") ||
+      (window.matchMedia("(max-width: 900px) and (pointer: coarse)").matches);
+    if (!modoPersonal && !esTelefono) {
+      panel.hidden = true;
+      return;
+    }
     panel.hidden = false;
     const enlace = document.getElementById("personal-pwa-open");
     const botonPush = botonPushPersonal();

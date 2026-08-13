@@ -72,7 +72,12 @@ router.post("/logout", (req, res, next) => {
 router.get("/me", async (req, res) => {
   if (req.session && req.session.usuario) {
     try {
-      req.session.usuario.funciones_extra = await obtenerFuncionesExtra(req.session.usuario.id);
+      const vigente=await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido,rol,primer_login
+        FROM usuarios WHERE id=$1 AND activo=true AND COALESCE(eliminado,false)=false`,[req.session.usuario.id]);
+      if(!vigente.rows.length){
+        return req.session.destroy(()=>{res.clearCookie("lcf.sid");res.json({autenticado:false});});
+      }
+      req.session.usuario={...vigente.rows[0],funciones_extra:await obtenerFuncionesExtra(vigente.rows[0].id)};
       await saveSession(req);
     } catch(e) { console.error("actualizar funciones de sesión:", e.message); }
     return res.json({ autenticado: true, usuario: req.session.usuario });
@@ -85,8 +90,8 @@ router.post("/cambiar-password", async (req, res) => {
   const { password_actual, password_nuevo } = req.body;
   if (!password_actual || !password_nuevo)
     return res.status(400).json({ error: "Datos incompletos" });
-  if (password_nuevo.length < 6)
-    return res.status(400).json({ error: "La nueva contraseña debe tener al menos 6 caracteres" });
+  if (password_nuevo.length < 10)
+    return res.status(400).json({ error: "La nueva contraseña debe tener al menos 10 caracteres" });
   try {
     const r = await pool.query("SELECT password_hash FROM usuarios WHERE id=$1", [req.session.usuario.id]);
     const ok = await bcrypt.compare(password_actual, r.rows[0].password_hash);

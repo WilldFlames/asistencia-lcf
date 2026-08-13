@@ -1,11 +1,12 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
+const { exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
 
 const canManage = requireRol("admin","auxiliar");
 
 // ── OBTENER ENCARGADOS DE UN ESTUDIANTE ───────────────────────
-router.get("/estudiante/:id", requireAuth, async (req, res) => {
+router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
   const r = await pool.query(
     "SELECT * FROM encargados WHERE estudiante_id=$1 ORDER BY es_principal DESC, id ASC",
     [req.params.id]

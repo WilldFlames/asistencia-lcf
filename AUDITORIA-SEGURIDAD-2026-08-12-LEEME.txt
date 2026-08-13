@@ -1,0 +1,44 @@
+PARCHE ACUMULATIVO — AUDITORÍA Y PERSONAL LCF
+Fecha: 12 de agosto de 2026
+
+Este ZIP contiene todo el sistema, no solamente archivos sueltos.
+
+CORRECCIONES INCLUIDAS
+
+1. Personal LCF
+   - La tarjeta para abrir/instalar Personal LCF se muestra en teléfonos.
+   - Ya no aparece en el dashboard cuando se usa una computadora.
+   - La dirección /personal y la aplicación instalada siguen funcionando.
+
+2. Cierre y aplicación del nuevo curso lectivo
+   - Si falla el archivo académico de una sola asignación, toda la operación
+     se cancela y PostgreSQL devuelve los cambios.
+   - En ese caso no se borran boletas, asistencias, notas, horarios ni
+     asignaciones del año anterior.
+
+3. Permisos
+   - Cada docente solo puede consultar y modificar la asistencia y las notas
+     de sus propias asignaciones.
+   - No se aceptan estudiantes ajenos dentro de una lista de asistencia.
+   - Profesores, guías y orientadores solo consultan expedientes, encargados,
+     reportes y observaciones de las secciones que realmente tienen asignadas.
+   - Administración institucional conserva el acceso que necesita.
+
+4. Sesiones y contenido
+   - Si el administrador cambia el rol, desactiva o quita una función a una
+     persona, sus sesiones abiertas quedan revocadas.
+   - La cuenta 0000000000 no puede quedar inactiva ni perder el rol admin.
+   - Los mensajes de notificación se muestran como texto seguro.
+   - Las contraseñas nuevas deben tener al menos 10 caracteres.
+
+VERIFICACIÓN
+
+- Sintaxis válida en 66 archivos JavaScript.
+- 99 de 99 pruebas automáticas aprobadas.
+- No se agregaron variables nuevas de Railway.
+
+IMPORTANTE ANTES DE APLICAR MATRÍCULA 2027
+
+Confirme en Railway/PostgreSQL que existe un respaldo reciente de la base de
+datos. El programa ahora cancela el cierre si detecta un fallo, pero un respaldo
+externo sigue siendo la protección correcta para una operación anual.

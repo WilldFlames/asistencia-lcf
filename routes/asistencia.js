@@ -4,6 +4,45 @@ const { requireDocente } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 const { notificarEstudiante } = require("../utils/push-familias");
 
+async function permitirAsignacion(req, res, next) {
+  try {
+    const id = Number(req.params.asignacion_id || req.body?.asignacion_id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error:"Asignación inválida" });
+    const r = await pool.query("SELECT id,profesor_id,seccion_id,subgrupo FROM asignaciones WHERE id=$1 AND COALESCE(activa,true)=true", [id]);
+    if (!r.rows.length) return res.status(404).json({ error:"Asignación no encontrada" });
+    const u = req.session.usuario;
+    if (u.rol !== "admin" && Number(r.rows[0].profesor_id) !== Number(u.id))
+      return res.status(403).json({ error:"Solo el docente asignado puede consultar o modificar esta asistencia." });
+    req.asignacionAutorizada = r.rows[0];
+    next();
+  } catch (e) { next(e); }
+}
+
+async function permitirRegistroAsistencia(req, res, next) {
+  try {
+    const r = await pool.query(`SELECT a.profesor_id FROM asistencia x
+      JOIN sesiones_asistencia sa ON sa.id=x.sesion_id
+      JOIN asignaciones a ON a.id=sa.asignacion_id WHERE x.id=$1`, [req.params.asistencia_id]);
+    if (!r.rows.length) return res.status(404).json({ error:"Registro de asistencia no encontrado" });
+    const u=req.session.usuario;
+    if(u.rol!=="admin" && Number(r.rows[0].profesor_id)!==Number(u.id))
+      return res.status(403).json({ error:"Solo el docente asignado puede justificar esta asistencia." });
+    next();
+  } catch(e){ next(e); }
+}
+
+async function permitirSesion(req,res,next){
+  try{
+    const r=await pool.query(`SELECT a.profesor_id FROM sesiones_asistencia sa
+      JOIN asignaciones a ON a.id=sa.asignacion_id WHERE sa.id=$1`,[req.params.sesion_id]);
+    if(!r.rows.length) return res.status(404).json({error:"Sesión no encontrada"});
+    const u=req.session.usuario;
+    if(u.rol!=="admin" && Number(r.rows[0].profesor_id)!==Number(u.id))
+      return res.status(403).json({error:"Solo el docente asignado puede eliminar esta sesión."});
+    next();
+  }catch(e){next(e);}
+}
+
 // ── MIS ASIGNACIONES ──────────────────────────────────────────────────────────
 // Detecta el período lectivo actual según la fecha del servidor.
 // Antes del 4-jul-2026 = I Período. Después = II Período.
@@ -50,7 +89,7 @@ router.get("/mis-asignaciones", requireDocente, async (req, res) => {
 
 // ── HISTORIAL DE SESIONES DE UNA ASIGNACIÓN ───────────────────────────────────
 // ⚠️ Esta ruta debe ir ANTES de /:asignacion_id/:fecha para evitar conflicto
-router.get("/historial/:asignacion_id", requireDocente, async (req, res) => {
+router.get("/historial/:asignacion_id", requireDocente, permitirAsignacion, async (req, res) => {
   const r = await pool.query(`
     SELECT sa.*, 
       COUNT(a.id) FILTER (WHERE a.estado='A') AS total_ausentes,
@@ -174,7 +213,7 @@ router.get("/diagnostico/:asignacion_id", async (req, res) => {
   }
 });
 
-router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
+router.get("/:asignacion_id/:fecha", requireDocente, permitirAsignacion, async (req, res) => {
   // Anti-cache: la asistencia es datos en vivo, nunca debe servirse desde caché
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.set("Pragma", "no-cache");
@@ -275,10 +314,20 @@ router.get("/:asignacion_id/:fecha", requireDocente, async (req, res) => {
 });
 
 // ── GUARDAR ASISTENCIA ─────────────────────────────────────────────────────
-router.post("/", requireDocente, async (req, res) => {
+router.post("/", requireDocente, permitirAsignacion, async (req, res) => {
   const { asignacion_id, fecha, lecciones, registros } = req.body;
-  if (!asignacion_id||!fecha||!lecciones||!registros)
+  if (!asignacion_id||!fecha||!Number.isInteger(Number(lecciones))||Number(lecciones)<1||Number(lecciones)>12||!Array.isArray(registros))
     return res.status(400).json({ error:"Datos incompletos" });
+
+  const ids = registros.map(r=>Number(r.estudiante_id));
+  if(ids.some(id=>!Number.isInteger(id)) || registros.some(r=>!["P","A","T"].includes(r.estado)))
+    return res.status(400).json({error:"La lista contiene estados o estudiantes inválidos."});
+  const asig=req.asignacionAutorizada;
+  const permitidos=await pool.query(`SELECT id FROM estudiantes WHERE seccion_id=$1 AND activo=true
+    AND (archivado=false OR archivado IS NULL)
+    AND ($2::text IS NULL OR $2::text='' OR UPPER(COALESCE(subgrupo,''))=UPPER($2::text))`,[asig.seccion_id,asig.subgrupo||null]);
+  const conjunto=new Set(permitidos.rows.map(e=>Number(e.id)));
+  if(ids.some(id=>!conjunto.has(id))) return res.status(403).json({error:"La lista incluye un estudiante que no pertenece a esta asignación."});
 
   const client = await pool.connect();
   try {
@@ -418,7 +467,7 @@ router.post("/", requireDocente, async (req, res) => {
 });
 
 // ── JUSTIFICAR AUSENCIA ───────────────────────────────────────────────────────
-router.put("/justificar/:asistencia_id", requireDocente, async (req, res) => {
+router.put("/justificar/:asistencia_id", requireDocente, permitirRegistroAsistencia, async (req, res) => {
   const { justificada, motivo } = req.body;
   const asistId = parseInt(req.params.asistencia_id);
   if(!asistId) return res.status(400).json({ error:"ID de asistencia inválido" });
@@ -453,7 +502,7 @@ router.put("/justificar/:asistencia_id", requireDocente, async (req, res) => {
 });
 
 // ── ELIMINAR SESIÓN (borra todos los registros del día) ───────────────────────
-router.delete("/sesion/:sesion_id", requireDocente, async (req, res) => {
+router.delete("/sesion/:sesion_id", requireDocente, permitirSesion, async (req, res) => {
   await pool.query("DELETE FROM sesiones_asistencia WHERE id=$1", [req.params.sesion_id]);
   res.json({ ok:true });
 });

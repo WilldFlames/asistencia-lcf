@@ -3,6 +3,7 @@ const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const cldHelper = require("./cloudinary-helper");
 const { notificarEstudiante } = require("../utils/push-familias");
+const { seccionesPermitidas, puedeAccederEstudiante, exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
 
 const canManage = requireRol("admin","auxiliar");
 
@@ -81,6 +82,8 @@ router.get("/", requireAuth, async (req, res) => {
       LEFT JOIN secciones s ON s.id=e.seccion_id
       WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
     const params = [];
+    const permitidas=await seccionesPermitidas(req.session.usuario);
+    if(permitidas!==null){ params.push(permitidas); sql += ` AND e.seccion_id=ANY($${params.length}::int[])`; }
     if (seccion_id) { params.push(seccion_id); sql += ` AND e.seccion_id=$${params.length}`; }
     if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.segundo_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }
     sql += " ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre";
@@ -105,9 +108,12 @@ router.get("/fotos", requireAuth, async (req, res) => {
     .filter(n => Number.isInteger(n) && n > 0)
     .slice(0, 100); // cap razonable para evitar payloads gigantes
   if (!ids.length) return res.json({});
+  const permitidas=await seccionesPermitidas(req.session.usuario);
+  if(permitidas!==null && !permitidas.length) return res.json({});
   const r = await pool.query(
-    "SELECT id, foto_url FROM estudiantes WHERE id = ANY($1::int[])",
-    [ids]
+    `SELECT id, foto_url FROM estudiantes WHERE id = ANY($1::int[])
+      AND ($2::int[] IS NULL OR seccion_id=ANY($2::int[]))`,
+    [ids,permitidas]
   );
   const out = {};
   for (const row of r.rows) out[row.id] = row.foto_url || null;
@@ -117,7 +123,7 @@ router.get("/fotos", requireAuth, async (req, res) => {
 // ── FOTO INDIVIDUAL ─────────────────────────────────────────
 // Devuelve solo la foto_url base64 de un estudiante. Se llama bajo demanda
 // cuando se necesita mostrar (expediente, carnet, etc.).
-router.get("/:id/foto", requireAuth, async (req, res) => {
+router.get("/:id/foto", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
   const r = await pool.query("SELECT foto_url FROM estudiantes WHERE id=$1", [req.params.id]);
   if (!r.rows.length) return res.status(404).json({ error: "No encontrado" });
   res.json({ foto_url: r.rows[0].foto_url || null });
@@ -132,13 +138,14 @@ router.get("/consulta/:cedula", requireAuth, async (req, res) => {
   `, [req.params.cedula.trim()]);
   if (!r.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
   const est = r.rows[0];
+  if(!await puedeAccederEstudiante(req.session.usuario,est.id)) return res.status(403).json({error:"No tiene permiso para consultar este estudiante."});
   const enc = await pool.query("SELECT * FROM encargados WHERE estudiante_id=$1 ORDER BY es_principal DESC", [est.id]);
   res.json({ ...est, encargados: enc.rows });
 });
 
 // ── HISTORIAL del estudiante ──────────────────────────────────
 // Devuelve los movimientos registrados ordenados del más reciente al más antiguo.
-router.get("/:id/historial", requireAuth, async (req, res) => {
+router.get("/:id/historial", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
   try {
     const r = await pool.query(`
       SELECT h.id, h.tipo, h.valor_anterior, h.valor_nuevo, h.justificacion, h.fecha,

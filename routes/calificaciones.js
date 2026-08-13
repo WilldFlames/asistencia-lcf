@@ -1119,11 +1119,10 @@ router.get("/simplificado", requireAuth, async (req, res) => {
   try {
     // Verificar permisos: solo el profesor de la asignación o admin/staff
     const u = req.session.usuario;
-    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
     const asigR = await pool.query("SELECT profesor_id, seccion_id FROM asignaciones WHERE id=$1", [asignacion_id]);
     if (!asigR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
     const asig = asigR.rows[0];
-    if (!esStaff && asig.profesor_id !== u.id) return res.status(403).json({ error: "Sin permisos." });
+    if (u.rol !== "admin" && Number(asig.profesor_id) !== Number(u.id)) return res.status(403).json({ error: "Solo el profesor a cargo o administración puede consultar estas calificaciones." });
 
     // Traer todos los estudiantes activos de la sección + sus calificaciones (si hay)
     const r = await pool.query(`
@@ -1162,8 +1161,7 @@ router.post("/simplificado", requireAuth, async (req, res) => {
       JOIN materias m ON m.id = a.materia_id
       WHERE a.id = $1`, [asignacion_id]);
     if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
-    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-    if (!esStaff && aR.rows[0].profesor_id !== u.id) {
+    if (u.rol !== "admin" && Number(aR.rows[0].profesor_id) !== Number(u.id)) {
       return res.status(403).json({ error: "Solo el profesor a cargo puede calificar." });
     }
     if (!aR.rows[0].modo_simplificado) {
@@ -1235,8 +1233,7 @@ router.get("/historial-previo", requireAuth, async (req, res) => {
     const a = aR.rows[0];
 
     // Permisos: solo el profe a cargo o admin/staff
-    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-    if (!esStaff && a.profesor_id !== u.id) {
+    if (u.rol !== "admin" && Number(a.profesor_id) !== Number(u.id)) {
       return res.status(403).json({ error: "Sin permisos." });
     }
 
@@ -1340,8 +1337,7 @@ router.post("/jalar-nota", requireAuth, async (req, res) => {
     const orig = oR.rows[0];
 
     // Validar permisos sobre la destino
-    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-    if (!esStaff && dest.profesor_id !== u.id) {
+    if (u.rol !== "admin" && Number(dest.profesor_id) !== Number(u.id)) {
       throw { status:403, error:"Solo el profesor a cargo puede jalar notas a su evaluación." };
     }
 
@@ -1500,8 +1496,7 @@ router.get("/mis-evaluaciones-misma-materia", requireAuth, async (req, res) => {
     );
     if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
     const a = aR.rows[0];
-    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-    if (!esStaff && a.profesor_id !== u.id) return res.status(403).json({ error: "Sin permisos." });
+    if (u.rol !== "admin" && Number(a.profesor_id) !== Number(u.id)) return res.status(403).json({ error: "Solo el profesor a cargo o administración puede consultar estas evaluaciones." });
 
     const r = await pool.query(`
       SELECT id, tipo, nombre, fecha, puntaje_total,
@@ -1540,8 +1535,7 @@ router.get("/evaluaciones-copiables", requireAuth, async (req, res) => {
     );
     if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
     const a = aR.rows[0];
-    const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-    if (!esStaff && a.profesor_id !== u.id) return res.status(403).json({ error: "Sin permisos." });
+    if (u.rol !== "admin" && Number(a.profesor_id) !== Number(u.id)) return res.status(403).json({ error: "Solo el profesor a cargo o administración puede consultar estas evaluaciones." });
 
     // Buscar evaluaciones del mismo profe + misma materia + mismo tipo
     // pero de OTRAS asignaciones (secciones/subgrupos distintos).

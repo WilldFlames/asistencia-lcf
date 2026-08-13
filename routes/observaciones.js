@@ -1,9 +1,10 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
+const { exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
 
 // Obtener observaciones de un estudiante
-router.get("/estudiante/:id", requireAuth, async (req, res) => {
+router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
   const { desde, hasta } = req.query;
   let sql = `
     SELECT o.*, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.rol
@@ -20,7 +21,7 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
 });
 
 // Observaciones de un estudiante en una fecha específica
-router.get("/estudiante/:id/fecha/:fecha", requireAuth, async (req, res) => {
+router.get("/estudiante/:id/fecha/:fecha", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
   const r = await pool.query(`
     SELECT o.*, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1
     FROM observaciones_diarias o
@@ -32,7 +33,7 @@ router.get("/estudiante/:id/fecha/:fecha", requireAuth, async (req, res) => {
 });
 
 // Crear observación
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", requireAuth, exigirAccesoEstudiante(req=>req.body?.estudiante_id), async (req, res) => {
   const { estudiante_id, fecha, observacion } = req.body;
   if (!estudiante_id || !fecha || !observacion)
     return res.status(400).json({ error: "Todos los campos son requeridos" });
