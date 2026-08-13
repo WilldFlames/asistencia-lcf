@@ -34,9 +34,13 @@ test("los expedientes docentes se limitan a sus secciones",()=>{
 });
 
 test("Personal LCF se anuncia en teléfono y se oculta en computadora",()=>{
-  assert.match(leer("public/pwa.js"),/max-width: 900px.*pointer: coarse/);
-  assert.match(leer("public/pwa.js"),/if \(!modoPersonal && !esTelefono\)/);
+  const pwa=leer("public/pwa.js");
+  assert.match(pwa,/max-width: 900px.*pointer: coarse/);
+  assert.match(pwa,/if \(!modoPersonal && !esTelefono\)/);
+  assert.match(pwa,/lcf-personal-push-activo/);
+  assert.match(pwa,/if \(panel\) panel\.hidden = true/);
   assert.match(leer("public/pwa.css"),/min-width:901px.*pointer:fine/);
+  assert.match(leer("public/pwa.css"),/personal-lcf-mode \.topbar-school/);
 });
 
 test("los cambios de permisos revocan sesiones y las notificaciones escapan HTML",()=>{
@@ -45,4 +49,15 @@ test("los cambios de permisos revocan sesiones y las notificaciones escapan HTML
   assert.match(admin,/DELETE FROM "session"/);
   assert.match(auth,/COALESCE\(eliminado,false\)=false/);
   assert.match(leer("public/index.html"),/htmlSeguro\(n\.mensaje\|\|""\)/);
+});
+
+test("el visor de documentos siempre permite cerrar y respeta Atrás en el celular",()=>{
+  const html=leer("public/index.html");
+  const css=leer("public/pwa.css");
+  assert.match(html,/id="pdf-viewer-close"/);
+  assert.match(html,/function cerrarVisorPDF\(/);
+  assert.match(html,/history\.pushState\(\{lcf_pdf_viewer:true\}/);
+  assert.match(html,/addEventListener\('popstate'/);
+  assert.match(css,/pdf-viewer-controls #pdf-viewer-close/);
+  assert.match(css,/height:100dvh/);
 });

@@ -193,10 +193,13 @@
 
   async function mostrarNotificacionesPersonal() {
     if (!modoPersonal) return;
+    const panel = document.getElementById("personal-pwa-panel");
     const botonPush = botonPushPersonal();
     if (!botonPush) return;
     botonPush.hidden = false;
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window) || !window.isSecureContext) {
+      localStorage.removeItem("lcf-personal-push-activo");
+      if (panel) panel.hidden = false;
       botonPush.hidden = true;
       estadoPersonal("Este navegador no permite notificaciones de la aplicación.", "problem");
       return;
@@ -209,11 +212,15 @@
     try {
       const configuracion = await apiPush("/api/notificaciones/push/config");
       if (!configuracion.configurada) {
+        localStorage.removeItem("lcf-personal-push-activo");
+        if (panel) panel.hidden = false;
         botonPush.hidden = true;
         estadoPersonal("Las claves de notificaciones todavía no están configuradas en Railway.", "problem");
         return;
       }
       if (Notification.permission === "denied") {
+        localStorage.removeItem("lcf-personal-push-activo");
+        if (panel) panel.hidden = false;
         botonPush.hidden = true;
         estadoPersonal("Las notificaciones están bloqueadas en los ajustes del teléfono.", "problem");
         return;
@@ -222,13 +229,19 @@
       const suscripcion = await registro.pushManager.getSubscription();
       if (suscripcion && Notification.permission === "granted") {
         await apiPush("/api/notificaciones/push/suscribir", "POST", { subscription:suscripcion.toJSON() });
+        localStorage.setItem("lcf-personal-push-activo", "1");
         botonPush.hidden = true;
         estadoPersonal("Notificaciones activadas en este dispositivo.", "ok");
+        if (panel) panel.hidden = true;
       } else {
+        localStorage.removeItem("lcf-personal-push-activo");
+        if (panel) panel.hidden = false;
         botonPush.textContent = "Activar notificaciones";
         estadoPersonal("Active los avisos para enterarse de citas, seguimientos y tareas importantes.");
       }
     } catch (error) {
+      localStorage.removeItem("lcf-personal-push-activo");
+      if (panel) panel.hidden = false;
       botonPush.textContent = "Reintentar notificaciones";
       estadoPersonal(error.message || "No se pudieron comprobar las notificaciones.", "problem");
     }
@@ -305,6 +318,7 @@
     }
     aplicarIdentidadPersonal();
     if (enlace) enlace.hidden = true;
+    if (Notification.permission === "granted" && localStorage.getItem("lcf-personal-push-activo") === "1") panel.hidden = true;
     sincronizarBoton();
     mostrarNotificacionesPersonal();
   }

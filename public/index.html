@@ -23630,13 +23630,19 @@ function prom_imprimirBoletas(){
 //  VISOR PDF (PDF.js)
 // ════════════════════════════════════
 let pdfDoc = null, pdfPagActual = 1, pdfScale = 1.2;
+let pdfVisorEnHistorial = false;
 
 async function abrirVisorPDF(url, titulo){
   document.getElementById('pdf-viewer-titulo').textContent = titulo;
   document.getElementById('pdf-download-link').href = url;
   document.getElementById('pdf-canvas').getContext('2d').clearRect(0,0,9999,9999);
   document.getElementById('pdf-loading').style.display = 'block';
-  document.getElementById('modal-pdf-viewer').classList.add('show');
+  const modalVisor = document.getElementById('modal-pdf-viewer');
+  if(!modalVisor.classList.contains('show')){
+    history.pushState({lcf_pdf_viewer:true}, '', location.href);
+    pdfVisorEnHistorial = true;
+  }
+  modalVisor.classList.add('show');
 
   try{
     if(typeof pdfjsLib !== 'undefined'){
@@ -23658,6 +23664,22 @@ async function abrirVisorPDF(url, titulo){
     alert('Error cargando PDF: '+e.message);
   }
 }
+
+function cerrarVisorPDF(desdeHistorial=false){
+  const modal=document.getElementById('modal-pdf-viewer');
+  if(modal) modal.classList.remove('show');
+  if(pdfVisorEnHistorial && !desdeHistorial){
+    pdfVisorEnHistorial=false;
+    history.back();
+  }else{
+    pdfVisorEnHistorial=false;
+  }
+}
+
+window.addEventListener('popstate',()=>{
+  const modal=document.getElementById('modal-pdf-viewer');
+  if(modal?.classList.contains('show')) cerrarVisorPDF(true);
+});
 
 async function pdfRenderPagina(num){
   if(!pdfDoc) return;
@@ -23802,24 +23824,24 @@ async function pdfZoom(delta){
 <!-- MODAL: VISOR PDF ================================================= -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-pdf-viewer" style="z-index:9999;">
-  <div class="modal" style="max-width:95vw;width:960px;height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden;">
+  <div class="modal pdf-viewer-modal" style="max-width:95vw;width:960px;height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden;">
     <!-- Header -->
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:#1e3a5f;flex-shrink:0;">
-      <div style="display:flex;align-items:center;gap:10px;">
+    <div class="pdf-viewer-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:#1e3a5f;flex-shrink:0;">
+      <div class="pdf-viewer-title" style="display:flex;align-items:center;gap:10px;">
         <span style="font-size:18px;">📋</span>
         <span id="pdf-viewer-titulo" style="font-weight:bold;font-size:14px;color:#fff;"></span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div class="pdf-viewer-controls" style="display:flex;align-items:center;gap:8px;">
         <button onclick="pdfZoom(-0.25)" class="btn" style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:14px;">🔍−</button>
         <span id="pdf-zoom-label" style="color:#fff;font-size:12px;min-width:40px;text-align:center;">100%</span>
         <button onclick="pdfZoom(+0.25)" class="btn" style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:14px;">🔍+</button>
-        <span style="color:#fff5;margin:0 4px;">|</span>
+        <span class="pdf-separator" style="color:#fff5;margin:0 4px;">|</span>
         <button onclick="pdfPagina(-1)" class="btn" style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;">◀</button>
         <span id="pdf-pag-label" style="color:#fff;font-size:12px;min-width:60px;text-align:center;"></span>
         <button onclick="pdfPagina(+1)" class="btn" style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;">▶</button>
-        <span style="color:#fff5;margin:0 4px;">|</span>
+        <span class="pdf-separator" style="color:#fff5;margin:0 4px;">|</span>
         <a id="pdf-download-link" href="#" download style="background:#fff2;color:#fff;border:none;padding:5px 10px;border-radius:6px;font-size:13px;text-decoration:none;">⬇️</a>
-        <button onclick="cerrarModal('modal-pdf-viewer')" style="background:#fff2;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:16px;cursor:pointer;">✕</button>
+        <button id="pdf-viewer-close" aria-label="Cerrar documento" onclick="cerrarVisorPDF()" style="background:#fff2;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:16px;cursor:pointer;">✕</button>
       </div>
     </div>
     <!-- Canvas area -->

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "lcf-aplicaciones-v5";
+const CACHE_VERSION = "lcf-aplicaciones-v7";
 const APP_ASSETS = [
   "/offline.html",
   "/manifest.webmanifest",
