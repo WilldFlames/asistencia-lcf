@@ -1,0 +1,51 @@
+AUDITORÍA DE ALERTA TEMPRANA — 17 DE AGOSTO DE 2026
+
+PROBLEMA CORREGIDO
+Al abrir una alerta, PostgreSQL rechazaba el campo referencia_id de la
+notificación: la columna es INTEGER, pero el parámetro de la consulta se
+infería como TEXT. Como la creación de la alerta, el primer seguimiento y la
+notificación se ejecutan en una sola transacción, el error anulaba todo el
+proceso y la interfaz mostraba "Error interno del servidor".
+
+CORRECCIÓN PRINCIPAL
+- La referencia de la notificación ahora se valida como entero positivo.
+- La consulta convierte explícitamente referencia_id a INTEGER.
+- También se tiparon explícitamente el mensaje, el destino y el usuario
+  excluido para impedir ambigüedades de PostgreSQL.
+- La misma corrección protege las notificaciones al abrir una alerta y al
+  agregar seguimientos.
+
+AUDITORÍA FUNCIONAL Y REFUERZOS
+- Validación de asignación, estudiante y pertenencia a la clase del docente.
+- Respeto de año lectivo activo, sección y subgrupo.
+- Supervisores (administración, auxiliares y coordinación) conservan acceso
+  de lectura; solo el docente propietario puede modificar su alerta.
+- Validación de estados, fechas, horas e identificadores antes de consultar
+  la base de datos.
+- Una hora final anterior a la inicial ya no puede guardarse.
+- Fechas finales anteriores a las iniciales ya no pueden guardarse.
+- Campos obligatorios del registro de llamadas se validan en pantalla y en
+  el servidor, incluyendo las opciones "Otro" y las llamadas efectivas.
+- Las llamadas asociadas siguen alimentando automáticamente el contacto de
+  la alerta correspondiente.
+- Se mantiene la protección contra dos alertas abiertas para la misma
+  asignación y estudiante.
+- Los intentos fallidos anteriores no dejaron alertas parciales, porque la
+  transacción fue revertida automáticamente.
+
+VERIFICACIÓN
+- Sintaxis del servidor verificada.
+- Suite automatizada completa: 106 pruebas aprobadas.
+- Prueba de regresión específica para el tipo INTEGER de referencia_id.
+- No requiere una variable nueva en Railway.
+- No requiere ejecutar una modificación manual en PostgreSQL.
+
+PRUEBA RECOMENDADA DESPUÉS DEL DEPLOY
+1. Ingresar como docente.
+2. Abrir Alerta Temprana y elegir una asignación y un estudiante propio.
+3. Marcar al menos una categoría o riesgo por ausentismo.
+4. Guardar la alerta.
+5. Confirmar que abre el expediente y que administración/auxiliares/
+   coordinación reciben la notificación con acceso directo.
+6. Agregar un seguimiento y confirmar su aparición en el historial.
+

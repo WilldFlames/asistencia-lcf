@@ -8,6 +8,27 @@ const RESULTADOS = ["efectiva","no_contesta","equivocado","fuera_servicio","buzo
 const MEDIOS = ["telefono","videollamada","audio","otro"];
 const asyncRoute = fn => (req,res,next) => Promise.resolve(fn(req,res,next)).catch(next);
 
+function enteroPositivo(valor){
+  const numero=Number(valor);
+  return Number.isSafeInteger(numero)&&numero>0?numero:null;
+}
+function fechaISOValida(valor,opcional=false){
+  if(valor===null||valor===undefined||valor==="") return opcional;
+  const texto=String(valor);
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+  if(!m) return false;
+  const fecha=new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3])));
+  return fecha.getUTCFullYear()===Number(m[1])&&fecha.getUTCMonth()===Number(m[2])-1&&fecha.getUTCDate()===Number(m[3]);
+}
+function horaValida(valor,opcional=false){
+  if(valor===null||valor===undefined||valor==="") return opcional;
+  return /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(String(valor));
+}
+function segundosHora(valor){
+  const partes=String(valor||"").split(":").map(Number);
+  return (partes[0]||0)*3600+(partes[1]||0)*60+(partes[2]||0);
+}
+
 const CATALOGO = [
   ["Desempeño educativo",[
     [1,"Reincorporación al sistema educativo"],[2,"Repitencia o rezago en alguna asignatura"],
@@ -72,10 +93,13 @@ async function requireParticipante(req,res,next){
   }catch(e){next(e);}
 }
 async function asignacionPropia(usuarioId,asignacionId,estudianteId=null){
+  const asignacionNumero=enteroPositivo(asignacionId),usuarioNumero=enteroPositivo(usuarioId);
+  const estudianteNumero=estudianteId===null?null:enteroPositivo(estudianteId);
+  if(!asignacionNumero||!usuarioNumero||(estudianteId!==null&&!estudianteNumero)) return null;
   const anio=await obtenerAnioActivo();
-  const params=[Number(asignacionId),Number(usuarioId),anio];
+  const params=[asignacionNumero,usuarioNumero,anio];
   let estudiante="";
-  if(estudianteId){params.push(Number(estudianteId));estudiante=` AND EXISTS (
+  if(estudianteNumero){params.push(estudianteNumero);estudiante=` AND EXISTS (
     SELECT 1 FROM estudiantes e WHERE e.id=$4 AND e.seccion_id=a.seccion_id
       AND e.activo=true AND COALESCE(e.archivado,false)=false
       AND (COALESCE(a.subgrupo,'')='' OR UPPER(a.subgrupo)=UPPER(COALESCE(e.subgrupo,'')))
@@ -87,12 +111,14 @@ async function asignacionPropia(usuarioId,asignacionId,estudianteId=null){
   return q.rows[0]||null;
 }
 async function alertaAccesible(u,id,bloquearEdicion=false){
-  const q=await pool.query("SELECT * FROM alertas_tempranas WHERE id=$1",[Number(id)]);
+  const alertaId=enteroPositivo(id);
+  if(!alertaId) return {error:"Identificador de alerta inválido.",status:400};
+  const q=await pool.query("SELECT * FROM alertas_tempranas WHERE id=$1",[alertaId]);
   if(!q.rows.length) return {error:"Alerta no encontrada.",status:404};
   const alerta=q.rows[0];
   const supervisor=await puedeSupervisar(u);
-  if(!supervisor && alerta.profesor_id!==u.id) return {error:"Esta alerta no le pertenece.",status:403};
-  if(bloquearEdicion && supervisor && alerta.profesor_id!==u.id)
+  if(!supervisor && Number(alerta.profesor_id)!==Number(u.id)) return {error:"Esta alerta no le pertenece.",status:403};
+  if(bloquearEdicion && supervisor && Number(alerta.profesor_id)!==Number(u.id))
     return {error:"La supervisión institucional es de solo lectura.",status:403};
   return {alerta,supervisor};
 }
@@ -103,11 +129,15 @@ function nombreApellidos(alias="e"){
   return `TRIM(CONCAT_WS(' ',${alias}.primer_apellido,${alias}.segundo_apellido,${alias}.nombre))`;
 }
 async function notificarSupervision(client,mensaje,alertaId,omitido){
+  const alertaNumero=enteroPositivo(alertaId),omitidoNumero=enteroPositivo(omitido)||0;
+  if(!alertaNumero) throw new Error("No se pudo asociar la notificación con la alerta.");
   await client.query(`INSERT INTO notificaciones(usuario_id,tipo,mensaje,referencia_id,destino)
-    SELECT DISTINCT u.id,'alerta_temprana',$1,$2,$3
-    FROM usuarios u LEFT JOIN funciones_institucionales fi ON fi.usuario_id=u.id AND fi.tipo='coordinador'
-    WHERE u.activo=true AND (u.rol IN ('admin','auxiliar','administrativo') OR fi.id IS NOT NULL)
-      AND u.id<>$4`,[mensaje,alertaId,`alerta-temprana:${alertaId}`,omitido||0]);
+    SELECT u.id,'alerta_temprana'::text,$1::text,$2::integer,$3::text
+    FROM usuarios u
+    WHERE u.activo=true AND (
+      u.rol IN ('admin','auxiliar','administrativo')
+      OR EXISTS (SELECT 1 FROM funciones_institucionales fi WHERE fi.usuario_id=u.id AND fi.tipo='coordinador')
+    ) AND u.id<>$4::integer`,[String(mensaje||""),alertaNumero,`alerta-temprana:${alertaNumero}`,omitidoNumero]);
 }
 
 router.get("/inicio",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
@@ -157,12 +187,14 @@ router.get("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)=
 router.post("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const u=req.session.usuario;
   if(!esDocente(u)) return res.status(403).json({error:"Solo el personal docente puede abrir una alerta."});
-  const estudianteId=Number(req.body?.estudiante_id),asignacionId=Number(req.body?.asignacion_id);
+  const estudianteId=enteroPositivo(req.body?.estudiante_id),asignacionId=enteroPositivo(req.body?.asignacion_id);
+  if(!estudianteId||!asignacionId) return res.status(400).json({error:"Seleccione la sección, materia y estudiante."});
   const a=await asignacionPropia(u.id,asignacionId,estudianteId);
   if(!a) return res.status(403).json({error:"El estudiante no pertenece a esa asignación."});
   const codigos=[...new Set((Array.isArray(req.body?.categorias)?req.body.categorias:[]).map(Number).filter(c=>CODIGOS.has(c)))];
   const riesgo=req.body?.riesgo_ausentismo===true, obs=String(req.body?.observacion_inicial||"").trim();
   if(!codigos.length&&!riesgo) return res.status(400).json({error:"Seleccione al menos una alerta o riesgo por ausentismo."});
+  if(obs.length>10000) return res.status(400).json({error:"La observación inicial es demasiado extensa."});
   const anio=await obtenerAnioActivo(),client=await pool.connect();
   try{
     await client.query("BEGIN");
@@ -183,7 +215,7 @@ router.post("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)
 router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const acceso=await alertaAccesible(req.session.usuario,req.params.id);
   if(acceso.error) return res.status(acceso.status).json({error:acceso.error});
-  const id=Number(req.params.id);
+  const id=enteroPositivo(req.params.id);
   const [cab,seguimientos,acciones,contactos,cfg]=await Promise.all([
     pool.query(`SELECT at.*,${nombreCompleto("e")} AS estudiante_nombre,${nombreApellidos("e")} AS estudiante_nombre_ordenado,
       e.cedula,e.fecha_nacimiento,EXTRACT(YEAR FROM AGE(at.fecha_activacion,e.fecha_nacimiento))::int AS edad,
@@ -194,7 +226,7 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
       LEFT JOIN secciones s ON s.id=at.seccion_id LEFT JOIN materias m ON m.id=at.materia_id JOIN usuarios u ON u.id=at.profesor_id
       LEFT JOIN LATERAL (SELECT * FROM encargados x WHERE x.estudiante_id=e.id ORDER BY x.es_principal DESC,x.id LIMIT 1) enc ON true
       WHERE at.id=$1`,[id]),
-    pool.query(`SELECT sg.*,${nombreCompleto("u")} AS registrado_nombre FROM alerta_temprana_seguimientos sg JOIN usuarios u ON u.id=sg.registrado_por WHERE sg.alerta_id=$1 ORDER BY sg.created_at,sg.id`,[id]),
+    pool.query(`SELECT sg.*,${nombreCompleto("u")} AS registrado_nombre FROM alerta_temprana_seguimientos sg JOIN usuarios u ON u.id=sg.registrado_por WHERE sg.alerta_id=$1 ORDER BY sg.fecha,sg.created_at,sg.id`,[id]),
     pool.query(`SELECT ac.*,${nombreCompleto("u")} AS registrado_nombre FROM alerta_temprana_acciones ac JOIN usuarios u ON u.id=ac.registrado_por WHERE ac.alerta_id=$1 ORDER BY ac.fecha_inicio NULLS LAST,ac.created_at`,[id]),
     pool.query(`SELECT c.*,${nombreCompleto("u")} AS registrado_nombre FROM alerta_temprana_contactos c JOIN usuarios u ON u.id=c.registrado_por WHERE c.alerta_id=$1 ORDER BY c.fecha,c.created_at`,[id]),
     pool.query("SELECT COALESCE(nombre_centro,'Liceo de Calle Fallas') AS nombre_centro FROM config_centro ORDER BY id LIMIT 1")
@@ -203,16 +235,18 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
     catalogo:CATALOGO,centro:cfg.rows[0]?.nombre_centro||"Liceo de Calle Fallas",
     // Una persona coordinadora que también imparte clases conserva edición
     // únicamente sobre las alertas que ella misma abrió; las ajenas son lectura.
-    editable:acceso.alerta.profesor_id===req.session.usuario.id&&!["cerrada","eliminada"].includes(acceso.alerta.estado)});
+    editable:Number(acceso.alerta.profesor_id)===Number(req.session.usuario.id)&&!["cerrada","eliminada"].includes(acceso.alerta.estado)});
 }));
 
 router.post("/alertas/:id/seguimientos",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const acceso=await alertaAccesible(req.session.usuario,req.params.id,true);
   if(acceso.error) return res.status(acceso.status).json({error:acceso.error});
-  if(acceso.alerta.profesor_id!==req.session.usuario.id) return res.status(403).json({error:"Solo quien abrió la alerta puede agregar seguimientos."});
+  if(Number(acceso.alerta.profesor_id)!==Number(req.session.usuario.id)) return res.status(403).json({error:"Solo quien abrió la alerta puede agregar seguimientos."});
   if(["cerrada","eliminada"].includes(acceso.alerta.estado)) return res.status(409).json({error:"La alerta ya está finalizada."});
   const estado=String(req.body?.estado||""),observaciones=String(req.body?.observaciones||"").trim(),fecha=String(req.body?.fecha||"");
   if(!ESTADOS.includes(estado)||observaciones.length<5) return res.status(400).json({error:"Indique el estado y una observación completa."});
+  if(observaciones.length>10000) return res.status(400).json({error:"El seguimiento es demasiado extenso."});
+  if(!fechaISOValida(fecha,true)) return res.status(400).json({error:"La fecha del seguimiento no es válida."});
   const client=await pool.connect();
   try{
     await client.query("BEGIN");
@@ -230,14 +264,18 @@ router.post("/alertas/:id/seguimientos",requireAuth,requireParticipante,asyncRou
 router.post("/alertas/:id/acciones",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const acceso=await alertaAccesible(req.session.usuario,req.params.id,true);
   if(acceso.error) return res.status(acceso.status).json({error:acceso.error});
-  if(acceso.alerta.profesor_id!==req.session.usuario.id||["cerrada","eliminada"].includes(acceso.alerta.estado))
+  if(Number(acceso.alerta.profesor_id)!==Number(req.session.usuario.id)||["cerrada","eliminada"].includes(acceso.alerta.estado))
     return res.status(403).json({error:"La alerta es de solo lectura."});
   const accion=String(req.body?.accion||"").trim();
   if(accion.length<3) return res.status(400).json({error:"Describa la acción de atención."});
+  if(accion.length>10000) return res.status(400).json({error:"La acción de atención es demasiado extensa."});
+  const fechaInicio=req.body?.fecha_inicio||null,fechaFinal=req.body?.fecha_final||null;
+  if(!fechaISOValida(fechaInicio,true)||!fechaISOValida(fechaFinal,true)) return res.status(400).json({error:"Revise las fechas del Plan de Atención."});
+  if(fechaInicio&&fechaFinal&&fechaFinal<fechaInicio) return res.status(400).json({error:"La fecha final no puede ser anterior a la fecha inicial."});
   const q=await pool.query(`INSERT INTO alerta_temprana_acciones
     (alerta_id,accion,fecha_inicio,fecha_final,responsable,observaciones,institucion_referida,registrado_por)
-    VALUES($1,$2,$3::date,$4::date,$5,$6,$7,$8) RETURNING id`,[acceso.alerta.id,accion,req.body.fecha_inicio||null,
-      req.body.fecha_final||null,String(req.body.responsable||"").trim(),String(req.body.observaciones||"").trim(),
+    VALUES($1,$2,$3::date,$4::date,$5,$6,$7,$8) RETURNING id`,[acceso.alerta.id,accion,fechaInicio,
+      fechaFinal,String(req.body.responsable||"").trim(),String(req.body.observaciones||"").trim(),
       String(req.body.institucion_referida||"").trim(),req.session.usuario.id]);
   await pool.query("UPDATE alertas_tempranas SET updated_at=NOW() WHERE id=$1",[acceso.alerta.id]);
   res.json({ok:true,id:q.rows[0].id});
@@ -246,10 +284,12 @@ router.post("/alertas/:id/acciones",requireAuth,requireParticipante,asyncRoute(a
 router.post("/alertas/:id/contactos",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const acceso=await alertaAccesible(req.session.usuario,req.params.id,true);
   if(acceso.error) return res.status(acceso.status).json({error:acceso.error});
-  if(acceso.alerta.profesor_id!==req.session.usuario.id||["cerrada","eliminada"].includes(acceso.alerta.estado))
+  if(Number(acceso.alerta.profesor_id)!==Number(req.session.usuario.id)||["cerrada","eliminada"].includes(acceso.alerta.estado))
     return res.status(403).json({error:"La alerta es de solo lectura."});
   const via=String(req.body?.via_contacto||"").trim(),persona=String(req.body?.persona_contactada||"").trim(),comentarios=String(req.body?.comentarios||"").trim();
   if(!via||comentarios.length<3) return res.status(400).json({error:"Indique la vía y el detalle del contacto."});
+  if(via.length>500||persona.length>500||comentarios.length>10000) return res.status(400).json({error:"El registro de contacto es demasiado extenso."});
+  if(!fechaISOValida(req.body?.fecha||null,true)) return res.status(400).json({error:"La fecha del contacto no es válida."});
   const q=await pool.query(`INSERT INTO alerta_temprana_contactos(alerta_id,fecha,via_contacto,persona_contactada,comentarios,registrado_por)
     VALUES($1,COALESCE($2::date,CURRENT_DATE),$3,$4,$5,$6) RETURNING id`,[acceso.alerta.id,req.body.fecha||null,via,persona,comentarios,req.session.usuario.id]);
   await pool.query("UPDATE alertas_tempranas SET updated_at=NOW() WHERE id=$1",[acceso.alerta.id]);
@@ -259,16 +299,32 @@ router.post("/alertas/:id/contactos",requireAuth,requireParticipante,asyncRoute(
 router.post("/llamadas",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const u=req.session.usuario;
   if(!esDocente(u)) return res.status(403).json({error:"Solo el personal docente registra llamadas."});
-  const estudianteId=Number(req.body?.estudiante_id),asignacionId=Number(req.body?.asignacion_id);
+  const estudianteId=enteroPositivo(req.body?.estudiante_id),asignacionId=enteroPositivo(req.body?.asignacion_id);
+  if(!estudianteId||!asignacionId) return res.status(400).json({error:"Seleccione la sección, materia y estudiante."});
   const a=await asignacionPropia(u.id,asignacionId,estudianteId);
   if(!a) return res.status(403).json({error:"El estudiante no pertenece a esa asignación."});
   const resultado=String(req.body?.resultado||""),medio=String(req.body?.medio||"");
   if(!RESULTADOS.includes(resultado)||!MEDIOS.includes(medio)||!req.body?.fecha||!req.body?.hora_inicio)
     return res.status(400).json({error:"Complete fecha, hora, medio y resultado."});
+  if(!fechaISOValida(req.body.fecha)||!horaValida(req.body.hora_inicio)||!horaValida(req.body?.hora_fin||null,true))
+    return res.status(400).json({error:"Revise la fecha y las horas del registro."});
+  if(req.body?.hora_fin&&segundosHora(req.body.hora_fin)<segundosHora(req.body.hora_inicio))
+    return res.status(400).json({error:"La hora final no puede ser anterior a la hora de inicio."});
+  if(medio==="otro"&&!String(req.body?.medio_otro||"").trim())
+    return res.status(400).json({error:"Especifique el medio de comunicación utilizado."});
+  if(resultado==="otro"&&!String(req.body?.resultado_otro||"").trim())
+    return res.status(400).json({error:"Especifique el resultado de la comunicación."});
   if(resultado==="efectiva"&&!String(req.body?.descripcion_situacion||"").trim())
     return res.status(400).json({error:"Cuando la comunicación es efectiva, describa objetivamente la situación."});
+  if(resultado==="efectiva"&&(!String(req.body?.atendio_nombre||"").trim()||!String(req.body?.parentesco||"").trim()))
+    return res.status(400).json({error:"Indique quién atendió y su parentesco con el estudiante."});
+  if(resultado==="efectiva"&&req.body?.parentesco==="Otro"&&!String(req.body?.parentesco_otro||"").trim())
+    return res.status(400).json({error:"Especifique el parentesco de la persona que atendió."});
+  if(!fechaISOValida(req.body?.fecha_seguimiento||null,true))
+    return res.status(400).json({error:"La fecha de seguimiento no es válida."});
   const anio=await obtenerAnioActivo();
-  let alertaId=Number(req.body?.alerta_id)||null;
+  let alertaId=req.body?.alerta_id?enteroPositivo(req.body.alerta_id):null;
+  if(req.body?.alerta_id&&!alertaId) return res.status(400).json({error:"La alerta asociada no es válida."});
   if(alertaId){
     const ar=await pool.query(`SELECT id FROM alertas_tempranas WHERE id=$1 AND estudiante_id=$2 AND profesor_id=$3 AND estado NOT IN ('cerrada','eliminada')`,[alertaId,estudianteId,u.id]);
     if(!ar.rows.length) return res.status(400).json({error:"La alerta seleccionada no está abierta o no le pertenece."});
@@ -308,7 +364,11 @@ router.get("/llamadas",requireAuth,requireParticipante,asyncRoute(async(req,res)
   const u=req.session.usuario,supervisor=await puedeSupervisar(u),anio=await obtenerAnioActivo();
   const params=[anio];let filtro="";
   if(!supervisor){params.push(u.id);filtro+=` AND rl.profesor_id=$${params.length}`;}
-  if(req.query.estudiante_id){params.push(Number(req.query.estudiante_id));filtro+=` AND rl.estudiante_id=$${params.length}`;}
+  if(req.query.estudiante_id){
+    const estudianteId=enteroPositivo(req.query.estudiante_id);
+    if(!estudianteId) return res.status(400).json({error:"El estudiante indicado no es válido."});
+    params.push(estudianteId);filtro+=` AND rl.estudiante_id=$${params.length}`;
+  }
   const q=await pool.query(`SELECT rl.*,${nombreApellidos("e")} AS estudiante_nombre,e.cedula,e.seccion_id,s.nombre AS seccion_nombre,
       m.nombre AS materia_nombre,${nombreCompleto("u")} AS profesor_nombre
     FROM registro_llamadas rl JOIN estudiantes e ON e.id=rl.estudiante_id LEFT JOIN secciones s ON s.id=e.seccion_id

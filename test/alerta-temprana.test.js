@@ -20,7 +20,7 @@ test('solo el docente propietario modifica y la supervisión institucional lee',
   assert.match(ruta, /\["admin","auxiliar","administrativo"\]/);
   assert.match(ruta, /tipo='coordinador'/);
   assert.match(ruta, /La supervisión institucional es de solo lectura/);
-  assert.match(ruta, /alerta\.profesor_id!==u\.id/);
+  assert.match(ruta, /Number\(alerta\.profesor_id\)!==Number\(u\.id\)/);
   assert.match(ruta, /asignacionPropia\(u\.id,asignacionId,estudianteId\)/);
 });
 
@@ -39,9 +39,26 @@ test('los seguimientos notifican a auxiliares, coordinación y administración c
   const ui = read('public/index.html');
   assert.match(db, /notificaciones ADD COLUMN IF NOT EXISTS destino/);
   assert.match(ruta, /await notificarSupervision/);
-  assert.match(ruta, /alerta-temprana:\$\{alertaId\}/);
+  assert.match(ruta, /alerta-temprana:\$\{alertaNumero\}/);
   assert.match(ui, /destino\.startsWith\("alerta-temprana:"\)/);
   assert.match(ui, /atVerDetalle\(alertaId\)/);
+});
+
+test('las notificaciones de alerta convierten referencia_id explícitamente a entero', () => {
+  const ruta = read('routes/alertaTemprana.js');
+  assert.match(ruta, /\$2::integer/);
+  assert.match(ruta, /\$3::text/);
+  assert.match(ruta, /u\.id<>\$4::integer/);
+  assert.match(ruta, /const alertaNumero=enteroPositivo\(alertaId\)/);
+});
+
+test('identificadores, fechas y horas inválidas se rechazan antes de consultar PostgreSQL', () => {
+  const ruta = read('routes/alertaTemprana.js');
+  assert.match(ruta, /function enteroPositivo/);
+  assert.match(ruta, /function fechaISOValida/);
+  assert.match(ruta, /function horaValida/);
+  assert.match(ruta, /La hora final no puede ser anterior a la hora de inicio/);
+  assert.match(ruta, /La fecha final no puede ser anterior a la fecha inicial/);
 });
 
 test('la interfaz incluye boletas visuales, registro consolidado y Excel MEP', () => {
