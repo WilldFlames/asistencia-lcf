@@ -49,6 +49,55 @@ async function logHistorial(estudianteId, tipo, valorAnterior, valorNuevo, justi
   }
 }
 
+// Devuelve únicamente al personal docente que realmente atiende al estudiante.
+// Una asignación sin subgrupo atiende a toda la sección; una asignación A/B
+// solo recibe movimientos del mismo subgrupo. Si el estudiante aún no tiene
+// subgrupo, se avisa a toda la sección para no ocultar un ingreso pendiente de
+// clasificación. El profesor guía siempre recibe los movimientos de su grupo.
+async function profesoresParaMovimientoEstudiante(seccionId, subgrupo, db = pool) {
+  if (!seccionId) return [];
+  const r = await db.query(`
+    SELECT DISTINCT destinatario_id AS uid
+    FROM (
+      SELECT a.profesor_id AS destinatario_id
+      FROM asignaciones a
+      WHERE a.seccion_id=$1
+        AND a.profesor_id IS NOT NULL
+        AND a.anio=COALESCE(
+          (SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1),
+          EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int
+        )
+        AND (
+          COALESCE(a.subgrupo,'')=''
+          OR COALESCE($2::text,'')=''
+          OR UPPER(a.subgrupo)=UPPER($2::text)
+        )
+      UNION
+      SELECT sg.profesor_id AS destinatario_id
+      FROM seccion_guia sg
+      WHERE sg.seccion_id=$1 AND sg.profesor_id IS NOT NULL
+    ) destinatarios
+    WHERE destinatario_id IS NOT NULL
+  `, [seccionId, subgrupo || ""]);
+  return r.rows;
+}
+
+async function notificarMovimientoEstudiante(seccionId, subgrupo, mensaje, tipo, excluirUsuarioId = null, db = pool) {
+  const profesores = await profesoresParaMovimientoEstudiante(seccionId, subgrupo, db);
+  for (const profesor of profesores) {
+    if (excluirUsuarioId && Number(profesor.uid) === Number(excluirUsuarioId)) continue;
+    try {
+      await db.query(
+        "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,$2,$3)",
+        [profesor.uid, tipo, mensaje]
+      );
+    } catch (e) {
+      // La notificación no debe impedir el movimiento principal del estudiante.
+      console.error("Error notificando movimiento de estudiante", profesor.uid, e.message);
+    }
+  }
+}
+
 // Caché de columnas de la tabla estudiantes (excluyendo foto_url).
 // Se llena en la primera consulta para no depender de saber qué columnas
 // existen en cada instalación (algunas instalaciones tienen
@@ -169,27 +218,6 @@ router.post("/", canManage, async (req, res) => {
   if (!cedula||!nombre||!primer_apellido||!segundo_apellido)
     return res.status(400).json({ error: "Datos incompletos" });
 
-  // Helper: notifica a todos los profesores asignados a una sección (incluye guías).
-  // Si la sección no tiene profesores asignados aún, simplemente no hace nada.
-  async function notificarProfesoresDeSeccion(seccionId, mensaje, tipo) {
-    if (!seccionId) return;
-    const profs = await pool.query(`
-      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND profesor_id IS NOT NULL AND anio=COALESCE((SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1), EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int)
-      UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
-    `, [seccionId]);
-    for (const p of profs.rows) {
-      try {
-        await pool.query(
-          "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,$2,$3)",
-          [p.uid, tipo, mensaje]
-        );
-      } catch (e) {
-        // No bloquear la operación principal si una notificación falla
-        console.error("Error notificando ingreso a profesor", p.uid, e.message);
-      }
-    }
-  }
-
   // Helper: obtiene el nombre de una sección (o "Sin sección" si no hay)
   async function nombreSeccion(seccionId) {
     if (!seccionId) return "Sin sección";
@@ -223,7 +251,7 @@ router.post("/", canManage, async (req, res) => {
       if (seccion_id) {
         const secNombre = await nombreSeccion(seccion_id);
         const msg = `🔄 Reingreso: ${nombre.trim()} ${primer_apellido.trim()} ${segundo_apellido.trim()} (${cedula.trim()}) fue reactivado(a) en la sección ${secNombre}.`;
-        await notificarProfesoresDeSeccion(seccion_id, msg, 'reingreso_estudiante');
+        await notificarMovimientoEstudiante(seccion_id, subgrupo, msg, 'reingreso_estudiante');
       }
       // Historial: reactivación
       await logHistorial(est.id, 'reactivacion',
@@ -253,7 +281,7 @@ router.post("/", canManage, async (req, res) => {
       const secNombre = await nombreSeccion(seccion_id);
       const subTxt = subgrupo ? ` · Subgrupo ${subgrupo}` : "";
       const msg = `🆕 Nuevo ingreso: ${nombre.trim()} ${primer_apellido.trim()} ${segundo_apellido.trim()} (${cedula.trim()}) fue matriculado(a) en la sección ${secNombre}${subTxt}.`;
-      await notificarProfesoresDeSeccion(seccion_id, msg, 'nuevo_estudiante');
+      await notificarMovimientoEstudiante(seccion_id, subgrupo, msg, 'nuevo_estudiante');
     }
 
     res.json({ ok:true, id: nuevoId });
@@ -418,26 +446,14 @@ router.put("/:id/seccion", canManage, async (req, res) => {
   const msgAnterior = `🔄 El estudiante ${nombreTraslado} fue trasladado FUERA de la sección ${seccionAnteriorNombre}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
   const msgNueva    = `🔄 El estudiante ${nombreTraslado} fue trasladado a la sección ${secNombreNueva}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
 
-  // Notificar profesores de la sección ANTERIOR
+  // Notificar al guía y solo a docentes que atendían el subgrupo anterior.
   if (seccionAnteriorId) {
-    const profsAnt = await pool.query(`
-      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND anio=COALESCE((SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1), EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int)
-      UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
-    `, [seccionAnteriorId]);
-    for (const p of profsAnt.rows) {
-      await pool.query("INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'cambio_seccion',$2)", [p.uid, msgAnterior]);
-    }
+    await notificarMovimientoEstudiante(seccionAnteriorId, est.subgrupo, msgAnterior, 'cambio_seccion');
   }
 
-  // Notificar profesores de la sección NUEVA
+  // Notificar al guía y solo a docentes que atenderán el mismo subgrupo.
   if (seccion_id) {
-    const profsNueva = await pool.query(`
-      SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND anio=COALESCE((SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1), EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int)
-      UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
-    `, [seccion_id]);
-    for (const p of profsNueva.rows) {
-      await pool.query("INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'cambio_seccion',$2)", [p.uid, msgNueva]);
-    }
+    await notificarMovimientoEstudiante(seccion_id, est.subgrupo, msgNueva, 'cambio_seccion');
   }
 
   // Historial
@@ -580,23 +596,10 @@ router.post("/:id/archivar", canManage, async (req, res) => {
     WHERE id=$5
   `, [motivo||null, justificacion.trim(), u.id, est.seccion_nombre||null, req.params.id]);
 
-  // Notificar a profesores de la sección
+  // Notificar al guía y solo a docentes que atendían ese subgrupo.
   if(est.sec_id){
-    const profR = await pool.query(`
-      SELECT DISTINCT a.profesor_id
-      FROM asignaciones a
-      WHERE a.seccion_id=$1
-        AND a.anio=COALESCE((SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1), EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int)
-    `, [est.sec_id]);
-
     const msg = `El estudiante ${nombreEst} (Sección: ${est.seccion_nombre||''}) ha sido retirado del Liceo de Calle Fallas. Registrado por: ${nombreUsuario}.${motivo?' Motivo: '+motivo:''}`;
-
-    for(const p of profR.rows){
-      await pool.query(
-        "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
-        [p.profesor_id, msg, "archivo_estudiante"]
-      );
-    }
+    await notificarMovimientoEstudiante(est.sec_id, est.subgrupo, msg, "archivo_estudiante");
 
     // También notificar admins
     const admins = await pool.query("SELECT id FROM usuarios WHERE rol='admin' AND activo=true");
@@ -678,19 +681,9 @@ router.post("/:id/reactivar", canManage, async (req, res) => {
     }
   }
 
-  // Si tiene sección, notificar a los profesores de esa sección
+  // Si tiene sección, notificar al guía y solo a docentes de su subgrupo.
   if (secNueva) {
-    const profR = await pool.query(`
-      SELECT DISTINCT a.profesor_id FROM asignaciones a WHERE a.seccion_id=$1 AND a.anio=COALESCE((SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1), EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int)
-    `, [secNueva.id]);
-    for (const p of profR.rows) {
-      if (p.profesor_id !== u.id) {
-        await pool.query(
-          "INSERT INTO notificaciones (usuario_id, mensaje, tipo) VALUES ($1,$2,$3)",
-          [p.profesor_id, msg, "reactivacion_estudiante"]
-        );
-      }
-    }
+    await notificarMovimientoEstudiante(secNueva.id, est.subgrupo, msg, "reactivacion_estudiante", u.id);
   }
 
   // Historial
@@ -904,16 +897,9 @@ router.post("/importar", canManage, async (req, res) => {
         const sec = await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccionId]);
         const secNombre = sec.rows[0]?.nombre || `ID ${seccionId}`;
         const msg = `🆕 Ingresaron ${cantidad} estudiante${cantidad>1?'s':''} a la sección ${secNombre} (importación masiva).`;
-        const profs = await pool.query(`
-          SELECT DISTINCT profesor_id AS uid FROM asignaciones WHERE seccion_id=$1 AND profesor_id IS NOT NULL AND anio=COALESCE((SELECT anio FROM anios_lectivos WHERE estado='activo' LIMIT 1), EXTRACT(YEAR FROM (NOW() AT TIME ZONE 'America/Costa_Rica'))::int)
-          UNION SELECT profesor_id AS uid FROM seccion_guia WHERE seccion_id=$1 AND profesor_id IS NOT NULL
-        `, [seccionId]);
-        for(const p of profs.rows){
-          await pool.query(
-            "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'nuevo_estudiante',$2)",
-            [p.uid, msg]
-          );
-        }
+        // La importación actual no incluye el subgrupo; al estar pendiente de
+        // clasificación corresponde avisar a toda la sección.
+        await notificarMovimientoEstudiante(seccionId, null, msg, 'nuevo_estudiante');
       } catch(e) {
         console.error("Notif importación sección", seccionId, e.message);
       }

@@ -1,0 +1,26 @@
+NOTIFICACIONES DE MOVIMIENTOS DE ESTUDIANTES POR SUBGRUPO
+Fecha: 16 de agosto de 2026
+
+Problema corregido:
+
+Los avisos de ingreso, traslado, retiro y reactivación se enviaban a todos los
+docentes asignados a la sección, aunque una materia atendiera solamente al
+subgrupo A o al subgrupo B.
+
+Regla aplicada:
+
+1. Una asignación sin subgrupo recibe movimientos de toda la sección.
+2. Una asignación del subgrupo A solo recibe movimientos del subgrupo A.
+3. Una asignación del subgrupo B solo recibe movimientos del subgrupo B.
+4. El profesor guía continúa recibiendo los movimientos de toda su sección.
+5. Si el estudiante todavía no tiene subgrupo, se avisa a toda la sección para
+   no ocultar un movimiento que está pendiente de clasificación.
+
+La regla se aplica a:
+
+- Nuevo ingreso y reingreso.
+- Traslado desde una sección y hacia otra.
+- Retiro o archivo del estudiante.
+- Reactivación de un estudiante archivado.
+
+Verificación: 104 pruebas automáticas aprobadas.
