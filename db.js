@@ -2018,6 +2018,28 @@ async function initDB() {
     // Migración aditiva por si la tabla ya existía sin la columna
     await client.query(`ALTER TABLE horarios ADD COLUMN IF NOT EXISTS aula INTEGER DEFAULT NULL`);
 
+    // ── BLOQUES ADICIONALES DEL HORARIO DOCENTE ────────────────────────
+    // No pertenecen a una sección ni generan asistencia. Se combinan con
+    // las clases al mostrar el horario personal del funcionario.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS horario_bloques_docente (
+        id            SERIAL PRIMARY KEY,
+        profesor_id   INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        anio          INTEGER NOT NULL,
+        dia           INTEGER NOT NULL CHECK(dia BETWEEN 1 AND 5),
+        leccion       INTEGER NOT NULL CHECK(leccion BETWEEN 1 AND 12),
+        tipo          TEXT NOT NULL CHECK(tipo IN ('club','coordinacion')),
+        detalle       TEXT DEFAULT '',
+        lugar         TEXT DEFAULT '',
+        creado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at    TIMESTAMP DEFAULT NOW(),
+        updated_at    TIMESTAMP DEFAULT NOW(),
+        UNIQUE(profesor_id,anio,dia,leccion)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_horario_bloques_docente_anio
+      ON horario_bloques_docente(profesor_id,anio,dia,leccion)`);
+
     // ── PERMISOS DE SALIDA (auxiliares) ──────────────────────────────────
     // Consecutivo interno por año (numero + anio). Individual o por sección.
     // Un solo uso POR ESTUDIANTE para la fecha indicada (tabla de usos).

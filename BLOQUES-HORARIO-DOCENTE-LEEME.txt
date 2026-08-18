@@ -1,0 +1,42 @@
+PARCHE — HORARIOS DOCENTES: CLUB Y COORDINACIÓN
+=================================================
+
+¿QUÉ AGREGA?
+
+1. En Horario, el administrador tiene el botón "Horarios docentes".
+2. Puede seleccionar el año y el docente.
+3. Puede agregar, editar o eliminar únicamente dos tipos de bloque:
+   - Club
+   - Coordinación
+4. Cada bloque se coloca en un día y una lección concreta.
+5. El nombre o detalle y el lugar son opcionales.
+6. El docente ve estos bloques dentro de "Mi horario".
+7. El horario muestra cuatro totales:
+   - Total de lecciones de clase
+   - Clubes
+   - Coordinaciones
+   - Total semanal
+8. La impresión del horario docente también incluye el total de lecciones.
+
+PROTECCIONES
+
+- Los bloques son independientes para cada año lectivo.
+- No modifican el horario de estudiantes.
+- No crean asistencia ni calificaciones.
+- No se puede colocar Club o Coordinación encima de una clase.
+- Tampoco se puede guardar después una clase encima de un bloque adicional.
+- Solo el administrador puede agregar, editar o eliminar estos bloques.
+
+DESPLIEGUE
+
+- No hay que crear variables nuevas en Railway.
+- No hay que ejecutar una migración manual.
+- La tabla nueva se crea automáticamente cuando inicia el servidor.
+
+USO
+
+Administrador:
+Horario > Horarios docentes > seleccionar año > seleccionar docente.
+
+Docente:
+Horario > Mi horario.
