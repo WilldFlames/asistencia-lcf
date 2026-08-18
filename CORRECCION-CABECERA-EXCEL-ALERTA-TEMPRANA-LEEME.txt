@@ -1,0 +1,31 @@
+CORRECCIÓN — DATOS SUPERIORES DEL EXCEL DE ALERTA TEMPRANA
+===========================================================
+
+PROBLEMA CORREGIDO
+
+El archivo sí contenía los datos, pero varios se escribían dentro de las
+celdas combinadas usadas como rótulos. Excel los conservaba internamente,
+pero no los mostraba en pantalla ni al imprimir.
+
+AHORA SE COMPLETAN AUTOMÁTICAMENTE Y DE FORMA VISIBLE
+
+- Nombre completo del estudiante.
+- Cédula.
+- Teléfono o móvil del encargado principal.
+- Edad.
+- Sección.
+- Fecha de apertura de la alerta.
+- Nombre completo del encargado principal.
+- Teléfono o móvil del encargado principal.
+- Nombre del centro educativo.
+- Nombre completo de la persona docente.
+
+La plantilla oficial, sus cinco hojas, imágenes, formato y configuración de
+impresión permanecen intactos.
+
+DESPLIEGUE
+
+- No requiere variables nuevas en Railway.
+- No requiere cambios manuales en PostgreSQL.
+- Después del despliegue se debe descargar nuevamente el Excel; los archivos
+  descargados antes de instalar el parche no cambian por sí solos.

@@ -267,10 +267,14 @@ router.get("/alertas/:id/excel",requireAuth,requireParticipante,asyncRoute(async
   const a=cab.rows[0];
   if(!a) return res.status(404).json({error:"Alerta no encontrada."});
   const estadoTexto={activada:"Activada",en_proceso:"En proceso",en_espera:"En espera",cerrada:"Cerrada",eliminada:"Eliminada"};
+  // Los rótulos superiores ocupan celdas combinadas (por ejemplo B2:D2 y
+  // G2:I2). El valor debe escribirse en la celda visible que queda a la
+  // derecha, no dentro del rango combinado del rótulo; Excel conserva el
+  // contenido interno, pero no lo muestra en pantalla ni al imprimir.
   const hojaBoleta={
-    C2:a.estudiante_nombre,H2:a.cedula,L2:a.encargado_telefono||"",C3:a.edad??"",H3:a.seccion_nombre||"",
+    E2:a.estudiante_nombre,J2:a.cedula,L2:a.encargado_telefono||"",E3:a.edad??"",J3:a.seccion_nombre||"",
     L3:fechaDocumento(a.fecha_activacion),E4:a.encargado_nombre||"",K4:a.encargado_telefono||"",
-    C5:cfg.rows[0]?.nombre_centro||"Liceo de Calle Fallas",H5:a.profesor_nombre
+    E5:cfg.rows[0]?.nombre_centro||"Liceo de Calle Fallas",K5:a.profesor_nombre
   };
   if(a.riesgo_ausentismo) hojaBoleta.N11="X";
   const marcadores={1:'G16',2:'G17',3:'G18',4:'G19',5:'G20',6:'N16',7:'N17',8:'N18',9:'N19',10:'G22',11:'G23',12:'G24',13:'G25',14:'G27',15:'G28',16:'G29',17:'G30',18:'N22',19:'N23',20:'N24',21:'N25',22:'N26',23:'N27',24:'N28',25:'N29',26:'N30',27:'G33',28:'G34',29:'G35',30:'N33',31:'N34',32:'G38',33:'G39',34:'G40',35:'G41',36:'N38',37:'N40',38:'N42',39:'G45',40:'G46',41:'G47',42:'G48',43:'N45',44:'N46',45:'N47',46:'G50',47:'G51',48:'G52',49:'G53',50:'G54',51:'G55',52:'G56',53:'N50',54:'N53',55:'G58',56:'G60',57:'G61',58:'G62',59:'N58',60:'N59',61:'N60',62:'N61',63:'N62',64:'G64',65:'G65',66:'G66',67:'G67',68:'G68',69:'N64',70:'N66',71:'G71',72:'G72',73:'G73',74:'G74',75:'G75',76:'N71',77:'N72'};

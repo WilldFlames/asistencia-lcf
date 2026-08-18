@@ -39,6 +39,17 @@ test("el llenado conserva todas las piezas, imágenes y configuración oficial",
   assert.ok(hojas.some(xml => xml.includes("INSTITUCIÓN DE PRUEBA")));
 });
 
+test("los datos superiores se escriben en las celdas visibles de la boleta oficial", () => {
+  const ruta = fs.readFileSync(path.join(root, "routes", "alertaTemprana.js"), "utf8");
+  assert.match(ruta, /E2:a\.estudiante_nombre,J2:a\.cedula,L2:a\.encargado_telefono/);
+  assert.match(ruta, /E3:a\.edad\?\?"",J3:a\.seccion_nombre/);
+  assert.match(ruta, /E4:a\.encargado_nombre/);
+  assert.match(ruta, /K4:a\.encargado_telefono/);
+  assert.match(ruta, /E5:cfg\.rows\[0\]\?\.nombre_centro/);
+  assert.match(ruta, /K5:a\.profesor_nombre/);
+  assert.doesNotMatch(ruta, /C2:a\.estudiante_nombre|H2:a\.cedula|C3:a\.edad|H3:a\.seccion_nombre|C5:cfg|H5:a\.profesor_nombre/);
+});
+
 test("la interfaz descarga el Excel generado en el servidor sin reconstruirlo con SheetJS", () => {
   const ui = fs.readFileSync(path.join(root, "public", "index.html"), "utf8");
   const inicio = ui.indexOf("async function atDescargarExcel()");
