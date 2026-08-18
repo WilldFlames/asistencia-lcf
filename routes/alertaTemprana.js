@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
+const { llenarPlantillaAlerta } = require("../utils/excelAlertaTemprana");
 
 const ESTADOS = ["activada","en_proceso","en_espera","cerrada","eliminada"];
 const RESULTADOS = ["efectiva","no_contesta","equivocado","fuera_servicio","buzon","devolver_llamada","otro"];
@@ -27,6 +28,12 @@ function horaValida(valor,opcional=false){
 function segundosHora(valor){
   const partes=String(valor||"").split(":").map(Number);
   return (partes[0]||0)*3600+(partes[1]||0)*60+(partes[2]||0);
+}
+function fechaDocumento(valor){
+  if(!valor) return "";
+  const texto=valor instanceof Date?valor.toISOString().slice(0,10):String(valor).slice(0,10);
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+  return m?`${m[3]}/${m[2]}/${m[1]}`:"";
 }
 
 const CATALOGO = [
@@ -236,6 +243,61 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
     // Una persona coordinadora que también imparte clases conserva edición
     // únicamente sobre las alertas que ella misma abrió; las ajenas son lectura.
     editable:Number(acceso.alerta.profesor_id)===Number(req.session.usuario.id)&&!["cerrada","eliminada"].includes(acceso.alerta.estado)});
+}));
+
+router.get("/alertas/:id/excel",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
+  const acceso=await alertaAccesible(req.session.usuario,req.params.id);
+  if(acceso.error) return res.status(acceso.status).json({error:acceso.error});
+  const id=enteroPositivo(req.params.id);
+  const [cab,seguimientos,acciones,contactos,cfg]=await Promise.all([
+    pool.query(`SELECT at.*,${nombreCompleto("e")} AS estudiante_nombre,e.cedula,
+      EXTRACT(YEAR FROM AGE(at.fecha_activacion,e.fecha_nacimiento))::int AS edad,
+      s.nombre AS seccion_nombre,m.nombre AS materia_nombre,${nombreCompleto("u")} AS profesor_nombre,
+      ${nombreCompleto("enc")} AS encargado_nombre,
+      COALESCE(NULLIF(enc.celular,''),NULLIF(enc.telefono,''),NULLIF(enc.telefono_trabajo,''),'') AS encargado_telefono
+      FROM alertas_tempranas at JOIN estudiantes e ON e.id=at.estudiante_id
+      LEFT JOIN secciones s ON s.id=at.seccion_id LEFT JOIN materias m ON m.id=at.materia_id JOIN usuarios u ON u.id=at.profesor_id
+      LEFT JOIN LATERAL (SELECT * FROM encargados x WHERE x.estudiante_id=e.id ORDER BY x.es_principal DESC,x.id LIMIT 1) enc ON true
+      WHERE at.id=$1`,[id]),
+    pool.query(`SELECT estado,observaciones,fecha,created_at,id FROM alerta_temprana_seguimientos WHERE alerta_id=$1 ORDER BY fecha,created_at,id`,[id]),
+    pool.query(`SELECT accion,fecha_inicio,fecha_final,responsable,observaciones,institucion_referida FROM alerta_temprana_acciones WHERE alerta_id=$1 ORDER BY fecha_inicio NULLS LAST,created_at`,[id]),
+    pool.query(`SELECT fecha,via_contacto,persona_contactada,comentarios FROM alerta_temprana_contactos WHERE alerta_id=$1 ORDER BY fecha,created_at`,[id]),
+    pool.query("SELECT COALESCE(nombre_centro,'Liceo de Calle Fallas') AS nombre_centro FROM config_centro ORDER BY id LIMIT 1")
+  ]);
+  const a=cab.rows[0];
+  if(!a) return res.status(404).json({error:"Alerta no encontrada."});
+  const estadoTexto={activada:"Activada",en_proceso:"En proceso",en_espera:"En espera",cerrada:"Cerrada",eliminada:"Eliminada"};
+  const hojaBoleta={
+    C2:a.estudiante_nombre,H2:a.cedula,L2:a.encargado_telefono||"",C3:a.edad??"",H3:a.seccion_nombre||"",
+    L3:fechaDocumento(a.fecha_activacion),E4:a.encargado_nombre||"",K4:a.encargado_telefono||"",
+    C5:cfg.rows[0]?.nombre_centro||"Liceo de Calle Fallas",H5:a.profesor_nombre
+  };
+  if(a.riesgo_ausentismo) hojaBoleta.N11="X";
+  const marcadores={1:'G16',2:'G17',3:'G18',4:'G19',5:'G20',6:'N16',7:'N17',8:'N18',9:'N19',10:'G22',11:'G23',12:'G24',13:'G25',14:'G27',15:'G28',16:'G29',17:'G30',18:'N22',19:'N23',20:'N24',21:'N25',22:'N26',23:'N27',24:'N28',25:'N29',26:'N30',27:'G33',28:'G34',29:'G35',30:'N33',31:'N34',32:'G38',33:'G39',34:'G40',35:'G41',36:'N38',37:'N40',38:'N42',39:'G45',40:'G46',41:'G47',42:'G48',43:'N45',44:'N46',45:'N47',46:'G50',47:'G51',48:'G52',49:'G53',50:'G54',51:'G55',52:'G56',53:'N50',54:'N53',55:'G58',56:'G60',57:'G61',58:'G62',59:'N58',60:'N59',61:'N60',62:'N61',63:'N62',64:'G64',65:'G65',66:'G66',67:'G67',68:'G68',69:'N64',70:'N66',71:'G71',72:'G72',73:'G73',74:'G74',75:'G75',76:'N71',77:'N72'};
+  const categorias=Array.isArray(a.categorias)?a.categorias:[];
+  categorias.map(Number).forEach(c=>{if(marcadores[c]) hojaBoleta[marcadores[c]]="X";});
+  const hojaSeguimiento={
+    B17:seguimientos.rows.map(x=>`${fechaDocumento(x.fecha)} · ${estadoTexto[x.estado]||x.estado}: ${x.observaciones}`).join("\n"),
+    E28:fechaDocumento(a.fecha_activacion),E29:fechaDocumento(a.fecha_cierre),E30:a.profesor_nombre
+  };
+  const estadoFila={activada:10,en_proceso:11,en_espera:12,cerrada:13,eliminada:14}[a.estado];
+  if(estadoFila) hojaSeguimiento[`Q${estadoFila}`]="X";
+  // En la plantilla oficial B4:C4 y B17:D17 son rótulos combinados. Los
+  // datos deben escribirse en D4 y B18 para que sí queden visibles.
+  const hojaPlan={D4:a.estudiante_nombre,C5:a.cedula,C6:a.seccion_nombre||"",C7:a.encargado_telefono||"",C8:categorias.join(", ")};
+  acciones.rows.slice(0,4).forEach((x,i)=>{const r=13+i;hojaPlan[`B${r}`]=x.accion;hojaPlan[`D${r}`]=fechaDocumento(x.fecha_inicio);hojaPlan[`E${r}`]=fechaDocumento(x.fecha_final);hojaPlan[`F${r}`]=x.responsable||"";hojaPlan[`G${r}`]=x.observaciones||"";});
+  hojaPlan.B18=acciones.rows.map(x=>x.institucion_referida).filter(Boolean).join(", ");
+  contactos.rows.slice(0,11).forEach((x,i)=>{const r=22+i;hojaPlan[`B${r}`]=fechaDocumento(x.fecha);hojaPlan[`D${r}`]=x.via_contacto;hojaPlan[`E${r}`]=x.persona_contactada||"";hojaPlan[`F${r}`]=x.comentarios||"";});
+  const archivo=await llenarPlantillaAlerta({
+    "2.BOLETA_III_CICLO_Y_EDUC__DIV_":hojaBoleta,
+    "3.BOLETA_DE_SEGUIMIENTO":hojaSeguimiento,
+    "4.PLAN_DE_ATENCIÓN":hojaPlan
+  });
+  const cedula=String(a.cedula||id).replace(/[^0-9A-Za-z_-]/g,"_");
+  res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition",`attachment; filename="Alerta_Temprana_${cedula}.xlsx"`);
+  res.setHeader("Cache-Control","no-store");
+  res.send(archivo);
 }));
 
 router.post("/alertas/:id/seguimientos",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{

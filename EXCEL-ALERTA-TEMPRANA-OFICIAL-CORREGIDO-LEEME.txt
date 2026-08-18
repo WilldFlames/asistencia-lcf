@@ -1,0 +1,34 @@
+EXCEL OFICIAL DE ALERTA TEMPRANA — CORRECCIÓN 17/08/2026
+
+Se sustituyó la plantilla anterior por el archivo oficial proporcionado:
+BOLETAATOFERTAIIICICLOYEDUCDIVERSIFICADA.xlsx
+
+DIFERENCIAS ENCONTRADAS
+- La copia anterior pesaba menos y solo contenía cuatro hojas.
+- Faltaba completamente la hoja "1.GUÍA".
+- También faltaban una imagen, un dibujo y sus relaciones internas.
+- La generación anterior abría y reconstruía el libro con SheetJS en el
+  navegador. Ese procedimiento podía eliminar imágenes, formas, comentarios,
+  relaciones y configuraciones de impresión del archivo oficial.
+- El nombre del estudiante y la institución referida del Plan de Atención se
+  escribían en celdas combinadas que pertenecían a los rótulos, por lo que
+  podían no aparecer visibles.
+
+SOLUCIÓN
+- La plantilla incluida en el sistema es una copia binaria exacta del archivo
+  oficial entregado.
+- El servidor genera la descarga modificando únicamente las celdas que debe
+  completar con información del expediente.
+- Se conservan las cinco hojas, cinco dibujos, cinco imágenes, comentarios,
+  relaciones, estilos y configuración de impresión de la plantilla original.
+- El Plan de Atención escribe el nombre y la institución en las posiciones
+  visibles correctas de esta versión oficial.
+- La descarga mantiene los permisos de Alerta Temprana: solamente quien puede
+  consultar el expediente puede solicitar el Excel.
+
+DESPLIEGUE
+- No requiere una variable nueva en Railway.
+- No requiere cambios manuales en PostgreSQL.
+- Railway instalará automáticamente la dependencia JSZip incluida en
+  package.json y package-lock.json.
+
