@@ -1,0 +1,32 @@
+PARCHE — RESUMEN DE IDIOMA Y TECNOLOGÍA
+=========================================
+
+En el módulo "Idioma y Tecnología — Noveno → Décimo" ahora aparecen los
+conteos de estudiantes que escogieron:
+
+- Inglés.
+- Francés.
+- Inglés Conversacional (Grupo A).
+- Diseño Publicitario (Grupo B).
+- Matem/AMPROSA (Grupo B).
+
+También se conservaron los indicadores existentes:
+
+- Total de estudiantes de noveno.
+- Formularios completos.
+- Formularios pendientes.
+- Boletas entregadas.
+
+FILTRO POR SECCIÓN
+
+Cuando se selecciona una sección, todos los conteos muestran únicamente los
+estudiantes de esa sección. Al seleccionar "Todas las secciones", se muestra
+el consolidado completo.
+
+Los números se actualizan inmediatamente cuando se cambia el idioma, la
+tecnología o el estado de entrega de la boleta.
+
+DESPLIEGUE
+
+- No necesita variables nuevas en Railway.
+- No necesita cambios manuales en PostgreSQL.

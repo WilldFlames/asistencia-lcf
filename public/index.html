@@ -219,6 +219,22 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 /* STATS */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
 .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:13px;text-align:center;}
+.it-stats-primary{grid-template-columns:repeat(4,minmax(120px,1fr));margin-bottom:12px;}
+.it-choice-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 2px 9px;}
+.it-choice-heading strong{font-size:13px;color:var(--azul);}
+.it-choice-heading span{font-size:11px;color:var(--muted);}
+.it-choice-stats{grid-template-columns:repeat(5,minmax(125px,1fr));margin-bottom:14px;}
+.it-choice-card{position:relative;overflow:hidden;text-align:left;padding:12px 13px 11px;border-left:4px solid var(--it-color,var(--azul2));}
+.it-choice-card::after{content:"";position:absolute;width:54px;height:54px;right:-18px;bottom:-22px;border-radius:50%;background:color-mix(in srgb,var(--it-color,var(--azul2)) 10%,transparent);}
+.it-choice-card .num{font-size:25px;line-height:1;color:var(--it-color,var(--azul2));}
+.it-choice-card .lbl{margin-top:6px;font-size:10.5px;line-height:1.2;text-transform:none;}
+.it-choice-card .it-group{display:block;margin-top:3px;font-size:9.5px;color:var(--muted);}
+@media(max-width:760px){
+  .it-stats-primary{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  .it-choice-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  .it-choice-stats .it-choice-card:last-child{grid-column:1/-1;}
+  .it-choice-heading{align-items:flex-start;flex-direction:column;gap:2px;}
+}
 .stat .num{font-size:28px;font-weight:bold;color:var(--azul);}
 .stat .num.green{color:var(--verde);}.stat .num.red{color:var(--rojo);}.stat .num.orange{color:var(--naranja);}
 .stat .lbl{font-size:11px;color:var(--muted);margin-top:3px;}
@@ -2294,12 +2310,19 @@ tr:hover td{background:#f8fafc;}
     </div>
     <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Registrá el <strong>idioma</strong> y la <strong>tecnología</strong> que eligió cada estudiante de noveno. Cuando se ratifique la matrícula a décimo, esta información aparece precargada. Se guarda automáticamente al cambiar cada campo. Recordá: Inglés Conversacional = <strong>Grupo A</strong> · Diseño Publicitario y Matem/AMPROSA = <strong>Grupo B</strong>.</p>
     <div id="alert-idiomatec" class="alert"></div>
-    <div class="stats" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px;">
+    <div class="stats it-stats-primary">
       <div class="stat"><div class="num" id="it-total">0</div><div class="lbl">Estudiantes 9°</div></div>
       <div class="stat"><div class="num green" id="it-completos">0</div><div class="lbl">Completos</div></div>
       <div class="stat"><div class="num orange" id="it-pendientes">0</div><div class="lbl">Pendientes</div></div>
-      <div class="stat"><div class="num" id="it-frances">0</div><div class="lbl">Francés</div></div>
       <div class="stat"><div class="num green" id="it-boletas">0</div><div class="lbl">Boletas entregadas</div></div>
+    </div>
+    <div class="it-choice-heading"><strong>📊 Resumen de elecciones</strong><span id="it-resumen-alcance">Todas las secciones</span></div>
+    <div class="stats it-choice-stats">
+      <div class="stat it-choice-card" style="--it-color:#2563a8;"><div class="num" id="it-ingles">0</div><div class="lbl">🇬🇧 Inglés</div></div>
+      <div class="stat it-choice-card" style="--it-color:#7759c8;"><div class="num" id="it-frances">0</div><div class="lbl">🇫🇷 Francés</div></div>
+      <div class="stat it-choice-card" style="--it-color:#18a66a;"><div class="num" id="it-ingles-conversacional">0</div><div class="lbl">🗣️ Inglés Conversacional</div><span class="it-group">Grupo A</span></div>
+      <div class="stat it-choice-card" style="--it-color:#ed8a32;"><div class="num" id="it-diseno-publicitario">0</div><div class="lbl">🎨 Diseño Publicitario</div><span class="it-group">Grupo B</span></div>
+      <div class="stat it-choice-card" style="--it-color:#dc4c5b;"><div class="num" id="it-matem-amprosa">0</div><div class="lbl">➗ Matem/AMPROSA</div><span class="it-group">Grupo B</span></div>
     </div>
     <div class="table-wrap"><table style="font-size:12.5px;">
       <thead><tr><th>#</th><th>Estudiante</th><th>Cédula</th><th>Sección</th><th>Idioma</th><th>Tecnología</th><th style="text-align:center;" title="Marcar cuando el estudiante entregue la boleta">📄 Boleta</th></tr></thead>
@@ -17131,19 +17154,29 @@ async function iniciarIdiomaTec(){
   }catch(e){ sa("alert-idiomatec", e.message, "danger"); }
 }
 
-function itStats(){
-  const completos = itData.filter(e=>e.idioma && e.tecnologia).length;
-  document.getElementById("it-total").textContent = itData.length;
+function itListaVisible(){
+  const filtro=document.getElementById("it-filtro-seccion")?.value||"";
+  return filtro ? itData.filter(e=>e.seccion_nombre===filtro) : itData;
+}
+
+function itStats(lista=itListaVisible()){
+  const completos = lista.filter(e=>e.idioma && e.tecnologia).length;
+  document.getElementById("it-total").textContent = lista.length;
   document.getElementById("it-completos").textContent = completos;
-  document.getElementById("it-pendientes").textContent = itData.length - completos;
-  document.getElementById("it-frances").textContent = itData.filter(e=>e.idioma==='Francés').length;
-  document.getElementById("it-boletas").textContent = itData.filter(e=>e.boleta_entregada).length;
+  document.getElementById("it-pendientes").textContent = lista.length - completos;
+  document.getElementById("it-boletas").textContent = lista.filter(e=>e.boleta_entregada).length;
+  document.getElementById("it-ingles").textContent = lista.filter(e=>e.idioma==='Inglés').length;
+  document.getElementById("it-frances").textContent = lista.filter(e=>e.idioma==='Francés').length;
+  document.getElementById("it-ingles-conversacional").textContent = lista.filter(e=>e.tecnologia==='Inglés Conversacional').length;
+  document.getElementById("it-diseno-publicitario").textContent = lista.filter(e=>e.tecnologia==='Diseño Publicitario').length;
+  document.getElementById("it-matem-amprosa").textContent = lista.filter(e=>e.tecnologia==='Matem/AMPROSA').length;
+  const filtro=document.getElementById("it-filtro-seccion")?.value||"";
+  document.getElementById("it-resumen-alcance").textContent=filtro?`Sección ${filtro}`:'Todas las secciones';
 }
 
 function itRender(){
-  const filtro = document.getElementById("it-filtro-seccion").value;
-  const lista = filtro ? itData.filter(e=>e.seccion_nombre===filtro) : itData;
-  itStats();
+  const lista = itListaVisible();
+  itStats(lista);
   const tbody = document.getElementById("it-tbody");
   if(!lista.length){ tbody.innerHTML = '<tr><td colspan="7" class="empty">No hay estudiantes de noveno en tus secciones.</td></tr>'; return; }
   const dis = itPuedeEditar ? '' : 'disabled';
