@@ -26,6 +26,30 @@ const LECCIONES_2027 = LECCIONES_2026.map(l => ({...l}));
 LECCIONES_2027[10] = { n: 11, ini: "15:00", fin: "15:40" };
 LECCIONES_2027[11] = { n: 12, ini: "15:40", fin: "16:20" };
 
+// Orden institucional de aulas tomado de la matriz oficial. Este catálogo
+// únicamente define las filas y sugerencias: el contenido de cada celda se
+// obtiene siempre de los horarios guardados para el curso lectivo consultado.
+const AULAS_BASE = [
+  "Aula 1",
+  ...Array.from({length:22},(_,i)=>`Aula ${i+4}`),
+  "Aula 2 (Industriales)", "Aula 3 (Hogar)",
+  "Gimnasio A", "Gimnasio B", "Artes Plásticas", "Música",
+  "Lab Informática", "Lab Diseño Publicitario",
+  "Lab Inglés Conversacional", "Biblioteca", "Audiovisuales"
+];
+
+function textoComparable(valor){
+  return String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+}
+
+function nombreAula(valor){
+  const texto=String(valor??'').trim();
+  if(!texto) return '';
+  if(/^\d+$/.test(texto)) return `Aula ${Number(texto)}`;
+  const canon=AULAS_BASE.find(a=>textoComparable(a)===textoComparable(texto));
+  return canon||texto;
+}
+
 function obtenerLecciones(anio){
   return Number(anio) >= 2027 ? LECCIONES_2027 : LECCIONES_2026;
 }
@@ -106,8 +130,8 @@ router.get("/lecciones", requireAuth, async (req, res) => {
 });
 
 // ── DOCENTES DISPONIBLES PARA ADMINISTRAR SU HORARIO ────────────────────
-router.get("/docentes", requireRol("admin"), asyncRoute(async (req,res)=>{
-  const anio=parseInt(req.query.anio)||await obtenerAnioActivo();
+router.get("/docentes", requireRol("admin","secretaria"), asyncRoute(async (req,res)=>{
+  const anio=await anioVisiblePara(req);
   const r=await pool.query(`SELECT DISTINCT u.id,u.nombre,u.primer_apellido,u.segundo_apellido
     FROM usuarios u
     WHERE u.activo=true AND (
@@ -118,13 +142,46 @@ router.get("/docentes", requireRol("admin"), asyncRoute(async (req,res)=>{
   res.json(r.rows);
 }));
 
-router.get("/docente/:id", requireRol("admin"), asyncRoute(async (req,res)=>{
+router.get("/docente/:id", requireRol("admin","secretaria"), asyncRoute(async (req,res)=>{
   const profesorId=enteroRango(req.params.id,1,2147483647);
-  const anio=parseInt(req.query.anio)||await obtenerAnioActivo();
+  const anio=await anioVisiblePara(req);
   if(!profesorId) return res.status(400).json({error:'Docente inválido.'});
   const docente=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido FROM usuarios WHERE id=$1 AND activo=true`,[profesorId]);
   if(!docente.rows.length) return res.status(404).json({error:'Docente no encontrado.'});
   res.json({anio,docente:docente.rows[0],...(await horarioCompletoDocente(profesorId,anio))});
+}));
+
+// ── MATRIZ INSTITUCIONAL DE AULAS ──────────────────────────────────────
+// Secretaría y administración pueden consultarla. Secretaría queda atada al
+// año activo; administración puede revisar también el año que está preparando.
+router.get("/aulas", requireRol("admin","secretaria"), asyncRoute(async (req,res)=>{
+  const anio=await anioVisiblePara(req);
+  const r=await pool.query(`
+    SELECT h.dia,h.leccion,h.aula,s.nombre AS seccion_nombre,
+      a.subgrupo,m.nombre AS materia_nombre,
+      u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2,
+      false AS es_bloque
+    FROM horarios h
+    JOIN secciones s ON s.id=h.seccion_id
+    LEFT JOIN asignaciones a ON a.id=h.asignacion_id
+    LEFT JOIN materias m ON m.id=a.materia_id
+    LEFT JOIN usuarios u ON u.id=a.profesor_id
+    WHERE h.anio=$1 AND NULLIF(BTRIM(h.aula::text),'') IS NOT NULL
+    UNION ALL
+    SELECT b.dia,b.leccion,b.lugar AS aula,
+      CASE WHEN b.tipo='club' THEN 'CLUB' ELSE 'COORDINACIÓN' END AS seccion_nombre,
+      NULL AS subgrupo,COALESCE(NULLIF(b.detalle,''),INITCAP(b.tipo)) AS materia_nombre,
+      u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2,
+      true AS es_bloque
+    FROM horario_bloques_docente b
+    JOIN usuarios u ON u.id=b.profesor_id
+    WHERE b.anio=$1 AND NULLIF(BTRIM(b.lugar),'') IS NOT NULL
+    ORDER BY dia,leccion,seccion_nombre,materia_nombre`,[anio]);
+  const celdas=r.rows.map(c=>({...c,aula:nombreAula(c.aula)}));
+  const conocidas=new Set(AULAS_BASE.map(textoComparable));
+  const adicionales=[...new Set(celdas.map(c=>c.aula).filter(a=>a&&!conocidas.has(textoComparable(a))))]
+    .sort((a,b)=>a.localeCompare(b,'es',{numeric:true,sensitivity:'base'}));
+  res.json({anio,aulas:[...AULAS_BASE,...adicionales],celdas});
 }));
 
 router.post("/bloques", requireRol("admin"), asyncRoute(async (req,res)=>{
@@ -257,10 +314,10 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
       if(!c.asignacion_id && !c.materia_texto) continue; // celda libre — no se guarda
       let aula = null;
       if(c.aula !== undefined && c.aula !== null && String(c.aula).trim() !== ''){
-        aula = parseInt(c.aula);
-        if(isNaN(aula) || aula < 0 || aula > 30){
+        aula = nombreAula(c.aula);
+        if(aula.length > 80 || /[\u0000-\u001f\u007f]/.test(aula)){
           await client.query("ROLLBACK");
-          return res.status(400).json({ error: `Aula inválida "${c.aula}" (día ${c.dia}, lección ${c.leccion}). Debe ser un número de 0 a 30.` });
+          return res.status(400).json({ error: `El nombre del aula en el día ${c.dia}, lección ${c.leccion}, no es válido.` });
         }
       }
       await client.query(`
@@ -287,3 +344,5 @@ router.get("/mi-horario", requireAuth, asyncRoute(async (req, res) => {
 module.exports = router;
 module.exports.LECCIONES = LECCIONES_2026;
 module.exports.obtenerLecciones = obtenerLecciones;
+module.exports.AULAS_BASE = AULAS_BASE;
+module.exports.nombreAula = nombreAula;

@@ -13,12 +13,14 @@ test('Club y Coordinación tienen almacenamiento anual separado de las secciones
   assert.match(db,/REFERENCES usuarios\(id\) ON DELETE CASCADE/);
 });
 
-test('solo administración agrega, modifica y elimina bloques docentes',()=>{
+test('secretaría puede consultar, pero solo administración modifica bloques docentes',()=>{
   const ruta=leer('routes/horarios.js');
+  const ui=leer('public/index.html');
   assert.match(ruta,/router\.post\("\/bloques", requireRol\("admin"\)/);
   assert.match(ruta,/router\.put\("\/bloques\/:id", requireRol\("admin"\)/);
   assert.match(ruta,/router\.delete\("\/bloques\/:id", requireRol\("admin"\)/);
-  assert.match(ruta,/router\.get\("\/docente\/:id", requireRol\("admin"\)/);
+  assert.match(ruta,/router\.get\("\/docente\/:id", requireRol\("admin","secretaria"\)/);
+  assert.match(ui,/document\.getElementById\('hor-bloques-admin'\)\.style\.display=ME\.rol==='admin'/);
 });
 
 test('el horario completo combina clases y bloques y calcula sus totales',()=>{

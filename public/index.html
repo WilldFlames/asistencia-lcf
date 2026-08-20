@@ -313,7 +313,7 @@ td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle;
 .hor-break-row.hor-lunch .hor-break-band{color:#166534;height:31px;}
 .hor-editor-row{display:flex;gap:4px;margin-bottom:4px;align-items:stretch;}
 .hor-editor-select{min-width:0;flex:1;font-size:10.5px;padding:5px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;}
-.hor-editor-room{width:48px;font-size:10.5px;padding:4px 2px;border:1px solid #cbd5e1;border-radius:6px;text-align:center;}
+.hor-editor-room{width:86px;font-size:10px;padding:4px;border:1px solid #cbd5e1;border-radius:6px;text-align:center;}
 .hor-editor-remove{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;border-radius:6px;padding:0 6px;font-size:11px;cursor:pointer;}
 .hor-editor-add{width:100%;font-size:10px;padding:3px 5px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:5px;color:#64748b;cursor:pointer;}
 .hor-editor-add:hover{background:#eff6ff;color:#1d4ed8;border-color:#93c5fd;}
@@ -325,8 +325,30 @@ td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle;
 .hor-extra-form{display:grid;grid-template-columns:145px 145px 145px minmax(180px,1fr) minmax(130px,.7fr) auto;gap:9px;align-items:end;}
 .hor-extra-list{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap;}
 .hor-extra-chip{display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid #ddd6fe;border-radius:9px;background:#fff;font-size:11px;}
+.hor-aulas-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;padding:4px 2px 12px;}
+.hor-day-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+.hor-day-tab{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:7px 13px;font-size:11px;font-weight:800;cursor:pointer;}
+.hor-day-tab.active{background:#1a3a5c;border-color:#1a3a5c;color:#fff;box-shadow:0 3px 9px rgba(26,58,92,.2);}
+.hor-aulas-summary{display:flex;gap:7px;flex-wrap:wrap;font-size:10.5px;color:#475569;}
+.hor-aulas-summary span{padding:5px 9px;border:1px solid #dbe4ee;background:#f8fafc;border-radius:999px;font-weight:700;}
+.hor-aulas-scroll{overflow:auto;border:1px solid #cbd5e1;border-radius:11px;background:#fff;max-height:68vh;}
+.hor-aulas-table{width:100%;min-width:1180px;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:10px;}
+.hor-aulas-table th,.hor-aulas-table td{border-right:1px solid #dbe4ee;border-bottom:1px solid #dbe4ee;text-align:center;vertical-align:middle;}
+.hor-aulas-table thead th{position:sticky;top:0;z-index:4;height:49px;padding:5px 3px;background:#1a3a5c;color:#fff;font-size:10px;}
+.hor-aulas-table thead th:first-child{left:0;z-index:6;width:165px;text-align:left;padding-left:12px;}
+.hor-aulas-table thead small{display:block;margin-top:3px;color:#c8d9ec;font-size:8px;font-weight:500;}
+.hor-aulas-table tbody th{position:sticky;left:0;z-index:2;width:165px;padding:7px 10px;background:#f6f9fc;color:#183b5d;text-align:left;font-size:10px;line-height:1.15;}
+.hor-aulas-table tbody tr:nth-child(even) th{background:#eef4f9;}
+.hor-aulas-table td{height:45px;padding:3px;background:#fff;}
+.hor-aulas-table tbody tr:nth-child(even) td{background:#fbfdff;}
+.hor-aula-entry{display:block;padding:3px 2px;border-radius:5px;background:#edf5ff;color:#173e68;font-weight:850;line-height:1.12;overflow-wrap:anywhere;}
+.hor-aula-entry+.hor-aula-entry{margin-top:2px;border-top:1px dashed #9fb7ce;}
+.hor-aula-entry small{display:block;margin-top:2px;color:#64748b;font-size:7.5px;font-weight:600;}
+.hor-aulas-conflict{background:#fff1f2!important;box-shadow:inset 0 0 0 2px #fb7185;}
+.hor-aulas-conflict .hor-aula-entry{background:#ffe4e6;color:#9f1239;}
+.hor-aulas-empty{color:#d5dee8;}
 @media(max-width:1100px){.hor-extra-form{grid-template-columns:repeat(3,minmax(150px,1fr));}.hor-summary{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:900px){.hor-table{min-width:820px}.hor-toolbar{padding:10px}.hor-guide-chip{width:100%;border-radius:7px}.hor-table td{height:64px}}
+@media(max-width:900px){.hor-table{min-width:820px}.hor-toolbar{padding:10px}.hor-guide-chip{width:100%;border-radius:7px}.hor-table td{height:64px}.hor-aulas-scroll{max-height:62vh}.hor-day-tab{padding:7px 10px}.hor-aulas-table{min-width:1030px}}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:#f8fafc;}
 .empty{text-align:center;padding:32px;color:var(--muted);}
@@ -2338,6 +2360,7 @@ tr:hover td{background:#f8fafc;}
       <h2 style="margin:0">🕐 Horario — Curso Lectivo <span id="hor-anio-label"></span></h2>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" id="hor-btn-mi" onclick="horVerMiHorario()" style="display:none;">👤 Mi horario</button>
+        <button class="btn btn-info btn-sm" id="hor-btn-aulas" onclick="horVerAulas()" style="display:none;">🏫 Horario de aulas</button>
         <button class="btn btn-purple btn-sm" id="hor-btn-docentes" onclick="horVerDocentes()" style="display:none;">👥 Horarios docentes</button>
         <button class="btn btn-outline btn-sm" id="hor-btn-secciones" onclick="horVolverSecciones()" style="display:none;">← Horarios de secciones</button>
         <button class="btn btn-success btn-sm" onclick="horImprimir()" id="hor-btn-imprimir" style="display:none;">🖨️ Imprimir</button>
@@ -2377,6 +2400,7 @@ tr:hover td{background:#f8fafc;}
       <div id="hor-bloques-lista" class="hor-extra-list"></div>
     </div>
     <div id="hor-grid-wrap" class="table-wrap"></div>
+    <datalist id="hor-aulas-opciones"></datalist>
   </div>
 </div>
 
@@ -5851,7 +5875,7 @@ async function iniciarApp(){
   // ── HORARIO ──────────────────────────────────────────────────
   // Admin edita; profes/guías/orientadores ven horarios de secciones
   // y el suyo propio. Auxiliar/administrativo también pueden consultar.
-  if(esAdmin||esProfesor||esGuia||esOrientador||esAuxiliar||esAdminIst){
+  if(esAdmin||esProfesor||esGuia||esOrientador||esAuxiliar||esAdminIst||esSecretaria){
     document.getElementById("nav-horario").style.display="";
   }
 
@@ -17256,12 +17280,20 @@ async function itGuardar(id, selEl, campo){
 let horLecciones = [];     // catálogo [{n,ini,fin}]
 let horLeccionesAnio = null;
 let horAsigsSeccion = [];  // asignaciones de la sección seleccionada (admin)
-let horModo = 'seccion';   // 'seccion' | 'mio' | 'docente-admin'
+let horModo = 'seccion';   // 'seccion' | 'mio' | 'docente-admin' | 'aulas'
 let horBloquesDocente = [];
 let horBloqueEditando = 0;
 let horDocenteNombreActual = '';
 let horResumenActual = null;
+let horAulasActual = {aulas:[],celdas:[]};
+let horDiaAulas = 1;
 const HOR_DIAS = ['','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES'];
+const HOR_AULAS_BASE = [
+  'Aula 1', ...Array.from({length:22},(_,i)=>`Aula ${i+4}`),
+  'Aula 2 (Industriales)','Aula 3 (Hogar)','Gimnasio A','Gimnasio B',
+  'Artes Plásticas','Música','Lab Informática','Lab Diseño Publicitario',
+  'Lab Inglés Conversacional','Biblioteca','Audiovisuales'
+];
 const HOR_TIPOS_SEPARADOR = {
   2:{tipo:'recreo',icono:'☕',etiqueta:'Recreo'},
   4:{tipo:'recreo',icono:'☕',etiqueta:'Recreo'},
@@ -17287,26 +17319,29 @@ function horSeparadorDespues(leccion){
 async function horCambiarAnio(){
   if(horModo==='docente-admin') return horVerDocentes(true);
   if(horModo==='mio') return horVerMiHorario();
+  if(horModo==='aulas') return horVerAulas();
   return horCargarSeccion();
 }
 
 function horControlesModo(modo){
   const docenteAdmin=modo==='docente-admin',seccion=modo==='seccion';
+  const institucional=tieneAlgunRol('admin','secretaria');
+  const esDocenteH=tieneAlgunRol('profesor','profesor_guia','orientador');
   document.getElementById('hor-seccion-wrap').style.display=seccion?'':'none';
   document.getElementById('hor-docente-wrap').style.display=docenteAdmin?'':'none';
-  document.getElementById('hor-btn-docentes').style.display=ME.rol==='admin'&&seccion?'':'none';
+  document.getElementById('hor-btn-mi').style.display=esDocenteH&&modo!=='mio'?'':'none';
+  document.getElementById('hor-btn-aulas').style.display=institucional&&modo!=='aulas'?'':'none';
+  document.getElementById('hor-btn-docentes').style.display=institucional&&modo!=='docente-admin'?'':'none';
   document.getElementById('hor-btn-secciones').style.display=ME.rol==='admin'&&!seccion?'':'none';
   if(!docenteAdmin) document.getElementById('hor-bloques-admin').style.display='none';
 }
 
 async function iniciarHorario(){
-  horModo = 'seccion';
   const esAdminH = ME.rol === 'admin';
-  const esDocenteH = tieneAlgunRol('profesor','profesor_guia','orientador');
-  document.getElementById('hor-btn-mi').style.display = esDocenteH ? '' : 'none';
-  document.getElementById('hor-btn-docentes').style.display = esAdminH ? '' : 'none';
-  document.getElementById('hor-btn-secciones').style.display = 'none';
-  horControlesModo('seccion');
+  const esSecretariaH = ME.rol === 'secretaria';
+  horModo = esSecretariaH ? 'aulas' : 'seccion';
+  horControlesModo(horModo);
+  document.getElementById('hor-aulas-opciones').innerHTML=HOR_AULAS_BASE.map(a=>`<option value="${htmlSeguro(a)}"></option>`).join('');
   const anioInput = document.getElementById('hor-anio');
   // Solo admin puede preparar el año siguiente. Los profesores, guías y
   // orientadores ven exclusivamente el horario del curso lectivo activo.
@@ -17327,6 +17362,10 @@ async function iniciarHorario(){
     } else {
       aviso.style.display = 'none';
     }
+  }
+  if(esSecretariaH){
+    try{ await horCargarLecciones(anioInput.value); }catch{}
+    return horVerAulas();
   }
   // Poblar únicamente las secciones habilitadas para el año seleccionado.
   const sel = document.getElementById('hor-seccion');
@@ -17405,6 +17444,12 @@ function horEtiquetaAsig(a){
   return `${a.materia_nombre}${sub} — ${nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2)}`;
 }
 
+function horAulaEtiqueta(valor){
+  const texto=String(valor??'').trim();
+  if(!texto) return '';
+  return /^\d+$/.test(texto)?`Aula ${Number(texto)}`:texto;
+}
+
 function horRenderGrid(mapa, editable){
   const diaHoy = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).getDay();
   let html = '<table class="hor-table"><colgroup><col class="hor-col-num"><col class="hor-col-time">' +
@@ -17428,10 +17473,10 @@ function horRenderGrid(mapa, editable){
             horAsigsSeccion.map(a =>
               `<option value="${a.id}" ${c && String(c.asignacion_id)===String(a.id) ? 'selected':''}>${horEtiquetaAsig(a)}</option>`)
           ).join('');
-          const aulaVal = (c && c.aula !== null && c.aula !== undefined) ? c.aula : '';
+          const aulaVal = (c && c.aula !== null && c.aula !== undefined) ? horAulaEtiqueta(c.aula) : '';
           inner += `<div class="hor-fila hor-editor-row" data-dia="${dia}" data-leccion="${lec.n}">
             <select class="hor-celda hor-editor-select" data-dia="${dia}" data-leccion="${lec.n}">${opts}</select>
-            <input type="number" min="0" max="30" class="hor-aula hor-editor-room" data-dia="${dia}" data-leccion="${lec.n}" value="${aulaVal}" placeholder="Aula" title="Aula"/>
+            <input type="text" maxlength="80" list="hor-aulas-opciones" class="hor-aula hor-editor-room" data-dia="${dia}" data-leccion="${lec.n}" value="${htmlSeguro(aulaVal)}" placeholder="Aula" title="Escriba o seleccione un aula"/>
             ${idx > 0 ? `<button type="button" class="hor-editor-remove" onclick="horBorrarFila(this)" title="Quitar esta materia">✕</button>` : ''}
           </div>`;
         });
@@ -17444,7 +17489,7 @@ function horRenderGrid(mapa, editable){
         if(!celdas.length){ html += `<td class="hor-slot hor-empty${hoyClass}" data-dia="${dia}">—</td>`; continue; }
         const partes = celdas.map(c => {
           const aulaTxt = (c.aula !== null && c.aula !== undefined && c.aula !== '')
-            ? `<span class="hor-room">${c.es_bloque?'📍 ':'Aula '}${htmlSeguro(c.aula)}</span>` : '';
+            ? `<span class="hor-room">${c.es_bloque?'📍 ':''}${htmlSeguro(c.es_bloque?c.aula:horAulaEtiqueta(c.aula))}</span>` : '';
           if(c.es_bloque){
             const tipo=c.tipo==='club'?'Club':'Coordinación';
             const icono=c.tipo==='club'?'🎨':'🤝';
@@ -17480,7 +17525,7 @@ function horAgregarFila(btn, dia, leccion){
   fila.dataset.leccion = leccion;
   fila.innerHTML = `
     <select class="hor-celda hor-editor-select" data-dia="${dia}" data-leccion="${leccion}">${opts}</select>
-    <input type="number" min="0" max="30" class="hor-aula hor-editor-room" data-dia="${dia}" data-leccion="${leccion}" placeholder="Aula" title="Aula"/>
+    <input type="text" maxlength="80" list="hor-aulas-opciones" class="hor-aula hor-editor-room" data-dia="${dia}" data-leccion="${leccion}" placeholder="Aula" title="Escriba o seleccione un aula"/>
     <button type="button" class="hor-editor-remove" onclick="horBorrarFila(this)" title="Quitar esta materia">✕</button>
   `;
   td.insertBefore(fila, btn);
@@ -17541,6 +17586,89 @@ function horRenderHorarioDocente(r,titulo){
   document.getElementById('hor-btn-imprimir').style.display='';
 }
 
+function horClaveAula(valor){
+  return horAulaEtiqueta(valor).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+
+function horDatosAula(dia,aula,leccion){
+  const clave=horClaveAula(aula);
+  return (horAulasActual.celdas||[]).filter(c=>Number(c.dia)===Number(dia)&&Number(c.leccion)===Number(leccion)&&horClaveAula(c.aula)===clave);
+}
+
+function horRenderMatrizAulas(dia,paraImprimir=false){
+  const aulas=horAulasActual.aulas||[];
+  let html=`<table class="hor-aulas-table"><thead><tr><th>AULA / LECCIÓN</th>${horLecciones.map(l=>`<th>${l.n}<small>${l.ini} – ${l.fin}</small></th>`).join('')}</tr></thead><tbody>`;
+  aulas.forEach(aula=>{
+    html+=`<tr><th>${htmlSeguro(aula)}</th>`;
+    horLecciones.forEach(l=>{
+      const items=horDatosAula(dia,aula,l.n);
+      const secciones=new Set(items.map(c=>String(c.seccion_nombre||'').trim()).filter(Boolean));
+      const conflicto=secciones.size>1;
+      const contenido=items.length?items.map(c=>{
+        const sub=c.subgrupo?` · ${htmlSeguro(c.subgrupo)}`:'';
+        const profesor=nombreDesdeCampos(c.prof_nombre,c.prof_ap1,c.prof_ap2);
+        const detalle=[c.materia_nombre,profesor].filter(Boolean).join(' · ');
+        return `<span class="hor-aula-entry" title="${htmlSeguro(detalle)}">${htmlSeguro(c.seccion_nombre||'—')}${sub}${detalle?`<small>${htmlSeguro(c.materia_nombre||'')}</small>`:''}</span>`;
+      }).join(''):'<span class="hor-aulas-empty">—</span>';
+      html+=`<td class="${conflicto?'hor-aulas-conflict':''}"${conflicto?' title="Atención: hay más de una sección en esta aula y lección."':''}>${contenido}</td>`;
+    });
+    html+='</tr>';
+  });
+  return html+'</tbody></table>';
+}
+
+function horResumenAulasDia(dia){
+  let ocupadas=0,conflictos=0;
+  (horAulasActual.aulas||[]).forEach(aula=>horLecciones.forEach(l=>{
+    const items=horDatosAula(dia,aula,l.n);
+    if(items.length)ocupadas++;
+    if(new Set(items.map(c=>c.seccion_nombre).filter(Boolean)).size>1)conflictos++;
+  }));
+  return {ocupadas,conflictos};
+}
+
+function horSeleccionarDiaAulas(dia){
+  horDiaAulas=Number(dia)||1;
+  horRenderAulas();
+}
+
+function horRenderAulas(){
+  const r=horResumenAulasDia(horDiaAulas);
+  document.getElementById('hor-grid-wrap').innerHTML=`
+    <div class="hor-aulas-head">
+      <div class="hor-day-tabs">${HOR_DIAS.slice(1).map((d,i)=>`<button type="button" class="hor-day-tab ${horDiaAulas===i+1?'active':''}" onclick="horSeleccionarDiaAulas(${i+1})">${d.charAt(0)+d.slice(1).toLowerCase()}</button>`).join('')}</div>
+      <div class="hor-aulas-summary"><span>🏫 ${r.ocupadas} espacios ocupados</span>${r.conflictos?`<span style="color:#be123c;border-color:#fecdd3;background:#fff1f2;">⚠️ ${r.conflictos} posible${r.conflictos===1?'':'s'} cruce${r.conflictos===1?'':'s'}</span>`:'<span style="color:#15803d;">✓ Sin cruces de aula</span>'}</div>
+    </div>
+    <div class="hor-aulas-scroll">${horRenderMatrizAulas(horDiaAulas)}</div>`;
+}
+
+async function horVerAulas(){
+  horModo='aulas';horControlesModo('aulas');
+  const anio=document.getElementById('hor-anio').value||ANIO_LECTIVO_ACTIVO;
+  document.getElementById('hor-anio-label').textContent=anio;
+  document.getElementById('hor-btn-guardar').style.display='none';
+  document.getElementById('hor-btn-imprimir').style.display='none';
+  document.getElementById('hor-guia-label').style.display='none';
+  document.getElementById('hor-grid-wrap').innerHTML='<div style="text-align:center;padding:34px;color:var(--muted);">Cargando horario institucional de aulas...</div>';
+  try{
+    await horCargarLecciones(anio);
+    horAulasActual=await api(`/api/horarios/aulas?anio=${anio}`);
+    document.getElementById('hor-aulas-opciones').innerHTML=(horAulasActual.aulas||HOR_AULAS_BASE).map(a=>`<option value="${htmlSeguro(a)}"></option>`).join('');
+    horRenderAulas();
+    document.getElementById('hor-btn-imprimir').style.display='';
+  }catch(e){sa('alert-horario',e.message,'danger');document.getElementById('hor-grid-wrap').innerHTML='';}
+}
+
+function horImprimirAulas(){
+  const anio=document.getElementById('hor-anio').value||ANIO_LECTIVO_ACTIVO;
+  const paginas=HOR_DIAS.slice(1).map((dia,i)=>`<section class="aula-page"><h1>CURSO LECTIVO ${htmlSeguro(anio)} — HORARIO DE AULAS</h1><h2>${dia}</h2>${horRenderMatrizAulas(i+1,true)}</section>`).join('');
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Horario de aulas ${htmlSeguro(anio)}</title><style>
+    @page{size:legal landscape;margin:6mm;}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#111;margin:0}.aula-page{page-break-after:always}.aula-page:last-child{page-break-after:auto}h1{text-align:center;font-size:13px;margin:0 0 2px}h2{text-align:center;font-size:12px;margin:0 0 5px}.hor-aulas-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:7px}.hor-aulas-table th,.hor-aulas-table td{border:1px solid #333;text-align:center;vertical-align:middle;padding:1px}.hor-aulas-table thead th{height:25px;background:#e9eef3}.hor-aulas-table thead th:first-child,.hor-aulas-table tbody th{width:104px;text-align:left;padding-left:4px}.hor-aulas-table thead small{display:block;font-size:5.8px;font-weight:normal}.hor-aulas-table tbody td,.hor-aulas-table tbody th{height:14px}.hor-aula-entry{display:block;font-weight:bold;line-height:1.05}.hor-aula-entry+.hor-aula-entry{border-top:1px dashed #777}.hor-aula-entry small{display:none}.hor-aulas-empty{color:#bbb}.hor-aulas-conflict{background:#fee2e2}@media print{.aula-page{break-after:page}.aula-page:last-child{break-after:auto}}
+  <\/style></head><body>${paginas}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
 async function horVerMiHorario(){
   horModo='mio';horControlesModo('mio');
   const anio=document.getElementById('hor-anio').value||ANIO_LECTIVO_ACTIVO;
@@ -17575,7 +17703,7 @@ async function horVerDocentes(conservar=false){
     if(sel.value)await horCargarDocenteAdmin();
     else{
       document.getElementById('hor-bloques-admin').style.display='none';
-      document.getElementById('hor-grid-wrap').innerHTML='<div style="text-align:center;padding:34px;color:var(--muted);">Seleccione un docente para ver y completar su horario.</div>';
+      document.getElementById('hor-grid-wrap').innerHTML=`<div style="text-align:center;padding:34px;color:var(--muted);">Seleccione un docente para ${ME.rol==='admin'?'ver y completar':'consultar'} su horario.</div>`;
     }
   }catch(e){sa('alert-horario',e.message,'danger');}
 }
@@ -17592,8 +17720,8 @@ async function horCargarDocenteAdmin(){
   try{
     const r=await api(`/api/horarios/docente/${profesorId}?anio=${anio}`);
     horBloquesDocente=r.bloques||[];horDocenteNombreActual=nombrePersona(r.docente);
-    document.getElementById('hor-bloques-admin').style.display='';
-    horRenderListaBloques();
+    document.getElementById('hor-bloques-admin').style.display=ME.rol==='admin'?'':'none';
+    if(ME.rol==='admin')horRenderListaBloques();
     horRenderHorarioDocente(r,`Horario de ${horDocenteNombreActual}`);
   }catch(e){sa('alert-horario',e.message,'danger');}
 }
@@ -17639,6 +17767,7 @@ async function horEliminarBloque(id){
 }
 
 function horImprimir(){
+  if(horModo==='aulas') return horImprimirAulas();
   const anio = document.getElementById('hor-anio').value || ANIO_LECTIVO_ACTIVO;
   const secSel = document.getElementById('hor-seccion');
   const esHorarioDocente=horModo==='mio'||horModo==='docente-admin';

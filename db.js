@@ -1983,7 +1983,7 @@ async function initDB() {
         leccion       INTEGER NOT NULL CHECK(leccion BETWEEN 1 AND 12),
         asignacion_id INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
         materia_texto TEXT DEFAULT NULL,
-        aula          INTEGER DEFAULT NULL
+        aula          TEXT DEFAULT NULL
       )
     `);
     // El UNIQUE viejo restringía a una única asignación por celda. Se elimina
@@ -2016,7 +2016,22 @@ async function initDB() {
         END LOOP;
       END $$`);
     // Migración aditiva por si la tabla ya existía sin la columna
-    await client.query(`ALTER TABLE horarios ADD COLUMN IF NOT EXISTS aula INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE horarios ADD COLUMN IF NOT EXISTS aula TEXT DEFAULT NULL`);
+    // Las primeras versiones admitían únicamente números de aula. Se amplía a
+    // texto para espacios como Gimnasio, Biblioteca y laboratorios, conservando
+    // intactos los valores existentes (13 pasa a ser "13").
+    await client.query(`DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema=current_schema() AND table_name='horarios'
+            AND column_name='aula' AND data_type <> 'text'
+        ) THEN
+          ALTER TABLE horarios ALTER COLUMN aula TYPE TEXT USING aula::text;
+        END IF;
+      END $$`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_horarios_aula_anio
+      ON horarios(anio,aula,dia,leccion)`);
 
     // ── BLOQUES ADICIONALES DEL HORARIO DOCENTE ────────────────────────
     // No pertenecen a una sección ni generan asistencia. Se combinan con
