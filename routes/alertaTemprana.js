@@ -165,7 +165,10 @@ router.get("/estudiantes",requireAuth,requireParticipante,asyncRoute(async(req,r
       ${nombreApellidos("e")} AS nombre_ordenado,${nombreCompleto("e")} AS nombre_completo,
       s.nombre AS seccion_nombre,EXTRACT(YEAR FROM AGE(CURRENT_DATE,e.fecha_nacimiento))::int AS edad,
       COALESCE(NULLIF(enc.celular,''),NULLIF(enc.telefono,''),NULLIF(enc.telefono_trabajo,''),'') AS telefono,
-      ${nombreCompleto("enc")} AS encargado_nombre,COALESCE(NULLIF(enc.celular,''),NULLIF(enc.telefono,''),NULLIF(enc.telefono_trabajo,''),'') AS encargado_telefono
+      ${nombreCompleto("enc")} AS encargado_nombre,
+      COALESCE(enc.telefono,'') AS encargado_telefono,
+      COALESCE(enc.celular,'') AS encargado_celular,
+      COALESCE(enc.telefono_trabajo,'') AS encargado_telefono_trabajo
     FROM estudiantes e JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN LATERAL (SELECT * FROM encargados x WHERE x.estudiante_id=e.id ORDER BY x.es_principal DESC,x.id LIMIT 1) enc ON true
     WHERE e.seccion_id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false

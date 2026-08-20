@@ -218,6 +218,52 @@ router.get("/evaluaciones", requireAuth, async (req, res) => {
   }
 });
 
+// Cuadro individual, de solo lectura, para Trabajo cotidiano o Tareas.
+// Sin estudiante_id devuelve únicamente la lista de estudiantes disponible
+// para el selector; con estudiante_id incluye el detalle derivado de notas.
+router.get("/resumen-rubro", requireAuth, async (req,res)=>{
+  const u=req.session.usuario;
+  const {seccion_id,materia_id,subgrupo,periodo}=req.query;
+  const tipo=String(req.query.tipo||"");
+  const estudianteId=Number(req.query.estudiante_id)||null;
+  if(!seccion_id||!materia_id||!periodo||!["cotidiano","tarea"].includes(tipo))
+    return res.status(400).json({error:"Faltan datos para generar el resumen."});
+  const asig=await verificarAsignacion(u.id,seccion_id,materia_id,subgrupo,periodo);
+  if(!asig) return res.status(403).json({error:"Sin acceso a esta asignación."});
+  const estudiantes=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido
+    FROM estudiantes e WHERE e.seccion_id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false
+      AND ($2::text IS NULL OR e.subgrupo=$2)
+    ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre`,[seccion_id,subgrupo||null]);
+  if(!estudianteId) return res.json({asignacion:asig,estudiantes:estudiantes.rows,tipo,evaluaciones:[]});
+  const estudiante=estudiantes.rows.find(e=>Number(e.id)===estudianteId);
+  if(!estudiante) return res.status(403).json({error:"El estudiante no pertenece a esta asignación."});
+  const evaluaciones=await pool.query(`SELECT id,nombre,descripcion,fecha,fecha_asignacion,puntaje_total
+    FROM evaluaciones WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3
+      AND ($4::text IS NULL AND subgrupo IS NULL OR subgrupo=$4)
+      AND periodo=$5 AND tipo=$6 ORDER BY fecha,id`,
+    [u.id,seccion_id,materia_id,subgrupo||null,periodo,tipo]);
+  const ids=evaluaciones.rows.map(e=>e.id);
+  let indicadores=[],notas=[];
+  if(ids.length){
+    indicadores=(await pool.query(`SELECT id,evaluacion_id,orden,descripcion,puntaje_maximo
+      FROM indicadores WHERE evaluacion_id=ANY($1::int[]) ORDER BY evaluacion_id,orden`,[ids])).rows;
+    notas=(await pool.query(`SELECT evaluacion_id,indicador_id,puntaje FROM notas_indicador
+      WHERE evaluacion_id=ANY($1::int[]) AND estudiante_id=$2`,[ids,estudianteId])).rows;
+  }
+  const notaMap=new Map(notas.map(n=>[`${n.evaluacion_id}:${n.indicador_id}`,n.puntaje]));
+  const detalle=evaluaciones.rows.map(ev=>{
+    const inds=indicadores.filter(i=>Number(i.evaluacion_id)===Number(ev.id)).map(i=>({
+      id:i.id,orden:i.orden,descripcion:i.descripcion,puntaje_maximo:Number(i.puntaje_maximo),
+      puntaje:notaMap.has(`${ev.id}:${i.id}`)?Number(notaMap.get(`${ev.id}:${i.id}`)):null
+    }));
+    const calificadas=inds.filter(i=>i.puntaje!==null);
+    return {...ev,puntaje_total:Number(ev.puntaje_total||inds.reduce((s,i)=>s+i.puntaje_maximo,0)),
+      puntos_obtenidos:calificadas.length?calificadas.reduce((s,i)=>s+i.puntaje,0):null,
+      indicadores:inds};
+  });
+  res.json({asignacion:asig,estudiante,estudiantes:estudiantes.rows,tipo,evaluaciones:detalle});
+});
+
 // ── CREAR evaluación ────────────────────────────────────────────────────
 // Body para examen:        { tipo:'examen', nombre, descripcion?, fecha, puntaje_total, seccion_id, materia_id, subgrupo?, periodo }
 // Body para tarea:         { tipo:'tarea', nombre, descripcion?, fecha_asignacion, fecha (entrega), seccion_id, materia_id, subgrupo?, periodo, indicadores: [...] }

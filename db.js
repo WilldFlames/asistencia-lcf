@@ -567,6 +567,16 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    // La solicitud digitada durante matrícula permanece como borrador hasta
+    // que administración aplique el nuevo curso lectivo.
+    await client.query(`ALTER TABLE solicitud_adecuacion ADD COLUMN IF NOT EXISTS tipo TEXT DEFAULT 'significativa'`);
+    await client.query(`ALTER TABLE solicitud_adecuacion ADD COLUMN IF NOT EXISTS anio_destino INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE solicitud_adecuacion ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'guardada'`);
+    await client.query(`ALTER TABLE solicitud_adecuacion ADD COLUMN IF NOT EXISTS solicitud_comite_id INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE solicitud_adecuacion ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS solicitud_adecuacion_matricula_vigente_uq
+      ON solicitud_adecuacion(estudiante_id,anio_destino)
+      WHERE estado IN ('guardada','enviada') AND anio_destino IS NOT NULL`);
 
     // ── COMITÉ DE MATRÍCULA (hasta 6 personas) ───────────────────────
     await client.query(`
@@ -2241,6 +2251,11 @@ async function initDB() {
         updated_at      TIMESTAMP DEFAULT NOW()
       )
     `);
+    await client.query(`ALTER TABLE solicitudes_adecuacion_docente ADD COLUMN IF NOT EXISTS origen TEXT DEFAULT 'docente'`);
+    await client.query(`ALTER TABLE solicitudes_adecuacion_docente ADD COLUMN IF NOT EXISTS solicitud_matricula_id INTEGER DEFAULT NULL`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS solicitudes_adecuacion_matricula_uq
+      ON solicitudes_adecuacion_docente(solicitud_matricula_id)
+      WHERE solicitud_matricula_id IS NOT NULL`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_solicitudes_adecuacion_estado
       ON solicitudes_adecuacion_docente(estado,created_at DESC)`);
 

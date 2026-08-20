@@ -1,0 +1,46 @@
+PARCHE DE MATRÍCULA Y RESÚMENES — 20 DE AGOSTO DE 2026
+
+Este parche incluye:
+
+1. Beca de comedor
+   - Los ingresos y montos de Avancemos aceptan cantidades completas como 300000.
+
+2. Documentos
+   - Autorización de imagen con fecha y funcionario de matrícula automáticos.
+   - Corrección del párrafo de pertenencias en el compromiso de matrícula.
+   - Mensaje central y decorado en la carta de bienvenida.
+
+3. Asistente de matrícula
+   - El paso 1 guarda un borrador real y seguro.
+   - Se puede regresar a los pasos anteriores, corregir e imprimir de nuevo.
+   - Finalizar continúa siendo la acción que marca la matrícula como completa.
+   - La eliminación anual ya no reaparece inmediatamente como “En proceso”.
+
+4. Idioma y tecnología
+   - De 7° a 9° no se solicita elección de idioma.
+   - En 10° se registran idioma y tecnología.
+   - En 11° se conservan automáticamente los datos registrados en 10°.
+
+5. Comité de Apoyo
+   - La solicitud de adecuación queda guardada como pendiente.
+   - Al usar “Aplicar matrícula”, se envía al Comité de Apoyo para valorar y aprobar.
+   - No se marca automáticamente como aprobada.
+
+6. Registro de llamadas
+   - Permite escoger cualquiera de los teléfonos registrados del encargado principal.
+   - También permite escribir otro número.
+
+7. Calificaciones
+   - Botón “Resumen cotidianos”.
+   - Botón “Resumen tareas”.
+   - Ambos generan un cuadro individual de solo lectura con indicadores y puntos.
+
+DESPLIEGUE
+
+Suba el contenido normalmente a GitHub y permita que Railway despliegue.
+No hay que crear variables nuevas. Al iniciar, el sistema agrega de forma automática
+las columnas necesarias en PostgreSQL.
+
+VERIFICACIÓN
+
+Se ejecutaron 132 pruebas automáticas y todas aprobaron.

@@ -34,6 +34,7 @@ router.get("/", canAccess, async (req, res) => {
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN matricula ma ON ma.estudiante_id=e.id AND ma.anio=$1
     WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
+      AND COALESCE(ma.estado,'') <> 'eliminada'
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [anio, anio === anioActivo]);
   res.json(r.rows);
@@ -49,7 +50,9 @@ router.get("/cedula/:cedula", canAccess, async (req, res) => {
     SELECT e.*, s.nombre AS seccion_nombre,
       COALESCE(ma.convocatoria,false) AS convocatoria,
       ma.convocatoria_estado, ma.nivel_solicitado, ma.nivel_origen,
-      ma.estado AS matricula_estado_anual
+      ma.estado AS matricula_estado_anual,
+      ma.idioma AS matricula_idioma, ma.tecnologia AS matricula_tecnologia,
+      ma.subgrupo AS matricula_subgrupo, ma.completada AS matricula_completada_anual
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN matricula ma ON ma.estudiante_id=e.id AND ma.anio=$2
@@ -90,7 +93,7 @@ router.post("/guardar", canAccess, async (req, res) => {
     sexo, nacionalidad, correo, institucion_procedencia,
     provincia, canton, distrito, direccion_exacta,
     habita_con, habita_con_otro, adecuacion, tipo_ingreso, nivel_matricula,
-    enfermedad, medicamento, telefonos_emergencia, encargados
+    enfermedad, medicamento, telefonos_emergencia, encargados, anio
   } = req.body;
 
   if(!cedula||!nombre||!primer_apellido)
@@ -179,13 +182,14 @@ router.post("/guardar", canAccess, async (req, res) => {
     } finally { client.release(); }
   }
 
-  // Marcar prematrícula como matriculado
-  try {
-    await pool.query(
-      "UPDATE prematricula SET estado='matriculado' WHERE cedula=$1",
-      [cedula]
-    );
-  } catch(e) { console.error("matricula UPDATE prematricula matriculado:", e.message); }
+  // Crear o reactivar el borrador anual. Guardar el paso 1 no equivale a
+  // finalizar: la bandera completada solo cambia en /completar.
+  const anioDestino = parseInt(anio) || await obtenerAnioActivo();
+  await pool.query(`INSERT INTO matricula(estudiante_id,anio,completada,estado,confirmado_por)
+    VALUES($1,$2,false,'pendiente',$3)
+    ON CONFLICT(estudiante_id,anio) DO UPDATE SET
+      estado=CASE WHEN matricula.estado='eliminada' THEN 'pendiente' ELSE matricula.estado END,
+      confirmado_por=$3`, [estId,anioDestino,uid]);
 
   res.json({ ok:true, estudiante_id: estId });
   } catch(err) {
@@ -247,13 +251,26 @@ router.post("/beca-comedor", canAccess, async (req, res) => {
 // ── GUARDAR ADECUACIÓN ────────────────────────────────────────────────
 router.post("/adecuacion", canAccess, async (req, res) => {
   const { estudiante_id, motivo, antecedentes } = req.body;
+  const tipo=String(req.body?.tipo||"");
+  const anio=parseInt(req.body?.anio);
+  if(!estudiante_id || !anio || !["no_significativa","significativa","acceso"].includes(tipo) || !String(motivo||"").trim())
+    return res.status(400).json({ error:"Estudiante, año, tipo y motivo son obligatorios." });
   try {
-    await pool.query(`
-      INSERT INTO solicitud_adecuacion (estudiante_id, motivo, antecedentes, registrado_por)
-      VALUES ($1,$2,$3,$4)
-    `, [estudiante_id||null, motivo||null, antecedentes||null, req.session.usuario.id]);
-    if(estudiante_id)
-      await pool.query("UPDATE estudiantes SET adecuacion='significativa' WHERE id=$1", [estudiante_id]);
+    const existente=await pool.query(`SELECT id,estado FROM solicitud_adecuacion
+      WHERE estudiante_id=$1 AND anio_destino=$2 AND estado IN ('guardada','enviada')
+      ORDER BY id DESC LIMIT 1`,[estudiante_id,anio]);
+    if(existente.rows[0]?.estado==='enviada')
+      return res.status(409).json({ error:"Esta solicitud ya fue enviada al Comité de Apoyo y no puede reemplazarse desde matrícula." });
+    if(existente.rows.length){
+      await pool.query(`UPDATE solicitud_adecuacion SET tipo=$1,motivo=$2,antecedentes=$3,
+        registrado_por=$4,updated_at=NOW() WHERE id=$5`,
+        [tipo,String(motivo).trim(),String(antecedentes||'').trim(),req.session.usuario.id,existente.rows[0].id]);
+    }else{
+      await pool.query(`INSERT INTO solicitud_adecuacion
+        (estudiante_id,tipo,motivo,antecedentes,anio_destino,estado,registrado_por)
+        VALUES ($1,$2,$3,$4,$5,'guardada',$6)`,
+        [estudiante_id,tipo,String(motivo).trim(),String(antecedentes||'').trim(),anio,req.session.usuario.id]);
+    }
   } catch(e) {
     console.error('adecuacion error:', e.message);
     return res.status(500).json({ error: "No se pudo guardar la solicitud: " + e.message });
@@ -287,6 +304,8 @@ router.post("/completar/:id", canAccess, async (req, res) => {
       [req.params.id,anio,uid,nivelDestino,nivelOrigen]);
     if(anio === anioActivo)
       await pool.query("UPDATE estudiantes SET seccion_id=NULL,matricula_completada=false WHERE id=$1", [req.params.id]);
+    await pool.query(`UPDATE prematricula p SET estado='matriculado'
+      FROM estudiantes e WHERE e.id=$1 AND p.cedula=e.cedula`,[req.params.id]);
     return res.json({ ok:true, convocatoria:true, estado:"pendiente", nivel_solicitado:nivelDestino, nivel_origen:nivelOrigen });
   }
   await pool.query(`INSERT INTO matricula
@@ -306,6 +325,8 @@ router.post("/completar/:id", canAccess, async (req, res) => {
     [req.params.id,anio,uid,nivelSolicitado]);
   if(anio === anioActivo)
     await pool.query("UPDATE estudiantes SET matricula_completada=true WHERE id=$1", [req.params.id]);
+  await pool.query(`UPDATE prematricula p SET estado='matriculado'
+    FROM estudiantes e WHERE e.id=$1 AND p.cedula=e.cedula`,[req.params.id]);
   res.json({ ok:true, convocatoria:false });
 });
 
@@ -319,7 +340,13 @@ router.delete("/:id", canAccess, async (req, res) => {
   const anioActivo = await obtenerAnioActivo();
   const anioObjetivo = parseInt(anio) || anioActivo;
   if(anioObjetivo !== anioActivo){
-    await pool.query("DELETE FROM matricula WHERE estudiante_id=$1 AND anio=$2", [req.params.id,anioObjetivo]);
+    await pool.query(`INSERT INTO matricula(estudiante_id,anio,completada,estado,confirmado_por,observaciones)
+      VALUES($1,$2,false,'eliminada',$3,$4)
+      ON CONFLICT(estudiante_id,anio) DO UPDATE SET completada=false,estado='eliminada',
+        seccion_id=NULL,seccion_nombre='',confirmado_por=$3,observaciones=$4`,
+      [req.params.id,anioObjetivo,req.session.usuario.id,justificacion.trim()]);
+    await pool.query(`UPDATE solicitud_adecuacion SET estado='cancelada',updated_at=NOW()
+      WHERE estudiante_id=$1 AND anio_destino=$2 AND estado='guardada'`,[req.params.id,anioObjetivo]);
     return res.json({ ok:true, matricula_anual_eliminada:true });
   }
   // Get cedula to revert prematricula
@@ -579,7 +606,21 @@ router.post("/asignar", canAccess, async (req, res) => {
   // ── Verificar cupos (excluyendo al propio estudiante) ──────────────────
   // Cupo total 26 + cupo por subgrupo 13 (aplica en 10° y 11° con tecnologías)
   const MAX_SUB = 13;
-  const sub = subgrupoDeTecnologia(tecnologia);
+  const secR = await pool.query("SELECT nombre,nivel FROM secciones WHERE id=$1", [seccion_id]);
+  if(!secR.rows.length) return res.status(404).json({ error:"Sección no encontrada." });
+  const secNombre = secR.rows[0].nombre;
+  const nivelDestino = parseInt(secR.rows[0].nivel);
+  const historial=await pool.query(`SELECT e.idioma AS est_idioma,e.tecnologia AS est_tecnologia,
+      m.idioma AS mat_idioma,m.tecnologia AS mat_tecnologia
+    FROM estudiantes e LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$2
+    WHERE e.id=$1`,[estudiante_id,a]);
+  const idiomaEf=nivelDestino>=10
+    ? (idioma || historial.rows[0]?.mat_idioma || historial.rows[0]?.est_idioma || null) : null;
+  const tecnologiaEf=nivelDestino>=10
+    ? (tecnologia || historial.rows[0]?.mat_tecnologia || historial.rows[0]?.est_tecnologia || null) : null;
+  if(nivelDestino>=10 && (!idiomaEf || !tecnologiaEf))
+    return res.status(400).json({ error:`Para ${nivelDestino}° deben quedar registrados el idioma y la tecnología. En 11° se conservan automáticamente los de 10°.` });
+  const sub = nivelDestino>=10 ? subgrupoDeTecnologia(tecnologiaEf) : null;
   let ocupados, ocupadosSub = 0;
   if(esActual){
     const c = await pool.query(`
@@ -614,8 +655,6 @@ router.post("/asignar", canAccess, async (req, res) => {
     });
   }
 
-  const secR = await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccion_id]);
-  const secNombre = secR.rows[0] ? secR.rows[0].nombre : "";
   // Idioma exclusivo de la sección PARA ESE AÑO (2026: 10-3/11-3 · 2027: 10-2/11-2)
   const secIdR = await pool.query(
     "SELECT idioma FROM secciones_idioma WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
@@ -627,9 +666,9 @@ router.post("/asignar", canAccess, async (req, res) => {
 
   // Si la sección tiene configurada su tecnología B, la del estudiante debe coincidir
   // (Inglés Conversacional siempre pasa porque es A y no aplica esta validación)
-  if(tecnologia && sub === 'B' && secTecB && tecnologia !== secTecB && !(forzar && u.rol === "admin")){
+  if(nivelDestino>=10 && tecnologiaEf && sub === 'B' && secTecB && tecnologiaEf !== secTecB && !(forzar && u.rol === "admin")){
     return res.status(409).json({
-      error: `La sección ${secNombre} ofrece "${secTecB}" como Grupo B, pero el estudiante seleccionó "${tecnologia}". Cambie la tecnología del estudiante o elija otra sección.`,
+      error: `La sección ${secNombre} ofrece "${secTecB}" como Grupo B, pero el estudiante seleccionó "${tecnologiaEf}". Cambie la tecnología del estudiante o elija otra sección.`,
       tec_conflicto: true
     });
   }
@@ -637,11 +676,9 @@ router.post("/asignar", canAccess, async (req, res) => {
   // ── Validación de idioma (secciones exclusivas de Francés) ────────────
   // Idioma efectivo del estudiante: el que viene en la asignación, o el
   // que ya tiene registrado (digitado por la orientadora de 9°).
-  const estIdR = await pool.query("SELECT idioma FROM estudiantes WHERE id=$1", [estudiante_id]);
-  const idiomaEf = idioma || (estIdR.rows[0] ? estIdR.rows[0].idioma : null);
   const secEsFrances = secIdioma === "Francés";
   const estEsFrances = idiomaEf === "Francés";
-  if(secEsFrances !== estEsFrances && !(forzar && u.rol === "admin")){
+  if(nivelDestino>=10 && secEsFrances !== estEsFrances && !(forzar && u.rol === "admin")){
     const msg = secEsFrances
       ? `La sección ${secNombre} es EXCLUSIVA de Francés y el estudiante lleva ${idiomaEf || "idioma sin registrar"}.`
       : `El estudiante lleva Francés y la sección ${secNombre} no es de Francés.`;
@@ -655,7 +692,7 @@ router.post("/asignar", canAccess, async (req, res) => {
         idioma = COALESCE($2, idioma),
         tecnologia = COALESCE($3, tecnologia)
       WHERE id=$4
-    `, [seccion_id, idioma || null, tecnologia || null, estudiante_id]);
+    `, [seccion_id, idiomaEf, tecnologiaEf, estudiante_id]);
   }
   // En ambos casos queda registrado en la tabla matricula (historial por año)
   await pool.query(`
@@ -670,7 +707,7 @@ router.post("/asignar", canAccess, async (req, res) => {
         THEN matricula.estado ELSE 'completa' END,
       completada=true,
       confirmado_por=$8
-  `, [estudiante_id, a, seccion_id, secNombre, idioma || null, tecnologia || null, sub, u.id]);
+  `, [estudiante_id, a, seccion_id, secNombre, idiomaEf, tecnologiaEf, sub, u.id]);
 
   res.json({ ok: true, aplicado_directo: esActual, seccion_nombre: secNombre, subgrupo: sub });
 });
@@ -712,6 +749,9 @@ router.get("/previsualizar-aplicar/:anio", requireAuth, async (req, res) => {
       (SELECT COUNT(*)::int FROM secciones_anio WHERE anio=$1 AND activa=true) AS secciones_destino,
       (SELECT COUNT(*)::int FROM seccion_guia_anio WHERE anio=$1 AND profesor_id IS NOT NULL) AS guias_destino,
       (SELECT COUNT(*)::int FROM seccion_orientador_anio WHERE anio=$1 AND orientador_id IS NOT NULL) AS orientadores_destino,
+      (SELECT COUNT(*)::int FROM solicitud_adecuacion sa JOIN matricula m
+         ON m.estudiante_id=sa.estudiante_id AND m.anio=sa.anio_destino
+         WHERE sa.anio_destino=$1 AND sa.estado='guardada' AND m.completada=true) AS adecuaciones_por_enviar,
       (SELECT COUNT(*)::int
          FROM restricciones_matricula r
          JOIN matricula ma ON ma.estudiante_id=r.estudiante_a_id AND ma.anio=r.anio
@@ -936,6 +976,39 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       RETURNING e.id
     `, [anio]);
 
+    // Las solicitudes digitadas durante la matrícula se entregan al Comité
+    // de Apoyo únicamente cuando el nuevo curso lectivo se aplica. Hasta este
+    // punto eran borradores y no marcaban ninguna adecuación como aprobada.
+    const solicitudesMatricula=await client.query(`
+      SELECT sa.*,TRIM(CONCAT_WS(' ',e.nombre,e.primer_apellido,e.segundo_apellido)) AS estudiante_nombre
+      FROM solicitud_adecuacion sa
+      JOIN estudiantes e ON e.id=sa.estudiante_id
+      JOIN matricula m ON m.estudiante_id=sa.estudiante_id AND m.anio=sa.anio_destino
+      WHERE sa.anio_destino=$1 AND sa.estado='guardada' AND m.completada=true
+      ORDER BY sa.id FOR UPDATE OF sa`,[anio]);
+    let adecuacionesEnviadas=0;
+    for(const sol of solicitudesMatricula.rows){
+      const detalle=[String(sol.motivo||'').trim(),String(sol.antecedentes||'').trim()
+        ? `Antecedentes: ${String(sol.antecedentes).trim()}`:''].filter(Boolean).join('\n\n');
+      let comite=await client.query(`SELECT id FROM solicitudes_adecuacion_docente
+        WHERE solicitud_matricula_id=$1 LIMIT 1`,[sol.id]);
+      if(!comite.rows.length){
+        comite=await client.query(`INSERT INTO solicitudes_adecuacion_docente
+          (estudiante_id,profesor_id,tipo,motivo,origen,solicitud_matricula_id)
+          VALUES($1,$2,$3,$4,'matricula',$5) RETURNING id`,
+          [sol.estudiante_id,sol.registrado_por||u.id,sol.tipo,detalle,sol.id]);
+      }
+      const solicitudComiteId=comite.rows[0].id;
+      await client.query(`UPDATE solicitud_adecuacion SET estado='enviada',
+        solicitud_comite_id=$1,updated_at=NOW() WHERE id=$2`,[solicitudComiteId,sol.id]);
+      await client.query(`INSERT INTO notificaciones(usuario_id,tipo,mensaje,referencia_id,destino)
+        SELECT DISTINCT fi.usuario_id,'adecuacion', $1, $2, 'adecuaciones'
+        FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id
+        WHERE fi.tipo='comite_apoyo' AND u.activo=true`,
+        [`🧩 Nueva solicitud de adecuación de matrícula: ${sol.estudiante_nombre}.`,solicitudComiteId]);
+      adecuacionesEnviadas++;
+    }
+
     // ── 4. Activos sin matrícula → sin sección ────────────────────────
     const sinMat = await client.query(`
       UPDATE estudiantes SET seccion_id = NULL, matricula_completada=false
@@ -987,7 +1060,8 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       asignaciones_borradas: asigBorradas.rows.length,
       boletas_borradas: boletasBorradas.rows.length,
       bloques_horario_borrados: bloquesHorarioBorrados.rows.length,
-      resumenes_archivados: archivadas, resumenes_saltados: saltadas
+      resumenes_archivados: archivadas, resumenes_saltados: saltadas,
+      adecuaciones_enviadas: adecuacionesEnviadas
     };
     await client.query(`INSERT INTO cierres_anio (anio_destino,anio_origen,aplicado_por,resumen)
       VALUES ($1,$2,$3,$4::jsonb)`, [anio,anioAnt,u.id,JSON.stringify(resumenCierre)]);
@@ -1008,6 +1082,7 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       bloques_horario_borrados: bloquesHorarioBorrados.rows.length,
       resumenes_archivados: archivadas,
       resumenes_saltados: saltadas,
+      adecuaciones_enviadas: adecuacionesEnviadas,
       anio,
       anio_archivado: anioAnt
     });

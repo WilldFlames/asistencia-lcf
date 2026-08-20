@@ -1583,6 +1583,8 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" onclick="goTo('calificaciones')">← Volver</button>
       </div>
       <div id="eval-botones-normal" style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" id="btn-resumen-cotid" onclick="abrirResumenRubro('cotidiano')">🖨️ Resumen cotidianos</button>
+        <button class="btn btn-outline btn-sm" id="btn-resumen-tareas" onclick="abrirResumenRubro('tarea')">🖨️ Resumen tareas</button>
         <button class="btn btn-success btn-sm" id="btn-nuevo-examen" onclick="nuevaEvaluacion('examen')">📝 Nuevo examen</button>
         <button class="btn btn-primary btn-sm" id="btn-nueva-tarea" onclick="nuevaEvaluacion('tarea')">📄 Nueva tarea</button>
         <button class="btn btn-orange btn-sm" id="btn-nuevo-cotid" onclick="nuevaEvaluacion('cotidiano')">📋 Nuevo cotidiano</button>
@@ -1607,6 +1609,21 @@ tr:hover td{background:#f8fafc;}
       <div id="eval-simplificado-lista">
         <div class="empty" style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-resumen-rubro">
+  <div class="modal" style="max-width:560px;">
+    <h3 id="resumen-rubro-titulo">Cuadro resumen</h3>
+    <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:10px 12px;border-radius:7px;margin:10px 0 14px;font-size:12.5px;">
+      🔒 Este cuadro es de <strong>solo lectura</strong>. Se alimenta automáticamente con los cotidianos o tareas que ya calificó el docente.
+    </div>
+    <div class="fg"><label>Estudiante *</label><select id="resumen-rubro-est"><option value="">— Seleccione —</option></select></div>
+    <div id="alert-resumen-rubro" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-resumen-rubro')">Cancelar</button>
+      <button class="btn btn-success" onclick="imprimirResumenRubro()">🖨️ Generar cuadro</button>
     </div>
   </div>
 </div>
@@ -1776,7 +1793,7 @@ tr:hover td{background:#f8fafc;}
 <div class="modal-overlay" id="modal-at-llamada"><div class="modal" style="max-width:900px">
   <h3>📞 Registro de llamada</h3><p style="font-size:12.5px;color:var(--muted);margin:4px 0 13px">Si existe una alerta abierta de esta materia, el contacto se agregará automáticamente al Plan de Atención.</p>
   <div class="at-call-row">
-    <div class="fg"><label>Sección y materia *</label><select id="at-call-asig" onchange="atCargarEstudiantes('call')"><option value="">— Seleccione —</option></select></div><div class="fg"><label>Estudiante *</label><select id="at-call-est"><option value="">— Seleccione —</option></select></div><div class="fg"><label>Número marcado</label><input id="at-call-numero" inputmode="tel"/></div>
+    <div class="fg"><label>Sección y materia *</label><select id="at-call-asig" onchange="atCargarEstudiantes('call')"><option value="">— Seleccione —</option></select></div><div class="fg"><label>Estudiante *</label><select id="at-call-est"><option value="">— Seleccione —</option></select></div><div class="fg"><label>Número marcado *</label><select id="at-call-numero" onchange="atAlternarNumeroLlamada()"><option value="">— Seleccione al estudiante —</option></select></div><div class="fg" id="at-call-numero-otro-wrap" style="display:none"><label>Otro número *</label><input id="at-call-numero-otro" inputmode="tel" placeholder="Digite el número utilizado"/></div>
     <div class="fg"><label>Fecha *</label><input id="at-call-fecha" type="date"/></div><div class="fg"><label>Hora inicio *</label><input id="at-call-inicio" type="time"/></div><div class="fg"><label>Hora final</label><input id="at-call-fin" type="time"/></div>
     <div class="fg"><label>Medio *</label><select id="at-call-medio" onchange="atAlternarOtrosLlamada()"><option value="telefono">Llamada telefónica</option><option value="videollamada">Videollamada</option><option value="audio">Mensaje de audio</option><option value="otro">Otro</option></select></div><div class="fg"><label>Resultado *</label><select id="at-call-resultado" onchange="atAlternarLlamadaEfectiva();atAlternarOtrosLlamada()"><option value="">— Seleccione —</option><option value="efectiva">Comunicación efectiva</option><option value="no_contesta">No contesta</option><option value="equivocado">Número equivocado</option><option value="fuera_servicio">Fuera de servicio</option><option value="buzon">Buzón de voz</option><option value="devolver_llamada">Solicitó devolver la llamada</option><option value="otro">Otro</option></select></div><div class="fg"><label>Observación breve</label><input id="at-call-obs" placeholder="Detalle del intento o resultado…"/></div>
     <div class="fg" id="at-call-medio-otro-wrap" style="display:none"><label>Especifique el medio *</label><input id="at-call-medio-otro"/></div><div class="fg" id="at-call-resultado-otro-wrap" style="display:none"><label>Especifique el resultado *</label><input id="at-call-resultado-otro"/></div>
@@ -3084,10 +3101,10 @@ tr:hover td{background:#f8fafc;}
 
     <!-- Indicador de pasos -->
     <div style="display:flex;gap:0;margin-bottom:18px;border-radius:8px;overflow:hidden;font-size:11px;">
-      <div id="mat-ind-1" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:var(--azul);color:#fff;">1.Datos</div>
-      <div id="mat-ind-2" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">2.Compromiso</div>
-      <div id="mat-ind-3" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">3.Beca</div>
-      <div id="mat-ind-4" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;">4.Adecuación</div>
+      <button type="button" id="mat-ind-1" onclick="matIrPaso(1)" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:var(--azul);color:#fff;border:0;cursor:pointer;">1.Datos</button>
+      <button type="button" id="mat-ind-2" onclick="matIrPaso(2)" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;border:0;cursor:pointer;">2.Documentos</button>
+      <button type="button" id="mat-ind-3" onclick="matIrPaso(3)" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;border:0;cursor:pointer;">3.Beca</button>
+      <button type="button" id="mat-ind-4" onclick="matIrPaso(4)" style="flex:1;padding:8px;text-align:center;font-weight:bold;background:#e2e8f0;color:#64748b;border:0;cursor:pointer;">4.Adecuación</button>
     </div>
     <div id="alert-mat-modal" class="alert"></div>
 
@@ -3238,6 +3255,7 @@ tr:hover td{background:#f8fafc;}
         </div>
       </div>
       <div class="modal-actions">
+        <button class="btn btn-outline" onclick="matPaso(1)">← Volver a datos</button>
         <button class="btn btn-primary" onclick="matPaso(3)">Continuar → Beca</button>
       </div>
     </div>
@@ -3257,13 +3275,13 @@ tr:hover td{background:#f8fafc;}
             <select id="beca-vivienda"><option value="">—</option><option>Propia</option><option>Alquilada</option><option>Prestada</option></select>
           </div>
           <div class="fg"><label>¿Con quién vive?</label><input type="text" id="beca-vive-con"/></div>
-          <div class="fg"><label>Ingreso mensual total (₡) *</label><input type="number" id="beca-ingreso" min="0"/></div>
+          <div class="fg"><label>Ingreso mensual total (₡) *</label><input type="text" inputmode="numeric" autocomplete="off" id="beca-ingreso" maxlength="12" placeholder="Ej. 300000" oninput="this.value=this.value.replace(/\D/g,'').slice(0,12)"/></div>
           <div class="fg"><label>¿Recibe Avancemos?</label>
             <select id="beca-avancemos" onchange="document.getElementById('beca-monto-av').style.display=this.value==='si'?'':'none'">
               <option value="no">No</option><option value="si">Sí</option>
             </select>
           </div>
-          <div class="fg" id="beca-monto-av" style="display:none;"><label>Monto Avancemos (₡)</label><input type="number" id="beca-monto-avancemos"/></div>
+          <div class="fg" id="beca-monto-av" style="display:none;"><label>Monto Avancemos (₡)</label><input type="text" inputmode="numeric" autocomplete="off" id="beca-monto-avancemos" maxlength="12" placeholder="Ej. 30000" oninput="this.value=this.value.replace(/\D/g,'').slice(0,12)"/></div>
           <div class="fg" style="grid-column:1/-1"><label>Otros ingresos</label><input type="text" id="beca-otros"/></div>
           <div class="fg" style="grid-column:1/-1"><label>Motivo(s) de la solicitud</label>
             <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;">
@@ -3276,6 +3294,7 @@ tr:hover td{background:#f8fafc;}
         </div>
         <div id="beca-resultado" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-weight:bold;"></div>
         <div class="modal-actions">
+          <button class="btn btn-outline" onclick="matPaso(2)">← Atrás</button>
           <button class="btn btn-success" onclick="guardarBecaMatricula()">💾 Guardar e Imprimir</button>
           <button class="btn btn-primary" id="mat-btn-paso3-next" onclick="matPaso(4)" style="display:none;">Continuar → Adecuación</button>
         </div>
@@ -3287,11 +3306,15 @@ tr:hover td{background:#f8fafc;}
       <h3 style="margin-bottom:10px;">Paso 4 — Valoración de Adecuación Curricular</h3>
       <p style="font-size:13px;margin-bottom:14px;">¿El estudiante requiere solicitud de valoración de adecuación curricular?</p>
       <div style="display:flex;gap:10px;margin-bottom:16px;">
+        <button class="btn btn-outline" onclick="matPaso(3)">← Atrás</button>
         <button class="btn btn-success" onclick="finalizarMatricula()">✅ Finalizar Matrícula</button>
         <button class="btn btn-primary" onclick="mostrarFormAdecuacion()">Sí, llenar solicitud</button>
       </div>
       <div id="mat-form-adecuacion" style="display:none;">
         <div class="form-grid">
+          <div class="fg" style="grid-column:1/-1"><label>Tipo de adecuación solicitada *</label>
+            <select id="adec-tipo"><option value="">— Seleccione —</option><option value="no_significativa">Adecuación no significativa</option><option value="significativa">Adecuación significativa</option><option value="acceso">Adecuación de acceso</option></select>
+          </div>
           <div class="fg" style="grid-column:1/-1"><label>Motivo de la solicitud *</label>
             <textarea id="adec-motivo" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;resize:vertical;"></textarea>
           </div>
@@ -10631,6 +10654,7 @@ async function matAplicarAnio(){
     `   • ${conSec} estudiantes pasan a su sección nueva (con idioma, tecnología y subgrupo)\n` +
     `   • ${revision.sin_matricula} estudiantes activos SIN matrícula ${matAnio} quedan en espera, sin sección\n` +
     `   • ${revision.convocatoria_pendiente||0} estudiantes en convocatoria quedan identificados en espera hasta resolver su resultado en febrero\n` +
+    `   • ${revision.adecuaciones_por_enviar||0} solicitudes de adecuación se enviarán al Comité de Apoyo\n` +
     `   • Se activan ${revision.guias_destino} guías y ${revision.orientadores_destino} orientadores preparados\n` +
     `   • Quedan ${revision.asignaciones_destino} asignaciones y ${revision.secciones_destino} secciones preparadas para ${matAnio}\n\n` +
     `⚠️ Hacé esto solamente después de terminar y revisar toda la información del ${anioAnt}.\n\n` +
@@ -10643,6 +10667,7 @@ async function matAplicarAnio(){
       `✅ Cierre completado. Año ${matAnio} listo para arrancar.\n` +
       `📚 ${r.resumenes_archivados} resúmenes académicos archivados (${r.resumenes_saltados} saltados)\n` +
       `🎓 ${r.aplicados} estudiantes en sección nueva · ${r.sin_seccion} sin sección\n` +
+      `🧩 ${r.adecuaciones_enviadas||0} solicitudes de adecuación enviadas al Comité de Apoyo\n` +
       `🗑️ ${r.asignaciones_borradas} asignaciones, ${r.boletas_borradas} boletas, ${r.horarios_borrados||0} celdas de horario borradas\n` +
       `👤 ${r.guias_aplicadas||0} guías y ${r.orientadores_aplicados||0} orientadores activados\n\n` +
       `El ${matAnio} quedó como año lectivo activo.`,
@@ -10847,7 +10872,8 @@ async function abrirAsignarSeccion(id, nombre, nivel){
   // Mostrar/ocultar panel de cupos según la selección inicial
   asignarCuposInfo();
 
-  // Idioma: se pregunta siempre. Tecnología: se elige en décimo; en undécimo se hereda.
+  // Idioma y tecnología solo se eligen en 10° y se conservan en 11°.
+  // De 7° a 9° el plan incluye Inglés y Francés, por lo que no hay elección.
   const fgIdi = document.getElementById("asignar-fg-idioma");
   const fgTec = document.getElementById("asignar-fg-tec");
   const her   = document.getElementById("asignar-herencia");
@@ -10858,19 +10884,20 @@ async function abrirAsignarSeccion(id, nombre, nivel){
   const wrapBoleta = document.getElementById("asignar-sec-boleta-wrap");
   if(wrapBoleta) wrapBoleta.style.display = (parseInt(nivel) === 10) ? "" : "none";
   if(chkBoleta) chkBoleta.checked = !!est.boleta_entregada;
-  fgIdi.style.display = "";
+  fgIdi.style.display = parseInt(nivel)>=10 ? "" : "none";
   document.getElementById("asignar-sec-idioma").value = fut.idioma || est.idioma || "";
+  document.getElementById("asignar-sec-tec").value = fut.tecnologia || est.tecnologia || "";
   if(parseInt(nivel) === 10){
     fgTec.style.display = "";
     her.style.display = "none";
-    document.getElementById("asignar-sec-tec").value = fut.tecnologia || est.tecnologia || "";
   } else if(parseInt(nivel) === 11){
     fgTec.style.display = "none";
-    const tec = est.tecnologia || fut.tecnologia;
+    const tec = fut.tecnologia || est.tecnologia;
+    const idiomaHeredado = fut.idioma || est.idioma;
     her.style.display = "";
-    her.innerHTML = tec
-      ? `♻️ <strong>Undécimo hereda su tecnología de décimo:</strong> ${tec}${subgrupoDeTec(tec)?` (Grupo ${subgrupoDeTec(tec)})`:''}`
-      : `⚠️ Este estudiante no tiene tecnología registrada de décimo. Podés dejarlo así y corregirlo después, o registrarla desde el módulo de estudiantes.`;
+    her.innerHTML = tec && idiomaHeredado
+      ? `♻️ <strong>Undécimo conserva la elección de décimo:</strong> ${idiomaHeredado} · ${tec}${subgrupoDeTec(tec)?` (Grupo ${subgrupoDeTec(tec)})`:''}`
+      : `⚠️ Falta el idioma o la tecnología de décimo. Registralos antes de asignar la sección de undécimo.`;
   } else {
     fgTec.style.display = "none";
     her.style.display = "none";
@@ -10901,7 +10928,9 @@ function matSeccionCelda(e){
     const fut = matAsigFuturas[e.id];
     const actual = e.seccion_nombre ? `<div style="font-size:11px;color:var(--muted);">Hoy: ${e.seccion_nombre}</div>` : '';
     if(fut && fut.seccion_nombre){
-      const extra = [fut.idioma, fut.tecnologia ? fut.tecnologia + (fut.subgrupo?` (Gr. ${fut.subgrupo})`:'') : null].filter(Boolean).join(' · ');
+      const extra = Number(e.nivel_matricula)>=10
+        ? [fut.idioma, fut.tecnologia ? fut.tecnologia + (fut.subgrupo?` (Gr. ${fut.subgrupo})`:'') : null].filter(Boolean).join(' · ')
+        : '';
       return `${actual}<span class="badge b-guia">${matAnio}: ${fut.seccion_nombre}</span> ${btnEditar} ${btnCarta}${extra?`<div style="font-size:11px;color:var(--muted);">${extra}</div>`:''}`;
     }
     return `${actual}${btnAsignar}`;
@@ -10917,10 +10946,10 @@ async function confirmarAsignarSeccion(){
   const sid = sel.value;
   const nivel = parseInt(document.getElementById("asignar-sec-nivel").value) || 0;
   if(!sid){ sa("alert-asignar-sec","Seleccioná una sección.","danger"); return; }
-  const idioma = document.getElementById("asignar-sec-idioma").value || null;
-  const tecnologia = nivel === 10 ? (document.getElementById("asignar-sec-tec").value || null) : null;
-  if(nivel === 10 && !tecnologia){
-    sa("alert-asignar-sec","Para décimo indicá la tecnología (Inglés Conversacional, Diseño Publicitario o Matem/AMPROSA).","danger"); return;
+  const idioma = nivel>=10 ? (document.getElementById("asignar-sec-idioma").value || null) : null;
+  const tecnologia = nivel>=10 ? (document.getElementById("asignar-sec-tec").value || null) : null;
+  if(nivel>=10 && (!idioma || !tecnologia)){
+    sa("alert-asignar-sec",nivel===11?"Falta el idioma o la tecnología que debía conservar de décimo.":"Para décimo indicá el idioma y la tecnología.","danger"); return;
   }
   // Sección llena → solo admin puede forzar, con confirmación
   let forzar = false;
@@ -10933,7 +10962,7 @@ async function confirmarAsignarSeccion(){
   // Validación de idioma: sección de francés ↔ estudiante de francés
   const secEsFrances = opt && opt.dataset.frances === "1";
   const estEsFrances = idioma === "Francés";
-  if(secEsFrances !== estEsFrances){
+  if(nivel>=10 && secEsFrances !== estEsFrances){
     const msg = secEsFrances
       ? `Esta sección es EXCLUSIVA de Francés y el estudiante lleva ${idioma || "idioma sin registrar"}.`
       : `El estudiante lleva Francés y esta sección NO es de Francés.`;
@@ -11046,7 +11075,7 @@ async function eliminarMatricula(id, nombre){
 }
 
 function abrirNuevaMatricula(){
-  matEstId = null; matEncIdx = 0;
+  matEstId = null; matEncIdx = 0; matDatosGuardados = null; matPasoHabilitado = 1;
   document.getElementById("mat-buscar-cedula").value = "";
   document.getElementById("mat-form-datos").style.display = "none";
   document.getElementById("mat-btn-guardar").style.display = "none";
@@ -11059,6 +11088,12 @@ function abrirNuevaMatricula(){
   if(fb) fb.style.display="none";
   const fa = document.getElementById("mat-form-adecuacion");
   if(fa) fa.style.display="none";
+  ["adec-tipo","adec-motivo","adec-antecedentes","beca-personas","beca-vivienda","beca-vive-con","beca-ingreso","beca-avancemos","beca-monto-avancemos","beca-otros"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value="";
+  });
+  const av=document.getElementById("beca-avancemos"); if(av) av.value="no";
+  const br=document.getElementById("beca-resultado"); if(br) br.style.display="none";
+  [1,2,3,4].forEach(i=>{const x=document.getElementById(`beca-m${i}`);if(x)x.checked=false;});
   const rb = document.getElementById("mat-btn-sin-beca");
   if(rb) rb.style.display="";
   const conv = document.getElementById("mat-convocatoria");
@@ -18595,6 +18630,7 @@ const CICLO_MAT = {7:"III Ciclo de la Educación General Básica",
                    9:"III Ciclo de la Educación General Básica",
                    10:"Educación Diversificada",11:"Educación Diversificada"};
 let matEstId = null, matEncIdx = 0, matDatosGuardados = null;
+let matPasoHabilitado = 1;
 
 // Los datos escritos por las personas se insertan dentro del documento PDF.
 // Escaparlos evita que símbolos como <, > o & alteren el formato.
@@ -18701,10 +18737,11 @@ async function imprimirCartaHorarioMatricula(estudianteId, anio=matAnio){
 
       <p style="margin:5px 0 2px;text-align:justify;">Agradecemos su apoyo y acompañamiento permanente en el proceso educativo. Esperamos que este nuevo año esté lleno de aprendizajes, crecimiento y experiencias positivas para nuestros estudiantes.</p>
       <div style="background:#fff7ed;border-left:3px solid #f59e0b;padding:3px 6px;margin:3px 0;text-align:justify;"><strong>Nota aclaratoria:</strong> Durante las primeras semanas del curso lectivo, el horario podría estar sujeto a ajustes. Cualquier modificación será informada oportunamente a las familias y personas encargadas.</div>
-      <div style="display:grid;grid-template-columns:1.25fr .75fr;gap:14px;align-items:end;margin-top:4px;">
-        <div><strong>¡Bienvenidos al Curso Lectivo ${anio}!</strong></div>
-        <div style="text-align:center;border-top:1px solid #374151;padding-top:2px;">Atentamente,<br><strong>${director}</strong><br>Dirección · Liceo de Calle Fallas</div>
+      <div style="margin:5px auto 7px;padding:6px 12px;max-width:420px;text-align:center;border:1px solid #93c5fd;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#ecfdf5);color:#12395b;box-shadow:0 2px 7px rgba(18,57,91,.10);">
+        <div style="font-size:13px;font-weight:bold;letter-spacing:.2px;">✨ ¡Bienvenidos al Curso Lectivo ${anio}! ✨</div>
+        <div style="font-size:8.5px;margin-top:1px;color:#475569;">Un nuevo año para aprender, crecer y compartir.</div>
       </div>
+      <div style="width:245px;margin-left:auto;text-align:center;border-top:1px solid #374151;padding-top:2px;">Atentamente,<br><strong>${director}</strong><br>Dirección · Liceo de Calle Fallas</div>
     </div>`;
     await imprimirPDFMEP(`BIENVENIDA Y HORARIO DE CLASES · CURSO LECTIVO ${anio}`,contenidoHTML,
       `carta_horario_${estudiante.cedula||estudianteId}_${anio}.pdf`);
@@ -18731,6 +18768,16 @@ function matPaso(n){
       ind.style.color = i===n?"#fff":i<n?"#166534":"#64748b";
     }
   });
+  const modal=document.querySelector('#modal-matricula .modal');
+  if(modal) modal.scrollTo({top:0,behavior:'smooth'});
+}
+
+function matIrPaso(n){
+  if(n > matPasoHabilitado){
+    sa("alert-mat-modal","Primero guardá los datos del paso 1.","warning");
+    return;
+  }
+  matPaso(n);
 }
 
 function matTipoChange(){
@@ -18928,7 +18975,6 @@ async function guardarMat1(){
     sa("alert-mat-modal","El encargado principal debe tener cédula, nombre y primer apellido.","danger"); return;
   }
   const tipo=document.querySelector('input[name="mat-tipo"]:checked')?.value||"regular";
-  // Solo guardar datos localmente — la BD se actualiza al finalizar (paso 4)
   matDatosGuardados = {
     cedula, nombre, primer_apellido:ap1,
     segundo_apellido:document.getElementById("mat-ap2").value.trim(),
@@ -18951,9 +18997,18 @@ async function guardarMat1(){
     telefonos_emergencia:document.getElementById("mat-tels-emergencia").value,
     encargados
   };
-  sa("alert-mat-modal","","");
-  matPaso(2);
-  await imprimirFichaMatricula(matDatosGuardados);
+  try{
+    // Desde este punto existe un borrador real. Así la beca y la adecuación
+    // quedan vinculadas y se puede continuar el trámite más tarde.
+    const r=await api("/api/matricula/guardar","POST",{...matDatosGuardados,anio:matAnio});
+    matEstId=r.estudiante_id;
+    matPasoHabilitado=4;
+    sa("alert-mat-modal","✅ Borrador guardado. Podés volver a cualquier paso para corregir o imprimir de nuevo.","success");
+    matPaso(2);
+    await imprimirFichaMatricula(matDatosGuardados);
+  }catch(e){
+    sa("alert-mat-modal","No se pudo guardar el borrador: "+e.message,"danger");
+  }
 }
 
 async function imprimirFichaMatricula(datos){
@@ -19044,7 +19099,7 @@ async function imprimirCompromiso(){
     <p><strong>2.1. DE LOS ESTUDIANTES</strong><br/>
     Las estipuladas por el Ministerio de Educación Pública a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional como método de mantener el bienestar y seguridad de la comunidad educativa cítese el artículo 9, 13 del REAC</p>
 
-    <p>Recordemos que, la Institución no se hará responsable de la pérdida de los artículos como (celulares, laptops portátiles, ipad, etc), salveques, bultos, loncheras, mochilas, carteras, billeteras u otros objetos que el estudiantado ingrese a la Institución. Debido a que no son solicitados como útiles escolares. <strong>CADA ESTUDIANTE ES RESPONSABLE DEL CUIDO DE SUS PERTENENCIAS.</strong></p>
+    <p>Recordemos que la Institución no se hará responsable de la pérdida de artículos electrónicos como (celulares, computadoras portátiles, iPad, etc.), debido a que no son solicitados como útiles escolares. Asimismo, no se hará responsable por salveques, bultos, loncheras, mochilas, carteras, billeteras u otros objetos que el estudiantado ingrese a la Institución. <strong>CADA ESTUDIANTE ES RESPONSABLE DEL CUIDO DE SUS PERTENENCIAS.</strong></p>
 
     <p><strong>2.2. DE LOS PADRES, MADRES O ENCARGADOS LEGALES</strong></p>
 
@@ -19076,6 +19131,8 @@ async function imprimirCompromiso(){
 async function imprimirAutorizacionImagen(){
   if(!matDatosGuardados){ sa("alert-mat-modal","Completá los datos del paso 1 primero.","danger"); return; }
   const d=matDatosGuardados;
+  const fechaDocumento=fmtF(fechaHoyCR());
+  const funcionario=pdfTexto(nombrePersona(ME));
   const enc1=(d.encargados&&d.encargados.length)?d.encargados[0]:{};
   const estudiante=pdfTexto(nombrePersona(d));
   const encargado=pdfTexto(nombrePersona(enc1));
@@ -19105,8 +19162,10 @@ async function imprimirAutorizacionImagen(){
         <div>Cédula: ${pdfTexto(enc1.cedula)}</div>
       </div>
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>Fecha: ______ / ______ / __________</div>
-        <div style="margin-top:18px;">Teléfono: ${pdfTexto(enc1.telefono||enc1.celular,"________________")}</div>
+        <div><strong>Fecha:</strong> ${fechaDocumento}</div>
+        <div style="margin-top:8px;"><strong>Tramitado por:</strong> ${funcionario}</div>
+        <div>Funcionario(a) de matrícula</div>
+        <div style="margin-top:8px;">Teléfono del encargado: ${pdfTexto(enc1.telefono||enc1.celular,"________________")}</div>
       </div>
     </div>
   </div>`;
@@ -19173,9 +19232,11 @@ async function imprimirFormBeca(resultado,datos){
 
 async function guardarAdecuacion(){
   const motivo=document.getElementById("adec-motivo").value.trim();
+  const tipo=document.getElementById("adec-tipo").value;
+  if(!tipo){ sa("alert-mat-modal","Seleccioná el tipo de adecuación solicitada.","danger"); matPaso(4); return; }
   if(!motivo){ sa("alert-mat-modal","El motivo es obligatorio.","danger"); matPaso(4); return; }
   try{
-    await api("/api/matricula/adecuacion","POST",{estudiante_id:matEstId,motivo,antecedentes:document.getElementById("adec-antecedentes").value});
+    await api("/api/matricula/adecuacion","POST",{estudiante_id:matEstId,anio:matAnio,tipo,motivo,antecedentes:document.getElementById("adec-antecedentes").value});
     await imprimirAdecuacionFuera(motivo);
   }catch(e){ sa("alert-mat-modal",e.message,"danger"); matPaso(4); }
 }
@@ -19209,7 +19270,7 @@ async function imprimirAdecuacion(motivo){
 async function finalizarMatricula(){
   if(!matDatosGuardados){ sa("alert-mat-modal","Error: no hay datos para guardar.","danger"); return; }
   try{
-    // Guardar en BD recién al finalizar (paso 4)
+    // Se vuelve a guardar por si la persona regresó al paso 1 e hizo cambios.
     const r=await api("/api/matricula/guardar","POST",{...matDatosGuardados,anio:matAnio});
     matEstId=r.estudiante_id;
     await api(`/api/matricula/completar/${matEstId}`,"POST",{
@@ -19815,7 +19876,7 @@ async function cargarSolicitudesAdecuacion(){
   const cont=document.getElementById("adec-solicitudes-lista");if(!cont)return;
   try{
     const d=await api("/api/adecuaciones/solicitudes"),rows=d.solicitudes||[];
-    cont.innerHTML=rows.length?rows.map(s=>`<div class="solicitud-adec ${s.estado==='pendiente'?'':'resuelta'}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div><strong>${htmlSeguro(nombreDesdeCampos(s.nombre,s.primer_apellido,s.segundo_apellido))}</strong> · ${htmlSeguro(s.seccion_nombre||"")}<br/><small>Solicita: ${htmlSeguro(nombreDesdeCampos(s.prof_nombre,s.prof_ap1,s.prof_ap2))}</small></div><span class="badge ${s.estado==='aprobada'?'badge-green':s.estado==='rechazada'?'badge-red':'badge-orange'}">${htmlSeguro(s.estado)}</span></div><p style="margin:8px 0;"><strong>${htmlSeguro(ADECUACION_TIPOS[s.tipo]||s.tipo)}:</strong> ${htmlSeguro(s.motivo)}</p>${s.respuesta?`<div style="font-size:12px;color:var(--muted);">Respuesta: ${htmlSeguro(s.respuesta)}</div>`:""}${d.puede_resolver&&s.estado==='pendiente'?`<div style="display:flex;gap:7px;justify-content:flex-end;"><button class="btn btn-outline btn-sm" onclick="resolverSolicitudAdecuacion(${s.id},'rechazada')">Rechazar</button><button class="btn btn-success btn-sm" onclick="resolverSolicitudAdecuacion(${s.id},'aprobada')">Aprobar y registrar</button></div>`:""}</div>`).join(""):'<div class="empty">No hay solicitudes registradas.</div>';
+    cont.innerHTML=rows.length?rows.map(s=>`<div class="solicitud-adec ${s.estado==='pendiente'?'':'resuelta'}"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div><strong>${htmlSeguro(nombreDesdeCampos(s.nombre,s.primer_apellido,s.segundo_apellido))}</strong> · ${htmlSeguro(s.seccion_nombre||"")}<br/><small>${s.origen==='matricula'?'Origen: Matrícula · Tramitó':'Solicita'}: ${htmlSeguro(nombreDesdeCampos(s.prof_nombre,s.prof_ap1,s.prof_ap2))}</small></div><span class="badge ${s.estado==='aprobada'?'badge-green':s.estado==='rechazada'?'badge-red':'badge-orange'}">${htmlSeguro(s.estado)}</span></div><p style="margin:8px 0;white-space:pre-wrap;"><strong>${htmlSeguro(ADECUACION_TIPOS[s.tipo]||s.tipo)}:</strong> ${htmlSeguro(s.motivo)}</p>${s.respuesta?`<div style="font-size:12px;color:var(--muted);">Respuesta: ${htmlSeguro(s.respuesta)}</div>`:""}${d.puede_resolver&&s.estado==='pendiente'?`<div style="display:flex;gap:7px;justify-content:flex-end;"><button class="btn btn-outline btn-sm" onclick="resolverSolicitudAdecuacion(${s.id},'rechazada')">Rechazar</button><button class="btn btn-success btn-sm" onclick="resolverSolicitudAdecuacion(${s.id},'aprobada')">Aprobar y registrar</button></div>`:""}</div>`).join(""):'<div class="empty">No hay solicitudes registradas.</div>';
   }catch(e){cont.innerHTML=`<div class="alert show danger">${htmlSeguro(e.message)}</div>`;}
 }
 async function resolverSolicitudAdecuacion(id,decision){
@@ -22079,6 +22140,8 @@ async function iniciarEvaluaciones(){
   document.getElementById("btn-nueva-tarea").style.display = (Number(a.porc_tareas)>0) ? "" : "none";
   document.getElementById("btn-nuevo-cotid").style.display = (Number(a.porc_cotidiano)>0) ? "" : "none";
   document.getElementById("btn-nuevo-proy").style.display = (Number(a.porc_proyectos)>0) ? "" : "none";
+  document.getElementById("btn-resumen-cotid").style.display = (Number(a.porc_cotidiano)>0) ? "" : "none";
+  document.getElementById("btn-resumen-tareas").style.display = (Number(a.porc_tareas)>0) ? "" : "none";
 
   await cargarEvaluaciones();
 }
@@ -22209,6 +22272,64 @@ async function cargarEvaluaciones(){
   }catch(e){
     sa("alert-eval","Error al cargar evaluaciones: "+e.message,"danger");
   }
+}
+
+let evalResumenTipo="cotidiano";
+function evalResumenParametros(tipo,estudianteId=null){
+  const a=evalAsigActual,periodo=document.getElementById("calif-periodo").value;
+  const p=new URLSearchParams({seccion_id:a.seccion_id,materia_id:a.materia_id,periodo,tipo});
+  if(a.subgrupo)p.set("subgrupo",a.subgrupo);
+  if(estudianteId)p.set("estudiante_id",estudianteId);
+  return p;
+}
+async function abrirResumenRubro(tipo){
+  evalResumenTipo=tipo;
+  const etiqueta=tipo==="cotidiano"?"Trabajo cotidiano":"Tareas";
+  document.getElementById("resumen-rubro-titulo").textContent=`🖨️ Cuadro individual de ${etiqueta}`;
+  document.getElementById("alert-resumen-rubro").className="alert";
+  const sel=document.getElementById("resumen-rubro-est");
+  sel.innerHTML='<option value="">Cargando estudiantes…</option>';
+  document.getElementById("modal-resumen-rubro").classList.add("show");
+  try{
+    const d=await api(`/api/calificaciones/resumen-rubro?${evalResumenParametros(tipo)}`);
+    sel.innerHTML='<option value="">— Seleccione —</option>'+d.estudiantes.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.cedula||'')}</option>`).join('');
+  }catch(e){sa("alert-resumen-rubro",e.message,"danger");sel.innerHTML='<option value="">No se pudo cargar</option>';}
+}
+async function imprimirResumenRubro(){
+  const estudianteId=document.getElementById("resumen-rubro-est").value;
+  if(!estudianteId){sa("alert-resumen-rubro","Seleccioná al estudiante.","warning");return;}
+  try{
+    const d=await api(`/api/calificaciones/resumen-rubro?${evalResumenParametros(evalResumenTipo,estudianteId)}`);
+    const etiqueta=evalResumenTipo==="cotidiano"?"TRABAJO COTIDIANO":"TAREAS";
+    let totalObtenido=0,totalPosible=0,hayNotas=false;
+    const filas=d.evaluaciones.length?d.evaluaciones.map((ev,idx)=>{
+      const inds=ev.indicadores||[];
+      totalPosible+=Number(ev.puntaje_total||0);
+      if(ev.puntos_obtenidos!==null){totalObtenido+=Number(ev.puntos_obtenidos);hayNotas=true;}
+      const fecha=evalResumenTipo==="tarea"&&ev.fecha_asignacion
+        ? `${fmtF(ev.fecha_asignacion)} → ${fmtF(ev.fecha)}`:fmtF(ev.fecha);
+      if(!inds.length)return `<tr><td>${idx+1}. ${pdfTexto(ev.nombre)}</td><td>${fecha}</td><td>—</td><td style="text-align:center;">${ev.puntos_obtenidos??'—'} / ${ev.puntaje_total}</td></tr>`;
+      return inds.map((ind,j)=>`<tr>
+        <td>${j===0?`${idx+1}. ${pdfTexto(ev.nombre)}`:''}</td>
+        <td>${j===0?fecha:''}</td><td>${ind.orden}. ${pdfTexto(ind.descripcion)}</td>
+        <td style="text-align:center;">${ind.puntaje===null?'—':ind.puntaje} / ${ind.puntaje_maximo}</td></tr>`).join('')+
+        `<tr style="background:#f8fafc;font-weight:bold;"><td colspan="3" style="text-align:right;">Subtotal de ${pdfTexto(ev.nombre)}</td><td style="text-align:center;">${ev.puntos_obtenidos===null?'Pendiente':ev.puntos_obtenidos} / ${ev.puntaje_total}</td></tr>`;
+    }).join(''):`<tr><td colspan="4" style="text-align:center;padding:18px;">No hay ${evalResumenTipo==='tarea'?'tareas':'cotidianos'} registrados en este período.</td></tr>`;
+    const contenido=`<div style="font-size:11px;line-height:1.45;">
+      <h2 style="text-align:center;font-size:15px;color:#12395b;margin:8px 0 12px;">CUADRO RESUMEN INDIVIDUAL · ${etiqueta}</h2>
+      <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:5px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:8px 10px;margin-bottom:10px;">
+        <div><strong>Estudiante:</strong> ${pdfTexto(nombrePersona(d.estudiante))}</div><div><strong>Cédula:</strong> ${pdfTexto(d.estudiante.cedula)}</div>
+        <div><strong>Materia:</strong> ${pdfTexto(d.asignacion.materia_nombre)}</div><div><strong>Sección:</strong> ${pdfTexto(d.asignacion.seccion_nombre)}</div>
+        <div><strong>Período:</strong> ${pdfTexto(document.getElementById("calif-periodo").value)}</div><div><strong>Rubro:</strong> ${etiqueta}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;"><thead><tr style="background:#dbeafe;color:#12395b;"><th style="width:25%;">Evaluación</th><th style="width:18%;">Fecha</th><th>Indicador</th><th style="width:15%;">Puntos</th></tr></thead><tbody>${filas}</tbody></table>
+      <style>.reporte-materia table th,.reporte-materia table td{border:1px solid #94a3b8;padding:5px;vertical-align:top;}</style>
+      <div style="margin-top:10px;text-align:right;font-size:13px;font-weight:bold;color:#12395b;">Total registrado: ${hayNotas?totalObtenido:'—'} / ${totalPosible} puntos</div>
+      <p style="margin-top:12px;color:#64748b;font-size:9.5px;">Documento de consulta. La información se obtiene automáticamente de las evaluaciones registradas y no se edita desde este cuadro.</p>
+    </div>`;
+    cerrarModal("modal-resumen-rubro");
+    await imprimirPDFMEP(`RESUMEN DE ${etiqueta}`,contenido,`resumen_${evalResumenTipo}_${d.estudiante.cedula||estudianteId}.pdf`);
+  }catch(e){sa("alert-resumen-rubro",e.message,"danger");}
 }
 
 function renderEvaluaciones(){
@@ -24326,7 +24447,25 @@ function atAbrirNueva(){
 async function atCargarEstudiantes(tipo){
   const asig=document.getElementById(tipo==="nueva"?"at-nueva-asig":"at-call-asig").value,sel=document.getElementById(tipo==="nueva"?"at-nueva-est":"at-call-est");
   if(!asig){sel.innerHTML='<option value="">— Seleccione —</option>';return;}
-  try{const rows=await api(`/api/alerta-temprana/estudiantes?asignacion_id=${asig}`);sel.innerHTML='<option value="">— Seleccione —</option>'+rows.map(e=>`<option value="${e.id}" data-tel="${htmlSeguro(e.encargado_telefono||e.telefono||'')}">${htmlSeguro(e.nombre_ordenado)} · ${htmlSeguro(e.cedula)}</option>`).join("");if(tipo==="call")sel.onchange=()=>{document.getElementById("at-call-numero").value=sel.selectedOptions[0]?.dataset.tel||"";};}catch(e){sa(tipo==="nueva"?"alert-at-nueva":"alert-at-call",e.message,"danger");}
+  try{const rows=await api(`/api/alerta-temprana/estudiantes?asignacion_id=${asig}`);sel.innerHTML='<option value="">— Seleccione —</option>'+rows.map(e=>`<option value="${e.id}" data-enc="${htmlSeguro(e.encargado_nombre||'Encargado principal')}" data-tel1="${htmlSeguro(e.encargado_telefono||'')}" data-tel2="${htmlSeguro(e.encargado_celular||'')}" data-tel3="${htmlSeguro(e.encargado_telefono_trabajo||'')}">${htmlSeguro(e.nombre_ordenado)} · ${htmlSeguro(e.cedula)}</option>`).join("");if(tipo==="call")sel.onchange=atPoblarTelefonosLlamada;}catch(e){sa(tipo==="nueva"?"alert-at-nueva":"alert-at-call",e.message,"danger");}
+}
+
+function atPoblarTelefonosLlamada(){
+  const est=document.getElementById('at-call-est')?.selectedOptions?.[0];
+  const sel=document.getElementById('at-call-numero');
+  if(!sel)return;
+  const vistos=new Set(),opciones=[];
+  [[est?.dataset.tel1,'Teléfono'],[est?.dataset.tel2,'Celular'],[est?.dataset.tel3,'Teléfono de trabajo']].forEach(([numero,tipo])=>{
+    const n=String(numero||'').trim();if(n&&!vistos.has(n)){vistos.add(n);opciones.push(`<option value="${htmlSeguro(n)}">${tipo}: ${htmlSeguro(n)}</option>`);}
+  });
+  sel.innerHTML=(opciones.length?opciones.join(''):'')+'<option value="__otro__">Otro número…</option>';
+  sel.value=opciones.length?String(est?.dataset.tel1||est?.dataset.tel2||est?.dataset.tel3||''):'__otro__';
+  atAlternarNumeroLlamada();
+}
+function atAlternarNumeroLlamada(){
+  const otro=document.getElementById('at-call-numero')?.value==='__otro__';
+  const wrap=document.getElementById('at-call-numero-otro-wrap');if(wrap)wrap.style.display=otro?'':'none';
+  if(otro)setTimeout(()=>document.getElementById('at-call-numero-otro')?.focus(),0);
 }
 async function atGuardarNueva(){
   const body={asignacion_id:Number(document.getElementById("at-nueva-asig").value),estudiante_id:Number(document.getElementById("at-nueva-est").value),riesgo_ausentismo:document.getElementById("at-riesgo-aus").checked,categorias:[...document.querySelectorAll('[name="at-codigo"]:checked')].map(x=>Number(x.value)),observacion_inicial:document.getElementById("at-observacion-inicial").value.trim()};
@@ -24354,13 +24493,14 @@ async function atAgregarSeguimiento(){try{await api(`/api/alerta-temprana/alerta
 async function atAgregarAccion(){try{await api(`/api/alerta-temprana/alertas/${atDetalleActual.alerta.id}/acciones`,"POST",{accion:document.getElementById("at-acc-accion").value.trim(),fecha_inicio:document.getElementById("at-acc-inicio").value||null,fecha_final:document.getElementById("at-acc-final").value||null,responsable:document.getElementById("at-acc-resp").value.trim(),institucion_referida:document.getElementById("at-acc-inst").value.trim(),observaciones:document.getElementById("at-acc-obs").value.trim()});await atVerDetalle(atDetalleActual.alerta.id);}catch(e){alert(e.message);}}
 async function atAgregarContacto(){try{await api(`/api/alerta-temprana/alertas/${atDetalleActual.alerta.id}/contactos`,"POST",{fecha:document.getElementById("at-con-fecha").value,via_contacto:document.getElementById("at-con-via").value.trim(),persona_contactada:document.getElementById("at-con-persona").value.trim(),comentarios:document.getElementById("at-con-coment").value.trim()});await atVerDetalle(atDetalleActual.alerta.id);}catch(e){alert(e.message);}}
 function atAbrirLlamada(){
-  ['at-call-asig','at-call-est','at-call-numero','at-call-inicio','at-call-fin','at-call-resultado','at-call-obs','at-call-atendio','at-call-parentesco','at-call-parentesco-otro','at-call-medio-otro','at-call-resultado-otro','at-call-seguimiento','at-call-descripcion','at-call-respuesta','at-call-comp-enc','at-call-comp-doc'].forEach(id=>{const x=document.getElementById(id);if(x)x.value='';});document.getElementById('at-call-est').innerHTML='<option value="">— Primero seleccione la materia —</option>';document.getElementById('at-call-fecha').value=fechaHoyCR();document.getElementById('at-call-medio').value='telefono';document.querySelectorAll('#at-call-motivos input').forEach(x=>x.checked=false);document.getElementById('at-call-effective').classList.remove('show');document.getElementById('alert-at-call').className='alert';atAlternarOtrosLlamada();document.getElementById('modal-at-llamada').classList.add('show');
+  ['at-call-asig','at-call-est','at-call-inicio','at-call-fin','at-call-resultado','at-call-obs','at-call-atendio','at-call-parentesco','at-call-parentesco-otro','at-call-medio-otro','at-call-resultado-otro','at-call-seguimiento','at-call-descripcion','at-call-respuesta','at-call-comp-enc','at-call-comp-doc','at-call-numero-otro'].forEach(id=>{const x=document.getElementById(id);if(x)x.value='';});document.getElementById('at-call-est').innerHTML='<option value="">— Primero seleccione la materia —</option>';document.getElementById('at-call-numero').innerHTML='<option value="">— Seleccione al estudiante —</option>';document.getElementById('at-call-numero-otro-wrap').style.display='none';document.getElementById('at-call-fecha').value=fechaHoyCR();document.getElementById('at-call-medio').value='telefono';document.querySelectorAll('#at-call-motivos input').forEach(x=>x.checked=false);document.getElementById('at-call-effective').classList.remove('show');document.getElementById('alert-at-call').className='alert';atAlternarOtrosLlamada();document.getElementById('modal-at-llamada').classList.add('show');
 }
 function atAlternarLlamadaEfectiva(){document.getElementById('at-call-effective').classList.toggle('show',document.getElementById('at-call-resultado').value==='efectiva');}
 function atAlternarOtrosLlamada(){document.getElementById('at-call-medio-otro-wrap').style.display=document.getElementById('at-call-medio').value==='otro'?'':'none';document.getElementById('at-call-resultado-otro-wrap').style.display=document.getElementById('at-call-resultado').value==='otro'?'':'none';document.getElementById('at-call-parentesco-otro-wrap').style.display=document.getElementById('at-call-parentesco').value==='Otro'?'':'none';}
 async function atGuardarLlamada(){
-  const efectiva=document.getElementById('at-call-resultado').value==='efectiva';const body={asignacion_id:Number(document.getElementById('at-call-asig').value),estudiante_id:Number(document.getElementById('at-call-est').value),fecha:document.getElementById('at-call-fecha').value,hora_inicio:document.getElementById('at-call-inicio').value,hora_fin:document.getElementById('at-call-fin').value||null,medio:document.getElementById('at-call-medio').value,medio_otro:document.getElementById('at-call-medio-otro').value.trim(),numero_marcado:document.getElementById('at-call-numero').value.trim(),resultado:document.getElementById('at-call-resultado').value,resultado_otro:document.getElementById('at-call-resultado-otro').value.trim(),observaciones:document.getElementById('at-call-obs').value.trim(),atendio_nombre:efectiva?document.getElementById('at-call-atendio').value.trim():'',parentesco:efectiva?document.getElementById('at-call-parentesco').value:'',parentesco_otro:efectiva?document.getElementById('at-call-parentesco-otro').value.trim():'',motivos:efectiva?[...document.querySelectorAll('#at-call-motivos input:checked')].map(x=>x.value):[],descripcion_situacion:efectiva?document.getElementById('at-call-descripcion').value.trim():'',respuesta_encargado:efectiva?document.getElementById('at-call-respuesta').value.trim():'',compromisos_encargado:efectiva?document.getElementById('at-call-comp-enc').value.trim():'',compromisos_docente:efectiva?document.getElementById('at-call-comp-doc').value.trim():'',fecha_seguimiento:efectiva?(document.getElementById('at-call-seguimiento').value||null):null};
+  const efectiva=document.getElementById('at-call-resultado').value==='efectiva';const numeroSeleccionado=document.getElementById('at-call-numero').value;const numeroMarcado=numeroSeleccionado==='__otro__'?document.getElementById('at-call-numero-otro').value.trim():numeroSeleccionado.trim();const body={asignacion_id:Number(document.getElementById('at-call-asig').value),estudiante_id:Number(document.getElementById('at-call-est').value),fecha:document.getElementById('at-call-fecha').value,hora_inicio:document.getElementById('at-call-inicio').value,hora_fin:document.getElementById('at-call-fin').value||null,medio:document.getElementById('at-call-medio').value,medio_otro:document.getElementById('at-call-medio-otro').value.trim(),numero_marcado:numeroMarcado,resultado:document.getElementById('at-call-resultado').value,resultado_otro:document.getElementById('at-call-resultado-otro').value.trim(),observaciones:document.getElementById('at-call-obs').value.trim(),atendio_nombre:efectiva?document.getElementById('at-call-atendio').value.trim():'',parentesco:efectiva?document.getElementById('at-call-parentesco').value:'',parentesco_otro:efectiva?document.getElementById('at-call-parentesco-otro').value.trim():'',motivos:efectiva?[...document.querySelectorAll('#at-call-motivos input:checked')].map(x=>x.value):[],descripcion_situacion:efectiva?document.getElementById('at-call-descripcion').value.trim():'',respuesta_encargado:efectiva?document.getElementById('at-call-respuesta').value.trim():'',compromisos_encargado:efectiva?document.getElementById('at-call-comp-enc').value.trim():'',compromisos_docente:efectiva?document.getElementById('at-call-comp-doc').value.trim():'',fecha_seguimiento:efectiva?(document.getElementById('at-call-seguimiento').value||null):null};
   if(!body.asignacion_id||!body.estudiante_id||!body.fecha||!body.hora_inicio||!body.resultado){sa('alert-at-call','Complete sección, materia, estudiante, fecha, hora y resultado.','warning');return;}
+  if(body.medio==='telefono'&&!body.numero_marcado){sa('alert-at-call','Seleccione uno de los teléfonos registrados o escriba otro número.','warning');return;}
   if(body.hora_fin&&body.hora_fin<body.hora_inicio){sa('alert-at-call','La hora final no puede ser anterior a la hora de inicio.','warning');return;}
   if(body.medio==='otro'&&!body.medio_otro){sa('alert-at-call','Especifique el medio de comunicación utilizado.','warning');return;}
   if(body.resultado==='otro'&&!body.resultado_otro){sa('alert-at-call','Especifique el resultado de la comunicación.','warning');return;}
