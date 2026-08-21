@@ -274,43 +274,70 @@ th{background:var(--bg);padding:8px 11px;text-align:left;font-size:11px;color:va
 td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle;}
 
 /* HORARIO — grilla compacta, alineada y legible */
-.hor-toolbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:10px;}
-.hor-guide-chip{font-size:12px;color:#334155;background:#fff;border:1px solid var(--border);border-radius:999px;padding:7px 12px;margin-bottom:1px;}
+.hor-toolbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;padding:9px 12px;background:#f8fafc;border:1px solid var(--border);border-radius:10px;}
+.hor-guide-chip{font-size:12px;color:#334155;background:#fff;border:1px solid var(--border);border-radius:999px;padding:5px 10px;margin-bottom:1px;}
 #hor-grid-wrap{border:1px solid var(--border);border-radius:12px;overflow:auto;background:#fff;box-shadow:0 3px 12px rgba(15,23,42,.06);}
 .hor-table{width:100%;min-width:940px;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px;}
 .hor-table col.hor-col-num{width:44px;}
 .hor-table col.hor-col-time{width:108px;}
-.hor-table thead th{position:sticky;top:0;z-index:3;height:42px;padding:8px 6px;background:#1a3a5c;color:#fff;border:0;border-right:1px solid rgba(255,255,255,.12);text-align:center!important;font-size:11px;font-weight:800;letter-spacing:.45px;vertical-align:middle;}
+.hor-table thead th{position:sticky;top:0;z-index:3;height:38px;padding:6px;background:#1a3a5c;color:#fff;border:0;border-right:1px solid rgba(255,255,255,.12);text-align:center!important;font-size:11px;font-weight:800;letter-spacing:.45px;vertical-align:middle;}
 .hor-table thead th:first-child{border-radius:10px 0 0 0;}
 .hor-table thead th:last-child{border-radius:0 10px 0 0;border-right:0;}
 .hor-table .hor-lesson-row:nth-child(even) td{background:#fbfdff;}
 .hor-table .hor-lesson-row:hover td{background:#f3f8ff;}
-.hor-table td{height:70px;padding:5px 7px;border-bottom:1px solid #dbe4ee;border-right:1px solid #e7edf4;vertical-align:middle;transition:background .15s;}
+.hor-table td{height:56px;padding:3px 5px;border-bottom:1px solid #dbe4ee;border-right:1px solid #e7edf4;vertical-align:middle;transition:background .15s;}
 .hor-table td:last-child{border-right:0;}
 .hor-lesson-index{text-align:center;background:#f8fafc!important;}
-.hor-lesson-badge{display:inline-flex;width:27px;height:27px;align-items:center;justify-content:center;border-radius:50%;background:#e7eef8;color:#1a3a5c;font-weight:800;font-size:11px;}
+.hor-lesson-badge{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:50%;background:#e7eef8;color:#1a3a5c;font-weight:800;font-size:11px;}
 .hor-time{text-align:center;white-space:nowrap;background:#f8fafc!important;color:#475569;font-size:11px;font-variant-numeric:tabular-nums;line-height:1.35;}
 .hor-time strong{display:block;color:#0f172a;font-size:11.5px;}
 .hor-slot{position:relative;text-align:center;}
 .hor-slot.hor-today{background:#fffbeb!important;box-shadow:inset 3px 0 0 #f59e0b;}
 .hor-empty{color:#cbd5e1;font-size:15px;}
-.hor-class-card{position:relative;display:flex;min-height:56px;flex-direction:column;align-items:center;justify-content:center;padding:5px 7px;border-radius:8px;background:#f4f8fd;border:1px solid #dbe7f4;line-height:1.2;}
-.hor-class-card+.hor-class-card{margin-top:4px;}
+.hor-class-card{position:relative;display:flex;min-height:44px;flex-direction:column;align-items:center;justify-content:center;padding:4px 6px;border-radius:8px;background:#f4f8fd;border:1px solid #dbe7f4;line-height:1.2;}
+.hor-class-card+.hor-class-card{margin-top:3px;}
 .hor-class-card.hor-day-2{background:#f6f5ff;border-color:#e2defc;}
 .hor-class-card.hor-day-3{background:#f1faf6;border-color:#d6eee2;}
 .hor-class-card.hor-day-4{background:#fff8ed;border-color:#f5e3c5;}
 .hor-class-card.hor-day-5{background:#fff4f6;border-color:#f3dbe1;}
+.hor-class-card.hor-materia{background:var(--hor-bg);border-color:var(--hor-border);box-shadow:inset 3px 0 0 var(--hor-accent);}
+.hor-class-card.hor-materia .hor-subject{color:var(--hor-ink);}
+.hor-class-card.hor-materia .hor-room{color:var(--hor-ink);border-color:var(--hor-border);background:rgba(255,255,255,.82);}
+.hor-materia-0{--hor-bg:#eff6ff;--hor-border:#bfdbfe;--hor-accent:#3b82f6;--hor-ink:#1e3a8a;}
+.hor-materia-1{--hor-bg:#ecfdf5;--hor-border:#a7f3d0;--hor-accent:#10b981;--hor-ink:#065f46;}
+.hor-materia-2{--hor-bg:#fff1f2;--hor-border:#fecdd3;--hor-accent:#f43f5e;--hor-ink:#9f1239;}
+.hor-materia-3{--hor-bg:#f5f3ff;--hor-border:#ddd6fe;--hor-accent:#8b5cf6;--hor-ink:#5b21b6;}
+.hor-materia-4{--hor-bg:#f0f9ff;--hor-border:#bae6fd;--hor-accent:#0ea5e9;--hor-ink:#075985;}
+.hor-materia-5{--hor-bg:#fffbeb;--hor-border:#fde68a;--hor-accent:#f59e0b;--hor-ink:#92400e;}
+.hor-materia-6{--hor-bg:#ecfeff;--hor-border:#a5f3fc;--hor-accent:#06b6d4;--hor-ink:#155e75;}
+.hor-materia-7{--hor-bg:#fdf2f8;--hor-border:#fbcfe8;--hor-accent:#ec4899;--hor-ink:#9d174d;}
+.hor-materia-8{--hor-bg:#f7fee7;--hor-border:#d9f99d;--hor-accent:#84cc16;--hor-ink:#3f6212;}
+.hor-materia-9{--hor-bg:#fdf4ff;--hor-border:#f5d0fe;--hor-accent:#d946ef;--hor-ink:#86198f;}
+.hor-materia-10{--hor-bg:#fff7ed;--hor-border:#fed7aa;--hor-accent:#f97316;--hor-ink:#9a3412;}
+.hor-materia-11{--hor-bg:#f0fdfa;--hor-border:#99f6e4;--hor-accent:#14b8a6;--hor-ink:#115e59;}
+.hor-materia-12{--hor-bg:#eef2ff;--hor-border:#c7d2fe;--hor-accent:#6366f1;--hor-ink:#3730a3;}
+.hor-materia-13{--hor-bg:#faf5ff;--hor-border:#e9d5ff;--hor-accent:#a855f7;--hor-ink:#6b21a8;}
+.hor-materia-14{--hor-bg:#fefce8;--hor-border:#fef08a;--hor-accent:#eab308;--hor-ink:#854d0e;}
+.hor-materia-15{--hor-bg:#f8fafc;--hor-border:#cbd5e1;--hor-accent:#64748b;--hor-ink:#334155;}
+.hor-materia-16{--hor-bg:#fef2f2;--hor-border:#fecaca;--hor-accent:#ef4444;--hor-ink:#991b1b;}
+.hor-materia-17{--hor-bg:#f0fdf4;--hor-border:#bbf7d0;--hor-accent:#22c55e;--hor-ink:#166534;}
+.hor-materia-18{--hor-bg:#eefcfd;--hor-border:#b6eef2;--hor-accent:#0891b2;--hor-ink:#164e63;}
+.hor-materia-19{--hor-bg:#f4f4ff;--hor-border:#d8d7ff;--hor-accent:#7067cf;--hor-ink:#4338a8;}
+.hor-materia-20{--hor-bg:#fff8f1;--hor-border:#f8d6b3;--hor-accent:#d97706;--hor-ink:#78350f;}
+.hor-materia-21{--hor-bg:#f1fdf7;--hor-border:#b9efd4;--hor-accent:#0d9488;--hor-ink:#134e4a;}
+.hor-materia-22{--hor-bg:#fdf4f5;--hor-border:#efc7cd;--hor-accent:#be5c70;--hor-ink:#7f1d36;}
+.hor-materia-23{--hor-bg:#f5f7fa;--hor-border:#d5dce5;--hor-accent:#4f6b8a;--hor-ink:#243b53;}
 .hor-class-card.hor-extra{border-width:2px;box-shadow:0 2px 7px rgba(15,23,42,.08);}
 .hor-class-card.hor-extra-club{background:#f3e8ff!important;border-color:#c084fc!important;}
 .hor-class-card.hor-extra-coordinacion{background:#e0f2fe!important;border-color:#38bdf8!important;}
 .hor-subject{color:#172554;font-weight:800;font-size:11.5px;overflow-wrap:anywhere;}
 .hor-teacher{margin-top:2px;color:#64748b;font-size:10.5px;overflow-wrap:anywhere;}
-.hor-room{display:inline-block;margin-top:4px;padding:2px 7px;border-radius:999px;background:#fff;color:#1d4ed8;border:1px solid #cbdcf7;font-size:9.5px;font-weight:800;}
+.hor-room{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;background:#fff;color:#1d4ed8;border:1px solid #cbdcf7;font-size:9.5px;font-weight:800;}
 .hor-break-row td{height:auto!important;padding:0!important;background:#e8eef6!important;border:0!important;}
-.hor-break-band{display:flex;align-items:center;justify-content:center;gap:9px;height:27px;color:#334155;font-size:10px;font-weight:800;letter-spacing:.65px;text-transform:uppercase;}
+.hor-break-band{display:flex;align-items:center;justify-content:center;gap:8px;height:23px;color:#334155;font-size:10px;font-weight:800;letter-spacing:.65px;text-transform:uppercase;}
 .hor-break-time{color:#64748b;font-weight:600;letter-spacing:0;text-transform:none;}
 .hor-break-row.hor-lunch td{background:#e7f5ec!important;}
-.hor-break-row.hor-lunch .hor-break-band{color:#166534;height:31px;}
+.hor-break-row.hor-lunch .hor-break-band{color:#166534;height:26px;}
 .hor-editor-row{display:flex;gap:4px;margin-bottom:4px;align-items:stretch;}
 .hor-editor-select{min-width:0;flex:1;font-size:10.5px;padding:5px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;}
 .hor-editor-room{width:86px;font-size:10px;padding:4px;border:1px solid #cbd5e1;border-radius:6px;text-align:center;}
@@ -348,7 +375,7 @@ td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle;
 .hor-aulas-conflict .hor-aula-entry{background:#ffe4e6;color:#9f1239;}
 .hor-aulas-empty{color:#d5dee8;}
 @media(max-width:1100px){.hor-extra-form{grid-template-columns:repeat(3,minmax(150px,1fr));}.hor-summary{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:900px){.hor-table{min-width:820px}.hor-toolbar{padding:10px}.hor-guide-chip{width:100%;border-radius:7px}.hor-table td{height:64px}.hor-aulas-scroll{max-height:62vh}.hor-day-tab{padding:7px 10px}.hor-aulas-table{min-width:1030px}}
+@media(max-width:900px){.hor-table{min-width:820px}.hor-toolbar{padding:8px 10px}.hor-guide-chip{width:100%;border-radius:7px}.hor-table td{height:54px}.hor-aulas-scroll{max-height:62vh}.hor-day-tab{padding:7px 10px}.hor-aulas-table{min-width:1030px}}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:#f8fafc;}
 .empty{text-align:center;padding:32px;color:var(--muted);}
@@ -17790,6 +17817,40 @@ function horAulaEtiqueta(valor){
   return /^\d+$/.test(texto)?`Aula ${Number(texto)}`:texto;
 }
 
+function horColorMateria(nombre){
+  const clave=String(nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  const coloresConocidos=[
+    [/fortalecimiento.*matemat|matem.*fortalecimiento/,17],
+    [/ingles conversacional/,18],
+    [/diseno publicitario/,13],
+    [/educacion para el hogar|hogar/,11],
+    [/artes industriales|industriales/,10],
+    [/artes plasticas|plastica/,9],
+    [/informatica|tecnologia/,12],
+    [/educacion fisica|fisica deportiva/,8],
+    [/estudios sociales|sociales/,5],
+    [/etica|valores/,7],
+    [/orientacion/,14],
+    [/matemat/,0],
+    [/ciencia/,1],
+    [/espanol/,2],
+    [/ingles/,3],
+    [/frances/,4],
+    [/civica/,6],
+    [/musica/,16],
+    [/guia/,15]
+  ];
+  const conocido=coloresConocidos.find(([patron])=>patron.test(clave));
+  if(conocido) return conocido[1];
+  let hash=0;
+  for(let i=0;i<clave.length;i++) hash=((hash<<5)-hash+clave.charCodeAt(i))|0;
+  return 19+(Math.abs(hash)%5);
+}
+
+function horClaseMateria(nombre){
+  return `hor-materia hor-materia-${horColorMateria(nombre)}`;
+}
+
 function horRenderGrid(mapa, editable){
   const diaHoy = new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).getDay();
   let html = '<table class="hor-table"><colgroup><col class="hor-col-num"><col class="hor-col-time">' +
@@ -17837,9 +17898,9 @@ function horRenderGrid(mapa, editable){
           }
           if(c.materia_nombre){
             const secundario=c.detalle_secundario||nombreDesdeCampos(c.prof_nombre,c.prof_ap1,c.prof_ap2);
-            return `<div class="hor-class-card hor-day-${dia}"><div class="hor-subject">${htmlSeguro(c.materia_nombre)}</div><div class="hor-teacher">${htmlSeguro(secundario)}</div>${aulaTxt}</div>`;
+            return `<div class="hor-class-card ${horClaseMateria(c.materia_nombre)}"><div class="hor-subject">${htmlSeguro(c.materia_nombre)}</div><div class="hor-teacher">${htmlSeguro(secundario)}</div>${aulaTxt}</div>`;
           }
-          return `<div class="hor-class-card hor-day-${dia}"><div class="hor-subject">${htmlSeguro(c.materia_texto||'')}</div>${aulaTxt}</div>`;
+          return `<div class="hor-class-card ${horClaseMateria(c.materia_texto)}"><div class="hor-subject">${htmlSeguro(c.materia_texto||'')}</div>${aulaTxt}</div>`;
         }).join('');
         html += `<td class="hor-slot${hoyClass}" data-dia="${dia}">${partes}</td>`;
       }

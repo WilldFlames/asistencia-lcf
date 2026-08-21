@@ -58,3 +58,27 @@ test("la interfaz se adapta a iPhone, áreas seguras y navegador móvil", () => 
   assert.match(html, /dash-attendance-btn/);
   assert.match(html, /topbar-left\{flex:1 1 auto;min-width:0;overflow:hidden/);
 });
+
+test("el horario conserva su diseño y aprovecha mejor el espacio vertical", () => {
+  assert.match(frontend, /\.hor-table td\{height:56px;padding:3px 5px/);
+  assert.match(frontend, /\.hor-class-card\{[^}]*min-height:44px/);
+  assert.match(frontend, /\.hor-class-card\+\.hor-class-card\{margin-top:3px/);
+  assert.match(frontend, /\.hor-break-band\{[^}]*height:23px/);
+  assert.match(frontend, /\.hor-break-row\.hor-lunch \.hor-break-band\{[^}]*height:26px/);
+
+  // Las fuentes se mantienen: el ajuste es de espacio, no de legibilidad.
+  assert.match(frontend, /\.hor-subject\{[^}]*font-size:11\.5px/);
+  assert.match(frontend, /\.hor-teacher\{[^}]*font-size:10\.5px/);
+  assert.match(frontend, /\.hor-room\{[^}]*font-size:9\.5px/);
+});
+
+test("cada materia conserva un color pastel propio en todo el horario", () => {
+  assert.match(frontend, /function horColorMateria\(nombre\)/);
+  assert.match(frontend, /function horClaseMateria\(nombre\)/);
+  assert.match(frontend, /hor-materia-0\{--hor-bg:#eff6ff/);
+  assert.match(frontend, /hor-materia-16\{--hor-bg:#fef2f2/);
+  assert.match(frontend, /hor-materia-23\{--hor-bg:#f5f7fa/);
+  assert.match(frontend, /horClaseMateria\(c\.materia_nombre\)/);
+  assert.match(frontend, /horClaseMateria\(c\.materia_texto\)/);
+  assert.match(frontend, /\.hor-class-card\.hor-materia \.hor-subject\{color:var\(--hor-ink\)/);
+});

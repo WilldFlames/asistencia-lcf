@@ -1,0 +1,19 @@
+PARCHE: HORARIO MÁS COMPACTO
+Fecha: 20 de agosto de 2026
+
+Qué cambia:
+- Reduce la altura de las filas del horario.
+- Reduce el espacio interno de las tarjetas de materias.
+- Compacta el encabezado, los filtros, los recreos y el almuerzo.
+- Aprovecha mejor la pantalla y permite ver más lecciones a la vez.
+- Asigna a cada materia un color pastel propio y consistente durante la semana.
+
+Qué se conserva:
+- El mismo tamaño de letra.
+- El estilo institucional y las tarjetas visuales.
+- Los nombres de materias, docentes y aulas.
+- Todos los botones y funciones del horario.
+- La presentación especial para impresión.
+
+No requiere variables nuevas ni cambios en PostgreSQL.
+Se sube y despliega de la misma manera que los parches anteriores.
