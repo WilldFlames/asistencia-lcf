@@ -617,7 +617,7 @@ async function getEstadoPeriodo(profesor_id, seccion_id, materia_id, subgrupo, p
 
 // Calcula los rubros para todos los estudiantes de una asignación.
 // Devuelve { regla, estudiantes: [{estudiante_id, rubros, total, asistencia}] }
-async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo) {
+async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo, estudianteForzadoId=null) {
   const sub = subgrupo || null;
 
   // 1. Verificar acceso y obtener regla REAC
@@ -643,10 +643,11 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
       COALESCE(ad.observacion,'') AS adecuacion_observacion
     FROM estudiantes e
     LEFT JOIN adecuaciones_estudiante ad ON ad.estudiante_id=e.id
-    WHERE e.seccion_id = $1 AND e.activo = true
+    WHERE ((e.seccion_id = $1 AND e.activo = true)
+       OR ($3::int IS NOT NULL AND e.id = $3))
       AND (($2::text IS NULL) OR e.subgrupo = $2)
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
-  `, [seccion_id, sub]);
+  `, [seccion_id, sub, estudianteForzadoId]);
   const estudiantes = estudiantesR.rows;
 
   // 3b. RAMA SIMPLIFICADA: para materias como Ética y Valores el profe
@@ -1620,9 +1621,9 @@ module.exports = router;
 // Helper para archivado por "Aplicar Matrículas": calcula promedios sin validar
 // sesión de profe (usa admin implícito). Devuelve la misma estructura que el
 // endpoint público /promedio/seccion.
-module.exports.calcularPromediosParaArchivo = async function(client, profesor_id, seccion_id, materia_id, subgrupo, periodo){
+module.exports.calcularPromediosParaArchivo = async function(client, profesor_id, seccion_id, materia_id, subgrupo, periodo, estudianteId = null){
   try {
-    return await calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo);
+    return await calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo, estudianteId);
   } catch(e){
     // Si falla (sin regla REAC, sin evaluaciones, etc.), devolvemos null y el
     // proceso de archivo la salta. No debe romper el flujo completo.
@@ -1633,3 +1634,10 @@ module.exports.calcularPromediosParaArchivo = async function(client, profesor_id
 // Reutilización institucional para el tablero de Rendimiento. Mantiene una
 // sola fórmula oficial para docentes, actas y estadísticas administrativas.
 module.exports.calcularPromediosInstitucional = calcularPromediosAsignacion;
+
+// El Archivo necesita calcular el último estado de un estudiante aunque al
+// archivarlo su seccion_id ya sea NULL. El identificador forzado solo amplía
+// esa consulta administrativa; los endpoints docentes mantienen sus filtros.
+module.exports.calcularPromedioEstudianteArchivado = async function(profesor_id,seccion_id,materia_id,subgrupo,periodo,estudianteId){
+  return calcularPromediosAsignacion(profesor_id,seccion_id,materia_id,subgrupo,periodo,estudianteId);
+};

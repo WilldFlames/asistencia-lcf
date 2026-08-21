@@ -4,8 +4,74 @@ const { requireAuth, requireRol } = require("../middleware/auth");
 const cldHelper = require("./cloudinary-helper");
 const { notificarEstudiante } = require("../utils/push-familias");
 const { seccionesPermitidas, puedeAccederEstudiante, exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
+const { obtenerAnioActivo } = require("../utils/lectivo");
+const { archivarConductaDetallada } = require("../utils/archivo-conducta");
+const { calcularPromedioEstudianteArchivado } = require("./calificaciones");
 
 const canManage = requireRol("admin","auxiliar");
+
+function promedioArchivadoTieneDatos(est){
+  const rubros=est?.rubros||{};
+  if(est?.modo_simplificado){
+    return Object.values(rubros).some(r=>r&&r.nota_100!==null&&r.nota_100!==undefined);
+  }
+  return Object.values(rubros).some(r=>Number(r?.cant_con_nota||0)>0);
+}
+
+async function archivarResumenAcademicoEstudiante(est,anio){
+  if(!est?.id||!est?.sec_id) return 0;
+  const bases=await pool.query(`
+    SELECT DISTINCT a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,
+      s.nombre AS seccion_nombre,m.nombre AS materia_nombre,
+      u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2
+    FROM asignaciones a
+    JOIN secciones s ON s.id=a.seccion_id
+    JOIN materias m ON m.id=a.materia_id
+    JOIN usuarios u ON u.id=a.profesor_id
+    WHERE a.anio=$1 AND a.seccion_id=$2
+      AND (a.subgrupo IS NULL OR a.subgrupo=$3)
+    ORDER BY m.nombre,a.profesor_id,a.subgrupo
+  `,[anio,est.sec_id,est.subgrupo||null]);
+  let guardados=0;
+  for(const a of bases.rows){
+    for(const periodo of ["I Período","II Período"]){
+      try{
+        const data=await calcularPromedioEstudianteArchivado(
+          a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,periodo,est.id
+        );
+        const nota=data?.estudiantes?.find(x=>Number(x.estudiante_id)===Number(est.id));
+        if(!nota||!promedioArchivadoTieneDatos(nota)) continue;
+        const rb=nota.rubros||{};
+        const profesor=[a.prof_nombre,a.prof_ap1,a.prof_ap2].filter(Boolean).join(" ");
+        await pool.query(`
+          INSERT INTO expediente_academico (
+            estudiante_id,anio,periodo,seccion_nombre,materia_nombre,profesor_nombre,
+            nota_cotidiano,nota_tareas,nota_pruebas,nota_proyecto,nota_asistencia,nota_total,
+            ausencias,ausencias_just,tardias
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,0,0)
+          ON CONFLICT (estudiante_id,anio,periodo,materia_nombre) DO UPDATE SET
+            seccion_nombre=EXCLUDED.seccion_nombre,profesor_nombre=EXCLUDED.profesor_nombre,
+            nota_cotidiano=EXCLUDED.nota_cotidiano,nota_tareas=EXCLUDED.nota_tareas,
+            nota_pruebas=EXCLUDED.nota_pruebas,nota_proyecto=EXCLUDED.nota_proyecto,
+            nota_asistencia=EXCLUDED.nota_asistencia,nota_total=EXCLUDED.nota_total,
+            ausencias=EXCLUDED.ausencias
+        `,[
+          est.id,anio,periodo,a.seccion_nombre,a.materia_nombre,profesor,
+          rb.cotidiano?.nota_100??null,rb.tarea?.nota_100??null,
+          rb.examen?.nota_100??null,rb.proyecto?.nota_100??null,
+          nota.asistencia?.puntos_mep??nota.asistencia?.pct??null,
+          nota.total??null,nota.asistencia?.lecciones_ausentes_injust||0
+        ]);
+        guardados++;
+      }catch(error){
+        // Una materia sin regla o sin asignación heredada no debe impedir el
+        // retiro. Sus datos crudos permanecen intactos para revisión posterior.
+        console.warn(`Archivo académico estudiante ${est.id}, ${a.materia_nombre}, ${periodo}:`,error.message);
+      }
+    }
+  }
+  return guardados;
+}
 
 async function validarRestriccionSeccionActual(estudianteId, seccionId, db = pool){
   if(!estudianteId || !seccionId) return null;
@@ -580,6 +646,13 @@ router.post("/:id/archivar", canManage, async (req, res) => {
   const est = estR.rows[0];
   const nombreEst = `${est.nombre||''} ${est.primer_apellido||''} ${est.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
   const nombreUsuario = `${u.nombre||''} ${u.primer_apellido||''} ${u.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
+
+  // Antes de quitar la sección, guardar exactamente lo que exista hasta hoy.
+  // Si solo hay I Período, no se inventa II; si hay datos parciales del II,
+  // también se conservan con su desglose.
+  const anioArchivo=await obtenerAnioActivo();
+  await archivarResumenAcademicoEstudiante(est,anioArchivo);
+  await archivarConductaDetallada(pool,{estudianteId:est.id,anio:anioArchivo});
 
   // Archivar — mantener activo=true pero archivado=true
   await pool.query(`

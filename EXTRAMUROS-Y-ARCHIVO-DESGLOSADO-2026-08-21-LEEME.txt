@@ -1,0 +1,35 @@
+PARCHE: EXTRAMUROS COMPLETO + ARCHIVO ACADÉMICO Y DE CONDUCTA
+Fecha: 21 de agosto de 2026
+
+1. EXTRAMUROS
+- Se reconstruyeron los tres anexos según el documento oficial aportado.
+- Cada estudiante genera sus tres páginas dentro del mismo PDF de la actividad.
+- Se completan automáticamente los datos que ya existen en el sistema:
+  estudiante, sección/nivel, encargado principal, identificación, parentesco,
+  contactos, información médica, actividad, responsables y Dirección.
+- Cuando un dato no existe en el sistema, el espacio se deja en blanco para
+  completarlo a mano. No se imprimen textos como "No registrado".
+- Se conservaron el consecutivo individual, encabezado y pie institucional.
+
+2. ESTUDIANTES ARCHIVADOS
+- Al archivar un estudiante se guardan los promedios desglosados por materia
+  y rubro: cotidiano, tareas, pruebas, proyecto, asistencia y nota total.
+- Solo se muestran los períodos que realmente tengan calificaciones cargadas.
+  Si el retiro ocurre durante el segundo período, se conserva lo que exista
+  hasta ese momento.
+- Se conserva cada boleta de conducta con fecha, falta, puntos rebajados,
+  descripción, observación, materia y responsables.
+- La ventana de Archivo muestra por separado los desgloses de promedios y
+  conducta para cada año y período disponible.
+- También se protegen estudiantes que ya estaban archivados antes de instalar
+  este parche: al cerrar el curso se rescatan sus notas parciales antes de la
+  limpieza anual.
+
+3. INSTALACIÓN
+- Suba este ZIP completo a GitHub de la misma forma habitual.
+- Railway ejecutará automáticamente la creación de la nueva tabla necesaria.
+- No requiere agregar variables nuevas en Railway.
+
+4. VERIFICACIÓN REALIZADA
+- Sintaxis de los archivos modificados: correcta.
+- Pruebas automatizadas completas: 154 aprobadas, 0 fallidas.

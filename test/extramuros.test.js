@@ -45,6 +45,17 @@ test('el módulo selecciona responsables y estudiantes por sección en tres paso
   assert.match(ui,/function extAgregarEstudiante/);
 });
 
+test('el formulario nuevo permanece oculto como modal y no se mezcla con Asistencia',()=>{
+  assert.match(html,/<div class="modal-overlay" id="modal-extramuros" aria-hidden="true">/);
+  assert.match(html,/<div class="modal" role="dialog" aria-modal="true" aria-labelledby="ext-modal-title"/);
+  assert.doesNotMatch(html,/<div class="modal" id="modal-extramuros">/);
+  assert.match(html,/modalExtramuros&&page!=="extramuros"/);
+  assert.match(html,/modalExtramuros\.classList\.remove\("show"\)/);
+  assert.match(html,/#modal-extramuros:not\(\.show\)\{display:none!important;\}/);
+  assert.match(html,/#modal-extramuros\.show\{display:flex!important;\}/);
+  assert.match(ui,/modal\.setAttribute\("aria-hidden","false"\)/);
+});
+
 test('cada estudiante produce tres anexos dentro de un único PDF con encabezado y pie MEP',()=>{
   assert.match(ui,/function extPaginaAnexo1/);
   assert.match(ui,/function extPaginaAnexo2/);
@@ -68,4 +79,21 @@ test('los anexos autorrellenan estudiante, sección, encargado, salud y direcci�
   assert.match(ui,/extNombrePersona\(e\)/);
   assert.match(ui,/e\.seccion_nombre/);
   assert.doesNotMatch(ui,/background\s*:\s*yellow/i);
+});
+
+test('los tres anexos conservan el contenido completo del documento original',()=>{
+  for(const texto of [
+    'Consentimiento informado para el uso de fotografías, videos y otros con fines educativos',
+    'Información médica para considerar por el centro educativo',
+    'Copia de la cédula de identidad del encargado legal y del estudiante',
+    'Compromisos de participación de representantes legales',
+    'Autorización por parte de la Dirección del centro educativo',
+    'artículo 5 del Código de la Niñez y la Adolescencia',
+    'Ley General de la Administración Pública, artículo 190, inciso 1',
+    'llamar al PANI y a la Policía de Proximidad',
+    'boleta de datos personales del estudiante'
+  ]) assert.ok(ui.includes(texto),`Falta el texto oficial: ${texto}`);
+  assert.doesNotMatch(ui,/No registrada|No registrado|No registrados/);
+  assert.match(ui,/Teléfono: ____________________/);
+  assert.match(ui,/Sello: __________/);
 });

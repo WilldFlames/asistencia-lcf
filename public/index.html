@@ -351,6 +351,10 @@ td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle;
 /* EXTRAMUROS — asistente de actividad, responsables y estudiantes */
 .ext-hero{position:relative;overflow:hidden;border-left:5px solid #f59e0b;background:linear-gradient(135deg,#fffaf0,#f0f9ff);}
 .ext-hero::after{content:"🚌";position:absolute;right:18px;top:-24px;font-size:104px;opacity:.07;pointer-events:none;}
+/* Protección específica: el formulario global de Extramuros jamás forma parte
+   del flujo de otro módulo; solamente aparece al abrirlo expresamente. */
+#modal-extramuros:not(.show){display:none!important;}
+#modal-extramuros.show{display:flex!important;}
 .ext-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;border-bottom:1px solid var(--border);}
 .ext-tab{border:0;background:transparent;padding:9px 12px;color:var(--muted);font-weight:700;cursor:pointer;border-bottom:3px solid transparent;}
 .ext-tab.active{color:var(--azul2);border-bottom-color:var(--azul2);}
@@ -1304,8 +1308,8 @@ tr:hover td{background:#f8fafc;}
   </section>
 </div>
 
-<div class="modal" id="modal-extramuros">
-  <div class="modal-box" style="max-width:860px;max-height:92vh;overflow:auto;">
+<div class="modal-overlay" id="modal-extramuros" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ext-modal-title" style="max-width:860px;max-height:92vh;overflow:auto;">
     <h2 id="ext-modal-title" style="margin-bottom:12px;">🚌 Nuevo extramuros</h2>
     <div class="ext-stepper">
       <div class="ext-step active" data-ext-step="1">1 · Actividad</div>
@@ -5877,6 +5881,13 @@ function closeSidebarMobile(){
 
 function goTo(page){
   closeSidebarMobile();
+  // Extramuros vive en una ventana emergente independiente. Si se cambia de
+  // módulo, nunca debe permanecer abierto ni mezclarse con la nueva pantalla.
+  const modalExtramuros=document.getElementById("modal-extramuros");
+  if(modalExtramuros&&page!=="extramuros"){
+    modalExtramuros.classList.remove("show");
+    modalExtramuros.setAttribute("aria-hidden","true");
+  }
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
   document.getElementById("page-"+page).classList.add("active");
@@ -18813,10 +18824,12 @@ async function verDetalleArchivado(id){
   document.getElementById('modal-detalle-archivado').classList.add('show');
 
   try {
-    // Cargar encargados e historial en paralelo
-    const [encs, historial] = await Promise.all([
+    // Cargar información personal, académica y de conducta en paralelo.
+    const [encs, historial, academico, conductaArchivo] = await Promise.all([
       api(`/api/encargados/estudiante/${id}`).catch(() => []),
       api(`/api/estudiantes/${id}/historial`).catch(() => []),
+      api(`/api/expediente/${id}/historial-academico`).catch(() => ({historial:{}})),
+      api(`/api/expediente/${id}/conducta-desglosada`).catch(() => ({historial:{}})),
     ]);
 
     const row = (label, value) =>
@@ -18882,6 +18895,45 @@ async function verDetalleArchivado(id){
       ${row('Beca de comedor', e.beca_comedor ? 'Sí' : 'No')}
       ${row('Transporte estudiantil', e.transporte ? 'Sí' : 'No')}
     `);
+
+    // Promedios: solo aparecen los períodos y materias que realmente tengan
+    // calificaciones. No se crean filas vacías para un II Período inexistente.
+    const historialAcademico=academico?.historial||{};
+    const aniosAcademicos=Object.keys(historialAcademico).sort((a,b)=>Number(b)-Number(a));
+    let academicoHtml='';
+    const numArchivo=v=>(v===null||v===undefined||v==='')?'<span style="color:#cbd5e1;">—</span>':Number(v).toFixed(1);
+    aniosAcademicos.forEach(anio=>{
+      const h=historialAcademico[anio]||{};
+      const periodos=['I','II'].map(clave=>({clave,rows:(h[clave]||[]).filter(m=>m.materia_nombre!=='Conducta')})).filter(x=>x.rows.length);
+      if(!periodos.length)return;
+      academicoHtml+=`<div style="margin-bottom:12px;"><div style="font-weight:bold;color:#4338ca;margin-bottom:6px;">📅 ${htmlSeguro(anio)} · Sección ${htmlSeguro(h.seccion||e.seccion_nombre||'—')}</div>`;
+      periodos.forEach(p=>{
+        academicoHtml+=`<div style="font-size:12px;font-weight:bold;color:#475569;margin:8px 0 4px;">${p.clave} Período</div><div class="table-wrap"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Profesor</th><th style="text-align:center;">Cot.</th><th style="text-align:center;">Tar.</th><th style="text-align:center;">Prue.</th><th style="text-align:center;">Proy.</th><th style="text-align:center;">Asist.</th><th style="text-align:center;">Total</th></tr></thead><tbody>${p.rows.map(m=>`<tr><td><strong>${htmlSeguro(m.materia_nombre||'—')}</strong></td><td>${htmlSeguro(m.profesor_nombre||'—')}</td><td style="text-align:center;">${numArchivo(m.nota_cotidiano)}</td><td style="text-align:center;">${numArchivo(m.nota_tareas)}</td><td style="text-align:center;">${numArchivo(m.nota_pruebas)}</td><td style="text-align:center;">${numArchivo(m.nota_proyecto)}</td><td style="text-align:center;">${numArchivo(m.nota_asistencia)}</td><td style="text-align:center;font-weight:bold;color:${Number(m.nota_total)>=70?'#15803d':'#dc2626'};">${numArchivo(m.nota_total)}</td></tr>`).join('')}</tbody></table></div>`;
+      });
+      academicoHtml+='</div>';
+    });
+    html+=seccion('📊 Promedios desglosados por período','#4f46e5',academicoHtml||'<div style="color:var(--muted);font-style:italic;">No hay calificaciones cargadas para mostrar.</div>');
+
+    // Conducta: conserva cada boleta, sus puntos, fecha, materia, responsable
+    // y observación. Los años legados que perdieron el detalle muestran solo
+    // el resumen disponible, identificado claramente.
+    const histConducta=conductaArchivo?.historial||{};
+    let conductaHtml='';
+    Object.keys(histConducta).sort((a,b)=>Number(b)-Number(a)).forEach(anio=>{
+      const h=histConducta[anio]||{};
+      const periodos=['I','II'].filter(k=>h[k]);
+      if(!periodos.length)return;
+      conductaHtml+=`<div style="margin-bottom:12px;"><div style="font-weight:bold;color:#b91c1c;margin-bottom:6px;">📅 ${htmlSeguro(anio)}</div>`;
+      periodos.forEach(k=>{
+        const p=h[k],boletas=p.boletas||[];
+        conductaHtml+=`<div style="border:1px solid #fecaca;border-radius:7px;padding:8px 10px;margin-bottom:8px;background:#fffafa;"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;"><strong>${k} Período</strong><span><strong>Nota:</strong> ${Number(p.nota).toFixed(0)} · <strong>Rebajo:</strong> ${Number(p.total_rebajado||0)} pts</span></div>`;
+        if(p.solo_resumen&&!boletas.length)conductaHtml+='<div style="font-size:11.5px;color:var(--muted);">Este año anterior conserva la nota resumen; las boletas detalladas no existían todavía en el archivo histórico.</div>';
+        conductaHtml+=boletas.map(b=>`<div style="border-top:1px dashed #fecaca;padding:7px 0;font-size:12px;"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;"><strong>${htmlSeguro((b.infraccion_tipo||'Falta').replaceAll('_',' '))} · -${Number(b.puntos||0)} pts</strong><span style="color:var(--muted);">${fmtF(b.fecha)}</span></div><div style="margin-top:3px;">${htmlSeguro(b.infraccion_descripcion||'—')}</div>${b.observacion?`<div style="color:var(--muted);font-style:italic;margin-top:2px;">📝 ${htmlSeguro(b.observacion)}</div>`:''}${b.materia_nombre||b.responsable_nombre?`<div style="color:#475569;margin-top:2px;">${b.materia_nombre?'📚 '+htmlSeguro(b.materia_nombre):''}${b.responsable_nombre?' · '+htmlSeguro(b.responsable_nombre):''}</div>`:''}${b.registrado_por_nombre?`<div style="color:var(--muted);font-size:11px;margin-top:2px;">Registrado por: ${htmlSeguro(b.registrado_por_nombre)}</div>`:''}</div>`).join('');
+        conductaHtml+='</div>';
+      });
+      conductaHtml+='</div>';
+    });
+    html+=seccion('🧭 Conducta desglosada por período','#dc2626',conductaHtml||'<div style="color:var(--muted);font-style:italic;">No hay boletas de conducta registradas.</div>');
 
     // Encargados
     let encsHtml = '';
@@ -20543,7 +20595,7 @@ function fechaHoyCR(){
   return local.toISOString().slice(0,10);
 }
 
-function cerrarModal(id){document.getElementById(id).classList.remove("show");}
+function cerrarModal(id){const modal=document.getElementById(id);modal.classList.remove("show");if(modal.hasAttribute("aria-hidden"))modal.setAttribute("aria-hidden","true");}
 // Las ventanas solo se cierran mediante sus botones explícitos. Antes se
 // cerraban al hacer clic en el fondo; al seleccionar texto con el mouse era
 // posible soltar el botón fuera del cuadro y perder todo el avance.

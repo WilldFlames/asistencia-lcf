@@ -3,6 +3,7 @@ const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerCalendario, obtenerRangoPeriodo } = require("../utils/lectivo");
 const { obtenerLecciones } = require("./horarios");
+const { archivarConductaDetallada } = require("../utils/archivo-conducta");
 
 async function canAccess(req, res, next) {
   const u = req.session.usuario;
@@ -902,6 +903,80 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       }
     }
 
+    // También conservamos las calificaciones parciales de quienes ya habían
+    // sido enviados al Archivo antes de instalar esta mejora. Esos estudiantes
+    // ya no tienen seccion_id, pero seccion_archivo conserva el grupo en el que
+    // estaban. Sin este paso, sus registros actuales podrían perderse al cerrar
+    // el curso lectivo.
+    const archivadosPreviosR = await client.query(`
+      SELECT e.id, e.subgrupo, s.id AS seccion_id, s.nombre AS seccion_nombre
+      FROM estudiantes e
+      JOIN secciones s ON s.nombre = e.seccion_archivo
+      WHERE e.archivado = true
+    `);
+    const asignacionesBase = [...new Map(asigsR.rows.map(a => [
+      `${a.profesor_id}|${a.seccion_id}|${a.materia_id}|${a.subgrupo || ''}`,
+      a
+    ])).values()];
+    for(const estudiante of archivadosPreviosR.rows){
+      const basesEstudiante = asignacionesBase.filter(a =>
+        Number(a.seccion_id) === Number(estudiante.seccion_id)
+        && (!a.subgrupo || a.subgrupo === estudiante.subgrupo)
+      );
+      for(const a of basesEstudiante){
+        for(const periodo of ['I Período', 'II Período']){
+          try {
+            const data = await calcularPromediosParaArchivo(
+              client, a.profesor_id, a.seccion_id, a.materia_id,
+              a.subgrupo, periodo, estudiante.id
+            );
+            if(!data || !Array.isArray(data.estudiantes)) continue;
+            const est = data.estudiantes.find(x => Number(x.estudiante_id) === Number(estudiante.id));
+            if(!est) continue;
+            const rb = est.rubros || {};
+            const tieneDatos = est.modo_simplificado
+              ? Object.values(rb).some(r => r && r.nota_100 !== null && r.nota_100 !== undefined)
+              : Object.values(rb).some(r => r && Number(r.cant_con_nota || 0) > 0);
+            if(!tieneDatos) continue;
+            const profNom = `${a.prof_nombre||''} ${a.prof_ap1||''}`.trim();
+            await client.query(`
+              INSERT INTO expediente_academico (
+                estudiante_id, anio, periodo, seccion_nombre, materia_nombre, profesor_nombre,
+                nota_cotidiano, nota_tareas, nota_pruebas, nota_proyecto, nota_asistencia, nota_total,
+                ausencias, ausencias_just, tardias
+              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+              ON CONFLICT (estudiante_id, anio, periodo, materia_nombre) DO UPDATE SET
+                seccion_nombre = EXCLUDED.seccion_nombre,
+                profesor_nombre = EXCLUDED.profesor_nombre,
+                nota_cotidiano = EXCLUDED.nota_cotidiano,
+                nota_tareas = EXCLUDED.nota_tareas,
+                nota_pruebas = EXCLUDED.nota_pruebas,
+                nota_proyecto = EXCLUDED.nota_proyecto,
+                nota_asistencia = EXCLUDED.nota_asistencia,
+                nota_total = EXCLUDED.nota_total,
+                ausencias = EXCLUDED.ausencias,
+                ausencias_just = EXCLUDED.ausencias_just,
+                tardias = EXCLUDED.tardias
+            `, [
+              est.estudiante_id, anioAnt, periodo, estudiante.seccion_nombre, a.materia_nombre, profNom,
+              rb.cotidiano ? rb.cotidiano.nota_100 : null,
+              rb.tarea ? rb.tarea.nota_100 : null,
+              rb.examen ? rb.examen.nota_100 : null,
+              rb.proyecto ? rb.proyecto.nota_100 : null,
+              est.asistencia ? est.asistencia.puntos_mep : null,
+              est.total || null,
+              est.asistencia ? (est.asistencia.lecciones_ausentes_injust || 0) : 0,
+              0, 0
+            ]);
+            archivadas++;
+          } catch(e) {
+            saltadas++;
+            erroresArchivo.push(`Estudiante archivado ${estudiante.id} (${a.seccion_nombre} - ${a.materia_nombre}, ${periodo}): ${e.message}`);
+          }
+        }
+      }
+    }
+
     // Regla de seguridad: si una sola asignación no pudo archivarse, no se
     // borra absolutamente nada del año anterior. El ROLLBACK deja todo igual.
     if(erroresArchivo.length){
@@ -956,6 +1031,9 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
     //   - sesiones_asistencia y asistencia (cascade desde asignaciones)
     //   - evaluaciones, indicadores, notas_examen, notas_indicador (cascade)
     //   - boletas_conducta ligadas a asignaciones (cascade); las sin asignación → borrar todas
+    // Antes de limpiar las boletas operativas, conservar cada detalle para el
+    // expediente: falta, puntos, fecha, observación, materia y responsables.
+    await archivarConductaDetallada(client,{anio:anioAnt});
     const boletasBorradas = await client.query(
       "DELETE FROM boletas_conducta WHERE EXTRACT(YEAR FROM fecha)::int=$1 RETURNING id",
       [anioAnt]

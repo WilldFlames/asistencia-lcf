@@ -382,6 +382,30 @@ async function initDB() {
       )
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_acad_estudiante ON expediente_academico(estudiante_id, anio)`);
+
+    // Detalle histórico de conducta. Conserva cada boleta antes de que el
+    // cierre anual limpie los datos operativos, de modo que el Archivo pueda
+    // mostrar no solo la nota, sino también fecha, falta, puntos y responsables.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS expediente_conducta_detalle (
+        id                      SERIAL PRIMARY KEY,
+        estudiante_id           INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        boleta_origen_id         INTEGER NOT NULL,
+        anio                    INTEGER NOT NULL,
+        periodo                 TEXT NOT NULL,
+        fecha                   DATE NOT NULL,
+        infraccion_tipo         TEXT,
+        puntos                  INTEGER NOT NULL DEFAULT 0,
+        infraccion_descripcion  TEXT,
+        observacion             TEXT,
+        materia_nombre          TEXT,
+        responsable_nombre      TEXT,
+        registrado_por_nombre   TEXT,
+        created_at              TIMESTAMP DEFAULT NOW(),
+        UNIQUE(estudiante_id, boleta_origen_id)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_conducta_est ON expediente_conducta_detalle(estudiante_id, anio, periodo)`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS cedula TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS lugar_trabajo TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE encargados ADD COLUMN IF NOT EXISTS telefono_trabajo TEXT DEFAULT ''`);
