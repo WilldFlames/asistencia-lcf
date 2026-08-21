@@ -45,6 +45,17 @@ test('el módulo selecciona responsables y estudiantes por sección en tres paso
   assert.match(ui,/function extAgregarEstudiante/);
 });
 
+test('el formulario nuevo permanece oculto como modal y no se mezcla con Asistencia',()=>{
+  assert.match(html,/<div class="modal-overlay" id="modal-extramuros" aria-hidden="true">/);
+  assert.match(html,/<div class="modal" role="dialog" aria-modal="true" aria-labelledby="ext-modal-title"/);
+  assert.doesNotMatch(html,/<div class="modal" id="modal-extramuros">/);
+  assert.match(html,/modalExtramuros&&page!=="extramuros"/);
+  assert.match(html,/modalExtramuros\.classList\.remove\("show"\)/);
+  assert.match(html,/#modal-extramuros:not\(\.show\)\{display:none!important;\}/);
+  assert.match(html,/#modal-extramuros\.show\{display:flex!important;\}/);
+  assert.match(ui,/modal\.setAttribute\("aria-hidden","false"\)/);
+});
+
 test('cada estudiante produce tres anexos dentro de un único PDF con encabezado y pie MEP',()=>{
   assert.match(ui,/function extPaginaAnexo1/);
   assert.match(ui,/function extPaginaAnexo2/);

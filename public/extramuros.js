@@ -76,7 +76,7 @@ function extLimpiarFormulario(){
 function extAbrirNuevo(){
   extEditando=null;extPasoActual=1;extResponsablesSeleccionados=[];extEstudiantesSeleccionados=[];extLimpiarFormulario();
   document.getElementById("ext-modal-title").textContent="🚌 Nuevo extramuros";
-  extRenderResponsables();extRenderEstudiantes();extMostrarPaso();document.getElementById("modal-extramuros").classList.add("show");
+  extRenderResponsables();extRenderEstudiantes();extMostrarPaso();const modal=document.getElementById("modal-extramuros");modal.classList.add("show");modal.setAttribute("aria-hidden","false");
 }
 async function extEditar(id){
   try{
@@ -86,7 +86,7 @@ async function extEditar(id){
     Object.entries(valores).forEach(([id,v])=>document.getElementById(id).value=v||"");
     extResponsablesSeleccionados=d.responsables.map(x=>Number(x.id));extEstudiantesSeleccionados=d.estudiantes.map(x=>Number(x.id));
     document.getElementById("ext-modal-title").textContent="🚌 Editar extramuros";document.getElementById("alert-ext-modal").className="alert";
-    extRenderResponsables();extRenderEstudiantes();extMostrarPaso();document.getElementById("modal-extramuros").classList.add("show");
+    extRenderResponsables();extRenderEstudiantes();extMostrarPaso();const modal=document.getElementById("modal-extramuros");modal.classList.add("show");modal.setAttribute("aria-hidden","false");
   }catch(e){sa("alert-extramuros",e.message,"danger");}
 }
 function extValidarActividad(){
