@@ -2447,6 +2447,60 @@ async function initDB() {
       )
     `);
 
+    // ── EXTRAMUROS ─────────────────────────────────────────────────────
+    // Una actividad puede incluir muchos responsables y estudiantes. Cada
+    // estudiante recibe un consecutivo anual propio que se conserva en sus
+    // tres anexos y nunca se reutiliza, incluso si el registro se anula.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS extramuros (
+        id                       SERIAL PRIMARY KEY,
+        anio                     INTEGER NOT NULL,
+        nombre_actividad         TEXT NOT NULL,
+        objeto_actividad         TEXT NOT NULL,
+        mediacion_pedagogica     TEXT NOT NULL,
+        lugar_actividad          TEXT NOT NULL,
+        fecha_actividad          DATE NOT NULL,
+        hora_salida              TIME NOT NULL,
+        hora_regreso             TIME NOT NULL,
+        observaciones            TEXT DEFAULT '',
+        descripcion_exoneracion  TEXT NOT NULL,
+        creado_por               INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+        estado                   TEXT NOT NULL DEFAULT 'activo' CHECK(estado IN ('activo','anulado')),
+        motivo_anulacion         TEXT DEFAULT '',
+        anulado_por              INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        anulado_at               TIMESTAMP,
+        created_at               TIMESTAMP DEFAULT NOW(),
+        updated_at               TIMESTAMP DEFAULT NOW(),
+        CHECK(hora_regreso > hora_salida)
+      );
+
+      CREATE TABLE IF NOT EXISTS extramuros_responsables (
+        extramuro_id INTEGER NOT NULL REFERENCES extramuros(id) ON DELETE CASCADE,
+        usuario_id   INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+        orden        INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(extramuro_id, usuario_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS extramuros_estudiantes (
+        id            SERIAL PRIMARY KEY,
+        extramuro_id  INTEGER NOT NULL REFERENCES extramuros(id) ON DELETE CASCADE,
+        estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+        anio          INTEGER NOT NULL,
+        consecutivo   INTEGER NOT NULL CHECK(consecutivo > 0),
+        orden         INTEGER NOT NULL DEFAULT 0,
+        activo        BOOLEAN NOT NULL DEFAULT true,
+        created_at    TIMESTAMP DEFAULT NOW(),
+        UNIQUE(extramuro_id, estudiante_id),
+        UNIQUE(anio, consecutivo)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_extramuros_anio
+      ON extramuros(anio, estado, fecha_actividad DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_extramuros_responsable
+      ON extramuros_responsables(usuario_id, extramuro_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_extramuros_estudiante
+      ON extramuros_estudiantes(estudiante_id, anio, consecutivo)`);
+
     // Nuevas materias
     await client.query("INSERT INTO materias (nombre) VALUES ('Inglés Conversacional') ON CONFLICT DO NOTHING");
     await client.query("INSERT INTO materias (nombre) VALUES ('Diseño Publicitario') ON CONFLICT DO NOTHING");

@@ -1,0 +1,31 @@
+PARCHE: MÓDULO EXTRAMUROS
+Fecha: 20 de agosto de 2026
+
+QUÉ SE AGREGÓ
+- Acceso Extramuros en el panel principal y en el menú lateral del personal autorizado.
+- Asistente visual de tres pasos: actividad, responsables y estudiantes.
+- Selección de varias personas responsables, conservando el orden elegido.
+- Selección de estudiantes por sección, agregándolos uno por uno a la misma actividad.
+- Consecutivo anual individual por estudiante, visible en los tres anexos.
+- Listado institucional ordenado por consecutivo.
+- Edición sin cambiar los consecutivos ya asignados.
+- Anulación auditada: los números anulados no se reutilizan.
+- Generación de los tres anexos oficiales por cada estudiante.
+- Un solo PDF para toda la actividad. Ejemplo: 30 estudiantes generan un PDF de 90 páginas.
+- Cada anexo ocupa exactamente una hoja Carta e incluye encabezado y pie oficial MEP.
+- Autollenado de estudiante, sección, encargado principal, teléfonos, salud, responsables y Dirección.
+
+SEGURIDAD Y CONSISTENCIA
+- Docentes y personal autorizado pueden crear actividades.
+- Administración, auxiliares y secretaría pueden consultar el registro institucional.
+- Cada docente solo consulta actividades que creó o en las que figura como responsable.
+- La asignación de consecutivos usa una transacción y un bloqueo de PostgreSQL para evitar duplicados.
+
+DESPLIEGUE
+- Suba este ZIP a GitHub como los parches anteriores y permita que Railway despliegue.
+- No hay que crear variables nuevas.
+- No hay que ejecutar instrucciones manuales en PostgreSQL: las tablas se crean automáticamente al iniciar.
+
+VERIFICACIÓN
+- 145 pruebas automatizadas aprobadas.
+- Se renderizaron y revisaron visualmente los tres anexos en papel Carta.

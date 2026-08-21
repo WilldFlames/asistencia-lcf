@@ -1,0 +1,27 @@
+CORRECCIÓN: IMPRESIÓN DE MINUTAS
+Fecha: 20 de agosto de 2026
+
+PROBLEMA ENCONTRADO
+- Las minutas todavía utilizaban la impresión HTML antigua del navegador.
+- El resultado cambiaba según la computadora o la configuración de impresión.
+- Los fondos institucionales podían desaparecer o verse grises.
+- El encabezado y el pie no utilizaban el generador PDF nuevo.
+- Los nombres del personal vinculado podían salir con los apellidos primero.
+
+CORRECCIÓN REALIZADA
+- La minuta ahora utiliza imprimirPDFMEP, igual que los documentos institucionales nuevos.
+- Papel Carta con encabezado y pie oficial en todas las páginas.
+- Títulos de sección azules conservados dentro del PDF.
+- Tablas más limpias, compactas y legibles.
+- Hora de inicio y finalización con formato comprensible; si falta una hora se indica “No registrada”.
+- Personas vinculadas al sistema: nombre, primer apellido y segundo apellido.
+- Protección del contenido escrito antes de incorporarlo al PDF.
+- Paginación automática sin invadir el encabezado ni el pie.
+
+DESPLIEGUE
+- Esta corrección está incluida junto con el módulo de Extramuros.
+- No necesita variables nuevas ni cambios manuales en PostgreSQL.
+
+VERIFICACIÓN
+- 148 pruebas automatizadas aprobadas.
+- El nuevo formato fue renderizado y revisado visualmente en papel Carta.
