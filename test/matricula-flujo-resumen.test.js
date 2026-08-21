@@ -63,5 +63,8 @@ test("cotidianos y tareas generan cuadros individuales derivados de las notas",(
   assert.match(frontend,/Resumen cotidianos/);
   assert.match(frontend,/Resumen tareas/);
   assert.match(frontend,/Este cuadro es de <strong>solo lectura<\/strong>/);
+  assert.match(frontend,/function verResumenRubro/);
   assert.match(frontend,/function imprimirResumenRubro/);
+  assert.match(frontend,/id="resumen-rubro-vista"/);
+  assert.match(frontend,/Primero presioná Ver resumen/);
 });

@@ -33,7 +33,8 @@ Este parche incluye:
 7. Calificaciones
    - Botón “Resumen cotidianos”.
    - Botón “Resumen tareas”.
-   - Ambos generan un cuadro individual de solo lectura con indicadores y puntos.
+   - Ambos muestran primero un cuadro individual de solo lectura con indicadores y puntos.
+   - Después de revisarlo, la impresión o PDF es opcional.
 
 DESPLIEGUE
 

@@ -1106,6 +1106,31 @@ async function initDB() {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dpao_proceso ON dp_aprobaciones_orientador(proceso_id)`);
       console.log("✅ DP: tabla dp_aprobaciones_orientador lista");
 
+      // ── CONCILIACIÓN ───────────────────────────────────────────────
+      // Vía alternativa que requiere solicitud del guía y aprobación del
+      // orientador. Se conserva cada solicitud para no perder el historial
+      // cuando una sea rechazada y posteriormente se presente otra.
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS dp_conciliaciones (
+          id                     SERIAL PRIMARY KEY,
+          proceso_id             INTEGER NOT NULL REFERENCES debidos_procesos(id) ON DELETE CASCADE,
+          estudiante_b_id        INTEGER REFERENCES estudiantes(id) ON DELETE SET NULL,
+          estado                 TEXT NOT NULL DEFAULT 'pendiente',
+          motivo                 TEXT,
+          solicitado_por         INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          solicitado_en          TIMESTAMP DEFAULT NOW(),
+          decidido_por           INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          decidido_en            TIMESTAMP,
+          observacion_orientador TEXT,
+          cerrado_por            INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          cerrado_en             TIMESTAMP
+        )
+      `);
+      await client.query(`ALTER TABLE dp_conciliaciones ADD COLUMN IF NOT EXISTS estudiante_b_id INTEGER REFERENCES estudiantes(id) ON DELETE SET NULL`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_dpconc_proceso ON dp_conciliaciones(proceso_id, id DESC)`);
+      await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_dpconc_activa ON dp_conciliaciones(proceso_id) WHERE estado IN ('pendiente','aprobada')`);
+      console.log("✅ DP: tabla dp_conciliaciones lista");
+
       await client.query(`
         CREATE TABLE IF NOT EXISTS dp_historial_cambios (
           id              SERIAL PRIMARY KEY,

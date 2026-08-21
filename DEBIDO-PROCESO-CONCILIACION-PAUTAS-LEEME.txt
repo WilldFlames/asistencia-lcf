@@ -1,0 +1,59 @@
+PARCHE — DEBIDO PROCESO, CONCILIACIÓN Y PAUTAS
+Fecha: 20 de agosto de 2026
+
+QUÉ CAMBIA
+
+1. Decisión del docente y orientador
+   - Primero se elige si el proceso continúa o se desestima.
+   - La tipificación REAC, el rebajo y la acción correctiva solo aparecen si se elige continuar.
+   - Si se desestima, se imprime únicamente el Acta de Sesión Docente-Orientador.
+   - Esa acta deja un espacio amplio para escribir a mano la decisión y la justificación.
+   - Para cerrar, el acta debe estar aprobada por el orientador.
+   - Si continúa, también deben estar completos el traslado de cargos y la resolución final.
+   - Los expedientes antiguos que ya tenían un Acta de Desestima separada conservan ese documento.
+
+2. Nueva vía de Conciliación
+   - Botón Conciliación dentro del expediente.
+   - El guía selecciona al segundo estudiante, explica el motivo y envía la solicitud.
+   - El orientador asignado puede aprobarla o rechazarla y agregar una observación.
+   - Al aprobarse se habilitan dos tipos de documentos:
+       a) Autorización familiar para conciliación. Se genera una para cada estudiante.
+       b) Carta de conciliación entre estudiantes.
+   - Se cargan automáticamente institución, fecha, estudiantes, cédulas, secciones,
+     encargados principales y docente mediador.
+   - Los documentos usan el encabezado y pie institucional del generador PDF MEP.
+   - El caso solo se puede cerrar por conciliación cuando las dos autorizaciones y la carta
+     estén completas.
+   - Los casos cerrados aparecen en la pestaña Conciliados y conservan sus documentos.
+   - Administración puede reactivar un caso conciliado si necesita corregirlo.
+
+3. Protecciones del expediente
+   - No se puede solicitar conciliación si falta el orientador asignado.
+   - Los participantes quedan bloqueados mientras la conciliación está pendiente o aprobada.
+   - Después de enviar la decisión de la sesión tampoco se pueden alterar testigos u ofendidos.
+   - Se impiden decisiones y aprobaciones duplicadas.
+
+4. Cambio de nombre
+   - En toda la interfaz visible, Protocolos ahora se llama Pautas.
+   - Las rutas internas conservan su nombre técnico para no romper datos ni funciones existentes.
+
+DESPLIEGUE
+
+1. Suba el contenido de este ZIP a GitHub como los parches anteriores.
+2. Espere que Railway termine el despliegue.
+3. La tabla nueva se crea automáticamente al iniciar el servidor.
+4. No hay que agregar ninguna variable nueva en Railway.
+
+VERIFICACIÓN REALIZADA
+
+- Sintaxis del servidor: correcta.
+- Sintaxis de todos los bloques JavaScript del sistema: correcta.
+- Pruebas automáticas completas: 138 aprobadas, 0 fallidas.
+
+PRUEBA RECOMENDADA DESPUÉS DEL DESPLIEGUE
+
+1. Abra un debido proceso de prueba y agregue al estudiante ofendido.
+2. Entre en Conciliación, envíe la solicitud y apruébela con el orientador.
+3. Complete e imprima ambas autorizaciones y la carta.
+4. Cierre el caso y confirme que aparezca en Conciliados.
+5. En otro proceso, pruebe Desestimar y confirme que solo pida/imprima el Acta de Sesión.

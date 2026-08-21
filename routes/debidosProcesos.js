@@ -12,10 +12,11 @@
 //  Paso 7  decl_testigo         — declaración de cada testigo (N veces)
 //  Paso 8  acta_sesion          — acta sesión docente-orientador con decisión:
 //                                  'continuar'  -> paso 9 y 10
-//                                  'desestimar' -> paso 11 (desestima)
+//                                  'desestimar' -> se cierra con esta misma acta
 //  Paso 9  traslado_cargos
 //  Paso 10 resolucion_final
-//  Paso 11 desestima             — alternativa al 9 y 10 si se desestima
+//  Conciliación                   — vía alternativa: solicitud, aprobación,
+//                                   autorizaciones familiares y carta de acuerdos
 //
 // Permisos:
 //  - acta_apertura: cualquier profesor
@@ -251,6 +252,7 @@ router.get("/pendientes/orientador", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   const r = await pool.query(`
     SELECT dp.id AS proceso_id, dp.numero, dp.anio, dp.decision_sesion,
+           'acta_sesion'::text AS tipo_pendiente, dp.updated_at AS fecha_pendiente,
            e.primer_apellido, e.segundo_apellido, e.nombre, e.cedula,
            s.nombre AS seccion_nombre
     FROM debidos_procesos dp
@@ -265,7 +267,19 @@ router.get("/pendientes/orientador", requireAuth, async (req, res) => {
       AND dp.estado = 'en_curso'
     ORDER BY dp.updated_at DESC
   `, [u.id]);
-  res.json(r.rows);
+  const concR = await pool.query(`
+    SELECT dp.id AS proceso_id, dp.numero, dp.anio, dp.decision_sesion,
+           'conciliacion'::text AS tipo_pendiente, c.solicitado_en AS fecha_pendiente,
+           e.primer_apellido, e.segundo_apellido, e.nombre, e.cedula,
+           s.nombre AS seccion_nombre
+    FROM dp_conciliaciones c
+    JOIN debidos_procesos dp ON dp.id = c.proceso_id
+    JOIN estudiantes e ON e.id = dp.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    WHERE dp.orientador_id = $1 AND c.estado = 'pendiente' AND dp.estado = 'en_curso'
+    ORDER BY c.solicitado_en DESC
+  `, [u.id]);
+  res.json([...r.rows, ...concR.rows].sort((a,b) => new Date(b.fecha_pendiente) - new Date(a.fecha_pendiente)));
 });
 
 // ── DETALLE DE UN PROCESO ─────────────────────────────────────────────
@@ -337,6 +351,41 @@ router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
     ORDER BY a.fecha DESC
   `, [req.params.id]);
 
+  // Última solicitud de conciliación, aunque haya sido rechazada. Así la
+  // interfaz puede explicar el estado y permitir una nueva solicitud.
+  const concR = await pool.query(`
+    SELECT c.*,
+           sol.nombre AS sol_nombre, sol.primer_apellido AS sol_ap1, sol.segundo_apellido AS sol_ap2,
+           dec.nombre AS dec_nombre, dec.primer_apellido AS dec_ap1, dec.segundo_apellido AS dec_ap2
+    FROM dp_conciliaciones c
+    LEFT JOIN usuarios sol ON sol.id = c.solicitado_por
+    LEFT JOIN usuarios dec ON dec.id = c.decidido_por
+    WHERE c.proceso_id = $1
+    ORDER BY c.id DESC LIMIT 1
+  `, [req.params.id]);
+
+  // Participantes B disponibles para la conciliación (ofendidos estudiantes),
+  // junto con el encargado principal que firma su autorización.
+  const concPartR = await pool.query(`
+    SELECT o.id AS ofendido_id, e.id AS estudiante_id, e.cedula, e.nombre,
+           e.primer_apellido, e.segundo_apellido, s.nombre AS seccion_nombre,
+           enc.nombre_completo AS encargado_nombre, enc.cedula AS encargado_cedula,
+           enc.telefono AS encargado_telefono, enc.parentesco AS encargado_parentesco
+    FROM dp_ofendidos o
+    JOIN estudiantes e ON e.id = o.estudiante_id
+    LEFT JOIN secciones s ON s.id = e.seccion_id
+    LEFT JOIN LATERAL (
+      SELECT TRIM(CONCAT_WS(' ', x.nombre, x.primer_apellido, x.segundo_apellido)) AS nombre_completo,
+             x.cedula, x.telefono, x.parentesco
+      FROM encargados x
+      WHERE x.estudiante_id = e.id
+      ORDER BY x.es_principal DESC NULLS LAST, x.id
+      LIMIT 1
+    ) enc ON true
+    WHERE o.proceso_id = $1
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
+  `, [req.params.id]);
+
   // Encargados del estudiante (para autorrellenar la portada y otros pasos).
   // El principal queda primero — es el que aparece en la portada por defecto.
   let encargados = [];
@@ -359,7 +408,9 @@ router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
     testigos: testR.rows,
     ofendidos: ofenR.rows,
     aprobaciones: aprobR.rows,
-    encargados
+    encargados,
+    conciliacion: concR.rows[0] || null,
+    conciliacion_participantes: concPartR.rows
   });
 });
 
@@ -508,6 +559,21 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
     return res.status(403).json({ error: "Sin permisos para modificar este paso" });
   }
 
+  // Los documentos de conciliación solo se habilitan después de que el
+  // orientador aprueba formalmente la solicitud.
+  if (["conciliacion_autorizacion", "conciliacion_carta"].includes(tipo)) {
+    if (!esStaff && !esGuiaProceso) {
+      return res.status(403).json({ error: "Solo el guía a cargo puede completar la conciliación." });
+    }
+    const concR = await pool.query(`
+      SELECT estado FROM dp_conciliaciones
+      WHERE proceso_id=$1 ORDER BY id DESC LIMIT 1
+    `, [procesoId]);
+    if (!concR.rows.length || !["aprobada", "cerrada"].includes(concR.rows[0].estado)) {
+      return res.status(423).json({ error: "La conciliación todavía no ha sido aprobada por el orientador." });
+    }
+  }
+
   // Crear o actualizar
   const ordenFinal = orden || 1;
   const existente = await pool.query(
@@ -560,6 +626,13 @@ router.post("/:id/testigos", requireAuth, requireProcesoAccess, async (req, res)
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
   if (!esStaff && guiaEfectivo(dp) !== u.id) {
     return res.status(403).json({ error: "Solo el guía del proceso puede agregar testigos." });
+  }
+
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: "El proceso no está en curso." });
+  }
+  if (dp.decision_sesion) {
+    return res.status(409).json({ error: "Los participantes no se pueden cambiar después de enviar la decisión de la sesión." });
   }
 
   // No duplicar testigos
@@ -628,6 +701,12 @@ router.delete("/:id/testigos/:testigo_id", requireAuth, requireProcesoAccess, as
   if (!esStaff && guiaEfectivo(dp) !== u.id) {
     return res.status(403).json({ error: "Sin permisos" });
   }
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: "El proceso no está en curso." });
+  }
+  if (dp.decision_sesion) {
+    return res.status(409).json({ error: "Los participantes no se pueden cambiar después de enviar la decisión de la sesión." });
+  }
 
   // Borrar los pasos asociados (los borra en cascada por la FK pero por claridad)
   const t = await pool.query("SELECT paso_cita_id, paso_decl_id FROM dp_testigos WHERE id=$1 AND proceso_id=$2", [req.params.testigo_id, procesoId]);
@@ -658,8 +737,18 @@ router.post("/:id/ofendidos", requireAuth, requireProcesoAccess, async (req, res
   }
 
   // No permitir agregar ofendidos si el proceso ya está cerrado
-  if (['archivado','resuelto','desestimado'].includes(dp.estado)) {
-    return res.status(400).json({ error: "No se pueden agregar ofendidos: el proceso ya está cerrado (" + dp.estado + ")." });
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: "No se pueden agregar ofendidos: el proceso no está en curso." });
+  }
+  if (dp.decision_sesion) {
+    return res.status(409).json({ error: "Los participantes no se pueden cambiar después de enviar la decisión de la sesión." });
+  }
+  const concActiva = await pool.query(`
+    SELECT 1 FROM dp_conciliaciones
+    WHERE proceso_id=$1 AND estado IN ('pendiente','aprobada') LIMIT 1
+  `, [procesoId]);
+  if (concActiva.rows.length) {
+    return res.status(409).json({ error: "No se pueden cambiar los participantes mientras la conciliación esté pendiente o aprobada." });
   }
 
   // No agregar al mismo ofensor como ofendido
@@ -729,6 +818,19 @@ router.delete("/:id/ofendidos/:ofendido_id", requireAuth, requireProcesoAccess, 
   if (!esStaff && guiaEfectivo(dp) !== u.id) {
     return res.status(403).json({ error: "Sin permisos" });
   }
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: "El proceso no está en curso." });
+  }
+  if (dp.decision_sesion) {
+    return res.status(409).json({ error: "Ya existe una decisión enviada. Cancelala antes de registrar otra." });
+  }
+  const concActiva = await pool.query(`
+    SELECT 1 FROM dp_conciliaciones
+    WHERE proceso_id=$1 AND estado IN ('pendiente','aprobada') LIMIT 1
+  `, [procesoId]);
+  if (concActiva.rows.length) {
+    return res.status(409).json({ error: "No se pueden cambiar los participantes mientras la conciliación esté pendiente o aprobada." });
+  }
 
   const o = await pool.query("SELECT paso_cita_id, paso_decl_id FROM dp_ofendidos WHERE id=$1 AND proceso_id=$2", [req.params.ofendido_id, procesoId]);
   if (o.rows.length) {
@@ -756,6 +858,146 @@ router.post("/:id/pasos/:paso_id/verificar", requireAuth, requireProcesoAccess, 
   res.json({ ok: true });
 });
 
+// ── CONCILIACIÓN: SOLICITAR ──────────────────────────────────────────
+router.post("/:id/conciliacion/solicitar", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const motivo = String(req.body?.motivo || "").trim();
+  const estudianteBId = Number(req.body?.estudiante_b_id);
+  if (!motivo) return res.status(400).json({ error: "Indicá el motivo de la solicitud de conciliación." });
+
+  const dp = req.debidoProceso;
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Solo el guía a cargo puede solicitar la conciliación." });
+  }
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: "Solo se puede solicitar conciliación en un proceso en curso." });
+  }
+  if (dp.decision_sesion) {
+    return res.status(409).json({ error: "Ya se envió una decisión del acta de sesión. Cancelala antes de solicitar conciliación." });
+  }
+  if (!dp.orientador_id) {
+    return res.status(409).json({ error: "La sección no tiene un orientador asignado. Asignalo antes de solicitar la conciliación." });
+  }
+  const ofendidos = await pool.query("SELECT estudiante_id FROM dp_ofendidos WHERE proceso_id=$1 ORDER BY id", [dp.id]);
+  if (!ofendidos.rows.length) {
+    return res.status(400).json({ error: "Agregá primero al estudiante ofendido que participará en la conciliación." });
+  }
+  const participanteB = Number.isInteger(estudianteBId) && ofendidos.rows.some(x => x.estudiante_id === estudianteBId)
+    ? estudianteBId
+    : (ofendidos.rows.length === 1 ? ofendidos.rows[0].estudiante_id : null);
+  if (!participanteB) {
+    return res.status(400).json({ error: "Seleccioná cuál estudiante ofendido participará en la conciliación." });
+  }
+  const activa = await pool.query(`
+    SELECT estado FROM dp_conciliaciones
+    WHERE proceso_id=$1 AND estado IN ('pendiente','aprobada') ORDER BY id DESC LIMIT 1
+  `, [dp.id]);
+  if (activa.rows.length) {
+    return res.status(409).json({ error: activa.rows[0].estado === "pendiente"
+      ? "La solicitud ya está pendiente de decisión del orientador."
+      : "La conciliación ya fue aprobada." });
+  }
+
+  const ins = await pool.query(`
+    INSERT INTO dp_conciliaciones (proceso_id, estudiante_b_id, estado, motivo, solicitado_por)
+    VALUES ($1,$2,'pendiente',$3,$4) RETURNING *
+  `, [dp.id, participanteB, motivo, u.id]);
+  await pool.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [dp.id]);
+  await notificar(dp.orientador_id, "debido_proceso_conciliacion",
+    `🤝 Tenés una solicitud de conciliación pendiente en el debido proceso N°${dp.numero}-${dp.anio}.`);
+  res.json({ ok: true, conciliacion: ins.rows[0] });
+});
+
+// ── CONCILIACIÓN: APROBAR / RECHAZAR ─────────────────────────────────
+router.post("/:id/conciliacion/decidir", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const decision = req.body?.decision;
+  const observacion = String(req.body?.observacion || "").trim();
+  if (!["aprobar", "rechazar"].includes(decision)) {
+    return res.status(400).json({ error: "La decisión de conciliación no es válida." });
+  }
+  const dp = req.debidoProceso;
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: "El proceso no está en curso." });
+  }
+  const esAdmin = ["admin","administrativo"].includes(u.rol);
+  if (!esAdmin && dp.orientador_id !== u.id) {
+    return res.status(403).json({ error: "Solo el orientador asignado puede decidir la conciliación." });
+  }
+  const concR = await pool.query(`
+    SELECT * FROM dp_conciliaciones
+    WHERE proceso_id=$1 AND estado='pendiente' ORDER BY id DESC LIMIT 1
+  `, [dp.id]);
+  if (!concR.rows.length) return res.status(404).json({ error: "No hay una solicitud de conciliación pendiente." });
+
+  const estado = decision === "aprobar" ? "aprobada" : "rechazada";
+  await pool.query(`
+    UPDATE dp_conciliaciones SET estado=$1, decidido_por=$2, decidido_en=NOW(),
+      observacion_orientador=$3 WHERE id=$4
+  `, [estado, u.id, observacion || null, concR.rows[0].id]);
+  await pool.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [dp.id]);
+
+  const destinatarios = new Set([guiaEfectivo(dp), dp.guia_a_cargo].filter(Boolean));
+  for (const uid of destinatarios) {
+    await notificar(uid, "debido_proceso_conciliacion",
+      `🤝 El orientador ${decision === "aprobar" ? "APROBÓ" : "RECHAZÓ"} la conciliación del debido proceso N°${dp.numero}-${dp.anio}.${observacion ? " Observación: " + observacion : ""}`);
+  }
+  res.json({ ok: true, estado });
+});
+
+// ── CONCILIACIÓN: CERRAR EL CASO ─────────────────────────────────────
+router.post("/:id/conciliacion/cerrar", requireAuth, requireProcesoAccess, async (req, res) => {
+  const u = req.session.usuario;
+  const dp = req.debidoProceso;
+  const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
+  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+    return res.status(403).json({ error: "Solo el guía a cargo puede cerrar la conciliación." });
+  }
+  if (dp.estado !== "en_curso") return res.status(423).json({ error: "El proceso no está en curso." });
+
+  const concR = await pool.query(`
+    SELECT * FROM dp_conciliaciones
+    WHERE proceso_id=$1 AND estado='aprobada' ORDER BY id DESC LIMIT 1
+  `, [dp.id]);
+  if (!concR.rows.length) return res.status(423).json({ error: "La conciliación no está aprobada." });
+
+  const docsR = await pool.query(`
+    SELECT tipo, orden, completado FROM dp_pasos
+    WHERE proceso_id=$1 AND tipo IN ('conciliacion_autorizacion','conciliacion_carta')
+  `, [dp.id]);
+  const completos = new Set(docsR.rows.filter(x => x.completado).map(x => `${x.tipo}_${x.orden}`));
+  const faltantes = [
+    ["conciliacion_autorizacion_1", "autorización del estudiante A"],
+    ["conciliacion_autorizacion_2", "autorización del estudiante B"],
+    ["conciliacion_carta_1", "carta de conciliación"]
+  ].filter(([key]) => !completos.has(key)).map(([,label]) => label);
+  if (faltantes.length) {
+    return res.status(400).json({ error: `Antes de cerrar, completá: ${faltantes.join(", ")}.` });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`UPDATE dp_conciliaciones SET estado='cerrada', cerrado_por=$1, cerrado_en=NOW() WHERE id=$2`, [u.id, concR.rows[0].id]);
+    await client.query(`UPDATE debidos_procesos SET estado='conciliado', updated_at=NOW() WHERE id=$1`, [dp.id]);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  const destinatarios = new Set([dp.iniciado_por, dp.guia_a_cargo, dp.guia_sustituto_id, dp.orientador_id].filter(Boolean));
+  destinatarios.delete(u.id);
+  for (const uid of destinatarios) {
+    await notificar(uid, "debido_proceso_conciliacion",
+      `🤝 El debido proceso N°${dp.numero}-${dp.anio} fue cerrado mediante conciliación.`);
+  }
+  res.json({ ok: true, estado: "conciliado" });
+});
+
 // ── DECIDIR EN PASO 8 (continuar / desestimar) ────────────────────────
 // El guía registra la decisión. Queda pendiente de aprobación del orientador.
 router.post("/:id/decidir-sesion", requireAuth, requireProcesoAccess, async (req, res) => {
@@ -774,6 +1016,22 @@ router.post("/:id/decidir-sesion", requireAuth, requireProcesoAccess, async (req
   }
   if (dp.estado !== "en_curso") {
     return res.status(423).json({ error: "El proceso no está en curso." });
+  }
+  if (dp.decision_sesion) {
+    return res.status(409).json({ error: "Ya existe una decisión enviada. Cancelala antes de registrar otra." });
+  }
+  const concActiva = await pool.query(`
+    SELECT estado FROM dp_conciliaciones
+    WHERE proceso_id=$1 AND estado IN ('pendiente','aprobada') ORDER BY id DESC LIMIT 1
+  `, [dp.id]);
+  if (concActiva.rows.length) {
+    return res.status(409).json({ error: "Hay una conciliación pendiente o aprobada. No se puede registrar otra decisión mientras esa vía esté activa." });
+  }
+  if (decision === "continuar") {
+    const datos = contenido || {};
+    if (!datos.art_falta || !datos.inc_falta) {
+      return res.status(400).json({ error: "Para continuar, indicá el artículo y el inciso de la falta." });
+    }
   }
 
   // Guardar/actualizar acta_sesion
@@ -861,8 +1119,8 @@ router.post("/:id/cancelar-decision", requireAuth, requireProcesoAccess, async (
     console.log(`[DP] Decisión cancelada en N°${dp.numero}-${dp.anio} por usuario ${u.id} (${u.rol})`);
 
     // Notificar al orientador asignado (si existe) que el envío fue cancelado
-    if (dp.orientador_asignado) {
-      await notificar(dp.orientador_asignado, "debido_proceso",
+    if (dp.orientador_id) {
+      await notificar(dp.orientador_id, "debido_proceso",
         `⏪ El guía canceló el envío de la decisión del DP N°${dp.numero}-${dp.anio}. La va a volver a registrar.`);
     }
 
@@ -888,6 +1146,9 @@ router.post("/:id/aprobar-sesion", requireAuth, requireProcesoAccess, async (req
   if (!esAdmin && dp.orientador_id !== u.id) {
     return res.status(403).json({ error: "Solo el orientador asignado puede aprobar." });
   }
+  if (dp.estado !== "en_curso") {
+    return res.status(423).json({ error: "El proceso no está en curso." });
+  }
   if (!dp.decision_sesion) {
     return res.status(400).json({ error: "Aún no hay decisión propuesta para aprobar." });
   }
@@ -895,23 +1156,24 @@ router.post("/:id/aprobar-sesion", requireAuth, requireProcesoAccess, async (req
   const pasoR = await pool.query("SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo='acta_sesion'", [req.params.id]);
   if (!pasoR.rows.length) return res.status(400).json({ error: "Acta sesión no existe." });
   const pasoId = pasoR.rows[0].id;
+  const previaR = await pool.query(`
+    SELECT decision FROM dp_aprobaciones_orientador
+    WHERE paso_id=$1 ORDER BY fecha DESC LIMIT 1
+  `, [pasoId]);
+  if (previaR.rows.length) {
+    return res.status(409).json({ error: "El orientador ya decidió sobre esta acta de sesión." });
+  }
 
   await pool.query(`
     INSERT INTO dp_aprobaciones_orientador (proceso_id, paso_id, orientador_id, decision, observacion)
     VALUES ($1,$2,$3,$4,$5)
   `, [req.params.id, pasoId, u.id, decision, observacion || null]);
 
-  // Si aprobó y decisión = desestimar, cerrar el proceso
+  // Si se desestima, el acta de sesión ya es el único documento requerido:
+  // se imprime con un espacio en blanco para que la guía escriba la decisión
+  // y su fundamento. No se crea una segunda acta de desestima.
   if (decision === "aprobado" && dp.decision_sesion === "desestimar") {
-    // Crear paso desestima en blanco para que el guía lo complete
-    const existD = await pool.query("SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo='desestima'", [req.params.id]);
-    if (!existD.rows.length) {
-      await pool.query(`
-        INSERT INTO dp_pasos (proceso_id, tipo, orden, contenido)
-        VALUES ($1, 'desestima', 11, '{}'::jsonb)
-      `, [req.params.id]);
-    }
-    // El estado pasa a 'desestimado' al completar el paso desestima (no acá)
+    // El estado pasa a 'desestimado' cuando la guía pulsa Cerrar proceso.
   } else if (decision === "aprobado" && dp.decision_sesion === "continuar") {
     // Crear pasos 9 y 10 en blanco
     for (const [tipo, orden] of [["traslado_cargos", 9], ["resolucion_final", 10]]) {
@@ -968,10 +1230,28 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
     return res.status(403).json({ error: "Sin permisos" });
   }
 
+  const aprobR = await pool.query(`
+    SELECT a.decision FROM dp_aprobaciones_orientador a
+    JOIN dp_pasos p ON p.id=a.paso_id
+    WHERE a.proceso_id=$1 AND p.tipo='acta_sesion'
+    ORDER BY a.fecha DESC LIMIT 1
+  `, [dp.id]);
+  if (!aprobR.rows.length || aprobR.rows[0].decision !== "aprobado") {
+    return res.status(400).json({ error: "El orientador debe aprobar el acta de sesión antes de cerrar." });
+  }
+
   let nuevoEstado;
   if (dp.decision_sesion === "desestimar") {
     nuevoEstado = "desestimado";
   } else if (dp.decision_sesion === "continuar") {
+    const finalR = await pool.query(`
+      SELECT tipo, completado FROM dp_pasos
+      WHERE proceso_id=$1 AND tipo IN ('traslado_cargos','resolucion_final')
+    `, [dp.id]);
+    const completos = new Set(finalR.rows.filter(x => x.completado).map(x => x.tipo));
+    if (!completos.has('traslado_cargos') || !completos.has('resolucion_final')) {
+      return res.status(400).json({ error: "Completá el traslado de cargos y la resolución final antes de cerrar." });
+    }
     nuevoEstado = "resuelto";
   } else {
     return res.status(400).json({ error: "Debe completarse el acta sesión antes de cerrar." });
@@ -1025,14 +1305,20 @@ router.post("/:id/reactivar", requireAuth, requireProcesoAccess, async (req, res
       UPDATE debidos_procesos SET
         estado = 'en_curso',
         archivo_solicitado_por = NULL,
-        archivo_solicitado_at = NULL,
-        archivo_justificacion = NULL,
+        archivo_solicitado_en = NULL,
+        archivo_motivo = NULL,
         archivo_aprobado_por = NULL,
-        archivo_aprobado_at = NULL,
+        archivo_aprobado_en = NULL,
         archivo_decision_orientador = NULL,
         updated_at = NOW()
       WHERE id = $1
     `, [req.params.id]);
+    if (dp.estado === "conciliado") {
+      await pool.query(`
+        UPDATE dp_conciliaciones SET estado='aprobada', cerrado_por=NULL, cerrado_en=NULL
+        WHERE id=(SELECT id FROM dp_conciliaciones WHERE proceso_id=$1 ORDER BY id DESC LIMIT 1)
+      `, [req.params.id]);
+    }
 
     console.log(`[DP] Reactivado N°${dp.numero}-${dp.anio} (estado anterior: ${dp.estado}) por usuario ${u.id} (${u.rol}). Justificación: ${justificacion}`);
 
@@ -1042,8 +1328,8 @@ router.post("/:id/reactivar", requireAuth, requireProcesoAccess, async (req, res
       await notificar(guiaAvisar, "debido_proceso",
         `🔄 El debido proceso N°${dp.numero}-${dp.anio} fue REACTIVADO por administración. Justificación: ${justificacion.trim()}`);
     }
-    if (dp.orientador_asignado && dp.orientador_asignado !== guiaAvisar) {
-      await notificar(dp.orientador_asignado, "debido_proceso",
+    if (dp.orientador_id && dp.orientador_id !== guiaAvisar) {
+      await notificar(dp.orientador_id, "debido_proceso",
         `🔄 El debido proceso N°${dp.numero}-${dp.anio} fue REACTIVADO por administración. Justificación: ${justificacion.trim()}`);
     }
 
@@ -1070,6 +1356,7 @@ router.delete("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
     // los borramos explícitamente en orden).
     await client.query("DELETE FROM dp_historial_cambios WHERE proceso_id=$1", [dp.id]);
     await client.query("DELETE FROM dp_aprobaciones_orientador WHERE proceso_id=$1", [dp.id]);
+    await client.query("DELETE FROM dp_conciliaciones WHERE proceso_id=$1", [dp.id]);
     await client.query("DELETE FROM dp_testigos WHERE proceso_id=$1", [dp.id]);
     await client.query("DELETE FROM dp_ofendidos WHERE proceso_id=$1", [dp.id]);
     await client.query("DELETE FROM dp_pasos WHERE proceso_id=$1", [dp.id]);

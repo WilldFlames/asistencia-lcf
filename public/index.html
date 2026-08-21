@@ -1188,7 +1188,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="suspension" id="nav-suspension" onclick="goTo('suspension')" style="display:none"><span class="icon">🚫</span><span>Suspensión</span></button>
   <button class="nav-btn" data-page="hibrida" id="nav-hibrida" onclick="goTo('hibrida')" style="display:none"><span class="icon">🏠</span><span>Ed. Híbrida</span></button>
   <button class="nav-btn" data-page="debidos" id="nav-debidos" onclick="goTo('debidos')" style="display:none"><span class="icon">⚖️</span><span>Debidos Procesos</span></button>
-  <button class="nav-btn" data-page="protocolos" id="nav-protocolos" onclick="goTo('protocolos')" style="display:none"><span class="icon">🛡️</span><span>Protocolos</span></button>
+  <button class="nav-btn" data-page="protocolos" id="nav-protocolos" onclick="goTo('protocolos')" style="display:none"><span class="icon">🛡️</span><span>Pautas</span></button>
   <button class="nav-btn" data-page="minutas" id="nav-minutas" onclick="goTo('minutas')" style="display:none"><span class="icon">📝</span><span>Minutas</span></button>
   <button class="nav-btn" data-page="inventario" id="nav-inventario" onclick="goTo('inventario')" style="display:none"><span class="icon">📦</span><span>Inventario</span></button>
 </nav>
@@ -1614,16 +1614,18 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <div class="modal-overlay" id="modal-resumen-rubro">
-  <div class="modal" style="max-width:560px;">
+  <div class="modal" style="max-width:900px;max-height:90vh;overflow-y:auto;">
     <h3 id="resumen-rubro-titulo">Cuadro resumen</h3>
     <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:10px 12px;border-radius:7px;margin:10px 0 14px;font-size:12.5px;">
       🔒 Este cuadro es de <strong>solo lectura</strong>. Se alimenta automáticamente con los cotidianos o tareas que ya calificó el docente.
     </div>
-    <div class="fg"><label>Estudiante *</label><select id="resumen-rubro-est"><option value="">— Seleccione —</option></select></div>
+    <div class="fg"><label>Estudiante *</label><select id="resumen-rubro-est" onchange="limpiarVistaResumenRubro()"><option value="">— Seleccione —</option></select></div>
     <div id="alert-resumen-rubro" class="alert"></div>
+    <div id="resumen-rubro-vista" style="display:none;margin-top:14px;border:1px solid var(--border);border-radius:10px;padding:16px;background:#fff;overflow-x:auto;"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-resumen-rubro')">Cancelar</button>
-      <button class="btn btn-success" onclick="imprimirResumenRubro()">🖨️ Generar cuadro</button>
+      <button class="btn btn-primary" onclick="verResumenRubro()">👁️ Ver resumen</button>
+      <button class="btn btn-success" id="btn-imprimir-resumen-rubro" onclick="imprimirResumenRubro()" style="display:none;">🖨️ Imprimir / PDF</button>
     </div>
   </div>
 </div>
@@ -3346,7 +3348,7 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('oficio')">📨 Oficios</button>
       <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('minuta')">📝 Minutas</button>
       <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('proceso')">⚖️ Procesos</button>
-      <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('protocolo')">🛡️ Protocolos</button>
+      <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('protocolo')">🛡️ Pautas</button>
     </div>
     <div class="table-wrap"><table id="consec-tabla">
       <thead><tr><th>#</th><th>Tipo</th><th>Consecutivo</th><th>Fecha</th><th>Solicitante</th><th>Detalle</th><th></th></tr></thead>
@@ -3532,6 +3534,7 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;gap:4px;margin-bottom:14px;border-bottom:2px solid var(--border);flex-wrap:wrap;">
       <button id="dp-tab-curso" class="dp-tab-btn" onclick="dpCambiarTab('en_curso')" style="padding:8px 16px;background:var(--azul);color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-weight:bold;">⏳ En Curso</button>
       <button id="dp-tab-resueltos" class="dp-tab-btn" onclick="dpCambiarTab('resuelto')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">✅ Resueltos</button>
+      <button id="dp-tab-conciliados" class="dp-tab-btn" onclick="dpCambiarTab('conciliado')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">🤝 Conciliados</button>
       <button id="dp-tab-desestimados" class="dp-tab-btn" onclick="dpCambiarTab('desestimado')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">❌ Desestimados</button>
       <button id="dp-tab-pendiente_archivo" class="dp-tab-btn" onclick="dpCambiarTab('pendiente_archivo')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📋 Pend. archivo</button>
       <button id="dp-tab-archivados" class="dp-tab-btn" onclick="dpCambiarTab('archivado')" style="padding:8px 16px;background:transparent;color:var(--muted);border:none;border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;">📦 Archivados</button>
@@ -3673,6 +3676,7 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
       <button class="btn btn-outline" onclick="imprimirPortadaDP()" style="border-color:#6366f1;color:#6366f1;">📄 Imprimir Portada del Expediente</button>
       <button class="btn btn-outline" id="btn-dp-sustituto" onclick="abrirAsignarSustituto()" style="display:none;border-color:#ea580c;color:#ea580c;">🔄 Guía Sustituto</button>
+      <button class="btn btn-outline" id="btn-dp-conciliacion" onclick="abrirConciliacionDP()" style="display:none;border-color:#0f766e;color:#0f766e;">🤝 Conciliación</button>
       <button class="btn btn-outline" id="btn-dp-solicitar-archivo" onclick="abrirSolicitarArchivo()" style="display:none;border-color:#7c3aed;color:#7c3aed;">📦 Solicitar Archivo</button>
       <button class="btn btn-outline" id="btn-dp-aprobar-archivo" onclick="abrirAprobarArchivo()" style="display:none;border-color:#16a34a;color:#16a34a;">✅ Decidir sobre Archivo</button>
       <button class="btn btn-outline" id="btn-dp-reactivar" onclick="abrirReactivarDP()" style="display:none;border-color:#0891b2;color:#0891b2;">🔄 Reactivar Proceso</button>
@@ -3680,6 +3684,24 @@ tr:hover td{background:#f8fafc;}
     <div id="dpd-pasos-lista" style="margin-top:14px;max-height:65vh;overflow:auto;"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-dp-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: vía alternativa de conciliación -->
+<div class="modal-overlay" id="modal-dp-conciliacion" style="z-index:240;">
+  <div class="modal" style="max-width:820px;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+      <div>
+        <h3 style="margin:0 0 4px;">🤝 Conciliación</h3>
+        <div id="dpconc-subtitulo" style="font-size:12px;color:var(--muted);"></div>
+      </div>
+      <span id="dpconc-estado" style="font-size:12px;font-weight:bold;padding:6px 11px;border-radius:14px;background:#f1f5f9;"></span>
+    </div>
+    <div id="alert-dpconc" class="alert" style="margin-top:10px;"></div>
+    <div id="dpconc-contenido" style="margin-top:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-dp-conciliacion')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -3751,6 +3773,24 @@ tr:hover td{background:#f8fafc;}
     <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">
       Después de analizar el expediente, registrá la decisión. <strong>Quedará pendiente de aprobación del orientador asignado</strong> antes de cerrar el proceso.
     </p>
+
+    <!-- La decisión se elige primero. Los datos disciplinarios solo tienen
+         sentido cuando se decide continuar. -->
+    <div class="fg" style="margin-bottom:14px;background:#eff6ff;border:2px solid #93c5fd;border-radius:8px;padding:12px;">
+      <label style="font-size:13px;color:#12395b;">¿Qué se decidió en la sesión? *</label>
+      <select id="dec-decision" style="width:100%;margin-top:5px;" onchange="actualizarFormularioDecisionDP()">
+        <option value="">— Elegí primero la decisión —</option>
+        <option value="continuar">Continuar con el proceso (tipificación, traslado de cargos y resolución)</option>
+        <option value="desestimar">Desestimar el proceso (sin sanción)</option>
+      </select>
+    </div>
+
+    <div id="dec-detalles-desestimar" style="display:none;background:#f8fafc;border-left:4px solid #64748b;padding:12px 14px;border-radius:7px;margin-bottom:14px;font-size:12.5px;line-height:1.5;">
+      <strong>Acta de desestimación simplificada</strong><br/>
+      No se solicitará tipificación, rebajo de puntos ni acción correctiva. El acta impresa dejará un espacio amplio para que la profesora guía escriba la decisión de desestimar y su justificación.
+    </div>
+
+    <div id="dec-detalles-continuar" style="display:none;">
 
     <!-- TIPIFICACIÓN DE LA FALTA -->
     <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:6px;margin-bottom:14px;">
@@ -3832,15 +3872,6 @@ tr:hover td{background:#f8fafc;}
         </div>
       </div>
     </div>
-
-    <!-- DECISIÓN -->
-    <div class="fg" style="margin-top:10px;">
-      <label>Decisión final *</label>
-      <select id="dec-decision" style="width:100%;">
-        <option value="">— Elegí —</option>
-        <option value="continuar">Continuar con el proceso (traslado de cargos + resolución)</option>
-        <option value="desestimar">Desestimar (cerrar sin sanción)</option>
-      </select>
     </div>
     <div id="alert-dec" class="alert"></div>
     <div class="modal-actions">
@@ -3877,10 +3908,10 @@ tr:hover td{background:#f8fafc;}
 <div class="page" id="page-protocolos">
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-      <h2 style="margin:0;">🛡️ Protocolos (Pautas MEP)</h2>
+      <h2 style="margin:0;">🛡️ Pautas MEP</h2>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-outline" id="btn-config-centro" onclick="abrirConfigCentro()" style="display:none;">⚙️ Configurar Centro</button>
-        <button class="btn btn-primary" onclick="abrirNuevoProtocolo()">+ Nuevo Protocolo</button>
+        <button class="btn btn-primary" onclick="abrirNuevoProtocolo()">+ Nueva Pauta</button>
       </div>
     </div>
     <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">
@@ -3897,7 +3928,7 @@ tr:hover td{background:#f8fafc;}
 
     <!-- Pendientes orientador -->
     <div id="prot-pendientes-wrap" style="display:none;margin-bottom:14px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:6px;padding:10px 14px;">
-      <strong style="color:#78350f;font-size:13px;">🔔 Protocolos donde sos orientador asignado</strong>
+      <strong style="color:#78350f;font-size:13px;">🔔 Pautas donde sos orientador asignado</strong>
       <div id="prot-pendientes-lista" style="margin-top:6px;font-size:12.5px;"></div>
     </div>
 
@@ -4442,10 +4473,10 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
-<!-- Modal: Nuevo Protocolo -->
+<!-- Modal: Nueva Pauta -->
 <div class="modal-overlay" id="modal-nuevo-prot">
   <div class="modal" style="max-width:740px;">
-    <h3>🛡️ Nuevo Protocolo</h3>
+    <h3>🛡️ Nueva Pauta</h3>
     <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
       Al guardar se asigna un consecutivo. Podrás llenar los formularios después en cualquier orden.
     </p>
@@ -4517,7 +4548,7 @@ tr:hover td{background:#f8fafc;}
     <div id="alert-np" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-nuevo-prot')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarNuevoProtocolo()">💾 Iniciar Protocolo</button>
+      <button class="btn btn-primary" onclick="guardarNuevoProtocolo()">💾 Iniciar Pauta</button>
     </div>
   </div>
 </div>
@@ -4527,7 +4558,7 @@ tr:hover td{background:#f8fafc;}
   <div class="modal" style="max-width:960px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
       <div>
-        <h3 id="pd-titulo" style="margin:0 0 4px 0;">Protocolo</h3>
+        <h3 id="pd-titulo" style="margin:0 0 4px 0;">Pauta</h3>
         <div id="pd-subtitulo" style="font-size:12.5px;color:var(--muted);"></div>
       </div>
       <div id="pd-estado-badge" style="font-size:12px;font-weight:bold;padding:6px 12px;border-radius:14px;"></div>
@@ -4949,7 +4980,7 @@ tr:hover td{background:#f8fafc;}
         <option value="oficio">📨 Oficio</option>
       </select>
       <div style="margin-top:6px;padding:6px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:11.5px;color:#78350f;">
-        ℹ️ Los consecutivos de <strong>Debido Proceso</strong>, <strong>Protocolo</strong> y <strong>Minuta</strong> se generan automáticamente desde sus módulos respectivos (⚖️ Debidos Procesos, 🛡️ Protocolos y 📝 Minutas) al iniciar el expediente o registro. Los expedientes viejos siguen visibles en la lista de abajo a modo de consulta.
+        ℹ️ Los consecutivos de <strong>Debido Proceso</strong>, <strong>Pauta</strong> y <strong>Minuta</strong> se generan automáticamente desde sus módulos respectivos (⚖️ Debidos Procesos, 🛡️ Pautas y 📝 Minutas) al iniciar el expediente o registro. Los expedientes viejos siguen visibles en la lista de abajo a modo de consulta.
       </div>
     </div>
 
@@ -5014,7 +5045,7 @@ tr:hover td{background:#f8fafc;}
       </div>
       <div class="fg" style="margin-bottom:8px;"><label>Sección</label><select id="consec-sec-protocolo" onchange="cargarEstConsec('protocolo')"><option value="">— Sección —</option></select></div>
       <div class="fg" style="margin-bottom:8px;"><label>Estudiante</label><select id="consec-est-protocolo"><option value="">— Estudiante —</option></select></div>
-      <div class="fg" style="margin-bottom:8px;"><label>Tipo de Protocolo <span style="color:var(--rojo)">*</span></label><select id="consec-tipo-protocolo"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg" style="margin-bottom:8px;"><label>Tipo de Pauta <span style="color:var(--rojo)">*</span></label><select id="consec-tipo-protocolo"><option value="">— Seleccionar —</option></select></div>
     </div>
 
     <div class="modal-actions">
@@ -11233,7 +11264,11 @@ const DP_TIPOS_PASO = {
   acta_sesion:      { nombre:'Acta sesión docente-orientador',    orden:8, icono:'🧑‍⚖️' },
   traslado_cargos:  { nombre:'Traslado de cargos',                orden:9, icono:'📜' },
   resolucion_final: { nombre:'Resolución final',                  orden:10, icono:'⚖️' },
-  desestima:        { nombre:'Acta de desestima',                 orden:11, icono:'🚫' }
+  // Se conserva para expedientes antiguos que ya tenían un documento
+  // separado. En los nuevos, la desestimación queda dentro del acta de sesión.
+  desestima:        { nombre:'Acta de desestima (formato anterior)', orden:11, icono:'🚫' },
+  conciliacion_autorizacion: { nombre:'Autorización familiar para conciliación', orden:12, icono:'👨‍👩‍👧' },
+  conciliacion_carta:        { nombre:'Carta de conciliación entre estudiantes',  orden:13, icono:'🤝' }
 };
 
 async function iniciarDebidosProcesos(){
@@ -11244,11 +11279,11 @@ async function iniciarDebidosProcesos(){
 function dpCambiarTab(estado){
   dpEstadoActual = estado;
   // Estilo de tabs — apagar todos primero
-  ['curso','resueltos','desestimados','pendiente_archivo','archivados'].forEach(t=>{
+  ['curso','resueltos','conciliados','desestimados','pendiente_archivo','archivados'].forEach(t=>{
     const b = document.getElementById(`dp-tab-${t}`);
     if(b){ b.style.background = 'transparent'; b.style.color='var(--muted)'; b.style.fontWeight='normal'; }
   });
-  const map = { en_curso:'curso', resuelto:'resueltos', desestimado:'desestimados', pendiente_archivo:'pendiente_archivo', archivado:'archivados' };
+  const map = { en_curso:'curso', resuelto:'resueltos', conciliado:'conciliados', desestimado:'desestimados', pendiente_archivo:'pendiente_archivo', archivado:'archivados' };
   const activo = document.getElementById(`dp-tab-${map[estado]}`);
   if(activo){ activo.style.background='var(--azul)'; activo.style.color='#fff'; activo.style.fontWeight='bold'; }
   cargarDPLista(estado);
@@ -11277,6 +11312,8 @@ async function cargarDPLista(estado){
           else badge = `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">⏳ Día ${diffDias} de 15</span>`;
         } else if(estado === 'resuelto'){
           badge = '<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">✅ Resuelto</span>';
+        } else if(estado === 'conciliado'){
+          badge = '<span style="background:#0f766e;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">🤝 Conciliado</span>';
         } else if(estado === 'pendiente_archivo'){
           badge = '<span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">📋 Pend. archivo</span>';
         } else if(estado === 'archivado'){
@@ -11285,11 +11322,11 @@ async function cargarDPLista(estado){
           badge = '<span style="background:#6b7280;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">❌ Desestimado</span>';
         }
         const nro = `N°${String(p.numero).padStart(3,'0')}-${p.anio}`;
-        // Total esperado de pasos: 8 base + 2 si continuar, 1 si desestimar.
+        // Total esperado: 8 pasos base; si continúa, se suman traslado y resolución.
         // Hasta que el proceso defina decisión, mostramos al menos 8 como base.
         let totalEsperado = 8;
         if(p.decision_sesion === 'continuar') totalEsperado = 10;
-        else if(p.decision_sesion === 'desestimar') totalEsperado = 9;
+        else if(p.decision_sesion === 'desestimar') totalEsperado = 8;
         // Si los registrados ya son más (caso de testigos múltiples), usamos el mayor
         const totalReal = Math.max(totalEsperado, Number(p.pasos_totales||0));
         const progreso = Math.round((Number(p.pasos_completados||0)/Math.max(totalReal,1))*100);
@@ -11349,7 +11386,8 @@ async function cargarDPPendientes(){
     });
     pendOrient.forEach(p => {
     const nombre = nombreEstudianteLista(p);
-      html.push(`<div style="padding:4px 0;">🧑‍⚖️ <strong>N°${p.numero}-${p.anio}</strong> · Aprobá acta sesión · ${nombre} (${p.seccion_nombre||'—'}) · Propuesta: <strong>${p.decision_sesion}</strong>
+      const esConc = p.tipo_pendiente === 'conciliacion';
+      html.push(`<div style="padding:4px 0;">${esConc?'🤝':'🧑‍⚖️'} <strong>N°${p.numero}-${p.anio}</strong> · ${esConc?'Decidir solicitud de conciliación':`Aprobá acta sesión · Propuesta: <strong>${p.decision_sesion}</strong>`} · ${nombre} (${p.seccion_nombre||'—'})
         <button class="btn btn-outline btn-xs" style="margin-left:6px;" onclick="abrirDPDetalle(${p.proceso_id})">Ver proceso</button>
       </div>`);
     });
@@ -11514,6 +11552,23 @@ async function abrirDPDetalle(procesoId){
       }
     }
 
+    // Conciliación: el guía la solicita, el orientador decide y, una vez
+    // aprobada, se habilitan los documentos oficiales.
+    const btnConc = document.getElementById('btn-dp-conciliacion');
+    if(btnConc){
+      const guiaEfId = dp.guia_sustituto_id || dp.guia_a_cargo;
+      const relacionado = guiaEfId === ME.id || dp.orientador_id === ME.id || ['admin','administrativo','auxiliar'].includes(ME.rol);
+      const disponible = ['en_curso','conciliado'].includes(dp.estado) && relacionado;
+      btnConc.style.display = disponible ? '' : 'none';
+      const ec = d.conciliacion?.estado;
+      btnConc.innerHTML = ec === 'pendiente' ? '🤝 Conciliación · Pendiente'
+        : ec === 'aprobada' ? '🤝 Conciliación · Documentos'
+        : ec === 'rechazada' ? '🤝 Conciliación · Rechazada'
+        : ec === 'cerrada' ? '🤝 Conciliación · Cerrada'
+        : '🤝 Solicitar Conciliación';
+      btnConc.style.background = ec === 'aprobada' ? '#ecfdf5' : ec === 'pendiente' ? '#fffbeb' : '';
+    }
+
     // Botones de archivo
     // - "Solicitar Archivo": visible si el proceso está en_curso/resuelto/desestimado
     //   y el usuario es guía efectivo, iniciador o staff admin
@@ -11542,7 +11597,7 @@ async function abrirDPDetalle(procesoId){
     const btnReactivar = document.getElementById('btn-dp-reactivar');
     if(btnReactivar){
       const esStaff = ['admin','administrativo'].includes(ME.rol);
-      const cerrado = ['resuelto','desestimado','archivado','pendiente_archivo'].includes(dp.estado);
+      const cerrado = ['resuelto','conciliado','desestimado','archivado','pendiente_archivo'].includes(dp.estado);
       btnReactivar.style.display = (esStaff && cerrado) ? '' : 'none';
     }
 
@@ -11567,6 +11622,9 @@ async function abrirDPDetalle(procesoId){
     } else if (dp.estado === 'archivado') {
       badge.style.background = '#475569'; badge.style.color = '#fff';
       badge.textContent = '📦 Archivado';
+    } else if (dp.estado === 'conciliado') {
+      badge.style.background = '#0f766e'; badge.style.color = '#fff';
+      badge.textContent = '🤝 Conciliado';
     } else {
       badge.style.background = dp.estado === 'resuelto' ? '#16a34a' : '#6b7280';
       badge.style.color = '#fff';
@@ -11655,6 +11713,7 @@ async function abrirReactivarDP(){
   const dp = dpProcesoActual.proceso;
   const estadoLbl = {
     'resuelto':      'RESUELTO',
+    'conciliado':    'CONCILIADO',
     'desestimado':   'DESESTIMADO',
     'archivado':     'ARCHIVADO',
     'pendiente_archivo': 'PENDIENTE DE ARCHIVO'
@@ -11741,6 +11800,122 @@ async function abrirAprobarArchivo(){
   }
 }
 
+// ════════════════════════════════════════════════════════════════════
+//  CONCILIACIÓN (solicitud → aprobación → documentos → cierre)
+// ════════════════════════════════════════════════════════════════════
+function dpConciliacionPartes(){
+  const d=dpProcesoActual||{};
+  const dp=d.proceso||{};
+  const conc=d.conciliacion||{};
+  const encA=(d.encargados||[])[0]||{};
+  const parteA={
+    estudiante_id:dp.estudiante_id, cedula:dp.cedula,
+    nombre:dp.est_nombre, primer_apellido:dp.est_ap1, segundo_apellido:dp.est_ap2,
+    seccion_nombre:dp.seccion_nombre,
+    encargado_nombre:encA.nombre_completo||'', encargado_cedula:encA.cedula||'',
+    encargado_telefono:encA.telefono||'', encargado_parentesco:encA.parentesco||''
+  };
+  const disponibles=d.conciliacion_participantes||[];
+  const parteB=disponibles.find(x=>Number(x.estudiante_id)===Number(conc.estudiante_b_id))||disponibles[0]||null;
+  return {parteA,parteB,disponibles};
+}
+
+function abrirConciliacionDP(){
+  if(!dpProcesoActual)return;
+  document.getElementById('alert-dpconc').className='alert';
+  renderConciliacionDP();
+  document.getElementById('modal-dp-conciliacion').classList.add('show');
+}
+
+function renderConciliacionDP(){
+  if(!dpProcesoActual)return;
+  const d=dpProcesoActual,dp=d.proceso,conc=d.conciliacion;
+  const {parteA,parteB,disponibles}=dpConciliacionPartes();
+  const guiaEf=dp.guia_sustituto_id||dp.guia_a_cargo;
+  const puedeGestionar=guiaEf===ME.id||['admin','administrativo','auxiliar'].includes(ME.rol);
+  const puedeDecidir=dp.orientador_id===ME.id||['admin','administrativo'].includes(ME.rol);
+  const estado=conc?.estado||'no_solicitada';
+  const etiquetas={no_solicitada:'Sin solicitar',pendiente:'Pendiente del orientador',aprobada:'Aprobada',rechazada:'Rechazada',cerrada:'Cerrada'};
+  const colores={no_solicitada:['#f1f5f9','#475569'],pendiente:['#fef3c7','#92400e'],aprobada:['#dcfce7','#166534'],rechazada:['#fee2e2','#991b1b'],cerrada:['#ccfbf1','#115e59']};
+  const [bg,color]=colores[estado]||colores.no_solicitada;
+  const badge=document.getElementById('dpconc-estado');
+  badge.textContent=etiquetas[estado]||estado;badge.style.background=bg;badge.style.color=color;
+  document.getElementById('dpconc-subtitulo').textContent=`N°${String(dp.numero).padStart(3,'0')}-${dp.anio} · ${nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2)}`;
+
+  let html='';
+  if(estado==='no_solicitada'||estado==='rechazada'){
+    if(estado==='rechazada'){
+      html+=`<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:10px 12px;border-radius:7px;margin-bottom:12px;font-size:12.5px;"><strong>Solicitud anterior rechazada.</strong>${conc?.observacion_orientador?`<br/>Motivo: ${htmlSeguro(conc.observacion_orientador)}`:''} Podés presentar una nueva solicitud.</div>`;
+    }
+    if(!disponibles.length){
+      html+=`<div style="padding:16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;color:#9a3412;">Antes de solicitarla, agregá al estudiante ofendido que participará en la conciliación.</div>`;
+    }else if(puedeGestionar&&dp.estado==='en_curso'){
+      html+=`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:9px;padding:14px;">
+        <h4 style="margin:0 0 10px;color:#12395b;">Solicitar conciliación</h4>
+        <div class="fg"><label>Estudiante B *</label><select id="dpconc-estudiante-b">${disponibles.map(x=>`<option value="${x.estudiante_id}">${htmlSeguro(nombreEstudianteLista(x))} · ${htmlSeguro(x.seccion_nombre||'—')}</option>`).join('')}</select></div>
+        <div class="fg" style="margin-top:9px;"><label>Motivo de la solicitud *</label><textarea id="dpconc-motivo" rows="3" placeholder="Explique brevemente por qué se propone resolver el caso mediante conciliación..."></textarea></div>
+        <button class="btn btn-primary" style="margin-top:10px;" onclick="solicitarConciliacionDP()">🤝 Enviar al orientador</button>
+      </div>`;
+    }else{
+      html+='<p style="color:var(--muted);">El guía a cargo debe presentar la solicitud.</p>';
+    }
+  }else if(estado==='pendiente'){
+    html+=`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:14px;line-height:1.5;">
+      <strong>Solicitud enviada al orientador</strong><br/>
+      <span style="font-size:12.5px;">Participantes: ${htmlSeguro(nombreEstudianteLista(parteA))} y ${htmlSeguro(parteB?nombreEstudianteLista(parteB):'—')}<br/>Motivo: ${htmlSeguro(conc.motivo||'—')}<br/>Fecha: ${conc.solicitado_en?fmtTS(conc.solicitado_en):'—'}</span>
+    </div>`;
+    if(puedeDecidir){
+      html+=`<div style="margin-top:12px;background:#f8fafc;border:1px solid var(--border);border-radius:9px;padding:14px;">
+        <div class="fg"><label>Observación del orientador</label><textarea id="dpconc-observacion" rows="3" placeholder="Puede indicar condiciones, recomendaciones o el motivo del rechazo..."></textarea></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"><button class="btn btn-danger" onclick="decidirConciliacionDP('rechazar')">❌ Rechazar</button><button class="btn btn-success" onclick="decidirConciliacionDP('aprobar')">✅ Aprobar conciliación</button></div>
+      </div>`;
+    }
+  }else{
+    const paso=(tipo,orden)=>(d.pasos||[]).find(p=>p.tipo===tipo&&Number(p.orden)===Number(orden));
+    const autA=paso('conciliacion_autorizacion',1),autB=paso('conciliacion_autorizacion',2),carta=paso('conciliacion_carta',1);
+    const botones=(tipo,orden,reg)=>`${estado==='aprobada'&&puedeGestionar?`<button class="btn btn-outline btn-sm" onclick="abrirPasoDP('${tipo}',${orden})">${reg?'✏️ Ver / Editar':'📝 Llenar'}</button>`:''}${reg?.completado?`<button class="btn btn-success btn-sm" onclick="imprimirPasoDPDirecto('${tipo}',${orden})">🖨️ Imprimir / PDF</button>`:''}`;
+    const fila=(titulo,sub,tipo,orden,reg)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:#fff;border:1px solid var(--border);border-left:4px solid ${reg?.completado?'#16a34a':'#cbd5e1'};border-radius:8px;margin-top:8px;"><div><strong>${titulo}</strong><div style="font-size:11.5px;color:var(--muted);">${sub} · ${reg?.completado?'✅ Completado':'⏳ Pendiente'}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;">${botones(tipo,orden,reg)}</div></div>`;
+    html+=`<div style="background:#ecfdf5;border-left:4px solid #10b981;padding:10px 12px;border-radius:7px;font-size:12.5px;"><strong>Conciliación aprobada.</strong> Complete las dos autorizaciones familiares y la carta de acuerdos. Los datos institucionales y estudiantiles se cargan automáticamente.</div>`;
+    html+=`<div style="margin-top:14px;"><h4 style="margin:0;color:#12395b;">1. Autorización familiar para conciliación</h4><p style="font-size:12px;color:var(--muted);margin:4px 0 0;">Es el mismo tipo de documento, emitido individualmente para cada menor de edad.</p>${fila('Estudiante A',nombreEstudianteLista(parteA),'conciliacion_autorizacion',1,autA)}${fila('Estudiante B',parteB?nombreEstudianteLista(parteB):'—','conciliacion_autorizacion',2,autB)}</div>`;
+    html+=`<div style="margin-top:16px;"><h4 style="margin:0;color:#12395b;">2. Carta de conciliación entre estudiantes</h4>${fila('Acuerdos de conciliación',`${nombreEstudianteLista(parteA)} y ${parteB?nombreEstudianteLista(parteB):'—'}`,'conciliacion_carta',1,carta)}</div>`;
+    if(estado==='aprobada'&&puedeGestionar&&autA?.completado&&autB?.completado&&carta?.completado){
+      html+=`<div style="margin-top:16px;text-align:center;background:#f0fdfa;border:1px solid #99f6e4;border-radius:9px;padding:14px;"><p style="margin:0 0 9px;color:#115e59;font-weight:bold;">✅ Los documentos están completos. Ya puede cerrar el caso mediante conciliación.</p><button class="btn btn-success" onclick="cerrarConciliacionDP()">🔒 Cerrar caso por conciliación</button></div>`;
+    }
+  }
+  document.getElementById('dpconc-contenido').innerHTML=html;
+}
+
+async function solicitarConciliacionDP(){
+  const estudiante_b_id=Number(document.getElementById('dpconc-estudiante-b')?.value);
+  const motivo=document.getElementById('dpconc-motivo')?.value.trim();
+  if(!estudiante_b_id||!motivo){sa('alert-dpconc','Seleccioná al estudiante B e indicá el motivo.','warning');return;}
+  try{
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/conciliacion/solicitar`,'POST',{estudiante_b_id,motivo});
+    await abrirDPDetalle(dpProcesoActual.proceso.id);renderConciliacionDP();
+    sa('alert-dpconc','✅ Solicitud enviada. Ahora debe decidir el orientador.','success');
+  }catch(e){sa('alert-dpconc',e.message,'danger');}
+}
+
+async function decidirConciliacionDP(decision){
+  const observacion=document.getElementById('dpconc-observacion')?.value.trim()||'';
+  if(decision==='rechazar'&&!observacion){sa('alert-dpconc','Indicá el motivo del rechazo.','warning');return;}
+  try{
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/conciliacion/decidir`,'POST',{decision,observacion});
+    await abrirDPDetalle(dpProcesoActual.proceso.id);renderConciliacionDP();
+    sa('alert-dpconc',decision==='aprobar'?'✅ Conciliación aprobada. Ya se habilitaron los documentos.':'❌ Solicitud rechazada.','success');
+  }catch(e){sa('alert-dpconc',e.message,'danger');}
+}
+
+async function cerrarConciliacionDP(){
+  if(!confirm('¿Cerrar este debido proceso mediante conciliación? Los documentos permanecerán disponibles para consulta e impresión.'))return;
+  try{
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/conciliacion/cerrar`,'POST');
+    cerrarModal('modal-dp-conciliacion');cerrarModal('modal-dp-detalle');
+    dpCambiarTab('conciliado');
+    sa('alert-dp','✅ Caso cerrado mediante conciliación.','success');
+  }catch(e){sa('alert-dpconc',e.message,'danger');}
+}
+
 function renderDPPasos(d){
   const wrap = document.getElementById('dpd-pasos-lista');
   const dp = d.proceso;
@@ -11781,11 +11956,13 @@ function renderDPPasos(d){
   });
   // Paso 8: acta de sesión (independiente del número de ofendidos y testigos)
   pasosSecuencia.push({ tipo:'acta_sesion', orden:8 });
-  // Según decisión, paso 9-10 o 11
+  // Si continúa se habilitan traslado y resolución. Para desestimar ya no se
+  // crea otro documento: la decisión y el espacio manuscrito están en el acta
+  // de sesión. Solo mostramos el paso 11 en expedientes antiguos que lo tengan.
   if(dp.decision_sesion === 'continuar'){
     pasosSecuencia.push({ tipo:'traslado_cargos', orden:9 });
     pasosSecuencia.push({ tipo:'resolucion_final', orden:10 });
-  } else if(dp.decision_sesion === 'desestimar'){
+  } else if(dp.decision_sesion === 'desestimar' && pasosByKey['desestima_11']){
     pasosSecuencia.push({ tipo:'desestima', orden:11 });
   }
 
@@ -11909,7 +12086,8 @@ function renderDPPasos(d){
   // que el proceso NO esté archivado ni resuelto — así podés corregir
   // ofendidos aunque estés en la mitad del flujo.
   let ofendidosBtn = '';
-  const puedeEditarOfendidos = esGuia && !['archivado','resuelto','desestimado'].includes(dp.estado);
+  const conciliacionBloqueaParticipantes = ['pendiente','aprobada'].includes(d.conciliacion?.estado);
+  const puedeEditarOfendidos = esGuia && !dp.decision_sesion && !conciliacionBloqueaParticipantes && !['archivado','resuelto','conciliado','desestimado'].includes(dp.estado);
   if(puedeEditarOfendidos || ofendidos.length){
     const listaOfen = ofendidos.length
       ? ofendidos.map((o, i) => {
@@ -11939,7 +12117,7 @@ function renderDPPasos(d){
   // Sección de testigos (lista + botón agregar). Permite quitar testigos
   // que se hayan agregado por error, siempre que el proceso esté en curso.
   let testigosBtn = '';
-  if(dp.estado === 'en_curso' && esGuia){
+  if(dp.estado === 'en_curso' && esGuia && !dp.decision_sesion){
     const listaTest = d.testigos.length
       ? d.testigos.map((t, i) => {
         const nomT = nombreEstudianteLista(t);
@@ -11959,8 +12137,18 @@ function renderDPPasos(d){
     </div>`;
   }
 
-  // Botón cerrar
-  const btnCerrar = (dp.estado === 'en_curso' && dp.decision_sesion && esGuia)
+  // El cierre solo se ofrece después de la aprobación del orientador. Si la
+  // decisión fue continuar, también deben estar listos traslado y resolución.
+  const actaSesion = pasosByKey['acta_sesion_8'];
+  const aprobacionActa = actaSesion
+    ? d.aprobaciones.find(a => Number(a.paso_id) === Number(actaSesion.id))
+    : null;
+  const actaAprobada = aprobacionActa?.decision === 'aprobado';
+  const finalesListos = dp.decision_sesion === 'desestimar' || (
+    pasosByKey['traslado_cargos_9']?.completado &&
+    pasosByKey['resolucion_final_10']?.completado
+  );
+  const btnCerrar = (dp.estado === 'en_curso' && dp.decision_sesion && esGuia && actaAprobada && finalesListos)
     ? `<div style="margin-top:14px;text-align:center;">
         <button class="btn btn-success" onclick="cerrarProcesoDP()">🔒 Cerrar Proceso ${dp.decision_sesion === 'desestimar' ? '(Desestimado)' : '(Resuelto)'}</button>
       </div>`
@@ -11986,9 +12174,9 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
   c = c || {};
   // Base común
   const f = (id, label, val, type='text', extra='') =>
-    `<div class="fg" style="margin-bottom:8px;"><label>${label}</label><input type="${type}" id="dpp-${id}" value="${val||''}" ${extra}/></div>`;
+    `<div class="fg" style="margin-bottom:8px;"><label>${label}</label><input type="${type}" id="dpp-${id}" value="${htmlSeguro(val||'')}" ${extra}/></div>`;
   const t = (id, label, val, rows=4) =>
-    `<div class="fg" style="margin-bottom:8px;"><label>${label}</label><textarea id="dpp-${id}" rows="${rows}">${val||''}</textarea></div>`;
+    `<div class="fg" style="margin-bottom:8px;"><label>${label}</label><textarea id="dpp-${id}" rows="${rows}">${htmlSeguro(val||'')}</textarea></div>`;
 
   if(tipo === 'acta_apertura'){
     form.innerHTML = `
@@ -12018,18 +12206,58 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
       ${f('encargado_direccion','Domicilio', c.encargado_direccion)}
       ${t('declaracion','Declaración (manifiesto lo siguiente)', c.declaracion, 10)}
     `;
+  } else if(tipo === 'conciliacion_autorizacion'){
+    const {parteA,parteB}=dpConciliacionPartes();
+    const participante=Number(dpPasoEnEdicion?.orden)===2?parteB:parteA;
+    if(!participante){form.innerHTML='<p>No se encontró al segundo participante de la conciliación.</p>';return;}
+    const dp=dpProcesoActual.proceso;
+    const mediador=dp.guia_sustituto_id
+      ? nombreDesdeCampos(dp.sust_nombre,dp.sust_ap1,dp.sust_ap2)
+      : nombreDesdeCampos(dp.guia_nombre,dp.guia_ap1,dp.guia_ap2);
+    form.innerHTML=`
+      <div style="background:#eff6ff;border-left:4px solid #2563eb;padding:9px 12px;border-radius:7px;margin-bottom:12px;font-size:12px;">Los datos se cargan desde el expediente y el encargado principal. Podés corregir los datos de contacto antes de guardar.</div>
+      <input type="hidden" id="dpp-estudiante_id" value="${participante.estudiante_id}"/>
+      ${f('lugar','Lugar',c.lugar||'Desamparados, San José')}
+      ${f('fecha','Fecha',c.fecha||fechaHoyCR(),'date')}
+      ${f('institucion','Institución educativa',c.institucion||'Liceo de Calle Fallas','text','readonly style="background:#f8fafc;"')}
+      ${f('estudiante_nombre','Nombre del estudiante',c.estudiante_nombre||nombreEstudianteLista(participante),'text','readonly style="background:#f8fafc;"')}
+      ${f('estudiante_cedula','Cédula del estudiante',c.estudiante_cedula||participante.cedula,'text','readonly style="background:#f8fafc;"')}
+      ${f('seccion','Grado / Sección',c.seccion||participante.seccion_nombre,'text','readonly style="background:#f8fafc;"')}
+      ${f('encargado_nombre','Padre, madre o responsable legal',c.encargado_nombre||participante.encargado_nombre)}
+      ${f('encargado_cedula','Cédula del responsable legal',c.encargado_cedula||participante.encargado_cedula)}
+      ${f('encargado_parentesco','Parentesco / calidad',c.encargado_parentesco||participante.encargado_parentesco)}
+      ${f('encargado_telefono','Teléfono',c.encargado_telefono||participante.encargado_telefono,'tel')}
+      ${f('mediador_nombre','Docente mediador u orientador',c.mediador_nombre||mediador)}
+    `;
+  } else if(tipo === 'conciliacion_carta'){
+    const {parteA,parteB}=dpConciliacionPartes();
+    if(!parteB){form.innerHTML='<p>No se encontró al segundo participante de la conciliación.</p>';return;}
+    const dp=dpProcesoActual.proceso;
+    const mediador=dp.guia_sustituto_id
+      ? nombreDesdeCampos(dp.sust_nombre,dp.sust_ap1,dp.sust_ap2)
+      : nombreDesdeCampos(dp.guia_nombre,dp.guia_ap1,dp.guia_ap2);
+    form.innerHTML=`
+      <div style="background:#ecfdf5;border-left:4px solid #10b981;padding:9px 12px;border-radius:7px;margin-bottom:12px;font-size:12px;">La carta conserva el modelo RAC-MEP aportado. Complete únicamente las acciones reparadoras acordadas.</div>
+      <input type="hidden" id="dpp-estudiante_a_id" value="${parteA.estudiante_id}"/>
+      <input type="hidden" id="dpp-estudiante_b_id" value="${parteB.estudiante_id}"/>
+      ${f('lugar','Lugar',c.lugar||'Desamparados, San José')}
+      ${f('fecha','Fecha',c.fecha||fechaHoyCR(),'date')}
+      ${f('institucion','Institución educativa',c.institucion||'Liceo de Calle Fallas','text','readonly style="background:#f8fafc;"')}
+      ${f('estudiante_a_nombre','Estudiante A',c.estudiante_a_nombre||nombreEstudianteLista(parteA),'text','readonly style="background:#f8fafc;"')}
+      ${f('estudiante_b_nombre','Estudiante B',c.estudiante_b_nombre||nombreEstudianteLista(parteB),'text','readonly style="background:#f8fafc;"')}
+      ${t('acciones_a','Acciones reparadoras del estudiante A',c.acciones_a,4)}
+      ${t('acciones_b','Acciones reparadoras del estudiante B',c.acciones_b,4)}
+      ${f('responsable_a_nombre','Responsable legal A',c.responsable_a_nombre||parteA.encargado_nombre)}
+      ${f('responsable_b_nombre','Responsable legal B',c.responsable_b_nombre||parteB.encargado_nombre)}
+      ${f('mediador_nombre','Docente mediador u orientador',c.mediador_nombre||mediador)}
+    `;
   } else if(tipo === 'acta_sesion'){
+    const esDesestima=(c.decision||dpProcesoActual?.proceso?.decision_sesion)==='desestimar';
     form.innerHTML = `
       <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:6px;font-size:12px;color:#78350f;margin-bottom:10px;">
         Solo lectura. Para registrar o cambiar la decisión, usá el botón "Registrar decisión".
       </div>
-      ${f('art_falta','Artículo falta', c.art_falta)}
-      ${f('inc_falta','Inciso falta', c.inc_falta)}
-      ${f('art_rebajo','Artículo rebajo', c.art_rebajo)}
-      ${f('inc_rebajo','Inciso rebajo', c.inc_rebajo)}
-      ${f('art_accion','Artículo acción correctiva', c.art_accion)}
-      ${f('inc_accion','Inciso acción', c.inc_accion)}
-      ${t('desc_accion','Descripción acción correctiva', c.desc_accion, 3)}
+      ${esDesestima?'<div style="padding:14px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;">Se decidió desestimar. El documento impreso deja el espacio para escribir a mano la decisión y su justificación.</div>':`${f('art_falta','Artículo falta', c.art_falta)}${f('inc_falta','Inciso falta', c.inc_falta)}${f('art_rebajo','Artículo rebajo', c.art_rebajo)}${f('inc_rebajo','Inciso rebajo', c.inc_rebajo)}${f('art_accion','Artículo acción correctiva', c.art_accion)}${f('inc_accion','Inciso acción', c.inc_accion)}${t('desc_accion','Descripción acción correctiva', c.desc_accion, 3)}`}
       <div class="fg"><label>Decisión</label><input type="text" value="${c.decision||''}" readonly style="background:#f1f5f9;"/></div>
     `;
   } else if(tipo === 'traslado_cargos'){
@@ -12219,6 +12447,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
 
 async function guardarPasoDP(){
   if(!dpPasoEnEdicion || !dpProcesoActual) return;
+  const tipoGuardado=dpPasoEnEdicion.tipo;
   const contenido = leerContenidoPaso(dpPasoEnEdicion.tipo);
   try {
     await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
@@ -12230,6 +12459,7 @@ async function guardarPasoDP(){
     cerrarModal('modal-dp-paso');
     sa('alert-dpd','✅ Paso guardado.','success');
     await abrirDPDetalle(dpProcesoActual.proceso.id);
+    if(tipoGuardado.startsWith('conciliacion_'))renderConciliacionDP();
   } catch(e){ sa('alert-dpp', e.message, 'danger'); }
 }
 
@@ -12259,6 +12489,7 @@ async function imprimirPasoDP(){
     sa('alert-dpd','✅ Paso guardado.','success');
     // Recargar detalle ANTES de imprimir, para que la impresión use datos frescos
     await abrirDPDetalle(dpProcesoActual.proceso.id);
+    if(tipoCopy.startsWith('conciliacion_'))renderConciliacionDP();
     // Ahora sí imprimir, con dpProcesoActual ya actualizado
     setTimeout(() => imprimirPasoDPDirecto(tipoCopy, ordenCopy), 200);
   } catch(e){ sa('alert-dpp', e.message, 'danger'); }
@@ -12515,7 +12746,67 @@ async function imprimirPasoDPDirecto(tipo, orden){
           <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>
         </div>`;
     }
+  } else if(tipo === 'conciliacion_autorizacion'){
+    body=`<div style="font-size:11px;line-height:1.42;">
+      <p style="text-align:right;margin:0 0 8px;"><strong>${pdfTexto(c.lugar,'Desamparados')}</strong>, ${c.fecha?fmtF(c.fecha):'____________'}</p>
+      <p><strong>Institución Educativa:</strong> ${pdfTexto(c.institucion,'Liceo de Calle Fallas')}</p>
+      <h3 style="font-size:12px;color:#12395b;border-bottom:2px solid #12395b;padding-bottom:3px;margin:12px 0 6px;">1. IDENTIFICACIÓN DEL PADRE, MADRE O ENCARGADO</h3>
+      <p>Yo, <strong>${pdfTexto(c.encargado_nombre,'________________________________')}</strong>, portador(a) de la cédula de identidad número <strong>${pdfTexto(c.encargado_cedula,'________________')}</strong>, en calidad de <strong>${pdfTexto(c.encargado_parentesco,'padre / madre / responsable legal')}</strong> del estudiante menor de edad:</p>
+      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;margin:7px 0;"><strong>Nombre del estudiante:</strong> ${pdfTexto(c.estudiante_nombre)}<br/><strong>Cédula:</strong> ${pdfTexto(c.estudiante_cedula)}<br/><strong>Grado / Sección:</strong> ${pdfTexto(c.seccion)}</div>
+      <h3 style="font-size:12px;color:#12395b;border-bottom:2px solid #12395b;padding-bottom:3px;margin:12px 0 6px;">2. DECLARACIÓN DE CONSENTIMIENTO</h3>
+      <p>Por medio de la presente, autorizo a la institución educativa y al personal docente u orientador designado para que mi hijo(a) participe en un proceso de conciliación escolar, conforme a lo establecido por:</p>
+      <ul style="margin:5px 0 7px 18px;padding:0;"><li>Los Métodos de Resolución Alternativa de Conflictos (RAC).</li><li>Los lineamientos del Ministerio de Educación Pública (MEP) en materia de convivencia y resolución pacífica de conflictos.</li></ul>
+      <h3 style="font-size:12px;color:#12395b;border-bottom:2px solid #12395b;padding-bottom:3px;margin:12px 0 6px;">3. ALCANCE DE LA AUTORIZACIÓN</h3>
+      <ul style="margin:5px 0 7px 18px;padding:0;"><li>Reconozco que el proceso busca promover el diálogo, el respeto mutuo y la reparación de la convivencia escolar.</li><li>Acepto que los acuerdos serán registrados en un acta institucional y tendrán seguimiento por parte del docente mediador u orientador.</li><li>Confirmo que esta autorización se otorga en pleno conocimiento de que el proceso es pedagógico, no sancionatorio, y busca el bienestar integral de los estudiantes.</li></ul>
+      <h3 style="font-size:12px;color:#12395b;border-bottom:2px solid #12395b;padding-bottom:3px;margin:12px 0 8px;">4. FIRMAS Y CONFORMIDAD</h3>
+      <div class="reporte-materia" style="display:grid;grid-template-columns:1fr 1fr;gap:22px 30px;margin-top:24px;">
+        <div><div style="border-top:1px solid #111;padding-top:4px;"><strong>Padre / Madre / Responsable legal</strong><br/>${pdfTexto(c.encargado_nombre,'')}<br/>Cédula: ${pdfTexto(c.encargado_cedula,'')} · Teléfono: ${pdfTexto(c.encargado_telefono,'')}</div></div>
+        <div><div style="border-top:1px solid #111;padding-top:4px;"><strong>Estudiante menor de edad</strong><br/>${pdfTexto(c.estudiante_nombre,'')}</div></div>
+        <div><div style="border-top:1px solid #111;padding-top:4px;"><strong>Docente mediador / Orientador(a)</strong><br/>${pdfTexto(c.mediador_nombre,'')}</div></div>
+      </div>
+    </div>`;
+  } else if(tipo === 'conciliacion_carta'){
+    body=`<div style="font-size:11.2px;line-height:1.48;">
+      <p style="text-align:right;margin:0 0 8px;"><strong>${pdfTexto(c.lugar,'Desamparados')}</strong>, ${c.fecha?fmtF(c.fecha):'____________'}</p>
+      <p><strong>Institución Educativa:</strong> ${pdfTexto(c.institucion,'Liceo de Calle Fallas')}</p>
+      <h3 style="font-size:12px;color:#12395b;border-left:4px solid #2563eb;padding-left:7px;margin:12px 0 6px;">1. PARTICIPANTES</h3>
+      <p>En el presente proceso de mediación y resolución alternativa de conflictos participan de manera voluntaria:</p>
+      <div style="border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;background:#f8fafc;"><strong>Estudiante A:</strong> ${pdfTexto(c.estudiante_a_nombre)}<br/><strong>Estudiante B:</strong> ${pdfTexto(c.estudiante_b_nombre)}<br/><em>Ambas personas menores de edad, debidamente acompañadas por sus representantes legales y la persona docente mediadora u orientadora designada por la institución.</em></div>
+      <h3 style="font-size:12px;color:#12395b;border-left:4px solid #2563eb;padding-left:7px;margin:12px 0 6px;">2. CONTEXTO DEL CONFLICTO</h3>
+      <p>Se reconoce que entre las partes involucradas ocurrió una situación de desacuerdo que afectó la convivencia y el entorno escolar. Conforme a las orientaciones y lineamientos del Ministerio de Educación Pública (MEP) sobre la Resolución Alternativa de Conflictos (RAC), se impulsa este espacio de diálogo constructivo con el propósito de alcanzar una solución pacífica, consensuada, dialogada y respetuosa.</p>
+      <h3 style="font-size:12px;color:#12395b;border-left:4px solid #2563eb;padding-left:7px;margin:12px 0 6px;">3. ACUERDOS DE CONCILIACIÓN</h3>
+      <p>Tras un proceso formal de diálogo y escucha activa, las partes acuerdan libremente los siguientes compromisos:</p>
+      <ul style="margin:5px 0 7px 18px;padding:0;"><li><strong>Reconocimiento del hecho:</strong> Cada estudiante reconoce la situación acontecida, asume la responsabilidad de sus actos e interacciones y expresa su genuina disposición para mejorar la convivencia escolar.</li><li><strong>Compromiso de respeto mutuo:</strong> Ambos estudiantes se comprometen a mantener de forma permanente un trato cordial, respetuoso y libre de provocaciones, evitando cualquier conducta ofensiva, verbal, física o digital.</li></ul>
+      <p style="margin-bottom:4px;"><strong>Acciones reparadoras del estudiante A:</strong></p><div style="border:1px solid #94a3b8;border-radius:5px;min-height:62px;padding:7px;white-space:pre-wrap;">${pdfTexto(c.acciones_a,'')}</div>
+      <p style="margin-bottom:4px;"><strong>Acciones reparadoras del estudiante B:</strong></p><div style="border:1px solid #94a3b8;border-radius:5px;min-height:62px;padding:7px;white-space:pre-wrap;">${pdfTexto(c.acciones_b,'')}</div>
+      <div style="break-before:page;page-break-before:always;height:1px;"></div>
+      <p><strong>Seguimiento institucional:</strong> La persona docente mediadora o del Departamento de Orientación dará acompañamiento y seguimiento periódico al cumplimiento de los presentes acuerdos durante las próximas semanas.</p>
+      <h3 style="font-size:12px;color:#12395b;border-left:4px solid #2563eb;padding-left:7px;margin:12px 0 6px;">4. PRINCIPIOS RECTORES</h3>
+      <p>El presente acuerdo de conciliación se sustenta en:</p>
+      <ul style="margin:5px 0 7px 18px;padding:0;"><li>El derecho fundamental de los y las estudiantes a una educación inclusiva, integral y libre de violencia.</li><li>Los lineamientos institucionales del MEP sobre convivencia pacífica y cultura de paz en los centros educativos.</li><li>Los valores de respeto, responsabilidad, empatía y solidaridad que rigen la vida comunitaria escolar.</li></ul>
+      <h3 style="font-size:12px;color:#12395b;border-left:4px solid #2563eb;padding-left:7px;margin:12px 0 6px;">5. FIRMAS DE COMPROMISO</h3>
+      <p>En fe de conformidad y conscientes de la importancia de este acuerdo para la convivencia pacífica, firman las partes involucradas:</p>
+      <div class="reporte-materia" style="display:grid;grid-template-columns:1fr 1fr;gap:38px 34px;margin-top:38px;text-align:center;">
+        <div style="border-top:1px solid #111;padding-top:4px;"><strong>Firma Estudiante A</strong><br/>${pdfTexto(c.estudiante_a_nombre,'')}</div>
+        <div style="border-top:1px solid #111;padding-top:4px;"><strong>Firma Estudiante B</strong><br/>${pdfTexto(c.estudiante_b_nombre,'')}</div>
+        <div style="border-top:1px solid #111;padding-top:4px;"><strong>Firma Responsable Legal A</strong><br/>${pdfTexto(c.responsable_a_nombre,'')}</div>
+        <div style="border-top:1px solid #111;padding-top:4px;"><strong>Firma Responsable Legal B</strong><br/>${pdfTexto(c.responsable_b_nombre,'')}</div>
+        <div style="border-top:1px solid #111;padding-top:4px;"><strong>Docente Mediador / Orientación</strong><br/>${pdfTexto(c.mediador_nombre,'')}</div>
+        <div style="border:1px dashed #94a3b8;border-radius:6px;min-height:75px;padding-top:12px;color:#64748b;">Sello oficial<br/>Institución educativa</div>
+      </div>
+    </div>`;
   } else if(tipo === 'acta_sesion'){
+    if((c.decision||dp.decision_sesion)==='desestimar'){
+      body=`<p><strong>Expediente:</strong> ${nro}</p>
+        <p>En presencia del(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y de la persona orientadora <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, se analiza el expediente de la persona estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
+        <p>Después de revisar los hechos, declaraciones y demás elementos incorporados al expediente, se acuerda <strong>DESESTIMAR la continuación del procedimiento</strong>.</p>
+        <p><strong>Decisión de desestimar y justificación de la profesora guía:</strong></p>
+        <div style="border:1px solid #64748b;padding:12px;min-height:330px;line-height:2.2;background:#fff;"></div>
+        <div class="reporte-materia" style="margin-top:42px;display:grid;grid-template-columns:1fr 1fr;gap:36px;">
+          <div style="border-top:1px solid #111;padding-top:4px;"><strong>${cargoProfesor}</strong><br/>${guia}<br/>Cédula: ${guiaCedula}</div>
+          <div style="border-top:1px solid #111;padding-top:4px;"><strong>Orientador(a)</strong><br/>${orientador}<br/>Cédula: ${dp.orient_cedula||'____'}</div>
+        </div>`;
+    }else{
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>En presencia del(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y de la orientadora <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, se procede a la investigación correspondiente de la persona estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p><strong>Tipificación de la falta:</strong><br/>
@@ -12535,6 +12826,7 @@ async function imprimirPasoDPDirecto(tipo, orden){
       <p><strong>Decisión:</strong> ${c.decision || dp.decision_sesion || '____'}</p>
       <div class="reporte-materia" style="margin-top:40px;"><p>${cargoProfesor}: ____________________ &nbsp; ${guia}</p>
       <p>Orientador(a): ____________________ &nbsp; ${orientador}</p></div>`;
+    }
   } else if(tipo === 'traslado_cargos'){
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>El(la) suscrito(a) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, de la sección <strong>${dp.seccion_nombre||'___'}</strong>, siendo las <strong>${c.hora_notif||'____'}</strong> horas del día <strong>${c.fecha_notif ? fmtF(c.fecha_notif) : '____'}</strong>, procede a notificar el presente traslado de cargos.</p>
@@ -12599,6 +12891,8 @@ async function imprimirPasoDPDirecto(tipo, orden){
     traslado_cargos:  "TRASLADO DE CARGOS",
     resolucion_final: "RESOLUCIÓN FINAL",
     desestima:        "DESESTIMA DEL PROCESO",
+    conciliacion_autorizacion: "AUTORIZACIÓN FAMILIAR PARA CONCILIACIÓN",
+    conciliacion_carta: "CARTA DE CONCILIACIÓN ENTRE ESTUDIANTES",
   };
   const tituloOficial = TITULOS_OFICIALES[tipo] || info.nombre.toUpperCase();
   const nombresArchivo = {
@@ -12606,7 +12900,9 @@ async function imprimirPasoDPDirecto(tipo, orden){
     cita_ofensor:'cita_supuesto_ofensor', cita_testigo:'cita_testigo',
     decl_ofendido:'declaracion_supuesto_ofendido', decl_ofensor:'declaracion_supuesto_ofensor',
     decl_testigo:'declaracion_testigo', acta_sesion:'acta_sesion',
-    traslado_cargos:'traslado_cargos', resolucion_final:'resolucion_final', desestima:'desestima_proceso'
+    traslado_cargos:'traslado_cargos', resolucion_final:'resolucion_final', desestima:'desestima_proceso',
+    conciliacion_autorizacion:`autorizacion_conciliacion_estudiante_${orden}`,
+    conciliacion_carta:'carta_conciliacion_estudiantil'
   };
   const contenidoHTML=`<div style="font-size:13px;line-height:1.55;">${body}</div>`;
   const archivo=`${nombresArchivo[tipo]||'debido_proceso'}_${String(dp.numero).padStart(3,'0')}_${dp.anio}.pdf`;
@@ -12831,10 +13127,19 @@ function abrirDecisionDP(){
     document.getElementById(id).innerHTML = '<option value="">— Primero elegí artículo —</option>';
   });
   document.getElementById('dec-decision').value = '';
+  actualizarFormularioDecisionDP();
   document.getElementById('alert-dec').className = 'alert';
   // Pre-cargar el catálogo (sin esperar — la primera vez tarda un poco más)
   cargarREAC();
   document.getElementById('modal-dp-decision').classList.add('show');
+}
+
+function actualizarFormularioDecisionDP(){
+  const decision=document.getElementById('dec-decision')?.value||'';
+  const continuar=document.getElementById('dec-detalles-continuar');
+  const desestimar=document.getElementById('dec-detalles-desestimar');
+  if(continuar)continuar.style.display=decision==='continuar'?'':'none';
+  if(desestimar)desestimar.style.display=decision==='desestimar'?'':'none';
 }
 
 async function guardarDecisionDP(){
@@ -12849,7 +13154,7 @@ async function guardarDecisionDP(){
       return;
     }
   }
-  const contenido = {
+  const contenido = decision==='continuar' ? {
     art_falta:    document.getElementById('dec-art-falta').value,
     inc_falta:    document.getElementById('dec-inc-falta').value,
     desc_falta:   document.getElementById('dec-desc-falta').value.trim(),
@@ -12860,7 +13165,7 @@ async function guardarDecisionDP(){
     art_accion:   document.getElementById('dec-art-accion').value,
     inc_accion:   document.getElementById('dec-inc-accion').value,
     desc_accion:  document.getElementById('dec-desc-accion').value.trim(),
-  };
+  } : {};
   try {
     await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/decidir-sesion`,'POST', { decision, contenido });
     cerrarModal('modal-dp-decision');
@@ -14581,7 +14886,7 @@ async function cargarProtLista(estado){
   try{
     const rows = await api(`/api/protocolos?estado=${estado}`) || [];
     if(!rows.length){
-      wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Sin protocolos en esta categoría.</div>';
+      wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Sin pautas en esta categoría.</div>';
       return;
     }
     wrap.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;">' +
@@ -14612,7 +14917,7 @@ async function cargarProtLista(estado){
           </div>
           <div style="display:flex;gap:6px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="abrirProtoDetalle(${p.id})">📋 Ver / Continuar</button>
-            ${['admin','administrativo'].includes(ME.rol) ? `<button class="btn btn-danger btn-sm" onclick="eliminarProto(${p.id}, ${p.numero}, ${p.anio})" title="Eliminar protocolo (irreversible)">🗑️</button>` : ''}
+            ${['admin','administrativo'].includes(ME.rol) ? `<button class="btn btn-danger btn-sm" onclick="eliminarProto(${p.id}, ${p.numero}, ${p.anio})" title="Eliminar pauta (irreversible)">🗑️</button>` : ''}
           </div>
         </div>`;
       }).join('') + '</div>';
@@ -14709,7 +15014,7 @@ async function guardarNuevoProtocolo(){
     const msgOri = r.orientador_asignado
       ? ' Se asignó automáticamente el orientador de la sección.'
       : ' Sin orientador asignado (el admin puede asignarlo después).';
-    sa('alert-prot',`✅ Protocolo iniciado. N°${String(r.numero).padStart(3,'0')}-${r.anio}.${msgOri}`,'success');
+    sa('alert-prot',`✅ Pauta iniciada. N°${String(r.numero).padStart(3,'0')}-${r.anio}.${msgOri}`,'success');
     await cargarProtLista(protEstadoActual);
     setTimeout(()=>abrirProtoDetalle(r.id), 400);
   }catch(e){ sa('alert-np',e.message,'danger'); }
@@ -14817,7 +15122,7 @@ function renderFormsProto(d){
   // Botón cerrar
   const btnCerrar = (dp.estado === 'activo' && puedeEditar)
     ? `<div style="margin-top:14px;text-align:center;">
-        <button class="btn btn-success" onclick="cerrarProtocolo()">🔒 Cerrar Protocolo</button>
+        <button class="btn btn-success" onclick="cerrarProtocolo()">🔒 Cerrar Pauta</button>
       </div>`
     : '';
   wrap.innerHTML = items + btnCerrar;
@@ -15269,7 +15574,7 @@ async function guardarPersonaProtocolo(){
 }
 
 async function eliminarPersonaProto(personaId){
-  if(!confirm('¿Eliminar a esta persona del protocolo?')) return;
+  if(!confirm('¿Eliminar a esta persona de la pauta?')) return;
   try{
     await api(`/api/protocolos/${protActual.protocolo.id}/personas/${personaId}`,'DELETE');
     await abrirProtoDetalle(protActual.protocolo.id);
@@ -15277,11 +15582,11 @@ async function eliminarPersonaProto(personaId){
 }
 
 async function cerrarProtocolo(){
-  if(!confirm('¿Cerrar el protocolo? Asegurate de haber completado o marcado como N/A todos los formularios.')) return;
+  if(!confirm('¿Cerrar la pauta? Asegurate de haber completado o marcado como N/A todos los formularios.')) return;
   try{
     await api(`/api/protocolos/${protActual.protocolo.id}/cerrar`,'POST');
     cerrarModal('modal-prot-detalle');
-    sa('alert-prot','✅ Protocolo cerrado.','success');
+    sa('alert-prot','✅ Pauta cerrada.','success');
     await cargarProtLista(protEstadoActual);
   }catch(e){ alert(e.message); }
 }
@@ -15289,12 +15594,12 @@ async function cerrarProtocolo(){
 // ── ELIMINAR protocolo (solo admin/administrativo) ────────────────────
 async function eliminarProto(id, numero, anio){
   const nro = `N°${String(numero).padStart(3,'0')}-${anio}`;
-  if(!confirm(`¿ELIMINAR el protocolo ${nro}?\n\nEsto borra el expediente completo: formularios, personas involucradas. El número de consecutivo se libera.\n\nEs IRREVERSIBLE.`)) return;
+  if(!confirm(`¿ELIMINAR la pauta ${nro}?\n\nEsto borra el expediente completo: formularios, personas involucradas. El número de consecutivo se libera.\n\nEs IRREVERSIBLE.`)) return;
   if(!confirm(`Última confirmación: ¿estás seguro de eliminar ${nro}?`)) return;
   try{
     await api(`/api/protocolos/${id}`,'DELETE');
     if(protActual?.protocolo?.id === id) cerrarModal('modal-prot-detalle');
-    sa('alert-prot',`✅ Protocolo ${nro} eliminado. Consecutivo liberado.`,'success');
+    sa('alert-prot',`✅ Pauta ${nro} eliminada. Consecutivo liberado.`,'success');
     await cargarProtLista(protEstadoActual);
     await cargarProtPendientes();
   }catch(e){ alert('Error: ' + e.message); }
@@ -15652,7 +15957,7 @@ function renderConsecutivos(rows, tipo){
     tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay consecutivos registrados.</td></tr>`;
     return;
   }
-  const tipoLabel={oficio:"📨 Oficio",minuta:"📝 Minuta",proceso:"⚖️ Proceso",protocolo:"🛡️ Protocolo"};
+  const tipoLabel={oficio:"📨 Oficio",minuta:"📝 Minuta",proceso:"⚖️ Proceso",protocolo:"🛡️ Pauta"};
   const tipoColor={
     oficio:  {bg:"#e0f2fe",color:"#0369a1",border:"#93c5fd"},
     minuta:  {bg:"#fef9c3",color:"#854d0e",border:"#fde047"},
@@ -15736,7 +16041,7 @@ async function guardarConsecutivo(){
     body.motivo_proceso=document.getElementById("consec-motivo-proceso").value;
   }else if(tipo==='protocolo'){
     const tp=document.getElementById("consec-tipo-protocolo").value;
-    if(!tp){sa("alert-consec-modal","Seleccioná el tipo de protocolo.","danger");return;}
+    if(!tp){sa("alert-consec-modal","Seleccioná el tipo de pauta.","danger");return;}
     body.tipo_protocolo=tp;
     body.digitado_por_cargo=document.getElementById("consec-cargo-protocolo").value;
     body.estudiante_id=document.getElementById("consec-est-protocolo").value||null;
@@ -15745,7 +16050,7 @@ async function guardarConsecutivo(){
   try{
     const r=await api("/api/consecutivos","POST",body);
     cerrarModal("modal-consecutivo");
-    const tipos={oficio:"Oficio",minuta:"Minuta",proceso:"Debido Proceso",protocolo:"Protocolo"};
+    const tipos={oficio:"Oficio",minuta:"Minuta",proceso:"Debido Proceso",protocolo:"Pauta"};
     alert(`✅ ${tipos[tipo]} N° ${r.numero} asignado correctamente.`);
     await filtrarConsecutivos(tipo);
   }catch(e){sa("alert-consec-modal",e.message,"danger");}
@@ -22275,6 +22580,7 @@ async function cargarEvaluaciones(){
 }
 
 let evalResumenTipo="cotidiano";
+let evalResumenVista=null;
 function evalResumenParametros(tipo,estudianteId=null){
   const a=evalAsigActual,periodo=document.getElementById("calif-periodo").value;
   const p=new URLSearchParams({seccion_id:a.seccion_id,materia_id:a.materia_id,periodo,tipo});
@@ -22282,11 +22588,19 @@ function evalResumenParametros(tipo,estudianteId=null){
   if(estudianteId)p.set("estudiante_id",estudianteId);
   return p;
 }
+function limpiarVistaResumenRubro(){
+  evalResumenVista=null;
+  const vista=document.getElementById("resumen-rubro-vista");
+  if(vista){vista.style.display="none";vista.innerHTML="";}
+  const btn=document.getElementById("btn-imprimir-resumen-rubro");
+  if(btn)btn.style.display="none";
+}
 async function abrirResumenRubro(tipo){
   evalResumenTipo=tipo;
   const etiqueta=tipo==="cotidiano"?"Trabajo cotidiano":"Tareas";
   document.getElementById("resumen-rubro-titulo").textContent=`🖨️ Cuadro individual de ${etiqueta}`;
   document.getElementById("alert-resumen-rubro").className="alert";
+  limpiarVistaResumenRubro();
   const sel=document.getElementById("resumen-rubro-est");
   sel.innerHTML='<option value="">Cargando estudiantes…</option>';
   document.getElementById("modal-resumen-rubro").classList.add("show");
@@ -22295,7 +22609,7 @@ async function abrirResumenRubro(tipo){
     sel.innerHTML='<option value="">— Seleccione —</option>'+d.estudiantes.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.cedula||'')}</option>`).join('');
   }catch(e){sa("alert-resumen-rubro",e.message,"danger");sel.innerHTML='<option value="">No se pudo cargar</option>';}
 }
-async function imprimirResumenRubro(){
+async function verResumenRubro(){
   const estudianteId=document.getElementById("resumen-rubro-est").value;
   if(!estudianteId){sa("alert-resumen-rubro","Seleccioná al estudiante.","warning");return;}
   try{
@@ -22327,9 +22641,26 @@ async function imprimirResumenRubro(){
       <div style="margin-top:10px;text-align:right;font-size:13px;font-weight:bold;color:#12395b;">Total registrado: ${hayNotas?totalObtenido:'—'} / ${totalPosible} puntos</div>
       <p style="margin-top:12px;color:#64748b;font-size:9.5px;">Documento de consulta. La información se obtiene automáticamente de las evaluaciones registradas y no se edita desde este cuadro.</p>
     </div>`;
-    cerrarModal("modal-resumen-rubro");
-    await imprimirPDFMEP(`RESUMEN DE ${etiqueta}`,contenido,`resumen_${evalResumenTipo}_${d.estudiante.cedula||estudianteId}.pdf`);
+    evalResumenVista={
+      estudianteId:String(estudianteId),
+      titulo:`RESUMEN DE ${etiqueta}`,
+      contenido,
+      archivo:`resumen_${evalResumenTipo}_${d.estudiante.cedula||estudianteId}.pdf`
+    };
+    const vista=document.getElementById("resumen-rubro-vista");
+    vista.innerHTML=`<div class="reporte-materia">${contenido}</div>`;
+    vista.style.display="";
+    document.getElementById("btn-imprimir-resumen-rubro").style.display="";
+    vista.scrollIntoView({behavior:"smooth",block:"start"});
   }catch(e){sa("alert-resumen-rubro",e.message,"danger");}
+}
+async function imprimirResumenRubro(){
+  const estudianteId=String(document.getElementById("resumen-rubro-est").value||"");
+  if(!evalResumenVista||evalResumenVista.estudianteId!==estudianteId){
+    sa("alert-resumen-rubro","Primero presioná Ver resumen para revisar la información.","warning");
+    return;
+  }
+  await imprimirPDFMEP(evalResumenVista.titulo,evalResumenVista.contenido,evalResumenVista.archivo);
 }
 
 function renderEvaluaciones(){
