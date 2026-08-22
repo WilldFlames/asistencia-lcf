@@ -35,4 +35,4 @@ Fecha: 21 de agosto de 2026
 
 4. VERIFICACIÓN REALIZADA
 - Sintaxis de los archivos modificados: correcta.
-- Pruebas automatizadas completas: 154 aprobadas, 0 fallidas.
+- Pruebas automatizadas completas: 156 aprobadas, 0 fallidas.

@@ -21824,12 +21824,19 @@ function construirCarnetHTML(est){
   const nombre = nombrePersona(est);
   const cedula = String(est.cedula||'').replace(/\s+/g,'');
   const anio = ANIO_LECTIVO_ACTIVO;
+  const esBecado = est.becado === true || ['true','t','1','si','sí'].includes(String(est.becado||'').toLowerCase());
+  // Identificación discreta: el carnet becado usa un celeste claro, sin
+  // imprimir la palabra "Becado" ni exponer esa condición como una etiqueta.
+  const fondoCarnet = esBecado
+    ? 'linear-gradient(180deg,#eefaff 0%,#d9f1ff 52%,#c7eaff 100%)'
+    : '#ffffff';
 
   // Tamaño tarjeta 640x1000 px (proporción igual al papel 54.2×85 mm)
   const wrap = document.createElement('div');
   wrap.className = 'carnet-card';
+  wrap.dataset.tipoCarnet = esBecado ? 'celeste' : 'regular';
   wrap.style.cssText = `
-    width:640px;height:1000px;background:#fff;position:relative;
+    width:640px;height:1000px;background:${fondoCarnet};position:relative;
     overflow:hidden;font-family:Arial,Helvetica,sans-serif;
     display:flex;flex-direction:column;
     page-break-inside:avoid;break-inside:avoid;

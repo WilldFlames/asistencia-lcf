@@ -1,0 +1,16 @@
+PARCHE: CARNET CELESTE PARA ESTUDIANTES CON BECA
+Fecha: 21 de agosto de 2026
+
+- El sistema utiliza el estado de beca que ya existe en cada estudiante.
+- Los carnets regulares mantienen el fondo blanco actual.
+- Los carnets de estudiantes con beca utilizan un degradado celeste claro.
+- No se imprime la palabra "Becado" ni se agrega ninguna etiqueta visible.
+- El nombre, foto, cédula y año lectivo conservan el mismo diseño.
+- El área del código de barras se mantiene blanca para asegurar contraste y
+  facilitar su lectura.
+- El color aparece tanto en la vista previa como en el PDF descargado.
+- No requiere configurar variables nuevas en Railway.
+
+VERIFICACIÓN
+- 156 pruebas automatizadas aprobadas.
+- 0 pruebas fallidas.
