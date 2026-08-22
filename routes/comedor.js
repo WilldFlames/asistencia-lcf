@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol, tieneRol } = require("../middleware/auth");
+const { obtenerAnioActivo } = require("../utils/lectivo");
 
 // Fecha actual en Costa Rica (UTC-6)
 function fechaCR(){
@@ -38,6 +39,18 @@ function requireComedor(req, res, next){
   pool.query("SELECT 1 FROM comedor_comite WHERE usuario_id=$1", [u.id])
     .then(r => r.rows.length ? next() : res.status(403).json({ error:"Sin permisos" }))
     .catch(() => res.status(403).json({ error:"Sin permisos" }));
+}
+
+// Acceso institucional al Carnet: administrador o integrante registrado del
+// Comité de Comedor. La cocinera conserva su acceso operativo al comedor,
+// pero no obtiene por ese solo rol las listas completas para carnets.
+function requireCarnetComite(req, res, next){
+  const u = req.session.usuario;
+  if(!u) return res.status(401).json({ error:"No autorizado" });
+  if(u.rol === "admin") return next();
+  pool.query("SELECT 1 FROM comedor_comite WHERE usuario_id=$1", [u.id])
+    .then(r => r.rows.length ? next() : res.status(403).json({ error:"Sin permisos para administrar carnets" }))
+    .catch(next);
 }
 
 // ── ESTUDIANTES DEL COMEDOR (con estado de asistencia del día) ───────
@@ -152,6 +165,62 @@ router.get("/reporte", requireComedor, async (req, res) => {
     GROUP BY ca.fecha ORDER BY ca.fecha
   `, [desde, hasta]);
   res.json({ resumen: resumen.rows });
+});
+
+// ── CARNET INSTITUCIONAL PARA EL COMITÉ DE COMEDOR ───────────────
+// Estas rutas son deliberadamente exclusivas del módulo Carnet. Un miembro
+// del comité necesita generar carnets de todo el colegio, aunque como docente
+// solo atienda algunas secciones. No se amplían sus permisos generales sobre
+// asistencia, calificaciones, expedientes ni el resto de /api/estudiantes.
+router.get("/carnet/secciones", requireCarnetComite, async (req, res) => {
+  const anio = await obtenerAnioActivo();
+  const r = await pool.query(`
+    SELECT s.id, s.nombre, s.nivel
+    FROM secciones s
+    JOIN secciones_anio sa ON sa.seccion_id=s.id
+    WHERE sa.anio=$1 AND sa.activa=true
+    ORDER BY s.nivel, s.nombre
+  `, [anio]);
+  res.json(r.rows);
+});
+
+router.get("/carnet/estudiantes", requireCarnetComite, async (req, res) => {
+  const seccionId = Number(req.query.seccion_id);
+  if(!Number.isInteger(seccionId) || seccionId <= 0)
+    return res.status(400).json({ error:"Sección inválida" });
+
+  const r = await pool.query(`
+    SELECT e.id, e.cedula, e.nombre, e.primer_apellido,
+      e.segundo_apellido, e.fecha_nacimiento, e.seccion_id, e.subgrupo,
+      e.becado, s.nombre AS seccion_nombre,
+      COALESCE(OCTET_LENGTH(e.foto_url) > 0, false) AS tiene_foto
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.seccion_id=$1
+      AND e.activo=true
+      AND (e.archivado=false OR e.archivado IS NULL)
+    ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
+  `, [seccionId]);
+  res.json(r.rows);
+});
+
+router.get("/carnet/fotos", requireCarnetComite, async (req, res) => {
+  const ids = String(req.query.ids || "").split(",")
+    .map(valor => Number.parseInt(valor, 10))
+    .filter(id => Number.isInteger(id) && id > 0)
+    .slice(0, 100);
+  if(!ids.length) return res.json({});
+
+  const r = await pool.query(`
+    SELECT id, foto_url
+    FROM estudiantes
+    WHERE id=ANY($1::int[])
+      AND activo=true
+      AND (archivado=false OR archivado IS NULL)
+  `, [ids]);
+  const fotos = {};
+  for(const row of r.rows) fotos[row.id] = row.foto_url || null;
+  res.json(fotos);
 });
 
 // ── GESTIÓN COMITÉ DE COMEDOR ────────────────────────────────────────

@@ -21641,6 +21641,26 @@ async function continuarMatricula(id,cedula){
 let carnetEstData = [];          // estudiantes actualmente listados
 let carnetSeleccionados = new Set(); // ids seleccionados (persiste entre filtros)
 
+// El Comité de Comedor administra carnets de toda la institución. Estas
+// funciones usan rutas exclusivas del carnet para no ampliar los permisos
+// generales que el funcionario tenga como docente en otros módulos.
+function carnetUrlSecciones(){
+  return window.esComiteComedor
+    ? "/api/comedor/carnet/secciones"
+    : "/api/admin/secciones";
+}
+function carnetUrlEstudiantes(seccionId){
+  return window.esComiteComedor
+    ? `/api/comedor/carnet/estudiantes?seccion_id=${encodeURIComponent(seccionId)}`
+    : `/api/estudiantes?seccion_id=${encodeURIComponent(seccionId)}`;
+}
+function carnetUrlFotos(ids){
+  const lista = ids.join(",");
+  return window.esComiteComedor
+    ? `/api/comedor/carnet/fotos?ids=${lista}`
+    : `/api/estudiantes/fotos?ids=${lista}`;
+}
+
 // ─── Tab switcher del módulo Carnet ────────────────────────────
 // Alterna entre "Carnets con foto" y "Códigos de Barras".
 function carnetSwitchTab(tab){
@@ -21680,7 +21700,7 @@ async function iniciarCarnet(){
 
   // Poblar secciones (igual que en otras pantallas)
   try{
-    const secs = await api("/api/admin/secciones")||[];
+    const secs = await api(carnetUrlSecciones())||[];
     const sel = document.getElementById("carnet-seccion");
     sel.innerHTML = '<option value="">— Seleccionar sección —</option>' +
       secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
@@ -21703,7 +21723,7 @@ async function cargarEstCarnet(){
     return;
   }
   try{
-    const rows = ordenarEstudiantes(await api(`/api/estudiantes?seccion_id=${encodeURIComponent(secId)}`));
+    const rows = ordenarEstudiantes(await api(carnetUrlEstudiantes(secId)));
     carnetEstData = rows;
     document.getElementById("carnet-titulo-sec").textContent =
       `Estudiantes de la sección`;
@@ -21716,7 +21736,7 @@ async function cargarEstCarnet(){
       for(let i=0; i<idsConFoto.length; i+=50) lotes.push(idsConFoto.slice(i,i+50));
       for(const lote of lotes){
         try {
-          const fotos = await api(`/api/estudiantes/fotos?ids=${lote.join(",")}`);
+          const fotos = await api(carnetUrlFotos(lote));
           if(fotos){
             for(const id of Object.keys(fotos)){
               const est = carnetEstData.find(e => String(e.id) === String(id));
@@ -22006,8 +22026,8 @@ async function previewCarnetUno(id){
   // Si todavía no tenemos la foto pero el estudiante sí la tiene, cargarla puntualmente
   if(!est.foto_url && est.tiene_foto){
     try {
-      const r = await api(`/api/estudiantes/${id}/foto`);
-      if(r && r.foto_url) est.foto_url = r.foto_url;
+      const fotos = await api(carnetUrlFotos([id]));
+      if(fotos && fotos[id]) est.foto_url = fotos[id];
     } catch {}
   }
   renderPreview([est]);
@@ -22020,7 +22040,7 @@ async function previsualizarCarnets(){
   const faltantes = ests.filter(e => !e.foto_url && e.tiene_foto).map(e => e.id);
   if(faltantes.length){
     try {
-      const fotos = await api(`/api/estudiantes/fotos?ids=${faltantes.join(",")}`);
+      const fotos = await api(carnetUrlFotos(faltantes));
       if(fotos){
         for(const id of Object.keys(fotos)){
           const est = carnetEstData.find(e => String(e.id) === String(id));
@@ -22178,7 +22198,7 @@ async function inicializarBarrasSiNecesario(){
   cbarInicializado = true;
   // Poblar secciones
   try {
-    const secs = await api('/api/admin/secciones') || [];
+    const secs = await api(carnetUrlSecciones()) || [];
     const sel = document.getElementById('cbar-seccion');
     sel.innerHTML = '<option value="">— Seleccionar sección —</option>' +
       secs.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
@@ -22201,7 +22221,7 @@ async function cargarEstBarras(){
     return;
   }
   try {
-    const rows = ordenarEstudiantes(await api(`/api/estudiantes?seccion_id=${encodeURIComponent(secId)}`));
+    const rows = ordenarEstudiantes(await api(carnetUrlEstudiantes(secId)));
     cbarEstData = rows;
     renderEstBarras();
   } catch(e){

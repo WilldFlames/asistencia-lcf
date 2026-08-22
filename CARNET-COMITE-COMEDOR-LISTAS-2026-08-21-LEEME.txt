@@ -1,0 +1,22 @@
+PARCHE: LISTAS INSTITUCIONALES EN CARNET PARA COMITÉ DE COMEDOR
+Fecha: 21/08/2026
+
+CORRECCIÓN
+- Si el usuario está asignado al Comité de Comedor, el módulo Carnet muestra
+  todas las secciones activas y todos sus estudiantes.
+- La corrección funciona tanto en "Carnets con foto" como en
+  "Códigos de barras".
+- Las fotografías también se cargan mediante el permiso institucional del
+  comité, por lo que la vista previa y el PDF no dependen de los grupos que
+  el funcionario atiende como docente.
+
+SEGURIDAD
+- El permiso completo se limita exclusivamente al módulo Carnet.
+- Asistencia, calificaciones, expedientes y demás listas conservan el filtro
+  normal de secciones y subgrupos del docente.
+- Solo el administrador o una persona registrada en el Comité de Comedor
+  puede usar las nuevas consultas institucionales de carnets.
+- Ser cocinera, por sí solo, no concede acceso a todas las listas de carnets.
+
+VERIFICACIÓN
+- Pruebas automáticas del sistema: 159 aprobadas, 0 fallidas.
