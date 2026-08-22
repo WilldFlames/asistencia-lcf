@@ -10,6 +10,9 @@ Fecha: 21 de agosto de 2026
 - Cuando un dato no existe en el sistema, el espacio se deja en blanco para
   completarlo a mano. No se imprimen textos como "No registrado".
 - Se conservaron el consecutivo individual, encabezado y pie institucional.
+- Se amplió aproximadamente un 25%-32% la tipografía de los anexos y se
+  redistribuyó el espaciado para aprovechar cerca del 80%-85% del área útil
+  de cada hoja, sin cortar contenido ni crear páginas adicionales.
 
 2. ESTUDIANTES ARCHIVADOS
 - Al archivar un estudiante se guardan los promedios desglosados por materia

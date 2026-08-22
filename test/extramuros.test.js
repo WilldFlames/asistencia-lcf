@@ -67,6 +67,12 @@ test('cada estudiante produce tres anexos dentro de un único PDF con encabezado
   assert.match(ui,/lic\.callefallas@mep\.go\.cr/);
   assert.match(ui,/Página \$\{i\+1\} de \$\{paginasHTML\.length\}/);
   assert.match(ui,/EXT-\$\{String\(n\)\.padStart\(3,"0"\)\}-\$\{anio\}/);
+  // Tipografía legible y aprovechamiento vertical: los tres anexos deben
+  // conservar letra ampliada sin depender del zoom del visor.
+  assert.match(ui,/font-size:12\.2px;line-height:1\.42/);
+  assert.match(ui,/font-size:11\.5px;line-height:1\.36/);
+  assert.match(ui,/font-size:12\.2px;line-height:1\.58/);
+  assert.match(ui,/font-size:11\.7px;line-height:1\.36/);
 });
 
 test('los anexos autorrellenan estudiante, sección, encargado, salud y dirección',()=>{
