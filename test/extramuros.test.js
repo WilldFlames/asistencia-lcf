@@ -87,6 +87,21 @@ test('los anexos autorrellenan estudiante, sección, encargado, salud y direcci�
   assert.doesNotMatch(ui,/background\s*:\s*yellow/i);
 });
 
+test('permite registrar un encargado acompañante opcional y lo imprime en el Anexo 2',()=>{
+  assert.match(db,/encargado_acompanante_nombre\s+TEXT DEFAULT ''/);
+  assert.match(db,/encargado_acompanante_telefono\s+TEXT DEFAULT ''/);
+  assert.match(db,/ADD COLUMN IF NOT EXISTS encargado_acompanante_nombre/);
+  assert.match(routes,/encargado_acompanante_nombre:texto\(body\.encargado_acompanante_nombre,240\)/);
+  assert.match(routes,/encargado_acompanante_telefono:texto\(body\.encargado_acompanante_telefono,80\)/);
+  assert.match(html,/id="ext-acompanante-nombre"/);
+  assert.match(html,/id="ext-acompanante-telefono"/);
+  assert.match(html,/Encargado acompañante/);
+  assert.match(ui,/"ext-acompanante-nombre":x\.encargado_acompanante_nombre/);
+  assert.match(ui,/encargado_acompanante_nombre:document\.getElementById\("ext-acompanante-nombre"\)/);
+  assert.match(ui,/const acompanante=a\.encargado_acompanante_nombre/);
+  assert.match(ui,/Representantes legales del estudiantado que participan/);
+});
+
 test('los tres anexos conservan el contenido completo del documento original',()=>{
   for(const texto of [
     'Consentimiento informado para el uso de fotografías, videos y otros con fines educativos',

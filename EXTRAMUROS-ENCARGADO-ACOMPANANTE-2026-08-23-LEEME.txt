@@ -1,0 +1,21 @@
+PARCHE: ENCARGADO ACOMPAÑANTE EN EXTRAMUROS
+Fecha: 23/08/2026
+
+CAMBIO
+- En el paso 2 "Responsables" aparece una sección opcional para registrar
+  el nombre completo y el teléfono del padre, madre o encargado que acompañe
+  la actividad.
+- Los datos se conservan al guardar y al volver a editar el extramuros.
+- El encargado acompañante aparece automáticamente en el Anexo 2, dentro del
+  espacio oficial de representantes legales que participan en la actividad.
+- Si no hay encargado acompañante, los campos se dejan vacíos y el Anexo 2
+  conserva las líneas en blanco para completar manualmente.
+
+COMPATIBILIDAD
+- Los extramuros creados anteriormente continúan funcionando.
+- Al iniciar el despliegue, la base de datos agrega automáticamente los dos
+  campos nuevos; no hay que crear variables ni ejecutar instrucciones manuales.
+
+VERIFICACIÓN
+- 160 pruebas automáticas aprobadas.
+- 0 pruebas fallidas.

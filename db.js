@@ -2488,6 +2488,8 @@ async function initDB() {
         hora_regreso             TIME NOT NULL,
         observaciones            TEXT DEFAULT '',
         descripcion_exoneracion  TEXT NOT NULL,
+        encargado_acompanante_nombre   TEXT DEFAULT '',
+        encargado_acompanante_telefono TEXT DEFAULT '',
         creado_por               INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
         estado                   TEXT NOT NULL DEFAULT 'activo' CHECK(estado IN ('activo','anulado')),
         motivo_anulacion         TEXT DEFAULT '',
@@ -2518,6 +2520,12 @@ async function initDB() {
         UNIQUE(anio, consecutivo)
       )
     `);
+    // Compatibilidad con bases ya desplegadas: CREATE TABLE IF NOT EXISTS no
+    // agrega columnas nuevas a la tabla existente.
+    await client.query(`ALTER TABLE extramuros
+      ADD COLUMN IF NOT EXISTS encargado_acompanante_nombre TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE extramuros
+      ADD COLUMN IF NOT EXISTS encargado_acompanante_telefono TEXT DEFAULT ''`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_extramuros_anio
       ON extramuros(anio, estado, fecha_actividad DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_extramuros_responsable

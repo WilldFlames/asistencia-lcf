@@ -61,6 +61,8 @@ function datosEntrada(body={}){
     hora_regreso:String(body.hora_regreso||"").slice(0,5),
     observaciones:texto(body.observaciones,1000),
     descripcion_exoneracion:texto(body.descripcion_exoneracion,500),
+    encargado_acompanante_nombre:texto(body.encargado_acompanante_nombre,240),
+    encargado_acompanante_telefono:texto(body.encargado_acompanante_telefono,80),
     responsables:idsUnicos(body.responsables),
     estudiantes:idsUnicos(body.estudiantes),
   };
@@ -162,6 +164,7 @@ router.get("/",asyncRoute(async(req,res)=>{
   }
   const q=await pool.query(`SELECT x.id,x.anio,x.nombre_actividad,x.objeto_actividad,x.lugar_actividad,
       x.fecha_actividad::text,x.hora_salida::text,x.hora_regreso::text,x.estado,x.created_at,
+      x.encargado_acompanante_nombre,x.encargado_acompanante_telefono,
       u.nombre AS creador_nombre,u.primer_apellido AS creador_ap1,u.segundo_apellido AS creador_ap2,
       COUNT(DISTINCT xe.id) FILTER (WHERE xe.activo=true)::int AS estudiantes,
       MIN(xe.consecutivo) FILTER (WHERE xe.activo=true)::int AS consecutivo_desde,
@@ -184,10 +187,12 @@ router.post("/",asyncRoute(async(req,res)=>{
     await validarCatalogos(client,d);
     const x=await client.query(`INSERT INTO extramuros
       (anio,nombre_actividad,objeto_actividad,mediacion_pedagogica,lugar_actividad,fecha_actividad,
-       hora_salida,hora_regreso,observaciones,descripcion_exoneracion,creado_por)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+       hora_salida,hora_regreso,observaciones,descripcion_exoneracion,
+       encargado_acompanante_nombre,encargado_acompanante_telefono,creado_por)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
       [anio,d.nombre_actividad,d.objeto_actividad,d.mediacion_pedagogica,d.lugar_actividad,
-       d.fecha_actividad,d.hora_salida,d.hora_regreso,d.observaciones,d.descripcion_exoneracion,req.session.usuario.id]);
+       d.fecha_actividad,d.hora_salida,d.hora_regreso,d.observaciones,d.descripcion_exoneracion,
+       d.encargado_acompanante_nombre,d.encargado_acompanante_telefono,req.session.usuario.id]);
     const id=x.rows[0].id;
     for(let i=0;i<d.responsables.length;i++) await client.query(
       "INSERT INTO extramuros_responsables(extramuro_id,usuario_id,orden) VALUES($1,$2,$3)",[id,d.responsables[i],i]);
@@ -244,9 +249,11 @@ router.put("/:id",asyncRoute(async(req,res)=>{
     await validarCatalogos(client,d);
     await client.query(`UPDATE extramuros SET nombre_actividad=$1,objeto_actividad=$2,mediacion_pedagogica=$3,
       lugar_actividad=$4,fecha_actividad=$5,hora_salida=$6,hora_regreso=$7,observaciones=$8,
-      descripcion_exoneracion=$9,updated_at=NOW() WHERE id=$10`,
+      descripcion_exoneracion=$9,encargado_acompanante_nombre=$10,
+      encargado_acompanante_telefono=$11,updated_at=NOW() WHERE id=$12`,
       [d.nombre_actividad,d.objeto_actividad,d.mediacion_pedagogica,d.lugar_actividad,d.fecha_actividad,
-       d.hora_salida,d.hora_regreso,d.observaciones,d.descripcion_exoneracion,acceso.actividad.id]);
+       d.hora_salida,d.hora_regreso,d.observaciones,d.descripcion_exoneracion,
+       d.encargado_acompanante_nombre,d.encargado_acompanante_telefono,acceso.actividad.id]);
     await client.query("DELETE FROM extramuros_responsables WHERE extramuro_id=$1",[acceso.actividad.id]);
     for(let i=0;i<d.responsables.length;i++) await client.query(
       "INSERT INTO extramuros_responsables(extramuro_id,usuario_id,orden) VALUES($1,$2,$3)",[acceso.actividad.id,d.responsables[i],i]);
