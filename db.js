@@ -2279,6 +2279,12 @@ async function initDB() {
       id SERIAL PRIMARY KEY,evento_id INTEGER NOT NULL REFERENCES calendario_pruebas_eventos(id) ON DELETE CASCADE,
       profesor_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
       creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,UNIQUE(evento_id,profesor_id))`);
+    await client.query(`CREATE TABLE IF NOT EXISTS calendario_pruebas_cuidos_adecuacion (
+      id SERIAL PRIMARY KEY,calendario_id INTEGER NOT NULL REFERENCES calendarios_pruebas(id) ON DELETE CASCADE,
+      fecha DATE NOT NULL,hora_inicio TIME NOT NULL,hora_fin TIME NOT NULL,
+      profesor_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      UNIQUE(calendario_id,fecha,hora_inicio))`);
 
     // Biblioteca: catálogo administrable y préstamos auditables.
     await client.query(`CREATE TABLE IF NOT EXISTS biblioteca_items (

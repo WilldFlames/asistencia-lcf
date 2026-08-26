@@ -6,7 +6,38 @@ function exigirCTA(req,res,next){ if(!esCTA(req.session.usuario)) return res.sta
 const fechaCR=()=>new Date(new Date().toLocaleString('en-US',{timeZone:'America/Costa_Rica'})).toISOString().slice(0,10);
 const diaSemana=f=>new Date(`${f}T12:00:00Z`).getUTCDay();
 const lecciones=[['07:00','07:40'],['07:40','08:20'],['08:35','09:15'],['09:15','09:55'],['10:10','10:50'],['10:50','11:30'],['11:40','12:20'],['12:20','13:00'],['13:25','14:05'],['14:05','14:45'],['14:55','15:35'],['15:35','16:15']];
+const rondas=['07:00','09:15','12:00','14:10'];
+const sumarMinutos=(hora,minutos)=>{const [h,m]=String(hora).slice(0,5).split(':').map(Number),total=h*60+m+minutos;return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;};
 const leccionDeHora=h=>{const x=String(h||'').slice(0,5);const i=lecciones.findIndex(([a,b])=>x>=a&&x<b);return i<0?null:i+1;};
+const leccionesDelRango=(inicio,fin)=>lecciones.map(([a,b],i)=>({a,b,n:i+1})).filter(l=>l.a<String(fin).slice(0,5)&&l.b>String(inicio).slice(0,5)).map(l=>l.n);
+
+async function candidatosCuido(client,e,calendarioId,adecuacionId=0){
+  const fecha=String(e.fecha).slice(0,10),dia=diaSemana(fecha),anio=Number(fecha.slice(0,4)),lecs=leccionesDelRango(e.hora_inicio,e.hora_fin);
+  if(dia<1||dia>5||!lecs.length)return [];
+  const r=await client.query(`
+    SELECT u.id,u.nombre,u.primer_apellido,u.segundo_apellido,
+      ((SELECT COUNT(*) FROM calendario_pruebas_cuidos cx JOIN calendario_pruebas_eventos ex ON ex.id=cx.evento_id WHERE ex.calendario_id=$4 AND cx.profesor_id=u.id)+(SELECT COUNT(*) FROM calendario_pruebas_cuidos_adecuacion ax WHERE ax.calendario_id=$4 AND ax.profesor_id=u.id))::int AS total_cuidos,
+      ((SELECT COUNT(*) FROM calendario_pruebas_cuidos cx JOIN calendario_pruebas_eventos ex ON ex.id=cx.evento_id WHERE ex.calendario_id=$4 AND cx.profesor_id=u.id AND ex.fecha=$6::date)+(SELECT COUNT(*) FROM calendario_pruebas_cuidos_adecuacion ax WHERE ax.calendario_id=$4 AND ax.profesor_id=u.id AND ax.fecha=$6::date))::int AS cuidos_dia
+    FROM usuarios u
+    JOIN asignaciones a ON a.profesor_id=u.id AND a.anio=$1 AND COALESCE(a.activa,true)=true
+    JOIN horarios h ON h.asignacion_id=a.id AND h.anio=$1 AND h.dia=$2 AND h.leccion=ANY($3::int[])
+    WHERE u.activo=true AND u.rol IN ('profesor','profesor_guia')
+      AND NOT EXISTS (
+        SELECT 1 FROM calendario_pruebas_cuidos co JOIN calendario_pruebas_eventos eo ON eo.id=co.evento_id
+        WHERE co.profesor_id=u.id AND eo.fecha=$6::date AND eo.id<>$9
+          AND eo.hora_inicio<$8::time AND eo.hora_fin>$7::time
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM calendario_pruebas_cuidos_adecuacion ao
+        WHERE ao.profesor_id=u.id AND ao.fecha=$6::date AND ao.id<>$10
+          AND ao.hora_inicio<$8::time AND ao.hora_fin>$7::time
+      )
+    GROUP BY u.id,u.nombre,u.primer_apellido,u.segundo_apellido
+    HAVING COUNT(DISTINCT h.leccion)=$5
+    ORDER BY total_cuidos ASC,cuidos_dia ASC,u.primer_apellido,u.segundo_apellido,u.nombre
+  `,[anio,dia,lecs,calendarioId,lecs.length,fecha,String(e.hora_inicio).slice(0,5),String(e.hora_fin).slice(0,5),e.id||0,adecuacionId||0]);
+  return r.rows;
+}
 
 router.get('/calendarios',async(req,res)=>{
   const u=req.session.usuario,hoy=fechaCR();
@@ -44,12 +75,16 @@ router.get('/calendarios/:id',async(req,res)=>{
   const e=await pool.query(`SELECT e.*,s.nombre AS seccion_nombre,
     COALESCE(json_agg(json_build_object('id',cu.id,'profesor_id',cu.profesor_id,'nombre',concat_ws(' ',u.nombre,u.primer_apellido,u.segundo_apellido))) FILTER(WHERE cu.id IS NOT NULL),'[]') AS cuidos
     FROM calendario_pruebas_eventos e JOIN secciones s ON s.id=e.seccion_id LEFT JOIN calendario_pruebas_cuidos cu ON cu.evento_id=e.id LEFT JOIN usuarios u ON u.id=cu.profesor_id
-    WHERE e.calendario_id=$1 GROUP BY e.id,s.nombre ORDER BY e.fecha,e.hora_inicio,s.nombre`,[req.params.id]);res.json({calendario:c.rows[0],eventos:e.rows});
+    WHERE e.calendario_id=$1 GROUP BY e.id,s.nombre ORDER BY e.fecha,e.hora_inicio,s.nombre`,[req.params.id]);
+  const ad=await pool.query(`SELECT a.*,concat_ws(' ',u.nombre,u.primer_apellido,u.segundo_apellido) AS profesor_nombre FROM calendario_pruebas_cuidos_adecuacion a JOIN usuarios u ON u.id=a.profesor_id WHERE a.calendario_id=$1 ORDER BY a.fecha,a.hora_inicio`,[req.params.id]);
+  res.json({calendario:c.rows[0],eventos:e.rows,adecuaciones:ad.rows});
 });
+router.get('/docentes-cuido',async(req,res)=>{const r=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido FROM usuarios WHERE activo=true AND rol IN ('profesor','profesor_guia') ORDER BY primer_apellido,segundo_apellido,nombre`);res.json(r.rows);});
 router.post('/calendarios/:id/eventos',exigirCTA,async(req,res)=>{
   const {fecha,hora_inicio,hora_fin,materia,seccion_id,nivel,niveles,observacion}=req.body;
+  const inicio=String(hora_inicio||'').slice(0,5),fin=sumarMinutos(inicio,80);
   const nivelesElegidos=[...new Set((Array.isArray(niveles)?niveles:[nivel]).map(Number).filter(n=>n>=1&&n<=20))];
-  if(!fecha||!hora_inicio||!hora_fin||!materia?.trim()||(!seccion_id&&!nivelesElegidos.length))return res.status(400).json({error:'Completá fecha, horas, materia y al menos un nivel o sección.'});
+  if(!fecha||!rondas.includes(inicio)||!materia?.trim()||(!seccion_id&&!nivelesElegidos.length))return res.status(400).json({error:'Completá fecha, una ronda válida, materia y al menos un nivel o sección.'});
   let secciones=[];
   if(nivelesElegidos.length){
     const anio=Number(String(fecha).slice(0,4));
@@ -60,26 +95,30 @@ router.post('/calendarios/:id/eventos',exigirCTA,async(req,res)=>{
   const client=await pool.connect();
   try{
     await client.query('BEGIN');const creadas=[];
-    for(const sid of secciones){const r=await client.query(`INSERT INTO calendario_pruebas_eventos(calendario_id,fecha,hora_inicio,hora_fin,materia,seccion_id,observacion) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[req.params.id,fecha,hora_inicio,hora_fin,materia.trim(),sid,observacion||'']);creadas.push(r.rows[0]);}
+    for(const sid of secciones){const r=await client.query(`INSERT INTO calendario_pruebas_eventos(calendario_id,fecha,hora_inicio,hora_fin,materia,seccion_id,observacion) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[req.params.id,fecha,inicio,fin,materia.trim(),sid,observacion||'']);creadas.push(r.rows[0]);}
     await client.query('COMMIT');res.json({ok:true,creadas,total:creadas.length});
   }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 });
 router.put('/eventos/:id',exigirCTA,async(req,res)=>{
   const {fecha,hora_inicio,hora_fin,materia,seccion_id,observacion}=req.body;
-  const r=await pool.query(`UPDATE calendario_pruebas_eventos SET fecha=$1,hora_inicio=$2,hora_fin=$3,materia=$4,seccion_id=$5,observacion=$6 WHERE id=$7 RETURNING *`,[fecha,hora_inicio,hora_fin,materia,seccion_id,observacion||'',req.params.id]);if(!r.rows.length)return res.status(404).json({error:'Prueba no encontrada'});res.json(r.rows[0]);
+  const inicio=String(hora_inicio||'').slice(0,5);if(!rondas.includes(inicio))return res.status(400).json({error:'Seleccione una de las cuatro rondas disponibles.'});
+  const r=await pool.query(`UPDATE calendario_pruebas_eventos SET fecha=$1,hora_inicio=$2,hora_fin=$3,materia=$4,seccion_id=$5,observacion=$6 WHERE id=$7 RETURNING *`,[fecha,inicio,sumarMinutos(inicio,80),materia,seccion_id,observacion||'',req.params.id]);if(!r.rows.length)return res.status(404).json({error:'Prueba no encontrada'});res.json(r.rows[0]);
 });
 router.delete('/eventos/:id',exigirCTA,async(req,res)=>{await pool.query('DELETE FROM calendario_pruebas_eventos WHERE id=$1',[req.params.id]);res.json({ok:true});});
 router.post('/calendarios/:id/generar-cuidos',exigirCTA,async(req,res)=>{
-  const eventos=await pool.query('SELECT * FROM calendario_pruebas_eventos WHERE calendario_id=$1',[req.params.id]);let generados=0,sinHorario=[];
+  const eventos=await pool.query('SELECT * FROM calendario_pruebas_eventos WHERE calendario_id=$1 ORDER BY fecha,hora_inicio,id',[req.params.id]);let generados=0,adecuacionesGeneradas=0,sinHorario=[];
   const client=await pool.connect();try{await client.query('BEGIN');
-    for(const e of eventos.rows){const lec=leccionDeHora(e.hora_inicio),dia=diaSemana(String(e.fecha).slice(0,10)),anio=Number(String(e.fecha).slice(0,4));if(!lec||dia<1||dia>5){sinHorario.push(e.id);continue;}
-      const p=await client.query(`SELECT DISTINCT a.profesor_id FROM horarios h JOIN asignaciones a ON a.id=h.asignacion_id WHERE h.seccion_id=$1 AND h.dia=$2 AND h.leccion=$3 AND h.anio=$4 AND a.activa IS NOT FALSE ORDER BY a.profesor_id LIMIT 1`,[e.seccion_id,dia,lec,anio]);
-      if(!p.rows.length){sinHorario.push(e.id);continue;}await client.query('DELETE FROM calendario_pruebas_cuidos WHERE evento_id=$1',[e.id]);await client.query('INSERT INTO calendario_pruebas_cuidos(evento_id,profesor_id,creado_por) VALUES($1,$2,$3)',[e.id,p.rows[0].profesor_id,req.session.usuario.id]);generados++;}
-    await client.query('COMMIT');res.json({ok:true,generados,sin_horario:sinHorario});
+    await client.query('DELETE FROM calendario_pruebas_cuidos WHERE evento_id IN (SELECT id FROM calendario_pruebas_eventos WHERE calendario_id=$1)',[req.params.id]);
+    await client.query('DELETE FROM calendario_pruebas_cuidos_adecuacion WHERE calendario_id=$1',[req.params.id]);
+    const claves=[...new Map(eventos.rows.map(e=>[`${String(e.fecha).slice(0,10)}|${String(e.hora_inicio).slice(0,5)}`,e])).values()];
+    for(const base of claves){const especial={...base,id:0,hora_fin:sumarMinutos(base.hora_inicio,120)},candidatos=await candidatosCuido(client,especial,req.params.id);if(!candidatos.length){sinHorario.push(`adecuacion:${String(base.fecha).slice(0,10)}:${String(base.hora_inicio).slice(0,5)}`);continue;}await client.query(`INSERT INTO calendario_pruebas_cuidos_adecuacion(calendario_id,fecha,hora_inicio,hora_fin,profesor_id,creado_por) VALUES($1,$2,$3,$4,$5,$6)`,[req.params.id,String(base.fecha).slice(0,10),String(base.hora_inicio).slice(0,5),especial.hora_fin,candidatos[0].id,req.session.usuario.id]);adecuacionesGeneradas++;}
+    for(const e of eventos.rows){const candidatos=await candidatosCuido(client,e,req.params.id);if(!candidatos.length){sinHorario.push(e.id);continue;}await client.query('INSERT INTO calendario_pruebas_cuidos(evento_id,profesor_id,creado_por) VALUES($1,$2,$3)',[e.id,candidatos[0].id,req.session.usuario.id]);generados++;}
+    await client.query('COMMIT');res.json({ok:true,generados,adecuaciones_generadas:adecuacionesGeneradas,sin_horario:sinHorario});
   }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 });
-router.put('/cuidos/:id',exigirCTA,async(req,res)=>{const r=await pool.query('UPDATE calendario_pruebas_cuidos SET profesor_id=$1,creado_por=$2 WHERE id=$3 RETURNING *',[req.body.profesor_id,req.session.usuario.id,req.params.id]);res.json(r.rows[0]);});
-router.post('/eventos/:id/cuido',exigirCTA,async(req,res)=>{await pool.query('DELETE FROM calendario_pruebas_cuidos WHERE evento_id=$1',[req.params.id]);const r=await pool.query('INSERT INTO calendario_pruebas_cuidos(evento_id,profesor_id,creado_por) VALUES($1,$2,$3) RETURNING *',[req.params.id,req.body.profesor_id,req.session.usuario.id]);res.json(r.rows[0]);});
-router.get('/mis-cuidos',async(req,res)=>{const r=await pool.query(`SELECT e.fecha::text,e.hora_inicio::text,e.hora_fin::text,e.materia,s.nombre AS seccion_nombre,c.titulo FROM calendario_pruebas_cuidos cu JOIN calendario_pruebas_eventos e ON e.id=cu.evento_id JOIN calendarios_pruebas c ON c.id=e.calendario_id JOIN secciones s ON s.id=e.seccion_id WHERE cu.profesor_id=$1 AND c.estado='publicado' AND c.fecha_fin>=CURRENT_DATE ORDER BY e.fecha,e.hora_inicio`,[req.session.usuario.id]);res.json(r.rows);});
+router.put('/cuidos/:id',exigirCTA,async(req,res)=>{const actual=await pool.query(`SELECT e.* FROM calendario_pruebas_cuidos c JOIN calendario_pruebas_eventos e ON e.id=c.evento_id WHERE c.id=$1`,[req.params.id]);if(!actual.rows.length)return res.status(404).json({error:'Cuido no encontrado'});const e=actual.rows[0],candidatos=await candidatosCuido(pool,e,e.calendario_id);if(!candidatos.some(x=>String(x.id)===String(req.body.profesor_id)))return res.status(400).json({error:'Ese funcionario no es docente, no está en jornada durante toda la prueba o ya tiene otro cuido a esa hora.'});const r=await pool.query('UPDATE calendario_pruebas_cuidos SET profesor_id=$1,creado_por=$2 WHERE id=$3 RETURNING *',[req.body.profesor_id,req.session.usuario.id,req.params.id]);res.json(r.rows[0]);});
+router.post('/eventos/:id/cuido',exigirCTA,async(req,res)=>{const er=await pool.query('SELECT * FROM calendario_pruebas_eventos WHERE id=$1',[req.params.id]);if(!er.rows.length)return res.status(404).json({error:'Prueba no encontrada'});const e=er.rows[0],candidatos=await candidatosCuido(pool,e,e.calendario_id);if(!candidatos.some(x=>String(x.id)===String(req.body.profesor_id)))return res.status(400).json({error:'Ese funcionario no es docente, no está en jornada durante toda la prueba o ya tiene otro cuido a esa hora.'});await pool.query('DELETE FROM calendario_pruebas_cuidos WHERE evento_id=$1',[req.params.id]);const r=await pool.query('INSERT INTO calendario_pruebas_cuidos(evento_id,profesor_id,creado_por) VALUES($1,$2,$3) RETURNING *',[req.params.id,req.body.profesor_id,req.session.usuario.id]);res.json(r.rows[0]);});
+router.post('/adecuaciones/:id/cuido',exigirCTA,async(req,res)=>{const ar=await pool.query('SELECT * FROM calendario_pruebas_cuidos_adecuacion WHERE id=$1',[req.params.id]);if(!ar.rows.length)return res.status(404).json({error:'Cuido de Adecuación no encontrado'});const a=ar.rows[0],especial={...a,id:0},candidatos=await candidatosCuido(pool,especial,a.calendario_id,a.id);if(!candidatos.some(x=>String(x.id)===String(req.body.profesor_id)))return res.status(400).json({error:'Ese profesor no está en jornada durante los 120 minutos o ya tiene otro cuido a esa hora.'});const r=await pool.query('UPDATE calendario_pruebas_cuidos_adecuacion SET profesor_id=$1,creado_por=$2 WHERE id=$3 RETURNING *',[req.body.profesor_id,req.session.usuario.id,req.params.id]);res.json(r.rows[0]);});
+router.get('/mis-cuidos',async(req,res)=>{const r=await pool.query(`SELECT * FROM (SELECT e.fecha::text,e.hora_inicio::text,e.hora_fin::text,e.materia,s.nombre AS seccion_nombre,c.titulo,false AS es_adecuacion FROM calendario_pruebas_cuidos cu JOIN calendario_pruebas_eventos e ON e.id=cu.evento_id JOIN calendarios_pruebas c ON c.id=e.calendario_id JOIN secciones s ON s.id=e.seccion_id WHERE cu.profesor_id=$1 AND c.estado='publicado' AND c.fecha_fin>=CURRENT_DATE UNION ALL SELECT a.fecha::text,a.hora_inicio::text,a.hora_fin::text,'Cuido de Adecuación' AS materia,'Todas las adecuaciones' AS seccion_nombre,c.titulo,true AS es_adecuacion FROM calendario_pruebas_cuidos_adecuacion a JOIN calendarios_pruebas c ON c.id=a.calendario_id WHERE a.profesor_id=$1 AND c.estado='publicado' AND c.fecha_fin>=CURRENT_DATE) x ORDER BY fecha,hora_inicio`,[req.session.usuario.id]);res.json(r.rows);});
 
 module.exports=router;
