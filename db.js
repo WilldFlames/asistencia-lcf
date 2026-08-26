@@ -2692,6 +2692,56 @@ async function initDB() {
       try { await client.query(sql); } catch(e) {}
     }
 
+    // ── CÉDULAS DE ESTUDIANTES SIN GUIONES ────────────────────────────
+    // Los lectores de código de barras entregan el número continuo. Se limpia
+    // una sola vez todo el padrón y el trigger evita que importaciones o altas
+    // futuras vuelvan a almacenar guiones. Las relaciones académicas usan el
+    // estudiante_id, por lo que este cambio de formato no altera historiales.
+    // Si dos registros distintos quedaran con la misma cédula al normalizar,
+    // no se toca ese par: se informa para revisión sin bloquear el despliegue.
+    const cedulasAntes=await client.query(`SELECT COUNT(*)::int AS total FROM estudiantes WHERE cedula LIKE '%-%'`);
+    const cedulasActualizadas=await client.query(`
+      UPDATE estudiantes e
+      SET cedula=BTRIM(REPLACE(e.cedula,'-',''))
+      WHERE e.cedula LIKE '%-%'
+        AND BTRIM(REPLACE(e.cedula,'-',''))<>''
+        AND NOT EXISTS (
+          SELECT 1 FROM estudiantes otro
+          WHERE otro.id<>e.id
+            AND UPPER(BTRIM(REPLACE(otro.cedula,'-','')))=UPPER(BTRIM(REPLACE(e.cedula,'-','')))
+        )
+      RETURNING id
+    `);
+    const cedulasConflicto=await client.query(`
+      SELECT COUNT(*)::int AS total FROM estudiantes e
+      WHERE e.cedula LIKE '%-%' AND EXISTS (
+        SELECT 1 FROM estudiantes otro
+        WHERE otro.id<>e.id
+          AND UPPER(BTRIM(REPLACE(otro.cedula,'-','')))=UPPER(BTRIM(REPLACE(e.cedula,'-','')))
+      )
+    `);
+    await client.query(`
+      CREATE OR REPLACE FUNCTION normalizar_cedula_estudiante_fn()
+      RETURNS trigger AS $$
+      BEGIN
+        NEW.cedula := BTRIM(REPLACE(NEW.cedula,'-',''));
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+    await client.query(`DROP TRIGGER IF EXISTS trg_normalizar_cedula_estudiante ON estudiantes`);
+    await client.query(`
+      CREATE TRIGGER trg_normalizar_cedula_estudiante
+      BEFORE INSERT OR UPDATE OF cedula ON estudiantes
+      FOR EACH ROW EXECUTE FUNCTION normalizar_cedula_estudiante_fn()
+    `);
+    if(cedulasAntes.rows[0].total){
+      console.log(`✅ Cédulas estudiantiles normalizadas: ${cedulasActualizadas.rowCount} de ${cedulasAntes.rows[0].total}`);
+    }
+    if(cedulasConflicto.rows[0].total){
+      console.warn(`⚠️ Cédulas con guiones no modificadas por posible duplicado: ${cedulasConflicto.rows[0].total}`);
+    }
+
     console.log("✅ Base de datos lista");
   } finally {
     client.release();

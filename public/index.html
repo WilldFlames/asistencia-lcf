@@ -18070,6 +18070,8 @@ function horAgregarFila(btn, dia, leccion){
 function horBorrarFila(btn){ btn.parentElement.remove(); }
 
 async function horGuardar(){
+  const btn=document.getElementById('hor-btn-guardar');
+  if(btn?.dataset.guardando==='1') return;
   const secId = document.getElementById('hor-seccion').value;
   const anio = parseInt(document.getElementById('hor-anio').value) || ANIO_LECTIVO_ACTIVO;
   if(!secId){ sa('alert-horario','Seleccioná una sección.','danger'); return; }
@@ -18087,9 +18089,11 @@ async function horGuardar(){
     });
   });
   try{
-    await api(`/api/horarios/${secId}`,'PUT',{ anio, celdas });
-    sa('alert-horario','✅ Horario guardado correctamente.','success');
+    if(btn){btn.dataset.guardando='1';btn.disabled=true;btn.dataset.textoOriginal=btn.textContent;btn.textContent='⏳ Guardando...';}
+    const r=await api(`/api/horarios/${secId}`,'PUT',{ anio, celdas });
+    sa('alert-horario',`✅ Horario guardado correctamente (${r.celdas_guardadas??celdas.length} celdas).`,'success');
   }catch(e){ sa('alert-horario', e.message, 'danger'); }
+  finally{if(btn){btn.dataset.guardando='0';btn.disabled=false;btn.textContent=btn.dataset.textoOriginal||'💾 Guardar Horario';}}
 }
 
 function horResumenHtml(r={}){
@@ -18287,14 +18291,18 @@ function horEditarBloque(id){
 }
 
 async function horGuardarBloque(){
+  const btn=document.getElementById('hor-bloque-guardar');
+  if(btn?.dataset.guardando==='1')return;
   const body={profesor_id:Number(document.getElementById('hor-docente').value),anio:Number(document.getElementById('hor-anio').value),tipo:document.getElementById('hor-bloque-tipo').value,dia:Number(document.getElementById('hor-bloque-dia').value),leccion:Number(document.getElementById('hor-bloque-leccion').value),detalle:document.getElementById('hor-bloque-detalle').value.trim(),lugar:document.getElementById('hor-bloque-lugar').value.trim()};
   if(!body.profesor_id){sa('alert-horario','Seleccione un docente.','warning');return;}
   try{
+    if(btn){btn.dataset.guardando='1';btn.disabled=true;btn.dataset.textoOriginal=btn.textContent;btn.textContent='⏳ Guardando...';}
     if(horBloqueEditando)await api(`/api/horarios/bloques/${horBloqueEditando}`,'PUT',body);
     else await api('/api/horarios/bloques','POST',body);
     sa('alert-horario',horBloqueEditando?'✅ Bloque actualizado.':'✅ Bloque agregado al horario docente.','success');
     await horCargarDocenteAdmin();
   }catch(e){sa('alert-horario',e.message,'danger');}
+  finally{if(btn){btn.dataset.guardando='0';btn.disabled=false;if(btn.isConnected)btn.textContent=horBloqueEditando?'💾 Guardar cambio':'＋ Agregar';}}
 }
 
 async function horEliminarBloque(id){

@@ -207,10 +207,12 @@ router.put("/bloques/:id", requireRol("admin"), asyncRoute(async (req,res)=>{
   if(!existe.rows.length) return res.status(404).json({error:'Bloque no encontrado.'});
   const datos=await validarBloque(req.body,id);
   if(datos.error) return res.status(409).json({error:datos.error});
-  await pool.query(`UPDATE horario_bloques_docente SET profesor_id=$1,anio=$2,dia=$3,leccion=$4,
-    tipo=$5,detalle=$6,lugar=$7,updated_at=NOW() WHERE id=$8`,
-    [datos.profesorId,datos.anio,datos.dia,datos.leccion,datos.tipo,datos.detalle,datos.lugar,id]);
-  res.json({ok:true});
+  try{
+    await pool.query(`UPDATE horario_bloques_docente SET profesor_id=$1,anio=$2,dia=$3,leccion=$4,
+      tipo=$5,detalle=$6,lugar=$7,updated_at=NOW() WHERE id=$8`,
+      [datos.profesorId,datos.anio,datos.dia,datos.leccion,datos.tipo,datos.detalle,datos.lugar,id]);
+    res.json({ok:true});
+  }catch(e){if(e.code==='23505') return res.status(409).json({error:'El docente ya tiene un bloque en esa lección.'});throw e;}
 }));
 
 router.delete("/bloques/:id", requireRol("admin"), asyncRoute(async (req,res)=>{
@@ -281,15 +283,43 @@ router.get("/", requireAuth, async (req, res) => {
 // ── GUARDAR HORARIO DE UNA SECCIÓN (solo admin) ────────────────────────────
 // Reemplaza la grilla completa de esa sección + año (transaccional).
 router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
-  const seccionId = req.params.seccion_id;
+  const seccionId = parseInt(req.params.seccion_id);
   const { anio, celdas } = req.body;
   const a = parseInt(anio) || await obtenerAnioActivo();
+  if(!Number.isInteger(seccionId)||seccionId<1) return res.status(400).json({ error: "Sección inválida." });
+  if(!Number.isInteger(a)||a<2000||a>2200) return res.status(400).json({ error: "Año lectivo inválido." });
   if(!Array.isArray(celdas)) return res.status(400).json({ error: "celdas debe ser un array" });
+
+  // Normalizar y deduplicar antes de abrir la transacción. Una sección puede
+  // tener varias materias en la misma hora, pero nunca la misma asignación dos
+  // veces en esa celda (por ejemplo, debido a un doble clic en Agregar).
+  const normalizadas=[];
+  const vistas=new Set();
+  for(const celda of celdas){
+    const dia=parseInt(celda.dia),leccion=parseInt(celda.leccion);
+    const asignacionId=parseInt(celda.asignacion_id)||null;
+    const materiaTexto=String(celda.materia_texto||'').trim()||null;
+    if(!enteroRango(dia,1,5)||!enteroRango(leccion,1,12)) return res.status(400).json({error:"El horario contiene un día o una lección inválida."});
+    if(!asignacionId&&!materiaTexto) continue;
+    let aula=null;
+    if(celda.aula!==undefined&&celda.aula!==null&&String(celda.aula).trim()!==''){
+      aula=nombreAula(celda.aula);
+      if(aula.length>80||/[\u0000-\u001f\u007f]/.test(aula)) return res.status(400).json({error:`El nombre del aula en el día ${dia}, lección ${leccion}, no es válido.`});
+    }
+    const clave=`${dia}|${leccion}|${asignacionId||0}|${materiaTexto||''}`;
+    if(vistas.has(clave)) continue;
+    vistas.add(clave);normalizadas.push({dia,leccion,asignacion_id:asignacionId,materia_texto:materiaTexto,aula});
+  }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const idsAsignacion = [...new Set(celdas.map(c=>parseInt(c.asignacion_id)).filter(Boolean))];
+    // Serializa los guardados de la misma sección/año. Así un doble envío no
+    // puede intercalar DELETE e INSERT con otra solicitud concurrente.
+    await client.query("SELECT pg_advisory_xact_lock($1,$2)",[seccionId,a]);
+    const existeSeccion=await client.query("SELECT id FROM secciones WHERE id=$1",[seccionId]);
+    if(!existeSeccion.rows.length){await client.query("ROLLBACK");return res.status(404).json({error:"Sección no encontrada."});}
+    const idsAsignacion = [...new Set(normalizadas.map(c=>c.asignacion_id).filter(Boolean))];
     if(idsAsignacion.length){
       const validas = await client.query(`SELECT id FROM asignaciones
         WHERE id=ANY($1::int[]) AND seccion_id=$2 AND anio=$3`, [idsAsignacion,seccionId,a]);
@@ -298,8 +328,7 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
         return res.status(409).json({ error:`El horario contiene asignaciones que no pertenecen a la sección o al año ${a}. Recargue la pantalla.` });
       }
     }
-    const ocupadas=celdas.filter(c=>parseInt(c.asignacion_id)&&enteroRango(c.dia,1,5)&&enteroRango(c.leccion,1,12))
-      .map(c=>({asignacion_id:parseInt(c.asignacion_id),dia:parseInt(c.dia),leccion:parseInt(c.leccion)}));
+    const ocupadas=normalizadas.filter(c=>c.asignacion_id).map(c=>({asignacion_id:c.asignacion_id,dia:c.dia,leccion:c.leccion}));
     if(ocupadas.length){
       const conflicto=await client.query(`SELECT b.tipo,u.nombre,u.primer_apellido,u.segundo_apellido,x.dia,x.leccion
         FROM jsonb_to_recordset($1::jsonb) AS x(asignacion_id integer,dia integer,leccion integer)
@@ -313,24 +342,14 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
       }
     }
     await client.query("DELETE FROM horarios WHERE seccion_id=$1 AND anio=$2", [seccionId, a]);
-    for(const c of celdas){
-      if(!c.dia || !c.leccion) continue;
-      if(!c.asignacion_id && !c.materia_texto) continue; // celda libre — no se guarda
-      let aula = null;
-      if(c.aula !== undefined && c.aula !== null && String(c.aula).trim() !== ''){
-        aula = nombreAula(c.aula);
-        if(aula.length > 80 || /[\u0000-\u001f\u007f]/.test(aula)){
-          await client.query("ROLLBACK");
-          return res.status(400).json({ error: `El nombre del aula en el día ${c.dia}, lección ${c.leccion}, no es válido.` });
-        }
-      }
-      await client.query(`
-        INSERT INTO horarios (anio, seccion_id, dia, leccion, asignacion_id, materia_texto, aula)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
-      `, [a, seccionId, c.dia, c.leccion, c.asignacion_id || null, c.materia_texto || null, aula]);
-    }
+    if(normalizadas.length) await client.query(`
+      INSERT INTO horarios (anio,seccion_id,dia,leccion,asignacion_id,materia_texto,aula)
+      SELECT $1,$2,x.dia,x.leccion,x.asignacion_id,x.materia_texto,x.aula
+      FROM jsonb_to_recordset($3::jsonb)
+        AS x(dia integer,leccion integer,asignacion_id integer,materia_texto text,aula text)
+    `,[a,seccionId,JSON.stringify(normalizadas)]);
     await client.query("COMMIT");
-    res.json({ ok: true });
+    res.json({ ok: true, celdas_guardadas:normalizadas.length });
   } catch(e) {
     await client.query("ROLLBACK");
     res.status(500).json({ error: e.message });
