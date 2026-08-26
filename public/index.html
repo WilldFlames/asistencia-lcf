@@ -2690,7 +2690,19 @@ tr:hover td{background:#f8fafc;}
 <!-- COMITÉ TÉCNICO ASESOR -->
 <div class="page" id="page-tecnico-asesor">
   <div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h2 style="margin:0">📝 Calendario de Pruebas y Horario de Cuido</h2><p style="color:var(--muted);font-size:12px">Los calendarios publicados se ocultan automáticamente después de finalizar la semana.</p></div><button class="btn btn-primary" id="cta-btn-nuevo" onclick="ctaNuevo()">＋ Nuevo calendario</button></div><div id="alert-cta" class="alert"></div><div id="cta-calendarios" style="display:grid;gap:10px;margin-top:12px"></div></div>
-  <div class="card" id="cta-detalle" style="display:none"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 id="cta-titulo"></h2><div><button class="btn btn-outline btn-sm" onclick="ctaImprimir()">🖨️ Imprimir</button> <button class="btn btn-success btn-sm" id="cta-publicar" onclick="ctaPublicar()">📣 Publicar</button></div></div><div id="cta-form-evento" class="form-grid" style="margin:10px 0"><div class="fg"><label>Fecha</label><input type="date" id="cta-fecha"></div><div class="fg"><label>Inicio</label><input type="time" id="cta-hora-ini"></div><div class="fg"><label>Fin</label><input type="time" id="cta-hora-fin"></div><div class="fg"><label>Materia / prueba</label><input id="cta-materia"></div><div class="fg"><label>Sección</label><select id="cta-seccion"></select></div><div class="fg" style="align-self:end"><button class="btn btn-primary" onclick="ctaAgregarEvento()">Agregar prueba</button></div></div><button class="btn btn-outline btn-sm" onclick="ctaGenerarCuidos()">⚙️ Generar horario de cuido según horarios docentes</button><div id="cta-eventos" class="table-wrap" style="margin-top:12px"></div></div>
+  <div class="card" id="cta-detalle" style="display:none">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><h2 id="cta-titulo" style="margin:0"></h2><div><button class="btn btn-outline btn-sm" id="cta-editar-cal" onclick="ctaEditarCalendario()">✏️ Editar calendario</button> <button class="btn btn-outline btn-sm" onclick="ctaImprimir()">🖨️ Imprimir</button> <button class="btn btn-success btn-sm" id="cta-publicar" onclick="ctaPublicar()">📣 Publicar</button> <button class="btn btn-danger btn-sm" id="cta-borrar-cal" onclick="ctaEliminarCalendario()">🗑️ Borrar</button></div></div>
+    <div id="cta-form-evento" class="form-grid" style="margin:14px 0"><div class="fg"><label>Fecha</label><input type="date" id="cta-fecha" lang="es-CR"></div><div class="fg"><label>Inicio</label><input type="time" id="cta-hora-ini"></div><div class="fg"><label>Fin</label><input type="time" id="cta-hora-fin"></div><div class="fg"><label>Materia / prueba</label><input id="cta-materia"></div><div class="fg"><label>Sección</label><select id="cta-seccion"></select></div><div class="fg" style="align-self:end;display:flex;gap:6px"><button class="btn btn-primary" id="cta-evento-guardar" onclick="ctaGuardarEvento()">Agregar prueba</button><button class="btn btn-outline" id="cta-evento-cancelar" style="display:none" onclick="ctaCancelarEdicionEvento()">Cancelar</button></div></div><button class="btn btn-outline btn-sm" id="cta-generar-cuidos" onclick="ctaGenerarCuidos()">⚙️ Generar horario de cuido según horarios docentes</button><div id="cta-eventos" class="table-wrap" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cta-calendario">
+  <div class="modal" style="max-width:620px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><h2 id="cta-modal-titulo" style="margin:0">Nuevo calendario</h2><p style="color:var(--muted);font-size:12px;margin:5px 0 0">Las fechas se muestran en formato día/mes/año.</p></div><button class="btn btn-outline btn-sm" onclick="cerrarModal('modal-cta-calendario')">✕</button></div>
+    <div id="alert-cta-modal" class="alert"></div>
+    <div class="form-grid" style="margin-top:14px"><div class="fg" style="grid-column:1/-1"><label>Nombre del calendario *</label><input id="cta-cal-titulo" placeholder="Ejemplo: Primeras pruebas parciales II período"></div><div class="fg"><label>Fecha inicial *</label><input type="date" id="cta-cal-inicio" lang="es-CR"></div><div class="fg"><label>Fecha final *</label><input type="date" id="cta-cal-fin" lang="es-CR"></div></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-cta-calendario')">Cancelar</button><button class="btn btn-primary" id="cta-cal-guardar" onclick="ctaGuardarCalendario()">💾 Guardar calendario</button></div>
+  </div>
 </div>
 
 <!-- BIBLIOTECA -->
@@ -3039,13 +3051,13 @@ tr:hover td{background:#f8fafc;}
         <label>Primer estudiante</label>
         <select id="rm-seccion-a" onchange="rmFiltrar('a')" style="margin-bottom:5px;"></select>
         <input id="rm-buscar-a" type="text" placeholder="Buscar por nombre o cédula..." oninput="rmFiltrar('a')" style="margin-bottom:5px;"/>
-        <select id="rm-est-a" size="6" style="width:100%;"></select>
+        <select id="rm-est-a" style="width:100%;"><option value="">— Seleccione un estudiante —</option></select>
       </div>
       <div class="fg">
         <label>Segundo estudiante</label>
         <select id="rm-seccion-b" onchange="rmFiltrar('b')" style="margin-bottom:5px;"></select>
         <input id="rm-buscar-b" type="text" placeholder="Buscar por nombre o cédula..." oninput="rmFiltrar('b')" style="margin-bottom:5px;"/>
-        <select id="rm-est-b" size="6" style="width:100%;"></select>
+        <select id="rm-est-b" style="width:100%;"><option value="">— Seleccione un estudiante —</option></select>
       </div>
     </div>
     <div class="fg">
@@ -10774,7 +10786,7 @@ function rmFiltrar(lado){
     const texto = `${e.cedula||''} ${nombreEstudianteLista(e)} ${nombrePersona(e)}`.toLocaleLowerCase('es-CR');
     return (!seccionId || String(e.seccion_id)===String(seccionId)) && (!buscar || texto.includes(buscar));
   });
-  sel.innerHTML = lista.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.cedula||'Sin cédula')}</option>`).join('');
+  sel.innerHTML = '<option value="">— Seleccione un estudiante —</option>'+lista.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.cedula||'Sin cédula')}</option>`).join('');
   if(lista.some(e=>String(e.id)===String(valor))) sel.value=valor;
 }
 
@@ -18594,10 +18606,43 @@ async function ptCargarPermisosHoy(){
 // ════════════════════════════════════
 //  COMITÉ TÉCNICO ASESOR
 // ════════════════════════════════════
-let ctaActual=null,ctaDetalleData=null,ctaDocentes=[];
+let ctaActual=null,ctaDetalleData=null,ctaDocentes=[],ctaModoCalendario='nuevo',ctaEventoEditando=null;
 const esCTA=()=>ME?.rol==='admin'||(ME?.funciones_extra||[]).includes('comite_tecnico_asesor');
-async function iniciarTecnicoAsesor(){document.getElementById('cta-btn-nuevo').style.display=esCTA()?'':'none';const rows=await api('/api/tecnico-asesor/calendarios')||[];document.getElementById('cta-calendarios').innerHTML=rows.length?rows.map(c=>`<div style="border:1px solid var(--border);border-radius:9px;padding:12px;display:flex;justify-content:space-between;align-items:center"><div><strong>${htmlSeguro(c.titulo)}</strong><br><small>${fmtF(c.fecha_inicio)} al ${fmtF(c.fecha_fin)} · ${c.eventos} pruebas · ${c.estado==='publicado'?'📣 Publicado':'✏️ Borrador'}</small></div><button class="btn btn-outline btn-sm" onclick="ctaAbrir(${c.id})">Ver / editar</button></div>`).join(''):'<div class="empty">No hay calendarios vigentes.</div>';}
-async function ctaNuevo(){const titulo=prompt('Nombre del calendario:','Pruebas parciales');if(!titulo)return;const inicio=prompt('Fecha inicial (AAAA-MM-DD):',fechaHoyCR());if(!inicio)return;const fin=prompt('Fecha final (AAAA-MM-DD):',inicio);if(!fin)return;try{const c=await api('/api/tecnico-asesor/calendarios','POST',{titulo,fecha_inicio:inicio,fecha_fin:fin});await iniciarTecnicoAsesor();ctaAbrir(c.id);}catch(e){sa('alert-cta',e.message,'danger');}}
+async function iniciarTecnicoAsesor(){
+  document.getElementById('cta-btn-nuevo').style.display=esCTA()?'':'none';
+  try{
+    const rows=await api('/api/tecnico-asesor/calendarios')||[];
+    document.getElementById('cta-calendarios').innerHTML=rows.length?rows.map(c=>`<div style="border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#fff"><div><strong>${htmlSeguro(c.titulo)}</strong><br><small>${fmtF(c.fecha_inicio)} al ${fmtF(c.fecha_fin)} · ${c.eventos} pruebas · ${c.estado==='publicado'?'📣 Publicado':'✏️ Borrador'}</small></div><button class="btn btn-outline btn-sm" onclick="ctaAbrir(${c.id})">👁️ Ver / editar</button></div>`).join(''):'<div class="empty">No hay calendarios vigentes.</div>';
+  }catch(e){sa('alert-cta',e.message,'danger');}
+}
+function ctaNuevo(){
+  ctaModoCalendario='nuevo';
+  document.getElementById('cta-modal-titulo').textContent='＋ Nuevo calendario';
+  document.getElementById('cta-cal-titulo').value='Pruebas parciales';
+  document.getElementById('cta-cal-inicio').value=fechaHoyCR();
+  document.getElementById('cta-cal-fin').value=fechaHoyCR();
+  document.getElementById('alert-cta-modal').className='alert';
+  document.getElementById('modal-cta-calendario').classList.add('show');
+}
+function ctaEditarCalendario(){
+  if(!ctaDetalleData?.calendario)return;
+  const c=ctaDetalleData.calendario;ctaModoCalendario='editar';
+  document.getElementById('cta-modal-titulo').textContent='✏️ Editar calendario';
+  document.getElementById('cta-cal-titulo').value=c.titulo||'';
+  document.getElementById('cta-cal-inicio').value=String(c.fecha_inicio||'').slice(0,10);
+  document.getElementById('cta-cal-fin').value=String(c.fecha_fin||'').slice(0,10);
+  document.getElementById('alert-cta-modal').className='alert';
+  document.getElementById('modal-cta-calendario').classList.add('show');
+}
+async function ctaGuardarCalendario(){
+  const titulo=document.getElementById('cta-cal-titulo').value.trim(),fecha_inicio=document.getElementById('cta-cal-inicio').value,fecha_fin=document.getElementById('cta-cal-fin').value;
+  if(!titulo||!fecha_inicio||!fecha_fin){sa('alert-cta-modal','Complete el nombre y las dos fechas.','danger');return;}
+  if(fecha_fin<fecha_inicio){sa('alert-cta-modal','La fecha final no puede ser anterior a la inicial.','danger');return;}
+  try{
+    const c=ctaModoCalendario==='nuevo'?await api('/api/tecnico-asesor/calendarios','POST',{titulo,fecha_inicio,fecha_fin}):await api(`/api/tecnico-asesor/calendarios/${ctaActual}`,'PUT',{titulo,fecha_inicio,fecha_fin});
+    cerrarModal('modal-cta-calendario');await iniciarTecnicoAsesor();await ctaAbrir(c.id);sa('alert-cta',ctaModoCalendario==='nuevo'?'Calendario creado correctamente.':'Calendario actualizado correctamente.','success');
+  }catch(e){sa('alert-cta-modal',e.message,'danger');}
+}
 async function ctaAbrir(id){
   ctaActual=id;
   const datos=await Promise.all([api(`/api/tecnico-asesor/calendarios/${id}`),esCTA()?api('/api/horarios/docentes').catch(()=>[]):Promise.resolve([])]);
@@ -18605,13 +18650,18 @@ async function ctaAbrir(id){
   const {calendario:c,eventos}=ctaDetalleData;
   document.getElementById('cta-detalle').style.display=''; document.getElementById('cta-titulo').textContent=c.titulo;
   document.getElementById('cta-publicar').style.display=esCTA()&&c.estado!=='publicado'?'':'none'; document.getElementById('cta-form-evento').style.display=esCTA()?'grid':'none';
+  document.getElementById('cta-editar-cal').style.display=esCTA()?'':'none';document.getElementById('cta-borrar-cal').style.display=esCTA()?'':'none';document.getElementById('cta-generar-cuidos').style.display=esCTA()?'':'none';ctaCancelarEdicionEvento();
   let secs=allSecciones||[];if(!secs.length)secs=await api('/api/admin/secciones').catch(()=>[]);
   document.getElementById('cta-seccion').innerHTML='<option value="">— Sección —</option>'+secs.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join('');
-  document.getElementById('cta-eventos').innerHTML=`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Prueba</th><th>Sección</th><th>Docente de cuido</th><th></th></tr></thead><tbody>${eventos.map(e=>{const actual=e.cuidos?.[0];const cuido=esCTA()?`<select onchange="ctaCambiarCuido(${e.id},this.value)"><option value="">— Asignar —</option>${ctaDocentes.map(d=>`<option value="${d.id}" ${String(d.id)===String(actual?.profesor_id)?'selected':''}>${htmlSeguro(nombrePersona(d))}</option>`).join('')}</select>`:(actual?htmlSeguro(actual.nombre):'<span style="color:#dc2626">Sin asignar</span>');return `<tr><td>${fmtF(e.fecha)}</td><td>${String(e.hora_inicio).slice(0,5)}–${String(e.hora_fin).slice(0,5)}</td><td><strong>${htmlSeguro(e.materia)}</strong></td><td>${htmlSeguro(e.seccion_nombre)}</td><td>${cuido}</td><td>${esCTA()?`<button class="btn btn-danger btn-xs" onclick="ctaEliminarEvento(${e.id})">🗑️</button>`:''}</td></tr>`;}).join('')}</tbody></table>`;
+  document.getElementById('cta-eventos').innerHTML=eventos.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Prueba</th><th>Sección</th><th>Docente de cuido</th><th>Acciones</th></tr></thead><tbody>${eventos.map(e=>{const actual=e.cuidos?.[0];const cuido=esCTA()?`<select onchange="ctaCambiarCuido(${e.id},this.value)"><option value="">— Asignar —</option>${ctaDocentes.map(d=>`<option value="${d.id}" ${String(d.id)===String(actual?.profesor_id)?'selected':''}>${htmlSeguro(nombrePersona(d))}</option>`).join('')}</select>`:(actual?htmlSeguro(actual.nombre):'<span style="color:#dc2626">Sin asignar</span>');return `<tr><td>${fmtF(e.fecha)}</td><td>${String(e.hora_inicio).slice(0,5)}–${String(e.hora_fin).slice(0,5)}</td><td><strong>${htmlSeguro(e.materia)}</strong></td><td>${htmlSeguro(e.seccion_nombre)}</td><td>${cuido}</td><td style="white-space:nowrap">${esCTA()?`<button class="btn btn-outline btn-xs" onclick="ctaEditarEvento(${e.id})">✏️</button> <button class="btn btn-danger btn-xs" onclick="ctaEliminarEvento(${e.id})">🗑️</button>`:''}</td></tr>`;}).join('')}</tbody></table>`:'<div class="empty">Todavía no se han agregado pruebas.</div>';
 }
 async function ctaCambiarCuido(eventoId,profesorId){if(!profesorId)return;await api(`/api/tecnico-asesor/eventos/${eventoId}/cuido`,'POST',{profesor_id:+profesorId});sa('alert-cta','Horario de cuido actualizado.','success');}
-async function ctaAgregarEvento(){try{await api(`/api/tecnico-asesor/calendarios/${ctaActual}/eventos`,'POST',{fecha:document.getElementById('cta-fecha').value,hora_inicio:document.getElementById('cta-hora-ini').value,hora_fin:document.getElementById('cta-hora-fin').value,materia:document.getElementById('cta-materia').value,seccion_id:+document.getElementById('cta-seccion').value});await ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');}}
+function ctaDatosEvento(){return{fecha:document.getElementById('cta-fecha').value,hora_inicio:document.getElementById('cta-hora-ini').value,hora_fin:document.getElementById('cta-hora-fin').value,materia:document.getElementById('cta-materia').value.trim(),seccion_id:+document.getElementById('cta-seccion').value};}
+async function ctaGuardarEvento(){try{const datos=ctaDatosEvento(),editando=!!ctaEventoEditando;if(editando)await api(`/api/tecnico-asesor/eventos/${ctaEventoEditando}`,'PUT',datos);else await api(`/api/tecnico-asesor/calendarios/${ctaActual}/eventos`,'POST',datos);await ctaAbrir(ctaActual);sa('alert-cta',editando?'Prueba actualizada.':'Prueba agregada.','success');}catch(e){sa('alert-cta',e.message,'danger');}}
+function ctaEditarEvento(id){const e=ctaDetalleData?.eventos?.find(x=>String(x.id)===String(id));if(!e)return;ctaEventoEditando=id;document.getElementById('cta-fecha').value=String(e.fecha||'').slice(0,10);document.getElementById('cta-hora-ini').value=String(e.hora_inicio||'').slice(0,5);document.getElementById('cta-hora-fin').value=String(e.hora_fin||'').slice(0,5);document.getElementById('cta-materia').value=e.materia||'';document.getElementById('cta-seccion').value=e.seccion_id;document.getElementById('cta-evento-guardar').textContent='💾 Guardar cambios';document.getElementById('cta-evento-cancelar').style.display='';document.getElementById('cta-form-evento').scrollIntoView({behavior:'smooth',block:'center'});}
+function ctaCancelarEdicionEvento(){ctaEventoEditando=null;['cta-fecha','cta-hora-ini','cta-hora-fin','cta-materia'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const s=document.getElementById('cta-seccion');if(s)s.value='';const b=document.getElementById('cta-evento-guardar');if(b)b.textContent='Agregar prueba';const c=document.getElementById('cta-evento-cancelar');if(c)c.style.display='none';}
 async function ctaEliminarEvento(id){if(!confirm('¿Eliminar esta prueba?'))return;await api(`/api/tecnico-asesor/eventos/${id}`,'DELETE');ctaAbrir(ctaActual);}
+async function ctaEliminarCalendario(){if(!ctaActual||!confirm('¿Borrar este calendario completo y todas sus pruebas? Esta acción no se puede deshacer.'))return;try{await api(`/api/tecnico-asesor/calendarios/${ctaActual}`,'DELETE',{});ctaActual=null;ctaDetalleData=null;document.getElementById('cta-detalle').style.display='none';await iniciarTecnicoAsesor();sa('alert-cta','Calendario eliminado.','success');}catch(e){sa('alert-cta',e.message,'danger');}}
 async function ctaGenerarCuidos(){try{const r=await api(`/api/tecnico-asesor/calendarios/${ctaActual}/generar-cuidos`,'POST',{});sa('alert-cta',`Se generaron ${r.generados} asignaciones de cuido.${r.sin_horario.length?' Algunas pruebas no coincidieron con un horario docente.':''}`,r.sin_horario.length?'warning':'success');ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');}}
 async function ctaPublicar(){if(!confirm('Al publicar lo verán docentes y familias. ¿Continuar?'))return;await api(`/api/tecnico-asesor/calendarios/${ctaActual}/publicar`,'PUT',{});await ctaAbrir(ctaActual);await iniciarTecnicoAsesor();}
 function ctaImprimir(){const h=document.getElementById('cta-eventos').innerHTML;imprimirPDFMEP('CALENDARIO DE PRUEBAS Y HORARIO DE CUIDO',`<h2 style="text-align:center">${htmlSeguro(ctaDetalleData.calendario.titulo)}</h2>${h}`,'calendario_pruebas.pdf');}

@@ -24,8 +24,14 @@ router.post('/calendarios',exigirCTA,async(req,res)=>{
 });
 router.put('/calendarios/:id',exigirCTA,async(req,res)=>{
   const {titulo,fecha_inicio,fecha_fin}=req.body;
+  if(fecha_inicio&&fecha_fin&&fecha_fin<fecha_inicio) return res.status(400).json({error:'La fecha final no puede ser anterior a la inicial.'});
   const r=await pool.query(`UPDATE calendarios_pruebas SET titulo=COALESCE($1,titulo),fecha_inicio=COALESCE($2,fecha_inicio),fecha_fin=COALESCE($3,fecha_fin),updated_at=NOW() WHERE id=$4 RETURNING *`,[titulo||null,fecha_inicio||null,fecha_fin||null,req.params.id]);
   if(!r.rows.length)return res.status(404).json({error:'Calendario no encontrado'});res.json(r.rows[0]);
+});
+router.delete('/calendarios/:id',exigirCTA,async(req,res)=>{
+  const r=await pool.query('DELETE FROM calendarios_pruebas WHERE id=$1 RETURNING id',[req.params.id]);
+  if(!r.rows.length)return res.status(404).json({error:'Calendario no encontrado'});
+  res.json({ok:true});
 });
 router.put('/calendarios/:id/publicar',exigirCTA,async(req,res)=>{
   const r=await pool.query(`UPDATE calendarios_pruebas SET estado='publicado',publicado_por=$1,publicado_en=NOW(),updated_at=NOW() WHERE id=$2 RETURNING *`,[req.session.usuario.id,req.params.id]);

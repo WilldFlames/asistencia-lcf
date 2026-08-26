@@ -46,7 +46,7 @@ router.get("/estudiante/:cedula", requireRol("admin","auxiliar","seguridad"), as
       e.seccion_id, s.nombre AS seccion_nombre
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id = e.seccion_id
-    WHERE REPLACE(REPLACE(REPLACE(e.cedula,'-',''),'.',''),' ','') = $1
+    WHERE UPPER(REGEXP_REPLACE(e.cedula,'[^[:alnum:]]','','g')) = UPPER($1)
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
   `, [ced]);
   if(!r.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
@@ -204,7 +204,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     SELECT e.*, s.nombre AS seccion_nombre
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id = e.seccion_id
-    WHERE REPLACE(REPLACE(REPLACE(e.cedula,'-',''),'.',''),' ','') = $1
+    WHERE UPPER(REGEXP_REPLACE(e.cedula,'[^[:alnum:]]','','g')) = UPPER($1)
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
   `, [ced]);
   if(!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado en el sistema" });
