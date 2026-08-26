@@ -79,6 +79,8 @@ app.use("/api/rendimiento",requireAuth, require("./routes/rendimiento"));
 app.use("/api/adecuaciones",requireAuth, require("./routes/adecuaciones"));
 app.use("/api/alerta-temprana",requireAuth, require("./routes/alertaTemprana"));
 app.use("/api/extramuros",requireAuth, require("./routes/extramuros"));
+app.use("/api/tecnico-asesor",requireAuth,require("./routes/tecnicoAsesor"));
+app.use("/api/biblioteca",requireAuth,require("./routes/biblioteca"));
 
 // Force no-cache for HTML to ensure users always get latest version
 // Versión actual del sistema — se calcula al arrancar el proceso.

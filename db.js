@@ -338,6 +338,7 @@ async function initDB() {
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_examenes TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_comportamiento TEXT DEFAULT ''`);
     await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resp_observaciones TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE informes ADD COLUMN IF NOT EXISTS resumen_academico JSONB DEFAULT '[]'::jsonb`);
     await client.query(`ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS justificacion_cambio_seccion TEXT DEFAULT NULL`);
     await client.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS primer_login BOOLEAN DEFAULT true`);
     // Baja segura del personal: la cuenta desaparece de la gestión diaria,
@@ -487,7 +488,7 @@ async function initDB() {
     // Ampliar constraint de rol para incluir todos los roles
     try {
       await client.query(`ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check`);
-      await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo','junta','seguridad'))`);
+      await client.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK(rol IN ('admin','auxiliar','orientador','profesor_guia','profesor','cocinera','secretaria','administrativo','junta','seguridad','bibliotecologa'))`);
     } catch(e) { /* ya existe con los valores correctos */ }
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS num_boleta TEXT DEFAULT ''`);
     // ── PREMATRÍCULA ─────────────────────────────────────────────────────
@@ -631,6 +632,7 @@ async function initDB() {
         created_at    TIMESTAMP DEFAULT NOW()
       )
     `);
+    await client.query(`ALTER TABLE medidas_estudiantiles ADD COLUMN IF NOT EXISTS activa BOOLEAN DEFAULT true`);
     await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_est ON medidas_estudiantiles(estudiante_id)");
     await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_tipo ON medidas_estudiantiles(tipo)");
     await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_fechas ON medidas_estudiantiles(fecha_inicio, fecha_fin)");
@@ -2148,6 +2150,7 @@ async function initDB() {
         UNIQUE(permiso_id, estudiante_id)
       )
     `);
+    await client.query(`ALTER TABLE permisos_salida ADD COLUMN IF NOT EXISTS subgrupo TEXT DEFAULT 'todos'`);
 
     // ── PORTERÍA (rol seguridad): registro de entradas/salidas ───────────
     await client.query(`
@@ -2231,7 +2234,7 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS funciones_institucionales (
         id          SERIAL PRIMARY KEY,
         usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-        tipo        TEXT NOT NULL CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias')),
+        tipo        TEXT NOT NULL CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor')),
         asignado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
         created_at  TIMESTAMP DEFAULT NOW(),
         UNIQUE(usuario_id,tipo)
@@ -2253,12 +2256,40 @@ async function initDB() {
             DROP CONSTRAINT IF EXISTS funciones_institucionales_tipo_check;
           ALTER TABLE funciones_institucionales
             ADD CONSTRAINT funciones_institucionales_tipo_check
-            CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias'));
+            CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor'));
         END IF;
       END $$
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_funciones_institucionales_tipo
       ON funciones_institucionales(tipo,usuario_id)`);
+    await client.query(`ALTER TABLE funciones_institucionales DROP CONSTRAINT IF EXISTS funciones_institucionales_tipo_check`);
+    await client.query(`ALTER TABLE funciones_institucionales ADD CONSTRAINT funciones_institucionales_tipo_check CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor'))`);
+
+    // Comité Técnico Asesor: calendarios de pruebas y cuidos docentes.
+    await client.query(`CREATE TABLE IF NOT EXISTS calendarios_pruebas (
+      id SERIAL PRIMARY KEY,titulo TEXT NOT NULL,fecha_inicio DATE NOT NULL,fecha_fin DATE NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'borrador' CHECK(estado IN ('borrador','publicado')),
+      creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,publicado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      publicado_en TIMESTAMP,created_at TIMESTAMP DEFAULT NOW(),updated_at TIMESTAMP DEFAULT NOW())`);
+    await client.query(`CREATE TABLE IF NOT EXISTS calendario_pruebas_eventos (
+      id SERIAL PRIMARY KEY,calendario_id INTEGER NOT NULL REFERENCES calendarios_pruebas(id) ON DELETE CASCADE,
+      fecha DATE NOT NULL,hora_inicio TIME NOT NULL,hora_fin TIME NOT NULL,materia TEXT NOT NULL,
+      seccion_id INTEGER NOT NULL REFERENCES secciones(id) ON DELETE CASCADE,observacion TEXT DEFAULT '')`);
+    await client.query(`CREATE TABLE IF NOT EXISTS calendario_pruebas_cuidos (
+      id SERIAL PRIMARY KEY,evento_id INTEGER NOT NULL REFERENCES calendario_pruebas_eventos(id) ON DELETE CASCADE,
+      profesor_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,UNIQUE(evento_id,profesor_id))`);
+
+    // Biblioteca: catálogo administrable y préstamos auditables.
+    await client.query(`CREATE TABLE IF NOT EXISTS biblioteca_items (
+      id SERIAL PRIMARY KEY,codigo TEXT UNIQUE,nombre TEXT NOT NULL,categoria TEXT NOT NULL,
+      stock_total INTEGER NOT NULL DEFAULT 1 CHECK(stock_total>=0),activo BOOLEAN DEFAULT true,
+      creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,created_at TIMESTAMP DEFAULT NOW())`);
+    await client.query(`CREATE TABLE IF NOT EXISTS biblioteca_prestamos (
+      id SERIAL PRIMARY KEY,item_id INTEGER NOT NULL REFERENCES biblioteca_items(id),estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id),
+      cantidad INTEGER NOT NULL DEFAULT 1 CHECK(cantidad>0),prestado_en TIMESTAMP DEFAULT NOW(),vence_el DATE,
+      devuelto_en TIMESTAMP,estado TEXT NOT NULL DEFAULT 'prestado' CHECK(estado IN ('prestado','devuelto')),
+      observacion TEXT DEFAULT '',creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,devuelto_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL)`);
 
     // Registro único y vigente de adecuaciones por estudiante.
     await client.query(`

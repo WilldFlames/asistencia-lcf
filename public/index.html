@@ -1248,6 +1248,8 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="protocolos" id="nav-protocolos" onclick="goTo('protocolos')" style="display:none"><span class="icon">🛡️</span><span>Pautas</span></button>
   <button class="nav-btn" data-page="minutas" id="nav-minutas" onclick="goTo('minutas')" style="display:none"><span class="icon">📝</span><span>Minutas</span></button>
   <button class="nav-btn" data-page="inventario" id="nav-inventario" onclick="goTo('inventario')" style="display:none"><span class="icon">📦</span><span>Inventario</span></button>
+  <button class="nav-btn" data-page="tecnico-asesor" id="nav-tecnico-asesor" onclick="goTo('tecnico-asesor')" style="display:none"><span class="icon">📝</span><span>Calendario de Pruebas</span></button>
+  <button class="nav-btn" data-page="biblioteca" id="nav-biblioteca" onclick="goTo('biblioteca')" style="display:none"><span class="icon">📚</span><span>Préstamos</span></button>
 </nav>
 
 <div class="main-content">
@@ -1397,6 +1399,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" onclick="abrirGestionComite()">🍽️ Asignar Comité Comedor</button>
         <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Asignar Comité Matrícula</button>
         <button class="btn btn-success btn-sm" onclick="abrirFuncionInstitucional('lcf_familias')">📱 Asignar LCF Familias</button>
+        <button class="btn btn-outline btn-sm" onclick="abrirFuncionInstitucional('comite_tecnico_asesor')">📝 Asignar Comité Técnico Asesor</button>
       </div>
     </div>
   </div>
@@ -2596,6 +2599,10 @@ tr:hover td{background:#f8fafc;}
         <label>Sección *</label>
         <select id="ps-seccion"></select>
       </div>
+      <div class="fg" id="ps-fg-subgrupo" style="display:none;">
+        <label>Alcance del permiso *</label>
+        <select id="ps-subgrupo"><option value="todos">Toda la sección</option><option value="A">Subgrupo A</option><option value="B">Subgrupo B</option></select>
+      </div>
       <div class="fg"><label>Fecha *</label><input type="date" id="ps-fecha"/></div>
       <div class="fg"><label>Hora de salida (referencia)</label><input type="time" id="ps-hora"/></div>
       <div class="fg"><label>Encargado que autoriza *</label><input type="text" id="ps-aut-nombre" placeholder="Nombre completo..."/></div>
@@ -2616,8 +2623,8 @@ tr:hover td{background:#f8fafc;}
       </div>
     </div>
     <div class="table-wrap"><table style="font-size:12.5px;">
-      <thead><tr><th>Nº</th><th>Fecha</th><th>Tipo</th><th>Estudiante / Sección</th><th>Motivo</th><th>Autoriza</th><th>Estado</th><th></th></tr></thead>
-      <tbody id="ps-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+      <thead><tr><th>Nº</th><th>Fecha</th><th>Tipo</th><th>Estudiante / Sección</th><th>Motivo</th><th>Autoriza</th><th>Registró</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="ps-tbody"><tr><td colspan="9" class="empty">Cargando...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -2631,10 +2638,8 @@ tr:hover td{background:#f8fafc;}
     </div>
     <div id="alert-porteria" class="alert"></div>
 
-    <!-- Selector de modo -->
-    <div style="display:flex;gap:10px;justify-content:center;margin:14px 0;">
-      <button id="pt-modo-entrada" onclick="ptSetModo('entrada')" style="flex:1;max-width:220px;padding:16px;font-size:18px;font-weight:bold;border-radius:var(--r);border:3px solid #16a34a;background:#16a34a;color:#fff;cursor:pointer;">⬇️ ENTRADA</button>
-      <button id="pt-modo-salida" onclick="ptSetModo('salida')" style="flex:1;max-width:220px;padding:16px;font-size:18px;font-weight:bold;border-radius:var(--r);border:3px solid #ea580c;background:#fff;color:#ea580c;cursor:pointer;">⬆️ SALIDA</button>
+    <div style="max-width:520px;margin:14px auto;padding:12px 16px;border-radius:10px;background:#eff6ff;border:1px solid #93c5fd;text-align:center;color:#1e3a5f;font-weight:bold;">
+      🔄 Modo automático: primer escaneo registra entrada; el siguiente registra salida.
     </div>
 
     <!-- Input escaneo -->
@@ -2680,6 +2685,19 @@ tr:hover td{background:#f8fafc;}
       </table></div>
     </div>
   </div>
+</div>
+
+<!-- COMITÉ TÉCNICO ASESOR -->
+<div class="page" id="page-tecnico-asesor">
+  <div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h2 style="margin:0">📝 Calendario de Pruebas y Horario de Cuido</h2><p style="color:var(--muted);font-size:12px">Los calendarios publicados se ocultan automáticamente después de finalizar la semana.</p></div><button class="btn btn-primary" id="cta-btn-nuevo" onclick="ctaNuevo()">＋ Nuevo calendario</button></div><div id="alert-cta" class="alert"></div><div id="cta-calendarios" style="display:grid;gap:10px;margin-top:12px"></div></div>
+  <div class="card" id="cta-detalle" style="display:none"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 id="cta-titulo"></h2><div><button class="btn btn-outline btn-sm" onclick="ctaImprimir()">🖨️ Imprimir</button> <button class="btn btn-success btn-sm" id="cta-publicar" onclick="ctaPublicar()">📣 Publicar</button></div></div><div id="cta-form-evento" class="form-grid" style="margin:10px 0"><div class="fg"><label>Fecha</label><input type="date" id="cta-fecha"></div><div class="fg"><label>Inicio</label><input type="time" id="cta-hora-ini"></div><div class="fg"><label>Fin</label><input type="time" id="cta-hora-fin"></div><div class="fg"><label>Materia / prueba</label><input id="cta-materia"></div><div class="fg"><label>Sección</label><select id="cta-seccion"></select></div><div class="fg" style="align-self:end"><button class="btn btn-primary" onclick="ctaAgregarEvento()">Agregar prueba</button></div></div><button class="btn btn-outline btn-sm" onclick="ctaGenerarCuidos()">⚙️ Generar horario de cuido según horarios docentes</button><div id="cta-eventos" class="table-wrap" style="margin-top:12px"></div></div>
+</div>
+
+<!-- BIBLIOTECA -->
+<div class="page" id="page-biblioteca">
+  <div class="card"><h2>📚 Biblioteca — Inventario y Préstamos</h2><div id="alert-bib" class="alert"></div><div class="form-grid"><div class="fg"><label>Sección</label><select id="bib-seccion" onchange="bibCargarEstudiantes()"></select></div><div class="fg"><label>Estudiante</label><select id="bib-estudiante"></select></div><div class="fg"><label>Artículo</label><select id="bib-item"></select></div><div class="fg"><label>Cantidad</label><input id="bib-cantidad" type="number" min="1" value="1"></div><div class="fg"><label>Devolver antes de</label><input id="bib-vence" type="date"></div><div class="fg" style="align-self:end"><button class="btn btn-primary" onclick="bibPrestar()">Registrar préstamo</button></div></div></div>
+  <div class="card" id="bib-admin-items"><h2>📦 Catálogo</h2><div style="display:grid;grid-template-columns:1fr 1.6fr 1fr 100px auto;gap:8px"><input id="bib-codigo" placeholder="Código"><input id="bib-nombre" placeholder="Calculadora, libro..."><input id="bib-categoria" placeholder="Categoría"><input id="bib-stock" type="number" min="0" value="1"><button class="btn btn-success" onclick="bibCrearItem()">＋ Agregar</button></div><div id="bib-items" class="table-wrap" style="margin-top:10px"></div></div>
+  <div class="card"><div style="display:flex;justify-content:space-between"><h2>📋 Préstamos</h2><select id="bib-estado" onchange="bibCargarPrestamos()"><option value="prestado">Pendientes</option><option value="devuelto">Devueltos</option><option value="todos">Todos</option></select></div><div id="bib-prestamos" class="table-wrap"></div></div>
 </div>
 
 <!-- CARNET ESTUDIANTIL -->
@@ -3019,11 +3037,13 @@ tr:hover td{background:#f8fafc;}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" class="rm-selector-grid">
       <div class="fg">
         <label>Primer estudiante</label>
+        <select id="rm-seccion-a" onchange="rmFiltrar('a')" style="margin-bottom:5px;"></select>
         <input id="rm-buscar-a" type="text" placeholder="Buscar por nombre o cédula..." oninput="rmFiltrar('a')" style="margin-bottom:5px;"/>
         <select id="rm-est-a" size="6" style="width:100%;"></select>
       </div>
       <div class="fg">
         <label>Segundo estudiante</label>
+        <select id="rm-seccion-b" onchange="rmFiltrar('b')" style="margin-bottom:5px;"></select>
         <input id="rm-buscar-b" type="text" placeholder="Buscar por nombre o cédula..." oninput="rmFiltrar('b')" style="margin-bottom:5px;"/>
         <select id="rm-est-b" size="6" style="width:100%;"></select>
       </div>
@@ -4834,6 +4854,7 @@ tr:hover td{background:#f8fafc;}
           <option value="orientador">Orientador</option>
           <option value="cocinera">Cocinera</option>
           <option value="seguridad">Seguridad</option>
+          <option value="bibliotecologa">Bibliotecóloga</option>
           <option value="secretaria">Secretaria</option>
           <option value="administrativo">Administrativo</option>
           <option value="auxiliar">Auxiliar Administrativo</option>
@@ -5083,6 +5104,7 @@ tr:hover td{background:#f8fafc;}
   <div class="modal" style="max-width:660px;">
     <h3 id="mr-titulo">Responder Informe de Rendimiento</h3>
     <div id="mr-detalle" style="margin-bottom:12px;"></div>
+    <div id="mr-resumen-academico" style="margin-bottom:12px;"></div>
     <div id="mr-resp-wrap">
       <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;">📝 Informe de Rendimiento del Estudiante</div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Completá cada campo con la valoración del estudiante en tu materia.</p>
@@ -5432,7 +5454,7 @@ tr:hover td{background:#f8fafc;}
 <div class="modal-overlay" id="modal-comite-matricula">
   <div class="modal" style="max-width:500px;">
     <h3>🎓 Comité de Matrícula</h3>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Máximo 6 funcionarios autorizados. Aparecerán como <strong>"Funcionario autorizado"</strong> en las constancias de prematrícula y matrícula.</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Puede agregar todos los funcionarios autorizados que sean necesarios. Aparecerán como <strong>"Funcionario autorizado"</strong> en las constancias de prematrícula y matrícula.</p>
     <div id="comite-mat-lista" style="margin-bottom:14px;min-height:40px;"></div>
     <div class="fg" style="margin-bottom:8px;">
       <label>Agregar funcionario</label>
@@ -5790,7 +5812,7 @@ function periodoActualODefault(fechaStr) {
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
 const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario","Matem/AMPROSA"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
-const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa",seguridad:"Seguridad",coordinador:"Coordinador",comite_apoyo:"Comité de Apoyo",lcf_familias:"LCF Familias"};
+const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa",seguridad:"Seguridad",bibliotecologa:"Bibliotecóloga",coordinador:"Coordinador",comite_apoyo:"Comité de Apoyo",lcf_familias:"LCF Familias",comite_tecnico_asesor:"Comité Técnico Asesor"};
 function tieneAccesoLCFFamilias(){
   return ME?.rol==="admin" || (ME?.funciones_extra||[]).includes("lcf_familias");
 }
@@ -5963,6 +5985,8 @@ function goTo(page){
   if(page==="protocolos")  iniciarProtocolos();
   if(page==="minutas")     iniciarMinutas();
   if(page==="inventario")  iniciarInventario();
+  if(page==="tecnico-asesor") iniciarTecnicoAsesor();
+  if(page==="biblioteca") iniciarBiblioteca();
   if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
   if(page==="archivo")      iniciarArchivo();
@@ -6003,6 +6027,8 @@ async function iniciarApp(){
   const esCoordinador = fx.includes("coordinador");
   const esComiteApoyo = fx.includes("comite_apoyo");
   const esLCFFamilias = esAdmin || fx.includes("lcf_familias");
+  const esComiteTecnico = fx.includes("comite_tecnico_asesor");
+  const esBibliotecologa = ME.rol === "bibliotecologa";
 
   // ── DOCENTE ──────────────────────────────────────────────────
   // Asistencia: admin, profe, guía, orientador
@@ -6091,7 +6117,7 @@ async function iniciarApp(){
   // ── HORARIO ──────────────────────────────────────────────────
   // Admin edita; profes/guías/orientadores ven horarios de secciones
   // y el suyo propio. Auxiliar/administrativo también pueden consultar.
-  if(esAdmin||esProfesor||esGuia||esOrientador||esAuxiliar||esAdminIst||esSecretaria){
+  if(esAdmin||esProfesor||esGuia||esOrientador||esAuxiliar||esAdminIst||esSecretaria||esComiteTecnico||esBibliotecologa){
     document.getElementById("nav-horario").style.display="";
   }
 
@@ -6187,6 +6213,12 @@ async function iniciarApp(){
   // Solo Junta Administrativa y Administrador del sistema.
   if(ME.rol === "junta" || ME.rol === "admin"){
     document.getElementById("nav-inventario").style.display="";
+  }
+  if(esAdmin||esComiteTecnico||esProfesor||esGuia||esOrientador){
+    document.getElementById('nav-tecnico-asesor').style.display='';
+  }
+  if(esAdmin||esBibliotecologa){
+    document.getElementById('nav-biblioteca').style.display='';
   }
 
   // ── RESTRICCIONES PARA JUNTA ────────────────────────────────────
@@ -6548,6 +6580,8 @@ async function cargarDashboard(){
     // Acceso institucional: solo admin o persona expresamente asignada.
     if(puedeLCFFamilias) html += tarjetaDashboardLCFFamilias();
     if(puedeExtramuros) html += tarjetaDashboardExtramuros();
+    const cuidos=await api('/api/tecnico-asesor/mis-cuidos').catch(()=>[]);
+    if(cuidos.length) html+=`<div class="card" style="margin:0;border-left:5px solid #7c3aed"><div style="font-weight:bold;color:#5b21b6;margin-bottom:8px">📝 Mis cuidos de pruebas</div>${cuidos.map(c=>`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><strong>${fmtF(c.fecha)} · ${String(c.hora_inicio).slice(0,5)}–${String(c.hora_fin).slice(0,5)}</strong><br><span>${htmlSeguro(c.materia)} · Sección ${htmlSeguro(c.seccion_nombre)}</span></div>`).join('')}</div>`;
 
     // ── TARJETA 1: Asistencia de Hoy ──
     {
@@ -8800,6 +8834,25 @@ async function guardarAsistencia(){
   }catch(err){sa("alert-asis","Error: "+err.message,"danger");}
 }
 
+// Respaldo automático discreto: evita perder la lista si el docente olvida Guardar.
+let asistenciaAutosaveEnCurso=false;
+setInterval(async()=>{
+  const pagina=document.getElementById('page-asistencia');
+  const fecha=document.getElementById('asis-fecha')?.value;
+  if(asistenciaAutosaveEnCurso || !pagina?.classList.contains('active') || !asigActiva || !fecha || !registrosAsist.length) return;
+  asistenciaAutosaveEnCurso=true;
+  try{
+    const lecc=parseInt(document.getElementById('asis-lecciones')?.value)||4;
+    await api('/api/asistencia','POST',{
+      asignacion_id:asigActiva,fecha,lecciones:lecc,
+      registros:registrosAsist.map(e=>({estudiante_id:e.id,estado:e.estado||'P',lecciones_ausentes:e.lecciones_ausentes||lecc,lecciones_tardias:e.lecciones_tardias||1,justificada:e.justificada||false,motivo:e.motivo||'',escapado:e.escapado||false}))
+    });
+    const info=document.getElementById('asis-sesion-info');
+    if(info){ info.style.display=''; info.textContent=`☁️ Guardado automático ${new Date().toLocaleTimeString('es-CR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
+  }catch(e){ console.warn('Autoguardado de asistencia:',e.message); }
+  finally{ asistenciaAutosaveEnCurso=false; }
+},10000);
+
 // ────────────────────────────────────
 // Ver sesión histórica
 // ────────────────────────────────────
@@ -9485,7 +9538,7 @@ function abrirResponderById(id, soloVer){
   abrirResponder(id, nombre, soloVer, inf);
 }
 
-function abrirResponder(id,nombre,soloVer,inf=null){
+async function abrirResponder(id,nombre,soloVer,inf=null){
   informeRespId=id;
   document.getElementById("mr-titulo").textContent=(soloVer?"Informe de":"Responder Informe —")+" "+nombre;
   document.getElementById("mr-resp-wrap").style.display=soloVer?"none":"";
@@ -9498,6 +9551,10 @@ function abrirResponder(id,nombre,soloVer,inf=null){
   const obsEl=document.getElementById("mr-obs-resp");
   if(obsEl) obsEl.value=(inf?.resp_observaciones)||"";
   document.getElementById("modal-responder").classList.add("show");
+  const cont=document.getElementById('mr-resumen-academico');
+  let resumen=[];try{resumen=soloVer?(Array.isArray(inf?.resumen_academico)?inf.resumen_academico:JSON.parse(inf?.resumen_academico||'[]')):await api(`/api/mensajes/${id}/resumen-academico`);}catch{}
+  const lbl={cotidiano:'Trabajo cotidiano',tarea:'Tareas',examen:'Exámenes',proyecto:'Proyectos'};
+  cont.innerHTML=resumen.length?`<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:10px"><strong>📊 Datos calculados del sistema</strong><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin-top:7px">${resumen.map(r=>`<div style="background:#fff;border-radius:6px;padding:7px"><strong>${lbl[r.tipo]||r.tipo}: ${r.porcentaje==null?'Sin nota':r.porcentaje+'%'}</strong><br><small>${r.realizados} realizados · ${r.no_realizados} no realizados</small></div>`).join('')}</div></div>`:'';
 }
 
 async function enviarRespuesta(){
@@ -10709,13 +10766,14 @@ function rmRelacionEstudiante(r, estudianteId){
 
 function rmFiltrar(lado){
   const buscar = (document.getElementById(`rm-buscar-${lado}`)?.value||'').trim().toLocaleLowerCase('es-CR');
+  const seccionId = document.getElementById(`rm-seccion-${lado}`)?.value||'';
   const sel = document.getElementById(`rm-est-${lado}`);
   if(!sel) return;
   const valor = sel.value;
   const lista = (rmEstudiantes||[]).filter(e=>{
     const texto = `${e.cedula||''} ${nombreEstudianteLista(e)} ${nombrePersona(e)}`.toLocaleLowerCase('es-CR');
-    return !buscar || texto.includes(buscar);
-  }).slice(0,150);
+    return (!seccionId || String(e.seccion_id)===String(seccionId)) && (!buscar || texto.includes(buscar));
+  });
   sel.innerHTML = lista.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.cedula||'Sin cédula')}</option>`).join('');
   if(lista.some(e=>String(e.id)===String(valor))) sel.value=valor;
 }
@@ -10730,6 +10788,12 @@ async function abrirRestriccionesMatricula(){
     // Endpoint institucional: no depende de los grupos asignados al usuario.
     rmEstudiantes=await api(`/api/matricula/restricciones-estudiantes/${matAnio}`)||[];
     rmEstudiantes=ordenarEstudiantes(rmEstudiantes);
+    const secciones=[...new Map(rmEstudiantes.filter(e=>e.seccion_id).map(e=>[String(e.seccion_id),e.seccion_nombre||e.seccion||'Sin nombre'])).entries()]
+      .sort((a,b)=>a[1].localeCompare(b[1],'es',{numeric:true}));
+    ['a','b'].forEach(lado=>{
+      const sel=document.getElementById(`rm-seccion-${lado}`);
+      sel.innerHTML='<option value="">Todas las secciones</option>'+secciones.map(([id,n])=>`<option value="${id}">${htmlSeguro(n)}</option>`).join('');
+    });
   }catch(e){
     rmEstudiantes=[];
     sa('alert-rm','No se pudo cargar la lista institucional: '+e.message,'danger');
@@ -11341,9 +11405,11 @@ function renderMedidas(rows, tipo){
   tbody.innerHTML = rows.map(r=>{
     const fi=(r.fecha_inicio||'').slice(0,10);
     const ff=(r.fecha_fin||'').slice(0,10);
-    const activa = fi<=hoy && ff>=hoy;
+    const habilitada = r.activa !== false;
+    const activa = habilitada && fi<=hoy && ff>=hoy;
     const vencida = ff<hoy;
-    const estado = activa?`<span class="badge" style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border};">Activa</span>`
+    const estado = !habilitada?`<span class="badge" style="background:#f1f5f9;color:#64748b;">Desactivada</span>`
+                 : activa?`<span class="badge" style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border};">Activa</span>`
                  : vencida?`<span class="badge" style="background:#f1f5f9;color:#64748b;">Vencida</span>`
                  : `<span class="badge" style="background:#f0fdf4;color:#166534;">Próxima</span>`;
     return `<tr style="${activa?`background:${cfg.bg};border-left:4px solid ${cfg.border};`:''}">
@@ -11353,7 +11419,7 @@ function renderMedidas(rows, tipo){
       <td style="font-size:12px;font-weight:bold;color:${activa?cfg.color:'#64748b'};">${fmtF(r.fecha_fin)}</td>
       <td>${estado}</td>
       <td style="font-size:12px;color:var(--muted);">${nombreDesdeCampos(r.creado_nombre,r.creado_ap1,r.creado_ap2)}</td>
-      <td>${!window.puedeEditarMedida?.(tipo) ? '<span style="color:var(--muted);font-size:11px;" title="Solo lectura">👁️</span>' : `<button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button>`}</td>
+      <td>${!window.puedeEditarMedida?.(tipo) ? '<span style="color:var(--muted);font-size:11px;" title="Solo lectura">👁️</span>' : tipo==='educacion_hibrida' ? `<button class="btn btn-outline btn-xs" onclick="cambiarEstadoHibrida(${r.id},${habilitada?'false':'true'})">${habilitada?'⏸ Desactivar':'▶ Activar'}</button>` : `<button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button>`}</td>
     </tr>`;
   }).join('');
 }
@@ -11422,6 +11488,14 @@ async function eliminarMedida(id, tipo){
   }catch(e){ alert(e.message); }
 }
 
+async function cambiarEstadoHibrida(id, activa){
+  try{
+    await api(`/api/medidas/${id}/estado`,'PUT',{activa});
+    await iniciarMedidas('educacion_hibrida');
+    allMedidasActivas = await api('/api/medidas/activas')||[];
+  }catch(e){ alert(e.message); }
+}
+
 // ════════════════════════════════════════════════════════════════════
 //  DEBIDOS PROCESOS (REAC art. 144)
 // ════════════════════════════════════════════════════════════════════
@@ -11477,15 +11551,22 @@ async function cargarDPLista(estado){
       return;
     }
     const hoy = new Date();
+    const diasHabilesTranscurridos = (inicio, fin) => {
+      const d=new Date(inicio); d.setHours(12,0,0,0);
+      const limite=new Date(fin); limite.setHours(12,0,0,0);
+      let dias=0;
+      while(d<limite){ d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) dias++; }
+      return dias;
+    };
     wrap.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;">' +
       rows.map(p => {
         const creado = new Date(p.created_at);
-        const diffDias = Math.floor((hoy - creado) / (1000*60*60*24));
+        const diffDias = diasHabilesTranscurridos(creado, hoy);
         const vencido = (estado === 'en_curso') && diffDias > 15;
         const porVencer = (estado === 'en_curso') && diffDias >= 10 && diffDias <= 15;
         let badge = '';
         if(estado === 'en_curso'){
-          if(vencido) badge = `<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">🚨 VENCIDO (${diffDias}d)</span>`;
+          if(vencido) badge = `<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">🚨 VENCIDO (${diffDias} días hábiles)</span>`;
           else if(porVencer) badge = `<span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">⚠️ ${15-diffDias}d restantes</span>`;
           else badge = `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;">⏳ Día ${diffDias} de 15</span>`;
         } else if(estado === 'resuelto'){
@@ -17724,7 +17805,7 @@ async function horCambiarAnio(){
 
 function horControlesModo(modo){
   const docenteAdmin=modo==='docente-admin',seccion=modo==='seccion';
-  const institucional=tieneAlgunRol('admin','secretaria');
+  const institucional=tieneAlgunRol('admin','secretaria','bibliotecologa','comite_tecnico_asesor');
   const esDocenteH=tieneAlgunRol('profesor','profesor_guia','orientador');
   document.getElementById('hor-seccion-wrap').style.display=seccion?'':'none';
   document.getElementById('hor-docente-wrap').style.display=docenteAdmin?'':'none';
@@ -17738,7 +17819,8 @@ function horControlesModo(modo){
 async function iniciarHorario(){
   const esAdminH = ME.rol === 'admin';
   const esSecretariaH = ME.rol === 'secretaria';
-  horModo = esSecretariaH ? 'aulas' : 'seccion';
+  const consultaDocentesH = ME.rol === 'bibliotecologa' || (ME.funciones_extra||[]).includes('comite_tecnico_asesor');
+  horModo = esSecretariaH ? 'aulas' : consultaDocentesH ? 'docente-admin' : 'seccion';
   horControlesModo(horModo);
   document.getElementById('hor-aulas-opciones').innerHTML=HOR_AULAS_BASE.map(a=>`<option value="${htmlSeguro(a)}"></option>`).join('');
   const anioInput = document.getElementById('hor-anio');
@@ -17765,6 +17847,10 @@ async function iniciarHorario(){
   if(esSecretariaH){
     try{ await horCargarLecciones(anioInput.value); }catch{}
     return horVerAulas();
+  }
+  if(consultaDocentesH){
+    try{ await horCargarLecciones(anioInput.value); }catch{}
+    return horVerDocentes();
   }
   // Poblar únicamente las secciones habilitadas para el año seleccionado.
   const sel = document.getElementById('hor-seccion');
@@ -18285,6 +18371,7 @@ function psTipoCambio(){
   const tipo = document.querySelector('input[name="ps-tipo"]:checked')?.value || 'individual';
   document.getElementById('ps-fg-cedula').style.display  = tipo==='individual' ? '' : 'none';
   document.getElementById('ps-fg-seccion').style.display = tipo==='seccion' ? '' : 'none';
+  document.getElementById('ps-fg-subgrupo').style.display = tipo==='seccion' ? '' : 'none';
 }
 
 async function psBuscarEst(){
@@ -18319,6 +18406,7 @@ async function psCrear(){
     body.estudiante_id = psEstudiante.id;
   } else {
     body.seccion_id = document.getElementById('ps-seccion').value;
+    body.subgrupo = document.getElementById('ps-subgrupo').value;
     if(!body.seccion_id){ sa('alert-permisos','Seleccioná la sección.','danger'); return; }
   }
   if(!body.fecha){ sa('alert-permisos','Indicá la fecha del permiso.','danger'); return; }
@@ -18351,11 +18439,11 @@ async function psCargarLista(){
   const fecha = document.getElementById('ps-filtro-fecha').value || fechaHoyCR();
   try{
     const rows = await api(`/api/porteria/permisos?${todos?'todos=1':'fecha='+fecha}`)||[];
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="8" class="empty">Sin permisos registrados.</td></tr>'; return; }
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="9" class="empty">Sin permisos registrados.</td></tr>'; return; }
     tbody.innerHTML = rows.map(p=>{
       const quien = p.tipo==='individual'
         ? nombreDesdeCampos(p.est_nombre,p.est_ap1,p.est_ap2)
-        : `👥 Sección ${p.seccion_nombre||'—'}`;
+        : `👥 Sección ${p.seccion_nombre||'—'} · ${p.subgrupo&&p.subgrupo!=='todos'?`Subgrupo ${p.subgrupo}`:'Toda'}`;
       const anular = p.anulado ? '' :
         `<button class="btn btn-outline btn-xs" onclick="psAnular(${p.id})" title="Anular permiso">🗑️</button>`;
       return `<tr>
@@ -18365,11 +18453,12 @@ async function psCargarLista(){
         <td>${quien}</td>
         <td>${p.motivo||''}</td>
         <td>${p.autoriza_nombre||''}${p.autoriza_parentesco?` <span style="color:var(--muted);">(${p.autoriza_parentesco})</span>`:''}</td>
+        <td>${nombreDesdeCampos(p.creador_nombre,p.creador_ap1,p.creador_ap2)||'—'}</td>
         <td>${psEstadoBadge(p)}</td>
         <td>${anular}</td>
       </tr>`;
     }).join('');
-  }catch(e){ tbody.innerHTML=`<tr><td colspan="8" class="empty">${e.message}</td></tr>`; }
+  }catch(e){ tbody.innerHTML=`<tr><td colspan="9" class="empty">${e.message}</td></tr>`; }
 }
 
 async function psAnular(id){
@@ -18384,12 +18473,11 @@ async function psAnular(id){
 // ════════════════════════════════════
 //  PORTERÍA (rol seguridad)
 // ════════════════════════════════════
-let ptModo = 'entrada';
+let ptModo = 'auto';
 let ptResultTimer = null;
 
 async function iniciarPorteria(){
   document.getElementById('pt-fecha-label').textContent = fechaHoyCR();
-  ptSetModo(ptModo);
   await Promise.all([ptCargarStats(), ptCargarRegistros(), ptCargarPermisosHoy()]);
   document.getElementById('pt-scan-input')?.focus();
 }
@@ -18398,6 +18486,7 @@ function ptSetModo(modo){
   ptModo = modo;
   const be = document.getElementById('pt-modo-entrada');
   const bs = document.getElementById('pt-modo-salida');
+  if(!be || !bs) return;
   if(modo==='entrada'){
     be.style.background='#16a34a'; be.style.color='#fff';
     bs.style.background='#fff';    bs.style.color='#ea580c';
@@ -18415,7 +18504,7 @@ async function ptEscanear(){
   const box = document.getElementById('pt-scan-result');
   if(ptResultTimer){ clearTimeout(ptResultTimer); ptResultTimer=null; }
   try{
-    const r = await api('/api/porteria/escaneo','POST',{ cedula, tipo: ptModo });
+    const r = await api('/api/porteria/escaneo','POST',{ cedula, tipo: 'auto' });
     const est = r.estudiante||{};
     const ok = r.resultado === 'permitido';
     box.style.display='';
@@ -18440,6 +18529,7 @@ async function ptEscanear(){
     // El resultado denegado se queda más tiempo en pantalla
     ptResultTimer = setTimeout(()=>{ box.style.display='none'; }, ok ? 4000 : 8000);
   }catch(e){
+    if(input) input.value='';
     box.style.display='';
     box.style.background='#fee2e2'; box.style.border='3px solid #dc2626';
     document.getElementById('ptr-estado').innerHTML='<span style="color:#991b1b;">❌ ERROR</span>';
@@ -18500,6 +18590,43 @@ async function ptCargarPermisosHoy(){
     }).join('');
   }catch(e){ tbody.innerHTML=`<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
 }
+
+// ════════════════════════════════════
+//  COMITÉ TÉCNICO ASESOR
+// ════════════════════════════════════
+let ctaActual=null,ctaDetalleData=null,ctaDocentes=[];
+const esCTA=()=>ME?.rol==='admin'||(ME?.funciones_extra||[]).includes('comite_tecnico_asesor');
+async function iniciarTecnicoAsesor(){document.getElementById('cta-btn-nuevo').style.display=esCTA()?'':'none';const rows=await api('/api/tecnico-asesor/calendarios')||[];document.getElementById('cta-calendarios').innerHTML=rows.length?rows.map(c=>`<div style="border:1px solid var(--border);border-radius:9px;padding:12px;display:flex;justify-content:space-between;align-items:center"><div><strong>${htmlSeguro(c.titulo)}</strong><br><small>${fmtF(c.fecha_inicio)} al ${fmtF(c.fecha_fin)} · ${c.eventos} pruebas · ${c.estado==='publicado'?'📣 Publicado':'✏️ Borrador'}</small></div><button class="btn btn-outline btn-sm" onclick="ctaAbrir(${c.id})">Ver / editar</button></div>`).join(''):'<div class="empty">No hay calendarios vigentes.</div>';}
+async function ctaNuevo(){const titulo=prompt('Nombre del calendario:','Pruebas parciales');if(!titulo)return;const inicio=prompt('Fecha inicial (AAAA-MM-DD):',fechaHoyCR());if(!inicio)return;const fin=prompt('Fecha final (AAAA-MM-DD):',inicio);if(!fin)return;try{const c=await api('/api/tecnico-asesor/calendarios','POST',{titulo,fecha_inicio:inicio,fecha_fin:fin});await iniciarTecnicoAsesor();ctaAbrir(c.id);}catch(e){sa('alert-cta',e.message,'danger');}}
+async function ctaAbrir(id){
+  ctaActual=id;
+  const datos=await Promise.all([api(`/api/tecnico-asesor/calendarios/${id}`),esCTA()?api('/api/horarios/docentes').catch(()=>[]):Promise.resolve([])]);
+  ctaDetalleData=datos[0]; ctaDocentes=datos[1]||[];
+  const {calendario:c,eventos}=ctaDetalleData;
+  document.getElementById('cta-detalle').style.display=''; document.getElementById('cta-titulo').textContent=c.titulo;
+  document.getElementById('cta-publicar').style.display=esCTA()&&c.estado!=='publicado'?'':'none'; document.getElementById('cta-form-evento').style.display=esCTA()?'grid':'none';
+  let secs=allSecciones||[];if(!secs.length)secs=await api('/api/admin/secciones').catch(()=>[]);
+  document.getElementById('cta-seccion').innerHTML='<option value="">— Sección —</option>'+secs.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join('');
+  document.getElementById('cta-eventos').innerHTML=`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Prueba</th><th>Sección</th><th>Docente de cuido</th><th></th></tr></thead><tbody>${eventos.map(e=>{const actual=e.cuidos?.[0];const cuido=esCTA()?`<select onchange="ctaCambiarCuido(${e.id},this.value)"><option value="">— Asignar —</option>${ctaDocentes.map(d=>`<option value="${d.id}" ${String(d.id)===String(actual?.profesor_id)?'selected':''}>${htmlSeguro(nombrePersona(d))}</option>`).join('')}</select>`:(actual?htmlSeguro(actual.nombre):'<span style="color:#dc2626">Sin asignar</span>');return `<tr><td>${fmtF(e.fecha)}</td><td>${String(e.hora_inicio).slice(0,5)}–${String(e.hora_fin).slice(0,5)}</td><td><strong>${htmlSeguro(e.materia)}</strong></td><td>${htmlSeguro(e.seccion_nombre)}</td><td>${cuido}</td><td>${esCTA()?`<button class="btn btn-danger btn-xs" onclick="ctaEliminarEvento(${e.id})">🗑️</button>`:''}</td></tr>`;}).join('')}</tbody></table>`;
+}
+async function ctaCambiarCuido(eventoId,profesorId){if(!profesorId)return;await api(`/api/tecnico-asesor/eventos/${eventoId}/cuido`,'POST',{profesor_id:+profesorId});sa('alert-cta','Horario de cuido actualizado.','success');}
+async function ctaAgregarEvento(){try{await api(`/api/tecnico-asesor/calendarios/${ctaActual}/eventos`,'POST',{fecha:document.getElementById('cta-fecha').value,hora_inicio:document.getElementById('cta-hora-ini').value,hora_fin:document.getElementById('cta-hora-fin').value,materia:document.getElementById('cta-materia').value,seccion_id:+document.getElementById('cta-seccion').value});await ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');}}
+async function ctaEliminarEvento(id){if(!confirm('¿Eliminar esta prueba?'))return;await api(`/api/tecnico-asesor/eventos/${id}`,'DELETE');ctaAbrir(ctaActual);}
+async function ctaGenerarCuidos(){try{const r=await api(`/api/tecnico-asesor/calendarios/${ctaActual}/generar-cuidos`,'POST',{});sa('alert-cta',`Se generaron ${r.generados} asignaciones de cuido.${r.sin_horario.length?' Algunas pruebas no coincidieron con un horario docente.':''}`,r.sin_horario.length?'warning':'success');ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');}}
+async function ctaPublicar(){if(!confirm('Al publicar lo verán docentes y familias. ¿Continuar?'))return;await api(`/api/tecnico-asesor/calendarios/${ctaActual}/publicar`,'PUT',{});await ctaAbrir(ctaActual);await iniciarTecnicoAsesor();}
+function ctaImprimir(){const h=document.getElementById('cta-eventos').innerHTML;imprimirPDFMEP('CALENDARIO DE PRUEBAS Y HORARIO DE CUIDO',`<h2 style="text-align:center">${htmlSeguro(ctaDetalleData.calendario.titulo)}</h2>${h}`,'calendario_pruebas.pdf');}
+
+// ════════════════════════════════════
+//  BIBLIOTECA Y PRÉSTAMOS
+// ════════════════════════════════════
+let bibItems=[];
+async function iniciarBiblioteca(){const [secs,items]=await Promise.all([api('/api/biblioteca/secciones'),api('/api/biblioteca/items')]);bibItems=items||[];document.getElementById('bib-seccion').innerHTML='<option value="">— Sección —</option>'+secs.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join('');bibRenderItems();bibCargarPrestamos();}
+function bibRenderItems(){document.getElementById('bib-item').innerHTML='<option value="">— Artículo —</option>'+bibItems.filter(i=>i.disponibles>0).map(i=>`<option value="${i.id}">${htmlSeguro(i.nombre)} (${i.disponibles} disponibles)</option>`).join('');document.getElementById('bib-items').innerHTML=`<table><thead><tr><th>Código</th><th>Artículo</th><th>Categoría</th><th>Total</th><th>Disponible</th></tr></thead><tbody>${bibItems.map(i=>`<tr><td>${htmlSeguro(i.codigo||'—')}</td><td><strong>${htmlSeguro(i.nombre)}</strong></td><td>${htmlSeguro(i.categoria)}</td><td>${i.stock_total}</td><td>${i.disponibles}</td></tr>`).join('')}</tbody></table>`;}
+async function bibCargarEstudiantes(){const id=document.getElementById('bib-seccion').value;document.getElementById('bib-estudiante').innerHTML='<option value="">— Estudiante —</option>';if(!id)return;const rows=await api(`/api/biblioteca/estudiantes/${id}`);document.getElementById('bib-estudiante').innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))}${e.subgrupo?' · '+e.subgrupo:''}</option>`).join('');}
+async function bibCrearItem(){try{await api('/api/biblioteca/items','POST',{codigo:document.getElementById('bib-codigo').value,nombre:document.getElementById('bib-nombre').value,categoria:document.getElementById('bib-categoria').value,stock_total:+document.getElementById('bib-stock').value});bibItems=await api('/api/biblioteca/items');bibRenderItems();sa('alert-bib','Artículo agregado.','success');}catch(e){sa('alert-bib',e.message,'danger');}}
+async function bibPrestar(){try{await api('/api/biblioteca/prestamos','POST',{item_id:+document.getElementById('bib-item').value,estudiante_id:+document.getElementById('bib-estudiante').value,cantidad:+document.getElementById('bib-cantidad').value,vence_el:document.getElementById('bib-vence').value||null});sa('alert-bib','Préstamo registrado.','success');bibItems=await api('/api/biblioteca/items');bibRenderItems();bibCargarPrestamos();}catch(e){sa('alert-bib',e.message,'danger');}}
+async function bibCargarPrestamos(){const estado=document.getElementById('bib-estado').value;const rows=await api(`/api/biblioteca/prestamos?estado=${estado}`)||[];document.getElementById('bib-prestamos').innerHTML=`<table><thead><tr><th>Estudiante</th><th>Sección</th><th>Artículo</th><th>Cantidad</th><th>Préstamo</th><th>Vence</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(p=>`<tr><td><strong>${htmlSeguro(nombreEstudianteLista(p))}</strong></td><td>${htmlSeguro(p.seccion_nombre||'—')}</td><td>${htmlSeguro(p.item_nombre)}</td><td>${p.cantidad}</td><td>${fmtTS(p.prestado_en)}</td><td>${p.vence_el?fmtF(p.vence_el):'—'}</td><td>${p.estado==='prestado'?'🟠 Pendiente':'✅ Devuelto'}</td><td>${p.estado==='prestado'?`<button class="btn btn-success btn-xs" onclick="bibDevolver(${p.id})">Devolver</button>`:''}</td></tr>`).join('')}</tbody></table>`;}
+async function bibDevolver(id){await api(`/api/biblioteca/prestamos/${id}/devolver`,'PUT',{});bibItems=await api('/api/biblioteca/items');bibRenderItems();bibCargarPrestamos();}
 
 // ════════════════════════════════════
 //  EXPEDIENTE
@@ -20147,7 +20274,8 @@ async function abrirFuncionInstitucional(tipo){
   const cfg={
     coordinador:{titulo:"🎯 Coordinador de Rendimiento",ayuda:"Puede consultar Rendimiento institucional y editar únicamente Educación Híbrida."},
     comite_apoyo:{titulo:"🧩 Comité de Apoyo",ayuda:"Administra adecuaciones, observaciones y solicitudes docentes de toda la institución."},
-    lcf_familias:{titulo:"📱 LCF Familias",ayuda:"Administra el servicio, las contraseñas y el acceso de padres y encargados. Este permiso no se obtiene por pertenecer a Matrícula ni por ser auxiliar."}
+    lcf_familias:{titulo:"📱 LCF Familias",ayuda:"Administra el servicio, las contraseñas y el acceso de padres y encargados. Este permiso no se obtiene por pertenecer a Matrícula ni por ser auxiliar."},
+    comite_tecnico_asesor:{titulo:"📝 Comité Técnico Asesor",ayuda:"Consulta horarios docentes y administra calendarios de pruebas y horarios de cuido."}
   }[tipo];
   if(!cfg) return;
   document.getElementById("fi-tipo").value=tipo;

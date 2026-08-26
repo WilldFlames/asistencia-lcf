@@ -32,7 +32,7 @@ router.get("/activas", requireAuth, async (req, res) => {
     JOIN estudiantes e ON e.id=m.estudiante_id
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN usuarios u ON u.id=m.creado_por
-    WHERE m.fecha_inicio <= $1::date AND m.fecha_fin >= $1::date
+    WHERE m.fecha_inicio <= $1::date AND m.fecha_fin >= $1::date AND m.activa IS NOT FALSE
     ORDER BY m.tipo, e.primer_apellido, e.segundo_apellido, e.nombre
   `, [hoy]);
   res.json(r.rows);
@@ -80,6 +80,19 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
   await pool.query("DELETE FROM medidas_estudiantiles WHERE id=$1", [req.params.id]);
   res.json({ ok:true });
+});
+
+// Educación híbrida se conserva en el historial y puede activarse/desactivarse.
+router.put("/:id/estado", requireAuth, async (req, res) => {
+  const u=req.session.usuario;
+  const medida=await pool.query("SELECT tipo FROM medidas_estudiantiles WHERE id=$1",[req.params.id]);
+  if(!medida.rows.length) return res.status(404).json({error:"Registro no encontrado"});
+  if(medida.rows[0].tipo!=="educacion_hibrida") return res.status(400).json({error:"Solo aplica a Educación Híbrida"});
+  const coordinador=(u.funciones_extra||[]).includes("coordinador") ||
+    (await pool.query("SELECT 1 FROM funciones_institucionales WHERE usuario_id=$1 AND tipo='coordinador'",[u.id])).rows.length>0;
+  if(!ROLES_MEDIDAS.includes(u.rol) && !coordinador) return res.status(403).json({error:"Sin permisos"});
+  await pool.query("UPDATE medidas_estudiantiles SET activa=$1 WHERE id=$2",[req.body.activa!==false,req.params.id]);
+  res.json({ok:true,activa:req.body.activa!==false});
 });
 
 // ── MEDIDAS de un estudiante específico ──────────────────────────────────────

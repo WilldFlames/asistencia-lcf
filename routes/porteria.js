@@ -67,7 +67,7 @@ router.get("/permisos", canVer, async (req, res) => {
       e.nombre AS est_nombre, e.primer_apellido AS est_ap1, e.segundo_apellido AS est_ap2,
       e.cedula AS est_cedula,
       s.nombre AS seccion_nombre,
-      u.nombre AS creador_nombre, u.primer_apellido AS creador_ap1,
+      u.nombre AS creador_nombre, u.primer_apellido AS creador_ap1, u.segundo_apellido AS creador_ap2,
       (SELECT COUNT(*) FROM permisos_salida_usos ps WHERE ps.permiso_id = p.id) AS usos
     FROM permisos_salida p
     LEFT JOIN estudiantes e ON e.id = p.estudiante_id
@@ -83,7 +83,7 @@ router.get("/permisos", canVer, async (req, res) => {
 // ── Crear permiso (admin/auxiliar). Consecutivo interno por año ───────────
 router.post("/permisos", canPermisos, async (req, res) => {
   const { tipo, estudiante_id, seccion_id, fecha, hora_salida,
-          autoriza_nombre, autoriza_cedula, autoriza_parentesco, motivo } = req.body;
+          autoriza_nombre, autoriza_cedula, autoriza_parentesco, motivo, subgrupo } = req.body;
 
   if(!tipo || !["individual","seccion"].includes(tipo))
     return res.status(400).json({ error: "Tipo inválido (individual o seccion)" });
@@ -104,10 +104,10 @@ router.post("/permisos", canPermisos, async (req, res) => {
   const insertar = () => pool.query(`
     INSERT INTO permisos_salida
       (numero, anio, tipo, estudiante_id, seccion_id, fecha, hora_salida,
-       autoriza_nombre, autoriza_cedula, autoriza_parentesco, motivo, creado_por)
+       autoriza_nombre, autoriza_cedula, autoriza_parentesco, motivo, creado_por, subgrupo)
     VALUES (
       (SELECT COALESCE(MAX(numero),0)+1 FROM permisos_salida WHERE anio=$1),
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12
     ) RETURNING *
   `, [anio, tipo,
       tipo === "individual" ? estudiante_id : null,
@@ -115,7 +115,7 @@ router.post("/permisos", canPermisos, async (req, res) => {
       fecha, hora_salida || null,
       autoriza_nombre.trim(), (autoriza_cedula||'').trim() || null,
       (autoriza_parentesco||'').trim() || null, motivo.trim(),
-      req.session.usuario.id]);
+      req.session.usuario.id, tipo === "seccion" && ["A","B"].includes(subgrupo) ? subgrupo : "todos"]);
 
   try {
     let r;
@@ -125,6 +125,21 @@ router.post("/permisos", canPermisos, async (req, res) => {
       else throw e;
     }
     const permiso=r.rows[0];
+    // Avisar a quienes imparten clase durante la hora del permiso.
+    if(hora_salida){
+      try{
+        const dia=diaSemana(String(fecha).slice(0,10));
+        const leccion=obtenerLecciones(anio).find(l=>hora_salida>=l.ini && hora_salida<l.fin)?.n;
+        if(dia>=1&&dia<=5&&leccion){
+          const estudiante=tipo==="individual" ? await pool.query("SELECT seccion_id,nombre,primer_apellido,segundo_apellido,subgrupo FROM estudiantes WHERE id=$1",[estudiante_id]) : null;
+          const seccionReal=tipo==="individual"?estudiante?.rows[0]?.seccion_id:seccion_id;
+          const alcance=tipo==="individual"?estudiante?.rows[0]?.subgrupo:(subgrupo==="todos"?'':subgrupo);
+          const profesores=await pool.query(`SELECT DISTINCT a.profesor_id FROM horarios h JOIN asignaciones a ON a.id=h.asignacion_id WHERE h.anio=$1 AND h.dia=$2 AND h.leccion=$3 AND h.seccion_id=$4 AND a.activa IS NOT FALSE AND ($5='' OR COALESCE(a.subgrupo,'')='' OR COALESCE(a.subgrupo,'')=$5)`,[anio,dia,leccion,seccionReal,alcance||'']);
+          const sujeto=tipo==="individual"?`${estudiante.rows[0].nombre} ${estudiante.rows[0].primer_apellido}`:`la sección (alcance ${subgrupo||'todos'})`;
+          for(const p of profesores.rows) await pool.query("INSERT INTO notificaciones(usuario_id,tipo,mensaje) VALUES($1,'permiso_salida',$2)",[p.profesor_id,`🚪 ${sujeto} tiene permiso de salida a las ${hora_salida}. Motivo: ${motivo.trim()}`]);
+        }
+      }catch(e){ console.error("Aviso de permiso a docentes:",e.message); }
+    }
     const [y,m,d]=String(permiso.fecha||fecha).slice(0,10).split("-");
     const fechaTexto=d&&m&&y?`${d}/${m}/${y}`:String(fecha);
     const aviso={
@@ -173,11 +188,13 @@ async function finLeccionesHoy(seccionId, fecha){
 }
 
 // ── ESCANEO ───────────────────────────────────────────────────────────────
-// body: { cedula, tipo: 'entrada' | 'salida' }
+// body: { cedula }. El servidor infiere entrada/salida para evitar errores del guarda.
+// Se conserva tipo explícito por compatibilidad con clientes antiguos.
 router.post("/escaneo", canEscanear, async (req, res) => {
-  const { cedula, tipo } = req.body;
+  const { cedula } = req.body;
+  let { tipo } = req.body;
   if(!cedula) return res.status(400).json({ error: "Cédula requerida" });
-  if(!["entrada","salida"].includes(tipo)) return res.status(400).json({ error: "Tipo inválido" });
+  if(tipo && !["entrada","salida","auto"].includes(tipo)) return res.status(400).json({ error: "Tipo inválido" });
 
   const fecha = fechaCR();
   const hora = horaCR();
@@ -193,6 +210,15 @@ router.post("/escaneo", canEscanear, async (req, res) => {
   if(!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado en el sistema" });
   const est = estR.rows[0];
   const uid = req.session.usuario.id;
+
+  if(!tipo || tipo === "auto"){
+    const ultimo = await pool.query(`
+      SELECT tipo FROM porteria_registros
+      WHERE estudiante_id=$1 AND fecha=$2 AND resultado='permitido'
+      ORDER BY hora DESC, id DESC LIMIT 1
+    `, [est.id, fecha]);
+    tipo = ultimo.rows[0]?.tipo === "entrada" ? "salida" : "entrada";
+  }
 
   // ── ENTRADA: siempre se registra ─────────────────────────────────────
   if(tipo === "entrada"){
@@ -241,7 +267,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     WHERE p.anulado = false AND p.fecha = $1
       AND (
         (p.tipo = 'individual' AND p.estudiante_id = $2)
-        OR (p.tipo = 'seccion' AND p.seccion_id = $3)
+        OR (p.tipo = 'seccion' AND p.seccion_id = $3 AND (COALESCE(p.subgrupo,'todos')='todos' OR p.subgrupo=COALESCE($4,'todos')))
       )
       AND NOT EXISTS (
         SELECT 1 FROM permisos_salida_usos u
@@ -249,7 +275,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
       )
     ORDER BY CASE WHEN p.tipo = 'individual' THEN 0 ELSE 1 END
     LIMIT 1
-  `, [fecha, est.id, est.seccion_id]);
+  `, [fecha, est.id, est.seccion_id, est.subgrupo]);
 
   if(permR.rows.length){
     const p = permR.rows[0];

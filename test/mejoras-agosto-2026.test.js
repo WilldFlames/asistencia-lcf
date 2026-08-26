@@ -1,0 +1,10 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');
+const leer=p=>fs.readFileSync(p,'utf8');
+const db=leer('db.js'),front=leer('public/index.html'),port=leer('routes/porteria.js'),cta=leer('routes/tecnicoAsesor.js'),bib=leer('routes/biblioteca.js'),mens=leer('routes/mensajes.js');
+test('portería infiere el movimiento y limpia el campo aun con error',()=>{assert.match(port,/ultimo\.rows\[0\]\?\.tipo === "entrada" \? "salida" : "entrada"/);assert.match(front,/if\(input\) input\.value='';/);});
+test('restricciones filtra por sección sin truncar la institución',()=>{assert.match(front,/id="rm-seccion-a"/);assert.doesNotMatch(front,/rmEstudiantes\|\|\[\]\)\.filter[\s\S]{0,400}slice\(0,150\)/);});
+test('debidos procesos cuentan quince días hábiles',()=>{assert.match(front,/diasHabilesTranscurridos/);assert.match(front,/d\.getDay\(\)!==0&&d\.getDay\(\)!==6/);});
+test('comité técnico administra pruebas, publicación y cuidos editables',()=>{assert.match(db,/CREATE TABLE IF NOT EXISTS calendarios_pruebas/);assert.match(cta,/generar-cuidos/);assert.match(cta,/eventos\/:id\/cuido/);assert.match(front,/ctaCambiarCuido/);});
+test('biblioteca controla catálogo, disponibilidad, préstamos y devoluciones',()=>{assert.match(db,/CREATE TABLE IF NOT EXISTS biblioteca_items/);assert.match(db,/CREATE TABLE IF NOT EXISTS biblioteca_prestamos/);assert.match(bib,/No hay suficientes unidades disponibles/);assert.match(front,/bibCargarEstudiantes/);});
+test('informes incorporan porcentajes y conteos por rubro',()=>{assert.match(db,/resumen_academico JSONB/);assert.match(mens,/no_realizados/);assert.match(front,/Datos calculados del sistema/);});
+test('asistencia se respalda cada diez segundos y matrícula no limita el comité',()=>{assert.match(front,/asistenciaAutosaveEnCurso/);assert.match(front,/},10000\);/);assert.doesNotMatch(leer('routes/prematricula.js'),/Máximo 6/);});

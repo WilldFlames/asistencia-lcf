@@ -1,0 +1,24 @@
+MEJORAS INSTITUCIONALES — AGOSTO 2026
+
+Incluye:
+- Restricciones de convivencia con filtros por sección y lista completa.
+- Portería automática entrada/salida y limpieza del lector ante errores.
+- Comité Técnico Asesor, calendario de pruebas, publicación, impresión y cuidos.
+- Rol Bibliotecóloga, consulta institucional e inventario/préstamos.
+- Debido proceso con vigencia de 15 días hábiles.
+- Conciliación con documentos editables mediante Ver / Editar.
+- LCF Familias con alcance institucional completo.
+- Avisos de permisos al docente que tiene clase en la hora indicada.
+- Autoguardado de asistencia cada 10 segundos.
+- Comité de matrícula sin límite de integrantes.
+- Educación híbrida activable y desactivable sin perder historial.
+- Informe académico con porcentaje y realizados/no realizados por rubro.
+- Permisos grupales por subgrupo A, B o toda la sección y autor del registro.
+
+DESPLIEGUE
+Subir el contenido completo del ZIP a la aplicación actual. Al iniciar, db.js
+creará las tablas y columnas nuevas de forma aditiva; no elimina información.
+
+VALIDACIÓN
+Node.js 24.19.0 / npm 11.17.0
+167 pruebas aprobadas, 0 fallidas.

@@ -1,10 +1,15 @@
 const { pool } = require("../db");
 const { obtenerAnioActivo } = require("./lectivo");
 
-const ROLES_ACCESO_TOTAL = new Set(["admin","auxiliar","administrativo","secretaria"]);
+const ROLES_ACCESO_TOTAL = new Set(["admin","auxiliar","administrativo","secretaria","bibliotecologa"]);
 const ROLES_DOCENTES = new Set(["profesor","profesor_guia","orientador"]);
 
-function accesoTotal(usuario){ return Boolean(usuario && ROLES_ACCESO_TOTAL.has(usuario.rol)); }
+function accesoTotal(usuario){
+  return Boolean(usuario && (
+    ROLES_ACCESO_TOTAL.has(usuario.rol) ||
+    (usuario.funciones_extra||[]).includes("lcf_familias")
+  ));
+}
 
 async function seccionesPermitidas(usuario, db=pool){
   if(accesoTotal(usuario)) return null;

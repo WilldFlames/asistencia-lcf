@@ -733,4 +733,13 @@ router.get("/alertas", requirePadre, async (req, res) => {
   res.json(alertas.slice(0, 40));
 });
 
+router.get('/calendario-pruebas',requirePadre,async(req,res)=>{
+  const hijos=await hijosDe(req.session.padre.cedula);
+  const ids=hijos.map(x=>x.id);
+  const r=await pool.query(`SELECT c.titulo,e.fecha::text,e.hora_inicio::text,e.hora_fin::text,e.materia,s.nombre AS seccion_nombre
+    FROM calendarios_pruebas c JOIN calendario_pruebas_eventos e ON e.calendario_id=c.id JOIN secciones s ON s.id=e.seccion_id
+    WHERE c.estado='publicado' AND c.fecha_fin>=CURRENT_DATE AND e.seccion_id IN(SELECT seccion_id FROM estudiantes WHERE id=ANY($1::int[]))
+    ORDER BY e.fecha,e.hora_inicio`,[ids]);res.json(r.rows);
+});
+
 module.exports = router;

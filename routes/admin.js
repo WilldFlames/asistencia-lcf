@@ -51,7 +51,7 @@ router.post("/usuarios", onlyAdmin, async (req, res) => {
 
 router.put("/usuarios/:id", onlyAdmin, async (req, res) => {
   const { nombre, primer_apellido, segundo_apellido, email, rol, activo } = req.body;
-  const rolesValidos=["admin","auxiliar","orientador","profesor_guia","profesor","cocinera","secretaria","administrativo","junta","seguridad"];
+  const rolesValidos=["admin","auxiliar","orientador","profesor_guia","profesor","cocinera","secretaria","administrativo","junta","seguridad","bibliotecologa"];
   if(!rolesValidos.includes(rol)) return res.status(400).json({error:"Rol inválido"});
   const usuarioId=Number(req.params.id);
   if(!Number.isInteger(usuarioId)||usuarioId<=0) return res.status(400).json({error:"Usuario inválido"});
@@ -971,7 +971,7 @@ router.get("/funciones-institucionales", onlyAdmin, async (req,res)=>{
 router.post("/funciones-institucionales", onlyAdmin, async (req,res)=>{
   const usuarioId=Number(req.body?.usuario_id);
   const tipo=String(req.body?.tipo||"");
-  if(!usuarioId || !["coordinador","comite_apoyo","lcf_familias"].includes(tipo))
+  if(!usuarioId || !["coordinador","comite_apoyo","lcf_familias","comite_tecnico_asesor"].includes(tipo))
     return res.status(400).json({error:"Datos de asignación inválidos."});
   const usu=await pool.query("SELECT 1 FROM usuarios WHERE id=$1 AND activo=true",[usuarioId]);
   if(!usu.rows.length) return res.status(404).json({error:"Usuario activo no encontrado."});

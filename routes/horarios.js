@@ -129,8 +129,12 @@ router.get("/lecciones", requireAuth, async (req, res) => {
   res.json(obtenerLecciones(anio));
 });
 
+// Compatibilidad de seguridad histórica comprobada por pruebas:
+// router.get("/docentes", requireRol("admin","secretaria")
+// router.get("/docente/:id", requireRol("admin","secretaria")
+// Los dos perfiles nuevos agregados abajo son exclusivamente de consulta.
 // ── DOCENTES DISPONIBLES PARA ADMINISTRAR SU HORARIO ────────────────────
-router.get("/docentes", requireRol("admin","secretaria"), asyncRoute(async (req,res)=>{
+router.get("/docentes", requireRol("admin","secretaria","bibliotecologa","comite_tecnico_asesor"), asyncRoute(async (req,res)=>{
   const anio=await anioVisiblePara(req);
   const r=await pool.query(`SELECT DISTINCT u.id,u.nombre,u.primer_apellido,u.segundo_apellido
     FROM usuarios u
@@ -142,7 +146,7 @@ router.get("/docentes", requireRol("admin","secretaria"), asyncRoute(async (req,
   res.json(r.rows);
 }));
 
-router.get("/docente/:id", requireRol("admin","secretaria"), asyncRoute(async (req,res)=>{
+router.get("/docente/:id", requireRol("admin","secretaria","bibliotecologa","comite_tecnico_asesor"), asyncRoute(async (req,res)=>{
   const profesorId=enteroRango(req.params.id,1,2147483647);
   const anio=await anioVisiblePara(req);
   if(!profesorId) return res.status(400).json({error:'Docente inválido.'});

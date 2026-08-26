@@ -182,6 +182,19 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
 });
 
 // ── RESPONDER INFORME (con campos estructurados) ──────────────────────────────
+async function resumenAcademico(informeId,usuarioId){
+  const r=await pool.query(`WITH inf AS(SELECT i.estudiante_id,i.destinatario_id,e.seccion_id,e.subgrupo FROM informes i JOIN estudiantes e ON e.id=i.estudiante_id WHERE i.id=$1 AND i.destinatario_id=$2), ev AS(
+    SELECT v.id,v.tipo,v.puntaje_total,
+      CASE WHEN v.tipo='examen' THEN nx.puntos_obtenidos ELSE (SELECT SUM(ni.puntaje) FROM notas_indicador ni WHERE ni.evaluacion_id=v.id AND ni.estudiante_id=inf.estudiante_id) END obtenido,
+      CASE WHEN v.tipo='examen' THEN v.puntaje_total ELSE (SELECT SUM(ind.puntaje_maximo) FROM indicadores ind WHERE ind.evaluacion_id=v.id) END maximo
+    FROM inf JOIN evaluaciones v ON v.profesor_id=inf.destinatario_id AND v.seccion_id=inf.seccion_id AND (COALESCE(v.subgrupo,'')='' OR v.subgrupo=COALESCE(inf.subgrupo,''))
+    LEFT JOIN notas_examen nx ON nx.evaluacion_id=v.id AND nx.estudiante_id=inf.estudiante_id)
+    SELECT tipo,COUNT(*)::int AS total,COUNT(obtenido)::int AS realizados,(COUNT(*)-COUNT(obtenido))::int AS no_realizados,
+      ROUND(100*SUM(obtenido) FILTER(WHERE obtenido IS NOT NULL)/NULLIF(SUM(maximo) FILTER(WHERE obtenido IS NOT NULL),0),1) AS porcentaje
+    FROM ev GROUP BY tipo ORDER BY CASE tipo WHEN 'cotidiano' THEN 1 WHEN 'tarea' THEN 2 WHEN 'examen' THEN 3 ELSE 4 END`,[informeId,usuarioId]);return r.rows;
+}
+router.get('/:id/resumen-academico',requireAuth,async(req,res)=>{const rows=await resumenAcademico(req.params.id,req.session.usuario.id);res.json(rows);});
+
 router.put("/:id/responder", requireAuth, async (req, res) => {
   const uid = req.session.usuario.id;
   const { resp_asistencia, resp_trabajo_cotidiano, resp_tareas, resp_examenes, resp_comportamiento, resp_observaciones } = req.body;
@@ -201,15 +214,16 @@ router.put("/:id/responder", requireAuth, async (req, res) => {
     resp_observaciones ? `Observaciones: ${resp_observaciones}` : "",
   ].filter(Boolean).join("\n");
 
+  const resumen=await resumenAcademico(req.params.id,uid);
   await pool.query(`
     UPDATE informes SET
       resp_asistencia=$1, resp_trabajo_cotidiano=$2, resp_tareas=$3,
       resp_examenes=$4, resp_comportamiento=$5, resp_observaciones=$6,
-      respuesta=$7, respondido=true, fecha_respuesta=NOW()
-    WHERE id=$8
+      respuesta=$7, resumen_academico=$8::jsonb, respondido=true, fecha_respuesta=NOW()
+    WHERE id=$9
   `, [resp_asistencia||"", resp_trabajo_cotidiano||"", resp_tareas||"",
       resp_examenes||"", resp_comportamiento||"", resp_observaciones||"",
-      respTexto, req.params.id]);
+      respTexto, JSON.stringify(resumen), req.params.id]);
 
   // Notificar al remitente
   await pool.query(

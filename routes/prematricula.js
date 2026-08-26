@@ -141,9 +141,6 @@ router.post("/comite/lista", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   if(u.rol!=="admin"&&u.rol!=="auxiliar") return res.status(403).json({ error:"Sin permisos" });
   const { usuario_id } = req.body;
-  const count = await pool.query("SELECT COUNT(*) FROM matricula_comite");
-  if(parseInt(count.rows[0].count)>=6)
-    return res.status(400).json({ error:"Máximo 6 personas en el comité de matrícula." });
   const existe = await pool.query("SELECT 1 FROM matricula_comite WHERE usuario_id=$1", [usuario_id]);
   if(existe.rows.length) return res.status(409).json({ error:"Este usuario ya está en el comité." });
   await pool.query("INSERT INTO matricula_comite (usuario_id) VALUES ($1)", [usuario_id]);
