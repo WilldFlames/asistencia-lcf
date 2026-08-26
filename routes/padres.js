@@ -734,12 +734,10 @@ router.get("/alertas", requirePadre, async (req, res) => {
 });
 
 router.get('/calendario-pruebas',requirePadre,async(req,res)=>{
-  const hijos=await hijosDe(req.session.padre.cedula);
-  const ids=hijos.map(x=>x.id);
-  const r=await pool.query(`SELECT c.titulo,e.fecha::text,e.hora_inicio::text,e.hora_fin::text,e.materia,s.nombre AS seccion_nombre
+  const r=await pool.query(`SELECT c.id AS calendario_id,c.titulo,c.fecha_inicio::text,c.fecha_fin::text,e.fecha::text,e.hora_inicio::text,e.hora_fin::text,e.materia,e.seccion_id,s.nombre AS seccion_nombre,s.nivel,(SELECT COUNT(*)::int FROM secciones sx JOIN secciones_anio sa ON sa.seccion_id=sx.id AND sa.anio=EXTRACT(YEAR FROM e.fecha)::int AND sa.activa=true WHERE sx.nivel=s.nivel) AS secciones_nivel_total
     FROM calendarios_pruebas c JOIN calendario_pruebas_eventos e ON e.calendario_id=c.id JOIN secciones s ON s.id=e.seccion_id
-    WHERE c.estado='publicado' AND c.fecha_fin>=CURRENT_DATE AND e.seccion_id IN(SELECT seccion_id FROM estudiantes WHERE id=ANY($1::int[]))
-    ORDER BY e.fecha,e.hora_inicio`,[ids]);res.json(r.rows);
+    WHERE c.estado='publicado' AND c.fecha_fin>=CURRENT_DATE
+    ORDER BY c.fecha_inicio,e.fecha,e.hora_inicio,s.nivel,s.nombre`);res.json(r.rows);
 });
 
 module.exports = router;

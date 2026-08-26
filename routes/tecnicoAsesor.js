@@ -72,14 +72,15 @@ router.put('/calendarios/:id/publicar',exigirCTA,async(req,res)=>{
 router.get('/calendarios/:id',async(req,res)=>{
   const c=await pool.query('SELECT * FROM calendarios_pruebas WHERE id=$1',[req.params.id]);if(!c.rows.length)return res.status(404).json({error:'Calendario no encontrado'});
   if(c.rows[0].estado!=='publicado'&&!esCTA(req.session.usuario))return res.status(403).json({error:'Calendario no publicado'});
-  const e=await pool.query(`SELECT e.*,s.nombre AS seccion_nombre,
+  const e=await pool.query(`SELECT e.*,s.nombre AS seccion_nombre,s.nivel,(SELECT COUNT(*)::int FROM secciones sx JOIN secciones_anio sa ON sa.seccion_id=sx.id AND sa.anio=EXTRACT(YEAR FROM e.fecha)::int AND sa.activa=true WHERE sx.nivel=s.nivel) AS secciones_nivel_total,
     COALESCE(json_agg(json_build_object('id',cu.id,'profesor_id',cu.profesor_id,'nombre',concat_ws(' ',u.nombre,u.primer_apellido,u.segundo_apellido))) FILTER(WHERE cu.id IS NOT NULL),'[]') AS cuidos
     FROM calendario_pruebas_eventos e JOIN secciones s ON s.id=e.seccion_id LEFT JOIN calendario_pruebas_cuidos cu ON cu.evento_id=e.id LEFT JOIN usuarios u ON u.id=cu.profesor_id
-    WHERE e.calendario_id=$1 GROUP BY e.id,s.nombre ORDER BY e.fecha,e.hora_inicio,s.nombre`,[req.params.id]);
+    WHERE e.calendario_id=$1 GROUP BY e.id,s.nombre,s.nivel ORDER BY e.fecha,e.hora_inicio,s.nombre`,[req.params.id]);
   const ad=await pool.query(`SELECT a.*,concat_ws(' ',u.nombre,u.primer_apellido,u.segundo_apellido) AS profesor_nombre FROM calendario_pruebas_cuidos_adecuacion a JOIN usuarios u ON u.id=a.profesor_id WHERE a.calendario_id=$1 ORDER BY a.fecha,a.hora_inicio`,[req.params.id]);
   res.json({calendario:c.rows[0],eventos:e.rows,adecuaciones:ad.rows});
 });
 router.get('/docentes-cuido',async(req,res)=>{const r=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido FROM usuarios WHERE activo=true AND rol IN ('profesor','profesor_guia') ORDER BY primer_apellido,segundo_apellido,nombre`);res.json(r.rows);});
+router.get('/cronograma-publicado',async(req,res)=>{const r=await pool.query(`SELECT c.id AS calendario_id,c.titulo,c.fecha_inicio::text,c.fecha_fin::text,e.fecha::text,e.hora_inicio::text,e.hora_fin::text,e.materia,e.seccion_id,s.nombre AS seccion_nombre,s.nivel,(SELECT COUNT(*)::int FROM secciones sx JOIN secciones_anio sa ON sa.seccion_id=sx.id AND sa.anio=EXTRACT(YEAR FROM e.fecha)::int AND sa.activa=true WHERE sx.nivel=s.nivel) AS secciones_nivel_total FROM calendarios_pruebas c JOIN calendario_pruebas_eventos e ON e.calendario_id=c.id JOIN secciones s ON s.id=e.seccion_id WHERE c.estado='publicado' AND c.fecha_fin>=CURRENT_DATE ORDER BY c.fecha_inicio,e.fecha,e.hora_inicio,s.nivel,s.nombre`);res.json(r.rows);});
 router.post('/calendarios/:id/eventos',exigirCTA,async(req,res)=>{
   const {fecha,hora_inicio,hora_fin,materia,seccion_id,nivel,niveles,observacion}=req.body;
   const inicio=String(hora_inicio||'').slice(0,5),fin=sumarMinutos(inicio,80);
