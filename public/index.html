@@ -18617,7 +18617,7 @@ function renderCronogramaPruebas(rows){
   const calendarios=[...new Map(rows.map(r=>[String(r.calendario_id||r.titulo),{id:r.calendario_id,titulo:r.titulo,rows:rows.filter(x=>String(x.calendario_id||x.titulo)===String(r.calendario_id||r.titulo))}])).values()];
   return calendarios.map(cal=>{const fechas=[...new Set(cal.rows.map(r=>String(r.fecha).slice(0,10)))].sort(),horas=['07:00','09:15','12:00','14:10'];const celdas=horas.map(h=>`<tr><th style="white-space:nowrap;text-align:center">${h==='07:00'?'7:00 a. m.':h==='09:15'?'9:15 a. m.':h==='12:00'?'12:00 p. m.':'2:10 p. m.'}</th>${fechas.map(f=>{const cel=cal.rows.filter(r=>String(r.fecha).slice(0,10)===f&&String(r.hora_inicio).slice(0,5)===h);const materias=[...new Set(cel.map(r=>r.materia))];const contenido=materias.map(m=>{const mr=cel.filter(r=>r.materia===m),niveles=[...new Set(mr.map(r=>Number(r.nivel)))].sort((a,b)=>a-b);const alcances=[];niveles.forEach(n=>{const nr=mr.filter(r=>Number(r.nivel)===n),secs=[...new Set(nr.map(r=>r.seccion_nombre))];const total=Math.max(...nr.map(r=>Number(r.secciones_nivel_total)||0),0);alcances.push(total&&secs.length>=total?`${n}°`:secs.join(', '));});return `<div style="margin:3px 0"><strong>${htmlSeguro(m)}</strong><br><small>${htmlSeguro(alcances.join(' · '))}</small></div>`;}).join('');return `<td style="text-align:center;vertical-align:middle;min-width:120px">${contenido||'—'}</td>`;}).join('')}</tr>`).join('');return `<section style="margin:0 0 18px"><h2 style="text-align:center;margin:4px 0 10px">${htmlSeguro(cal.titulo)}</h2><div class="table-wrap"><table style="border-collapse:collapse;width:100%"><thead><tr><th style="text-align:center">Horario</th>${fechas.map(f=>`<th style="text-align:center">${htmlSeguro(ctaCabeceraFecha(f))}</th>`).join('')}</tr></thead><tbody>${celdas}</tbody></table></div></section>`;}).join('');
 }
-function renderHorarioCuidosImpresion(datos){const eventos=datos?.eventos||[],adecuaciones=datos?.adecuaciones||[],fechas=[...new Set([...eventos.map(e=>String(e.fecha).slice(0,10)),...adecuaciones.map(a=>String(a.fecha).slice(0,10))])].sort(),horas=['07:00','09:15','12:00','14:10'];return fechas.map(f=>`<section style="margin-bottom:18px"><h2 style="margin:8px 0">${htmlSeguro(ctaCabeceraFecha(f))} — ${fmtF(f)}</h2>${horas.map(h=>{const ev=eventos.filter(e=>String(e.fecha).slice(0,10)===f&&String(e.hora_inicio).slice(0,5)===h),ad=adecuaciones.find(a=>String(a.fecha).slice(0,10)===f&&String(a.hora_inicio).slice(0,5)===h);if(!ev.length&&!ad)return '';return `<h3 style="background:#eaf2fb;padding:7px 9px;margin:8px 0 0">Ronda ${h}</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th>Sección / cuido</th><th>Prueba</th><th>Docente responsable</th><th>Duración</th></tr></thead><tbody>${ad?`<tr><td><strong>♿ Adecuación</strong></td><td>Cuido especial</td><td>${htmlSeguro(ad.profesor_nombre||'Sin asignar')}</td><td>${String(ad.hora_inicio).slice(0,5)}–${String(ad.hora_fin).slice(0,5)}</td></tr>`:''}${ev.map(e=>`<tr><td>${htmlSeguro(e.seccion_nombre)}</td><td>${htmlSeguro(e.materia)}</td><td>${htmlSeguro(e.cuidos?.[0]?.nombre||'Sin asignar')}</td><td>${String(e.hora_inicio).slice(0,5)}–${String(e.hora_fin).slice(0,5)}</td></tr>`).join('')}</tbody></table>`;}).join('')}</section>`).join('');}
+function renderHorarioCuidosImpresion(datos){const eventos=datos?.eventos||[],adecuaciones=datos?.adecuaciones||[],titulo=datos?.calendario?.titulo||'',fechas=[...new Set([...eventos.map(e=>String(e.fecha).slice(0,10)),...adecuaciones.map(a=>String(a.fecha).slice(0,10))])].sort(),horas=['07:00','09:15','12:00','14:10'];return fechas.flatMap(f=>horas.map(h=>{const ev=eventos.filter(e=>String(e.fecha).slice(0,10)===f&&String(e.hora_inicio).slice(0,5)===h),ad=adecuaciones.find(a=>String(a.fecha).slice(0,10)===f&&String(a.hora_inicio).slice(0,5)===h);if(!ev.length&&!ad)return '';return `<section class="pdf-page-block" style="width:650px;padding:4px 8px;background:#fff;box-sizing:border-box"><h2 style="text-align:center;margin:2px 0 5px">${htmlSeguro(titulo)}</h2><h2 style="margin:4px 0 7px">${htmlSeguro(ctaCabeceraFecha(f))} - ${fmtF(f)}</h2><h3 style="background:#eaf2fb;padding:6px 8px;margin:0">Ronda ${h}</h3><table style="width:100%;border-collapse:collapse;font-size:11px;line-height:1.2"><thead><tr><th style="padding:4px">Sección / cuido</th><th style="padding:4px">Prueba</th><th style="padding:4px">Docente responsable</th><th style="padding:4px">Duración</th></tr></thead><tbody>${ad?`<tr><td style="padding:4px"><strong>Adecuación</strong></td><td style="padding:4px">Cuido especial</td><td style="padding:4px">${htmlSeguro(ad.profesor_nombre||'Sin asignar')}</td><td style="padding:4px">${String(ad.hora_inicio).slice(0,5)}-${String(ad.hora_fin).slice(0,5)}</td></tr>`:''}${ev.map(e=>`<tr><td style="padding:4px">${htmlSeguro(e.seccion_nombre)}</td><td style="padding:4px">${htmlSeguro(e.materia)}</td><td style="padding:4px">${htmlSeguro(e.cuidos?.[0]?.nombre||'Sin asignar')}</td><td style="padding:4px">${String(e.hora_inicio).slice(0,5)}-${String(e.hora_fin).slice(0,5)}</td></tr>`).join('')}</tbody></table></section>`;}).filter(Boolean)).join('');}
 let ctaActual=null,ctaDetalleData=null,ctaDocentes=[],ctaSecciones=[],ctaModoCalendario='nuevo',ctaEventoEditando=null,ctaFiltroFecha='';
 const esCTA=()=>ME?.rol==='admin'||(ME?.funciones_extra||[]).includes('comite_tecnico_asesor');
 async function iniciarTecnicoAsesor(){
@@ -18685,7 +18685,7 @@ async function ctaEliminarCalendario(){if(!ctaActual||!confirm('¿Borrar este ca
 async function ctaGenerarCuidos(){try{const r=await api(`/api/tecnico-asesor/calendarios/${ctaActual}/generar-cuidos`,'POST',{});sa('alert-cta',`Se generaron ${r.generados} cuidos de examen y ${r.adecuaciones_generadas} cuidos de Adecuación.${r.sin_horario.length?' Algunas asignaciones no encontraron un docente con jornada suficiente.':''}`,r.sin_horario.length?'warning':'success');ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');}}
 async function ctaPublicar(){if(!confirm('Al publicar lo verán docentes y familias. ¿Continuar?'))return;await api(`/api/tecnico-asesor/calendarios/${ctaActual}/publicar`,'PUT',{});await ctaAbrir(ctaActual);await iniciarTecnicoAsesor();}
 function ctaImprimirPruebas(){const c=ctaDetalleData?.calendario,e=ctaDetalleData?.eventos||[];const rows=e.map(x=>({...x,calendario_id:c.id,titulo:c.titulo}));imprimirPDFMEP('CRONOGRAMA DE PRUEBAS',renderCronogramaPruebas(rows),'cronograma_pruebas.pdf');}
-function ctaImprimirCuidos(){imprimirPDFMEP('HORARIO DE CUIDO POR FECHA Y RONDA',`<h2 style="text-align:center">${htmlSeguro(ctaDetalleData.calendario.titulo)}</h2>${renderHorarioCuidosImpresion(ctaDetalleData)}`,'horario_cuidos.pdf');}
+function ctaImprimirCuidos(){imprimirPDFMEP('HORARIO DE CUIDO POR FECHA Y RONDA',renderHorarioCuidosImpresion(ctaDetalleData),'horario_cuidos.pdf',{bloquesPagina:true});}
 
 // ════════════════════════════════════
 //  BIBLIOTECA Y PRÉSTAMOS
@@ -20530,7 +20530,7 @@ async function imprimirListaAdecuaciones(){
   }catch(e){sa("alert-adecuaciones",e.message,"danger");}
 }
 
-async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
+async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo, opciones={}){
   // 1. Construir el HTML del contenedor con encabezado + contenido
   const encabezadoHTML = `
     <div style="font-family:Arial,sans-serif;background:#fff;">
@@ -20679,37 +20679,35 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo){
       return limite;
     }
 
-    const cortes=[];
-    let desdePx=0;
-    while(desdePx < contentCanvas.height){
-      const limite=Math.min(contentCanvas.height, desdePx+maxAltoPx);
-      let hastaPx=buscarCorteSeguro(desdePx, limite);
-      if(hastaPx<=desdePx+40) hastaPx=limite;
-      cortes.push([desdePx,hastaPx]);
-      desdePx=hastaPx;
+    const paginas=[];
+    if(opciones.bloquesPagina){
+      const bloques=[...wrap.querySelectorAll('.pdf-page-block')];
+      for(const bloque of bloques){
+        const canvas=await html2canvas(bloque,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false,windowWidth:680});
+        paginas.push({canvas,ajustar:true});
+      }
+    }else{
+      const cortes=[];let desdePx=0;
+      while(desdePx < contentCanvas.height){const limite=Math.min(contentCanvas.height,desdePx+maxAltoPx);let hastaPx=buscarCorteSeguro(desdePx,limite);if(hastaPx<=desdePx+40)hastaPx=limite;cortes.push([desdePx,hastaPx]);desdePx=hastaPx;}
+      if(!cortes.length)cortes.push([0,Math.max(1,contentCanvas.height)]);
+      cortes.forEach(([inicioPx,finPx])=>{const altoPx=Math.max(1,finPx-inicioPx),canvas=document.createElement('canvas');canvas.width=contentCanvas.width;canvas.height=altoPx;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(contentCanvas,0,inicioPx,contentCanvas.width,altoPx,0,0,contentCanvas.width,altoPx);paginas.push({canvas,ajustar:false});});
     }
-    if(!cortes.length) cortes.push([0,Math.max(1,contentCanvas.height)]);
+    if(!paginas.length)paginas.push({canvas:contentCanvas,ajustar:false});
 
-    cortes.forEach(([inicioPx,finPx],indice)=>{
+    paginas.forEach(({canvas:paginaCanvas,ajustar},indice)=>{
       if(indice>0) pdf.addPage('letter','portrait');
-      const altoPx=Math.max(1,finPx-inicioPx);
-      const paginaCanvas=document.createElement('canvas');
-      paginaCanvas.width=contentCanvas.width;
-      paginaCanvas.height=altoPx;
-      const paginaCtx=paginaCanvas.getContext('2d');
-      paginaCtx.fillStyle='#fff';
-      paginaCtx.fillRect(0,0,paginaCanvas.width,paginaCanvas.height);
-      paginaCtx.drawImage(contentCanvas,0,inicioPx,contentCanvas.width,altoPx,0,0,contentCanvas.width,altoPx);
       const contenidoData=paginaCanvas.toDataURL('image/jpeg',0.95);
-      const altoRenderMm=altoPx/pxPorMm;
+      let anchoRenderMm=anchoContenido,altoRenderMm=paginaCanvas.height*(anchoContenido/paginaCanvas.width),xRender=margenContenidoX;
+      if(ajustar&&altoRenderMm>altoContenidoMm){const escala=altoContenidoMm/altoRenderMm;altoRenderMm=altoContenidoMm;anchoRenderMm*=escala;xRender=(pageWidth-anchoRenderMm)/2;}
 
       pdf.addImage(headerData,'JPEG',margenOficialX,headerY,anchoOficial,headerScaled);
-      pdf.addImage(contenidoData,'JPEG',margenContenidoX,contenidoY,anchoContenido,altoRenderMm);
+      pdf.addImage(contenidoData,'JPEG',xRender,contenidoY,anchoRenderMm,altoRenderMm);
       pdf.addImage(footerData,'JPEG',margenOficialX,footerY,anchoOficial,footerScaled);
       pdf.setFont('helvetica','normal');
       pdf.setFontSize(7.5);
       pdf.setTextColor(100,116,139);
-      pdf.text(`Página ${indice+1} de ${cortes.length}`,pageWidth-margenOficialX,footerY-1.5,{align:'right'});
+      pdf.text(`Página ${indice+1} de ${paginas.length}`,pageWidth-margenOficialX,footerY-1.5,{align:'right'});
+      if(paginaCanvas!==contentCanvas){paginaCanvas.width=1;paginaCanvas.height=1;}
     });
 
     // Liberar memoria antes de abrir el archivo en una pestaña nueva.

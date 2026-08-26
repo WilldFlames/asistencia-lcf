@@ -51,6 +51,6 @@ test('el generador PDF pagina el contenido sin invadir encabezado ni pie',()=>{
   assert.match(frontend,/const contenidoFinY = footerY - 3/);
   assert.match(frontend,/pdf\.addImage\(headerData,'JPEG'/);
   assert.match(frontend,/pdf\.addImage\(footerData,'JPEG'/);
-  assert.match(frontend,/Página \$\{indice\+1\} de \$\{cortes\.length\}/);
+  assert.match(frontend,/Página \$\{indice\+1\} de \$\{paginas\.length\}/);
   assert.doesNotMatch(frontend,/html2pdf\(\)\.set\(opt\)\.from\(wrap\)/);
 });
