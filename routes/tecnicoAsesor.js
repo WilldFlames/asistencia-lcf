@@ -47,9 +47,21 @@ router.get('/calendarios/:id',async(req,res)=>{
     WHERE e.calendario_id=$1 GROUP BY e.id,s.nombre ORDER BY e.fecha,e.hora_inicio,s.nombre`,[req.params.id]);res.json({calendario:c.rows[0],eventos:e.rows});
 });
 router.post('/calendarios/:id/eventos',exigirCTA,async(req,res)=>{
-  const {fecha,hora_inicio,hora_fin,materia,seccion_id,observacion}=req.body;
-  if(!fecha||!hora_inicio||!hora_fin||!materia?.trim()||!seccion_id)return res.status(400).json({error:'Completá fecha, horas, materia y sección.'});
-  const r=await pool.query(`INSERT INTO calendario_pruebas_eventos(calendario_id,fecha,hora_inicio,hora_fin,materia,seccion_id,observacion) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[req.params.id,fecha,hora_inicio,hora_fin,materia.trim(),seccion_id,observacion||'']);res.json(r.rows[0]);
+  const {fecha,hora_inicio,hora_fin,materia,seccion_id,nivel,observacion}=req.body;
+  if(!fecha||!hora_inicio||!hora_fin||!materia?.trim()||(!seccion_id&&!nivel))return res.status(400).json({error:'Completá fecha, horas, materia y el nivel o sección.'});
+  let secciones=[];
+  if(nivel){
+    const anio=Number(String(fecha).slice(0,4));
+    const s=await pool.query(`SELECT s.id FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$1 AND sa.activa=true WHERE s.nivel=$2 ORDER BY s.nombre`,[anio,nivel]);
+    secciones=s.rows.map(x=>x.id);
+    if(!secciones.length)return res.status(400).json({error:'No hay secciones activas para ese nivel en el año seleccionado.'});
+  }else secciones=[Number(seccion_id)];
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');const creadas=[];
+    for(const sid of secciones){const r=await client.query(`INSERT INTO calendario_pruebas_eventos(calendario_id,fecha,hora_inicio,hora_fin,materia,seccion_id,observacion) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[req.params.id,fecha,hora_inicio,hora_fin,materia.trim(),sid,observacion||'']);creadas.push(r.rows[0]);}
+    await client.query('COMMIT');res.json({ok:true,creadas,total:creadas.length});
+  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 });
 router.put('/eventos/:id',exigirCTA,async(req,res)=>{
   const {fecha,hora_inicio,hora_fin,materia,seccion_id,observacion}=req.body;
