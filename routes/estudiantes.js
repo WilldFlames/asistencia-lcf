@@ -186,7 +186,7 @@ async function getColumnasEstudiantesSinFoto() {
 // es ~100+ MB de payload innecesario en cada llamada. La foto se consulta
 // puntualmente cuando se abre un expediente o el carnet.
 router.get("/", requireAuth, async (req, res) => {
-  const { seccion_id, q } = req.query;
+  const { seccion_id, q, alcance } = req.query;
   try {
     const cols = await getColumnasEstudiantesSinFoto();
     // OCTET_LENGTH(foto_url) > 0 es rapidísimo: PostgreSQL no necesita
@@ -197,7 +197,13 @@ router.get("/", requireAuth, async (req, res) => {
       LEFT JOIN secciones s ON s.id=e.seccion_id
       WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)`;
     const params = [];
-    const permitidas=await seccionesPermitidas(req.session.usuario);
+    // Debidos Procesos y Pautas son módulos institucionales: cualquier perfil
+    // autorizado para abrirlos puede buscar a la persona estudiante en todo el
+    // colegio. El alcance debe pedirse explícitamente para que las demás listas
+    // continúen respetando las secciones habituales del docente.
+    const rolesProcesos=new Set(["admin","auxiliar","administrativo","secretaria","profesor","profesor_guia","orientador"]);
+    const alcanceInstitucional=alcance==='procesos'&&rolesProcesos.has(req.session.usuario?.rol);
+    const permitidas=alcanceInstitucional?null:await seccionesPermitidas(req.session.usuario);
     if(permitidas!==null){ params.push(permitidas); sql += ` AND e.seccion_id=ANY($${params.length}::int[])`; }
     if (seccion_id) { params.push(seccion_id); sql += ` AND e.seccion_id=$${params.length}`; }
     if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.segundo_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }

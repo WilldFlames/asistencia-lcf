@@ -11730,7 +11730,7 @@ function dpBuscarEstudiante(){
     const sel = document.getElementById('ndp-estudiante-id');
     if(q.length < 2){ sel.innerHTML = '<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
     try {
-      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      const rows = await api(`/api/estudiantes?alcance=procesos&q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
       `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
@@ -12991,34 +12991,50 @@ async function imprimirPasoDPDirecto(tipo, orden){
       cedulaDeclarante = dp.cedula;
     }
     const declTexto = (c.declaracion || '').trim();
+    const firmaDeclaracion=(tituloFirma,nombreFirma='',cedulaFirma='')=>`
+      <div style="padding-top:82px;min-height:132px;box-sizing:border-box;">
+        <div style="border-top:1.4px solid #111;padding-top:7px;font-size:12px;line-height:1.55;">
+          <strong>${tituloFirma}</strong>${nombreFirma?`<br/>${nombreFirma}`:''}${cedulaFirma?`<br/>Cédula: ${cedulaFirma}`:''}
+        </div>
+      </div>`;
+    const crearPaginaFirmas=firmas=>`
+      <div class="pdf-page-block" style="box-sizing:border-box;padding:4px 8px 10px;">
+        <div style="text-align:center;color:#1F3864;font-weight:bold;font-size:14px;margin:4px 0 8px;">FIRMAS DE LA DECLARACIÓN</div>
+        <div style="font-size:12px;line-height:1.5;border-bottom:1px solid #cbd5e1;padding-bottom:9px;margin-bottom:2px;">
+          <strong>Expediente:</strong> ${nro}<br/>
+          <strong>Persona declarante:</strong> ${nombreDeclarante}<br/>
+          <strong>Fecha de la declaración:</strong> ${c.fecha_decl ? fmtF(c.fecha_decl) : '________________'}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:42px;row-gap:22px;">${firmas.join('')}</div>
+      </div>`;
 
     if (esOfendidoDocente){
       // Plantilla específica para docente ofendido (mayor de edad, sin sección)
-      body = `<p><strong>Expediente:</strong> ${nro}</p>
+      body = `<div class="pdf-page-block"><p><strong>Expediente:</strong> ${nro}</p>
         <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece el docente <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
         <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes. La persona declarante manifiesta que sus dichos corresponden fielmente a lo que recuerda y observó, y se advierte que falsear la información puede tener consecuencias en la valoración pedagógica del caso.</p>
         <p>Esta declaración no se realiza bajo juramento en sentido judicial, por no tratarse de un proceso penal, sino de un procedimiento correctivo con fines educativos. No obstante, declaro bajo la fe de juramento que lo aquí manifestado lo hago de manera libre, espontánea, voluntaria, en pleno uso de mis facultades, y sin que medie presión, coacción, violencia, intimidación ni error alguno.</p>
         <p>Yo, <strong>${nombreDeclarante}</strong>, portador de la cédula de identidad <strong>${cedulaDeclarante}</strong>, docente del centro educativo, manifiesto lo siguiente:</p>
         <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
-        <div class="reporte-materia" style="margin-top:30px;">
-          <p>Nombre del docente: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</p>
-          <p>Firma ${cargoProfesor.toLowerCase()}: ____________________ &nbsp; Cédula: ${guiaCedula}</p>
-          <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>
-        </div>`;
+        </div>${crearPaginaFirmas([
+          firmaDeclaracion('Firma de la persona docente declarante',nombreDeclarante,cedulaDeclarante),
+          firmaDeclaracion(`Firma del(la) ${cargoProfesor.toLowerCase()}`,guia,guiaCedula),
+          firmaDeclaracion('Firma del(la) orientador(a)',orientador,dp.orient_cedula||'____')
+        ])}`;
     } else {
       // Plantilla original para estudiante (ofensor, testigo u ofendido estudiante)
-      body = `<p><strong>Expediente:</strong> ${nro}</p>
+      body = `<div class="pdf-page-block"><p><strong>Expediente:</strong> ${nro}</p>
         <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece la persona estudiante <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, en calidad de <strong>${calidadDeclaracion}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
         <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
         <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
         <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
         <div style="border:1px solid #ccc;padding:14px;min-height:520px;white-space:pre-wrap;line-height:2.2;font-size:13px;">${declTexto}</div>
-        <div class="reporte-materia" style="margin-top:30px;">
-          <p>Nombre del estudiante: ${nombreDeclarante}<br/>Cédula: ${cedulaDeclarante} &nbsp; Firma: ________________ &nbsp; Fecha: ${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</p>
-          <p>Firma encargado: ____________________ &nbsp; Cédula: ${c.encargado_cedula||'____'}</p>
-          <p>Firma ${cargoProfesor.toLowerCase()}: ____________________ &nbsp; Cédula: ${guiaCedula}</p>
-          <p>Firma orientador: ____________________ &nbsp; Cédula: ${dp.orient_cedula||'____'}</p>
-        </div>`;
+        </div>${crearPaginaFirmas([
+          firmaDeclaracion('Firma de la persona estudiante',nombreDeclarante,cedulaDeclarante),
+          firmaDeclaracion('Firma del padre, madre o encargado(a)',c.encargado_nombre||'',c.encargado_cedula||'____'),
+          firmaDeclaracion(`Firma del(la) ${cargoProfesor.toLowerCase()}`,guia,guiaCedula),
+          firmaDeclaracion('Firma del(la) orientador(a)',orientador,dp.orient_cedula||'____')
+        ])}`;
     }
   } else if(tipo === 'conciliacion_autorizacion'){
     body=`<div style="font-size:11px;line-height:1.42;">
@@ -13180,7 +13196,8 @@ async function imprimirPasoDPDirecto(tipo, orden){
   };
   const contenidoHTML=`<div style="font-size:13px;line-height:1.55;">${body}</div>`;
   const archivo=`${nombresArchivo[tipo]||'debido_proceso'}_${String(dp.numero).padStart(3,'0')}_${dp.anio}.pdf`;
-  await imprimirPDFMEP(tituloOficial, contenidoHTML, archivo);
+  if(esDecl) await imprimirPDFMEP(tituloOficial, contenidoHTML, archivo,{bloquesPagina:true});
+  else await imprimirPDFMEP(tituloOficial, contenidoHTML, archivo);
 }
 
 // ── OFENDIDO ──────────────────────────────────────────────────────────
@@ -13199,7 +13216,7 @@ function dpBuscarOfendido(){
     const sel = document.getElementById('dpo-estudiante-id');
     if(q.length < 2){ sel.innerHTML = '<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
     try {
-      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      const rows = await api(`/api/estudiantes?alcance=procesos&q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
     `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
@@ -13244,7 +13261,7 @@ function dpBuscarTestigo(){
     const sel = document.getElementById('dpt-estudiante-id');
     if(q.length < 2){ sel.innerHTML = '<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
     try {
-      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      const rows = await api(`/api/estudiantes?alcance=procesos&q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML = '<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
     `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
@@ -15130,7 +15147,7 @@ function npBuscarEstudiante(){
     const sel = document.getElementById('np-estudiante-id');
     if(q.length < 2){ sel.innerHTML='<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
     try{
-      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      const rows = await api(`/api/estudiantes?alcance=procesos&q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
     `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
@@ -15692,7 +15709,7 @@ function ppBuscarEstudiante(){
     const sel = document.getElementById('pp-estudiante-id');
     if(q.length < 2){ sel.innerHTML='<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
     try{
-      const rows = await api(`/api/estudiantes?q=${encodeURIComponent(q)}`) || [];
+      const rows = await api(`/api/estudiantes?alcance=procesos&q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
     `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
