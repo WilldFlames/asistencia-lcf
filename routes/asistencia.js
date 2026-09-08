@@ -77,7 +77,7 @@ router.get("/mis-asignaciones", requireDocente, async (req, res) => {
         ) AS rn
       FROM mis_asig
     )
-    SELECT id, lecciones_semana, subgrupo, periodo,
+    SELECT id, seccion_id, materia_id, lecciones_semana, subgrupo, periodo,
       seccion_nombre, nivel, materia_nombre,
       (SELECT COUNT(*) FROM sesiones_asistencia sa WHERE sa.asignacion_id=ranked.id) AS sesiones_total
     FROM ranked

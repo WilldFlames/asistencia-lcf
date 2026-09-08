@@ -672,23 +672,68 @@ router.post("/asignaciones", onlyAdmin, async (req, res) => {
   if (!profesor_id||!seccion_id||!materia_id) return res.status(400).json({ error: "Datos incompletos" });
   const anioFinal = parseInt(anio) || await obtenerAnioActivo();
   const periodoFinal = periodo || await periodoActualAdmin();
+  const client = await pool.connect();
   try {
-    const seccionActiva = await pool.query(`SELECT 1 FROM secciones_anio
+    await client.query('BEGIN');
+    const seccionActiva = await client.query(`SELECT 1 FROM secciones_anio
       WHERE seccion_id=$1 AND anio=$2 AND activa=true`, [seccion_id, anioFinal]);
-    if(!seccionActiva.rows.length)
+    if(!seccionActiva.rows.length) {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error:`Esa sección no está habilitada para el ${anioFinal}. Revise Configurar Año.` });
-    const dup = await pool.query(`SELECT id FROM asignaciones
+    }
+
+    // Hogar e Industriales son talleres semestrales con una regla fija. El
+    // grupo del estudiante nunca cambia: cambia la materia que recibe.
+    const meta = await client.query(`
+      SELECT m.nombre AS materia, s.nivel
+      FROM materias m CROSS JOIN secciones s
+      WHERE m.id=$1 AND s.id=$2`, [materia_id, seccion_id]);
+    const materiaNombre = meta.rows[0]?.materia;
+    const nivel = Number(meta.rows[0]?.nivel);
+    const esTallerRotativo = nivel >= 7 && nivel <= 9 &&
+      ['Educación para el Hogar','Artes Industriales'].includes(materiaNombre);
+
+    if (esTallerRotativo) {
+      const subgrupoI = materiaNombre === 'Educación para el Hogar' ? 'A' : 'B';
+      const subgrupoII = subgrupoI === 'A' ? 'B' : 'A';
+      const conflicto = await client.query(`SELECT id, periodo, subgrupo FROM asignaciones
+        WHERE seccion_id=$1 AND materia_id=$2 AND anio=$3 AND (
+          (COALESCE(periodo,'I Período')='I Período' AND subgrupo=$4) OR
+          (COALESCE(periodo,'I Período')='II Período' AND subgrupo=$5)
+        ) LIMIT 1`, [seccion_id, materia_id, anioFinal, subgrupoI, subgrupoII]);
+      if (conflicto.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error:`${materiaNombre} ya está configurada para esta sección en ${anioFinal}. Podés editar la asignación existente.` });
+      }
+      const creadaI = await client.query(`INSERT INTO asignaciones
+        (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo,periodo,anio)
+        VALUES ($1,$2,$3,$4,$5,'I Período',$6) RETURNING id`,
+        [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupoI,anioFinal]);
+      const creadaII = await client.query(`INSERT INTO asignaciones
+        (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo,periodo,anio)
+        VALUES ($1,$2,$3,$4,$5,'II Período',$6) RETURNING id`,
+        [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupoII,anioFinal]);
+      await client.query('COMMIT');
+      return res.json({ ok:true, id:creadaI.rows[0].id, id_ii:creadaII.rows[0].id,
+        configuracion_taller:true, subgrupo_I:subgrupoI, subgrupo_II:subgrupoII });
+    }
+
+    const dup = await client.query(`SELECT id FROM asignaciones
       WHERE profesor_id=$1 AND seccion_id=$2 AND materia_id=$3
         AND COALESCE(subgrupo,'')=COALESCE($4::text,'')
         AND COALESCE(periodo,'I Período')=$5 AND anio=$6 LIMIT 1`,
       [profesor_id,seccion_id,materia_id,subgrupo||null,periodoFinal,anioFinal]);
-    if(dup.rows.length) return res.status(409).json({ error:"Asignación ya existe para ese año, período y grupo" });
-    const r = await pool.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo,periodo,anio) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+    if(dup.rows.length) { await client.query('ROLLBACK'); return res.status(409).json({ error:"Asignación ya existe para ese año, período y grupo" }); }
+    const r = await client.query(`INSERT INTO asignaciones (profesor_id,seccion_id,materia_id,lecciones_semana,subgrupo,periodo,anio) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
       [profesor_id,seccion_id,materia_id,lecciones_semana||4,subgrupo||null,periodoFinal, anioFinal]);
+    await client.query('COMMIT');
     res.json({ ok:true, id:r.rows[0].id });
   } catch(e) {
+    try { await client.query('ROLLBACK'); } catch {}
     if (e.message.includes("unique")) return res.status(409).json({ error: "Asignación ya existe" });
     res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -702,10 +747,28 @@ router.put("/asignaciones/:id", onlyAdmin, async (req, res) => {
   if(!profesor_id || !seccion_id || !materia_id)
     return res.status(400).json({ error: "Faltan campos requeridos." });
   // Nota: NO se permite cambiar 'periodo' desde el editor manual (eso solo lo hace el módulo de intercambio)
+  const actual = await pool.query(`SELECT a.*,m.nombre AS materia_nombre,s.nivel
+    FROM asignaciones a JOIN materias m ON m.id=a.materia_id JOIN secciones s ON s.id=a.seccion_id
+    WHERE a.id=$1`, [req.params.id]);
+  if(!actual.rows.length) return res.status(404).json({ error: "Asignación no encontrada." });
+  const a0 = actual.rows[0];
+  const esTallerRotativo = Number(a0.nivel) >= 7 && Number(a0.nivel) <= 9 &&
+    ['Educación para el Hogar','Artes Industriales'].includes(a0.materia_nombre);
+  if(esTallerRotativo) {
+    if(Number(seccion_id)!==Number(a0.seccion_id) || Number(materia_id)!==Number(a0.materia_id))
+      return res.status(409).json({ error:'En Hogar/Industriales no se cambia sección ni materia desde el editor. Eliminá y configurá nuevamente si fuera indispensable.' });
+    const periodoPareja = (a0.periodo||'I Período') === 'I Período' ? 'II Período' : 'I Período';
+    const subgrupoPareja = a0.subgrupo === 'A' ? 'B' : 'A';
+    await pool.query(`UPDATE asignaciones SET profesor_id=$1, lecciones_semana=$2
+      WHERE seccion_id=$3 AND materia_id=$4 AND anio=$5
+        AND COALESCE(periodo,'I Período')=$6 AND subgrupo=$7`,
+      [profesor_id, lecciones_semana||4, a0.seccion_id, a0.materia_id, a0.anio, periodoPareja, subgrupoPareja]);
+  }
+  const subgrupoFinal = esTallerRotativo ? a0.subgrupo : (subgrupo || null);
   const r = await pool.query(
     `UPDATE asignaciones SET profesor_id=$1, seccion_id=$2, materia_id=$3,
      lecciones_semana=$4, subgrupo=$5 WHERE id=$6 RETURNING id`,
-    [profesor_id, seccion_id, materia_id, lecciones_semana || 4, subgrupo || null, req.params.id]
+    [profesor_id, seccion_id, materia_id, lecciones_semana || 4, subgrupoFinal, req.params.id]
   );
   if(!r.rows.length) return res.status(404).json({ error: "Asignación no encontrada." });
   res.json({ ok: true });

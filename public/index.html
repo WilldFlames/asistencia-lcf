@@ -1431,8 +1431,7 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
         <h2 style="margin:0">📋 Asignaciones Docentes</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-orange btn-sm" onclick="abrirIntercambioPeriodo()">🔄 Intercambio Hogar↔Industriales (II Período)</button>
-          <button class="btn btn-danger btn-sm" onclick="abrirSubgruposEstudiantes()" title="Arreglar subgrupos A/B de estudiantes por sección">🔀 Corregir Subgrupos A/B</button>
+          <button class="btn btn-orange btn-sm" onclick="abrirIntercambioPeriodo()">🏠 Hogar e Industriales por períodos</button>
           <button class="btn btn-outline btn-sm" onclick="diagnosticoFotos()" title="Ver cuánto espacio ocupan las fotos en la BD">📊 Diagnóstico Fotos</button>
         </div>
       </div>
@@ -1466,7 +1465,7 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <h2 style="margin:0">🎒 Estudiantes</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-outline btn-sm" id="btn-imprimir-lista" onclick="imprimirListaEstudiantes()">🖨️ Imprimir Lista</button>
+        <button class="btn btn-outline btn-sm" id="btn-imprimir-lista" onclick="abrirFormatosListaEstudiantes()">🖨️ Imprimir Lista</button>
         <button class="btn btn-success btn-sm" id="btn-exportar-excel" onclick="exportarEstudiantesExcel()">📊 Exportar Excel</button>
         <button class="btn btn-orange btn-sm" id="btn-importar-excel" onclick="abrirImportarExcel()" style="display:none">📥 Importar Excel</button>
         <button class="btn btn-outline btn-sm" id="btn-gp-est" onclick="abrirGestionPadres()" style="display:none;" title="Administrar acceso de las familias">📱 LCF Familias</button>
@@ -4885,16 +4884,43 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <!-- Modal Asignación -->
+<div class="modal-overlay" id="modal-formato-lista-estudiantes">
+  <div class="modal" style="max-width:560px;">
+    <h3>🖨️ Formato de lista</h3>
+    <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px;">Se utilizarán la sección y la búsqueda que están seleccionadas en la pantalla de Estudiantes.</p>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1;"><label>Tipo de lista *</label>
+        <select id="fle-tipo" onchange="actualizarFormatoListaEstudiantes()">
+          <option value="general">Lista general</option>
+          <option value="examen">Asistencia a examen</option>
+          <option value="entrega_tarea">Entrega de tarea</option>
+          <option value="recepcion_tarea">Recepción de tarea</option>
+          <option value="temas_examen">Entrega de temas de examen</option>
+        </select>
+      </div>
+      <div class="fg" id="fle-materia-wrap" style="grid-column:1/-1;display:none;"><label>Materia *</label><select id="fle-materia"><option value="">— Seleccionar —</option></select></div>
+    </div>
+    <div id="fle-detalle" style="display:none;margin-top:10px;padding:10px 12px;background:#eff6ff;border-radius:8px;font-size:12px;line-height:1.5;"></div>
+    <div id="alert-fle" class="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-formato-lista-estudiantes')">Cancelar</button>
+      <button class="btn btn-primary" onclick="generarFormatoListaEstudiantes()">🖨️ Generar PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Asignación -->
 <div class="modal-overlay" id="modal-asignacion">
   <div class="modal">
     <h3>Nueva Asignación</h3>
     <div class="form-grid">
       <div class="fg" style="grid-column:1/-1"><label>Profesor *</label><select id="ma-profesor"><option value="">— Seleccionar —</option></select></div>
-      <div class="fg"><label>Sección *</label><select id="ma-seccion"><option value="">— Seleccionar —</option></select></div>
-      <div class="fg"><label>Materia *</label><select id="ma-materia"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Sección *</label><select id="ma-seccion" onchange="actualizarReglaTaller()"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label>Materia *</label><select id="ma-materia" onchange="actualizarReglaTaller()"><option value="">— Seleccionar —</option></select></div>
       <div class="fg"><label>Lecciones/semana</label>
         <select id="ma-lecciones"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option></select>
       </div>
+      <div id="ma-regla-taller" style="display:none;grid-column:1/-1;padding:10px 12px;border-radius:8px;background:#fff7ed;border-left:4px solid #f97316;font-size:12px;line-height:1.5;"></div>
       <div class="fg">
         <label>Subgrupo <small style="color:var(--muted)">(solo para materias con A/B)</small></label>
         <select id="ma-subgrupo">
@@ -7689,7 +7715,29 @@ async function diagnosticarAsig(id){
     alert('Error en diagnóstico: ' + e.message);
   }
 }
-function abrirModalAsignacion(){document.getElementById("modal-asignacion").classList.add("show");}
+function abrirModalAsignacion(){
+  document.getElementById("modal-asignacion").classList.add("show");
+  actualizarReglaTaller();
+}
+function actualizarReglaTaller(){
+  const sid=Number(document.getElementById('ma-seccion')?.value);
+  const mid=Number(document.getElementById('ma-materia')?.value);
+  const sec=allSecciones.find(s=>Number(s.id)===sid);
+  const mat=allMaterias.find(m=>Number(m.id)===mid);
+  const esTaller=sec && Number(sec.nivel)>=7 && Number(sec.nivel)<=9 &&
+    ['Educación para el Hogar','Artes Industriales'].includes(mat?.nombre);
+  const sel=document.getElementById('ma-subgrupo');
+  const aviso=document.getElementById('ma-regla-taller');
+  if(!sel || !aviso) return;
+  sel.disabled=!!esTaller;
+  if(!esTaller){ aviso.style.display='none'; return; }
+  const esHogar=mat.nombre==='Educación para el Hogar';
+  sel.value=esHogar?'A':'B';
+  aviso.style.display='block';
+  aviso.innerHTML=`<strong>Configuración automática para ${mat.nombre}</strong><br/>
+    Se crearán las dos asignaciones sin cambiar el grupo de ningún estudiante:<br/>
+    I Período — grupo <strong>${esHogar?'A':'B'}</strong> · II Período — grupo <strong>${esHogar?'B':'A'}</strong>.`;
+}
 async function guardarAsignacion(){
   const pid=document.getElementById("ma-profesor").value;
   const sid=document.getElementById("ma-seccion").value;
@@ -7698,7 +7746,12 @@ async function guardarAsignacion(){
   const subgrupo=document.getElementById("ma-subgrupo").value||null;
   if(!pid||!sid||!mid){sa("alert-ma","Todos los campos son requeridos.","danger");return;}
   const anio = document.getElementById("filtro-anio-asig")?.value || ANIO_LECTIVO_ACTIVO;
-  try{await api("/api/admin/asignaciones","POST",{profesor_id:+pid,seccion_id:+sid,materia_id:+mid,lecciones_semana:+lecc,subgrupo,anio:+anio});cerrarModal("modal-asignacion");cargarAsignaciones();}
+  try{
+    const r=await api("/api/admin/asignaciones","POST",{profesor_id:+pid,seccion_id:+sid,materia_id:+mid,lecciones_semana:+lecc,subgrupo,anio:+anio});
+    cerrarModal("modal-asignacion");
+    if(r?.configuracion_taller) sa('alert-asig',`✅ Taller configurado: I Período grupo ${r.subgrupo_I} y II Período grupo ${r.subgrupo_II}.`,'success');
+    cargarAsignaciones();
+  }
   catch(e){sa("alert-ma",e.message,"danger");}
 }
 async function eliminarAsig(id){
@@ -10370,6 +10423,70 @@ async function exportarEstudiantesExcel(){
 }
 
 // ════════════════════════════════════
+let formatosListaAsignaciones=[];
+async function abrirFormatosListaEstudiantes(){
+  const modal=document.getElementById('modal-formato-lista-estudiantes');
+  const tipo=document.getElementById('fle-tipo');
+  tipo.value='general';
+  document.getElementById('alert-fle').className='alert';
+  formatosListaAsignaciones=[];
+  try{
+    formatosListaAsignaciones=await api('/api/asistencia/mis-asignaciones')||[];
+  }catch{}
+  const sid=String(document.getElementById('filtro-seccion-est')?.value||'');
+  let opciones=formatosListaAsignaciones.filter(a=>!sid||String(a.seccion_id)===sid);
+  if(!opciones.length) opciones=formatosListaAsignaciones;
+  const sel=document.getElementById('fle-materia');
+  sel.innerHTML='<option value="">— Seleccionar —</option>'+opciones.map(a=>
+    `<option value="${a.id}">${htmlSeguro(a.materia_nombre)} · ${htmlSeguro(a.seccion_nombre)}${a.subgrupo?' · Grupo '+htmlSeguro(a.subgrupo):''}</option>`
+  ).join('');
+  if(opciones.length===1) sel.value=opciones[0].id;
+  actualizarFormatoListaEstudiantes();
+  modal.classList.add('show');
+}
+
+function actualizarFormatoListaEstudiantes(){
+  const tipo=document.getElementById('fle-tipo').value;
+  const especial=tipo!=='general';
+  document.getElementById('fle-materia-wrap').style.display=especial?'':'none';
+  const detalle=document.getElementById('fle-detalle');
+  detalle.style.display=especial?'block':'none';
+  if(especial) detalle.innerHTML=tipo==='examen'
+    ? 'El PDF tendrá espacios para escribir la <strong>fecha</strong> y el <strong>profesor aplicador</strong>, además del nombre del docente que genera la lista, la materia, la sección y la firma de cada estudiante.'
+    : 'El PDF tendrá un espacio para escribir la <strong>fecha</strong> y una columna amplia para la <strong>firma de cada estudiante</strong>.';
+}
+
+async function generarFormatoListaEstudiantes(){
+  const tipo=document.getElementById('fle-tipo').value;
+  if(tipo==='general'){
+    cerrarModal('modal-formato-lista-estudiantes');
+    return imprimirListaEstudiantes();
+  }
+  const asignacionId=Number(document.getElementById('fle-materia').value);
+  const asignacion=formatosListaAsignaciones.find(a=>Number(a.id)===asignacionId);
+  if(!asignacion){ sa('alert-fle','Seleccioná la materia y sección para preparar la lista.','danger'); return; }
+  let rows=ordenarEstudiantes(await api(`/api/estudiantes?seccion_id=${asignacion.seccion_id}`)||[]);
+  if(asignacion.subgrupo) rows=rows.filter(e=>String(e.subgrupo||'')===String(asignacion.subgrupo));
+  const buscar=document.getElementById('buscar-est')?.value?.trim().toLocaleLowerCase('es-CR')||'';
+  if(buscar) rows=rows.filter(e=>`${e.primer_apellido} ${e.segundo_apellido} ${e.nombre} ${e.cedula}`.toLocaleLowerCase('es-CR').includes(buscar));
+  if(!rows.length){ sa('alert-fle','No hay estudiantes con los filtros actuales.','danger'); return; }
+  const titulos={examen:'ASISTENCIA A EXAMEN',entrega_tarea:'ENTREGA DE TAREA',recepcion_tarea:'RECEPCIÓN DE TAREA',temas_examen:'ENTREGA DE TEMAS DE EXAMEN'};
+  const titulo=titulos[tipo];
+  const docente=htmlSeguro(nombrePersona(ME));
+  const linea='<span style="display:inline-block;border-bottom:1px solid #334155;min-width:155px;height:16px;vertical-align:bottom;"></span>';
+  const datos=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px 20px;margin:2px 0 12px;font-size:11.5px;">
+    <div><strong>Sección:</strong> ${htmlSeguro(asignacion.seccion_nombre)}${asignacion.subgrupo?' — Grupo '+htmlSeguro(asignacion.subgrupo):''}</div>
+    <div><strong>Fecha:</strong> ${linea}</div>
+    <div><strong>Materia:</strong> ${htmlSeguro(asignacion.materia_nombre)}</div>
+    <div><strong>Docente responsable:</strong> ${docente}</div>
+    ${tipo==='examen'?`<div style="grid-column:1/-1;"><strong>Profesor(a) aplicador(a):</strong> ${linea}</div>`:''}
+  </div>`;
+  const filas=rows.map((e,i)=>`<tr><td style="border:1px solid #64748b;padding:5px;text-align:center;width:28px;">${i+1}</td><td style="border:1px solid #64748b;padding:5px;font-weight:bold;">${htmlSeguro(nombreEstudianteLista(e))}</td><td style="border:1px solid #64748b;height:27px;width:205px;"></td></tr>`).join('');
+  const contenido=`<section class="pdf-page-block">${datos}<table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr style="background:#eaf0f8;"><th style="border:1px solid #64748b;padding:5px;">#</th><th style="border:1px solid #64748b;padding:5px;text-align:left;">Apellidos y nombre</th><th style="border:1px solid #64748b;padding:5px;">Firma del estudiante</th></tr></thead><tbody>${filas}</tbody></table><div style="margin-top:14px;font-size:10.5px;color:#475569;">Total: ${rows.length} estudiante${rows.length===1?'':'s'}</div></section>`;
+  cerrarModal('modal-formato-lista-estudiantes');
+  await imprimirPDFMEP(titulo,contenido,`${tipo}_${asignacion.seccion_nombre}_${fechaHoyCR()}.pdf`);
+}
+
 async function imprimirListaEstudiantes(){
   const rows = await api("/api/estudiantes");
   const filtroSec = document.getElementById("filtro-seccion-est")?.value;
@@ -24281,14 +24398,16 @@ function renderPromAnual(data){
   document.getElementById("prom-resumen-rubros").innerHTML =
     `<strong>${a.seccion_nombre}</strong> · ${a.materia_nombre}` +
     (a.subgrupo ? ` · Subgrupo ${a.subgrupo}` : '') +
-    ` · <strong>Vista anual</strong> — Promedio anual = (I Período + II Período) / 2`;
+    (data.es_taller_rotativo
+      ? ` · <strong>Nota final del taller</strong> — corresponde al único período cursado; no se promedia`
+      : ` · <strong>Vista anual</strong> — Promedio anual = (I Período + II Período) / 2`);
 
   const aprobMin = (a.seccion_nivel >= 10) ? 70 : 65;
   document.getElementById("prom-thead").innerHTML = `<tr>
     <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;min-width:240px;">Estudiante</th>
     <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">I Período<br/><span style="font-size:11px;font-weight:normal;">/100</span></th>
     <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">II Período<br/><span style="font-size:11px;font-weight:normal;">/100</span></th>
-    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Promedio anual<br/><span style="font-size:11px;font-weight:normal;">/100</span></th>
+    <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">${data.es_taller_rotativo?'Nota final':'Promedio anual'}<br/><span style="font-size:11px;font-weight:normal;">/100</span></th>
     <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Estado</th>
   </tr>`;
 
@@ -24926,12 +25045,13 @@ async function pdfZoom(delta){
 <!-- MODAL INTERCAMBIO HOGAR↔INDUSTRIALES -->
 <div class="modal-overlay" id="modal-intercambio">
   <div class="modal" style="max-width:780px;">
-    <h3>🔄 Intercambio Hogar ↔ Industriales — II Período</h3>
+    <h3>🏠 Hogar e Industriales por períodos</h3>
     <div id="alert-intercambio" class="alert"></div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
-      Esta operación crea <strong>nuevas asignaciones</strong> para el II Período donde los profesores se intercambian:
-      el que dictaba <strong>Educación para el Hogar</strong> pasa a dictar <strong>Artes Industriales</strong> y viceversa, en la misma sección y subgrupo.
-      Las asignaciones del I Período <strong>no se borran</strong>, solo dejan de mostrarse en la pantalla operativa cuando cambie la fecha al 20 de julio.
+      Los estudiantes conservan su grupo A o B durante todo el año. La regla es fija:
+      <strong>I Período: A recibe Hogar y B recibe Industriales.</strong>
+      <strong>II Período: A recibe Industriales y B recibe Hogar.</strong>
+      Al crear cualquiera de estas materias desde <em>Nueva asignación</em>, el sistema crea automáticamente sus dos períodos.
     </div>
     <div id="intercambio-vista" style="margin:14px 0;"></div>
     <div class="modal-actions">

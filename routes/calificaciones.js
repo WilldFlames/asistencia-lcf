@@ -989,6 +989,9 @@ router.get("/promedio/anual", requireAuth, async (req, res) => {
     if (!secR.rows.length) return res.status(404).json({ error: "Sección no encontrada." });
     const nivel = Number(secR.rows[0].nivel);
     const notaMin = nivel <= 9 ? 65 : 70;
+    const matR = await pool.query("SELECT nombre FROM materias WHERE id=$1", [materia_id]);
+    const esTallerRotativo = nivel >= 7 && nivel <= 9 &&
+      ['Educación para el Hogar','Artes Industriales'].includes(matR.rows[0]?.nombre);
 
     // Calcular ambos períodos. Si no hay asignación en uno, ese período queda en null.
     let dataI = null, dataII = null;
@@ -1013,7 +1016,16 @@ router.get("/promedio/anual", requireAuth, async (req, res) => {
       const notaI  = sI  ? sI.total  : null;
       const notaII = sII ? sII.total : null;
       let anual = null;
-      if (notaI != null && notaII != null) {
+      if (esTallerRotativo) {
+        // Cada estudiante cursa esta materia en un solo período. Si existiera
+        // información duplicada por datos antiguos, se conserva la nota del
+        // período correspondiente al subgrupo fijo, nunca se promedian ambas.
+        const periodoEsperado = matR.rows[0]?.nombre === 'Educación para el Hogar'
+          ? (ref.subgrupo === 'A' ? 'I' : 'II')
+          : (ref.subgrupo === 'B' ? 'I' : 'II');
+        anual = periodoEsperado === 'I' ? notaI : notaII;
+        if (anual == null) anual = notaI != null ? notaI : notaII;
+      } else if (notaI != null && notaII != null) {
         anual = (notaI + notaII) / 2;
       } else if (notaI != null) {
         anual = notaI; // si solo hay un período (caso semestrales o no inicio del año)
@@ -1062,6 +1074,7 @@ router.get("/promedio/anual", requireAuth, async (req, res) => {
       estudiantes,
       cierre_I:  cierreI,
       cierre_II: cierreII
+      ,es_taller_rotativo: esTallerRotativo
     });
   } catch (e) {
     console.error("promedio/anual:", e);
