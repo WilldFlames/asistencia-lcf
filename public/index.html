@@ -15264,7 +15264,7 @@ function npBuscarEstudiante(){
     const sel = document.getElementById('np-estudiante-id');
     if(q.length < 2){ sel.innerHTML='<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
     try{
-      const rows = await api(`/api/estudiantes?alcance=procesos&q=${encodeURIComponent(q)}`) || [];
+      const rows = await api(`/api/protocolos/estudiantes/buscar?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
     `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`
@@ -15826,7 +15826,7 @@ function ppBuscarEstudiante(){
     const sel = document.getElementById('pp-estudiante-id');
     if(q.length < 2){ sel.innerHTML='<option value="">— Escribí al menos 2 caracteres —</option>'; return; }
     try{
-      const rows = await api(`/api/estudiantes?alcance=procesos&q=${encodeURIComponent(q)}`) || [];
+      const rows = await api(`/api/protocolos/estudiantes/buscar?q=${encodeURIComponent(q)}`) || [];
       if(!rows.length){ sel.innerHTML='<option value="">— Sin resultados —</option>'; return; }
       sel.innerHTML = '<option value="">— Elegí —</option>' + rows.slice(0,30).map(e =>
     `<option value="${e.id}">${nombreEstudianteLista(e)} (${e.cedula})${e.seccion_nombre?` · ${e.seccion_nombre}`:''}</option>`

@@ -3,9 +3,17 @@
 // ════════════════════════════════════════════════════════════════════
 const router = require("express").Router();
 const { pool } = require("../db");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, requireRol } = require("../middleware/auth");
 const { asignarConsecutivoInterno } = require("./consecutivos");
 const { obtenerAnioActivo } = require("../utils/lectivo");
+
+// Pautas es un módulo institucional. Quien puede abrirlo debe poder buscar
+// cualquier estudiante del colegio, aunque no le imparta clases ni sea guía
+// de su sección.
+const puedeUsarPautas = requireRol(
+  "admin", "auxiliar", "administrativo", "secretaria",
+  "profesor", "profesor_guia", "orientador"
+);
 
 // Mapeo oficial de cada pauta a los formularios que incluye, EN ORDEN.
 const PAUTAS = {
@@ -57,6 +65,33 @@ async function notificar(usuarioId, tipo, mensaje) {
 // ── CATÁLOGO de pautas ─────────────────────────────────────────────────
 router.get("/catalogo/pautas", requireAuth, (req, res) => {
   res.json(PAUTAS);
+});
+
+// Buscador propio de Pautas. No usa seccionesPermitidas ni el listado general
+// de Estudiantes, de modo que su alcance siempre es toda la institución.
+router.get("/estudiantes/buscar", puedeUsarPautas, async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (q.length < 2) return res.json([]);
+    const patron = `%${q}%`;
+    const r = await pool.query(`
+      SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+             e.fecha_nacimiento, e.seccion_id, e.subgrupo,
+             s.nombre AS seccion_nombre
+      FROM estudiantes e
+      LEFT JOIN secciones s ON s.id=e.seccion_id
+      WHERE e.activo=true
+        AND (e.archivado=false OR e.archivado IS NULL)
+        AND (e.cedula ILIKE $1 OR e.nombre ILIKE $1
+          OR e.primer_apellido ILIKE $1 OR e.segundo_apellido ILIKE $1
+          OR CONCAT_WS(' ',e.primer_apellido,e.segundo_apellido,e.nombre) ILIKE $1)
+      ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
+      LIMIT 50`, [patron]);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("GET protocolos/estudiantes/buscar:", e);
+    res.status(500).json({ error:"No se pudo buscar estudiantes para la pauta." });
+  }
 });
 
 // ── CONFIG del centro ──────────────────────────────────────────────────

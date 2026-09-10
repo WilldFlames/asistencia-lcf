@@ -6,9 +6,11 @@ const raiz=path.join(__dirname,'..');
 const leer=archivo=>fs.readFileSync(path.join(raiz,archivo),'utf8');
 
 test('Debidos Procesos y Pautas buscan estudiantes en toda la institución',()=>{
-  const estudiantes=leer('routes/estudiantes.js'),ui=leer('public/index.html');
+  const estudiantes=leer('routes/estudiantes.js'),protocolos=leer('routes/protocolos.js'),ui=leer('public/index.html');
   assert.match(estudiantes,/alcance==='procesos'&&rolesProcesos\.has/);
-  assert.equal((ui.match(/\/api\/estudiantes\?alcance=procesos&q=/g)||[]).length,5);
+  assert.equal((ui.match(/\/api\/estudiantes\?alcance=procesos&q=/g)||[]).length,3);
+  assert.match(protocolos,/router\.get\("\/estudiantes\/buscar", puedeUsarPautas/);
+  assert.equal((ui.match(/\/api\/protocolos\/estudiantes\/buscar\?q=/g)||[]).length,2);
 });
 
 test('todas las declaraciones reservan una página completa para firmas amplias',()=>{
