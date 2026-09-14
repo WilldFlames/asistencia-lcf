@@ -7,9 +7,11 @@ const read=f=>fs.readFileSync(path.join(root,f),'utf8');
 
 test('todas las series quedan sin un tope institucional pequeño',()=>{
   const consecutivos=read('routes/consecutivos.js'),premat=read('routes/prematricula.js');
-  assert.match(consecutivos,/const MAX = 2147483647/);
+  assert.doesNotMatch(consecutivos,/generate_series|const MAX/);
+  assert.match(consecutivos,/SELECT c\.numero\+1 FROM consecutivos c/);
   assert.doesNotMatch(premat,/n<=220|máximo 220/);
-  assert.match(premat,/generate_series\(1,limite\.hasta\)/);
+  assert.doesNotMatch(premat,/generate_series/);
+  assert.match(premat,/SELECT consecutivo_prematricula\+1 FROM prematricula/);
 });
 
 test('modo simplificado de asignación exige que el período esté seleccionado',()=>{

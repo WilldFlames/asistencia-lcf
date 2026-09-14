@@ -3,9 +3,6 @@ const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 
 const INICIO = { oficio: 181, minuta: 88, proceso: 50, protocolo: 1 };
-// Sin tope institucional práctico. Se conserva el inicio histórico de cada
-// serie y todos los números existentes; únicamente se amplía su capacidad.
-const MAX = 2147483647;
 
 const TIPOS_PROTOCOLO = [
   "Pautas generales para protocolos de actuación en situaciones de violencia y riesgo",
@@ -92,25 +89,30 @@ router.post("/", requireAuth, canUse, async (req, res) => {
       await new Promise(r => setTimeout(r, 20 + Math.random() * 130));
     }
     try {
-      // CTE atómica: calcula el siguiente número libre e inserta en un solo paso
+      // Busca únicamente candidatos reales (inicio y sucesores de números
+      // existentes). Nunca materializa una serie gigante en PostgreSQL.
       const r = await pool.query(`
-        WITH siguiente AS (
-          SELECT n AS numero
-          FROM generate_series($1::int, $2::int) AS n
-          WHERE n NOT IN (
-            SELECT numero FROM consecutivos WHERE tipo=$3 AND eliminado=false
+        WITH candidatos AS (
+          SELECT $1::int AS numero
+          UNION ALL
+          SELECT c.numero+1 FROM consecutivos c
+          WHERE c.tipo=$2 AND c.eliminado=false AND c.numero >= $1
+        ), siguiente AS (
+          SELECT MIN(c.numero)::int AS numero FROM candidatos c
+          WHERE NOT EXISTS (
+            SELECT 1 FROM consecutivos usados
+            WHERE usados.tipo=$2 AND usados.numero=c.numero AND usados.eliminado=false
           )
-          ORDER BY n
-          LIMIT 1
         )
         INSERT INTO consecutivos
           (tipo, numero, solicitante_id, fecha, destinatario, motivo_oficio, solicitado_por_cargo,
            estudiante_id, solicitante_cargo, seccion_id, motivo_proceso,
            digitado_por_cargo, tipo_protocolo)
-        SELECT $3, siguiente.numero, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+        SELECT $2, siguiente.numero, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
         FROM siguiente
+        WHERE siguiente.numero IS NOT NULL
         RETURNING *
-      `, [inicio, MAX, tipo, solicitante_id, fechaVal,
+      `, [inicio, tipo, solicitante_id, fechaVal,
           destinatario||null, motivo_oficio||null, solicitado_por_cargo||null,
           estudiante_id||null, solicitante_cargo||null, seccion_id||null, motivo_proceso||null,
           digitado_por_cargo||null, tipo_protocolo||null]);
@@ -166,18 +168,26 @@ async function asignarConsecutivoInterno(tipo, solicitanteId, datos = {}) {
     if (intento > 0) await new Promise(r => setTimeout(r, 20 + Math.random() * 130));
     try {
       const r = await pool.query(`
-        WITH siguiente AS (
-          SELECT n AS numero FROM generate_series($1::int, $2::int) AS n
-          WHERE n NOT IN (SELECT numero FROM consecutivos WHERE tipo=$3 AND eliminado=false)
-          ORDER BY n LIMIT 1
+        WITH candidatos AS (
+          SELECT $1::int AS numero
+          UNION ALL
+          SELECT c.numero+1 FROM consecutivos c
+          WHERE c.tipo=$2 AND c.eliminado=false AND c.numero >= $1
+        ), siguiente AS (
+          SELECT MIN(c.numero)::int AS numero FROM candidatos c
+          WHERE NOT EXISTS (
+            SELECT 1 FROM consecutivos usados
+            WHERE usados.tipo=$2 AND usados.numero=c.numero AND usados.eliminado=false
+          )
         )
         INSERT INTO consecutivos
           (tipo, numero, solicitante_id, fecha,
            estudiante_id, motivo_proceso, seccion_id)
-        SELECT $3, siguiente.numero, $4, $5, $6, $7, $8
+        SELECT $2, siguiente.numero, $3, $4, $5, $6, $7
         FROM siguiente
+        WHERE siguiente.numero IS NOT NULL
         RETURNING id, numero
-      `, [inicio, MAX, tipo, solicitanteId, fechaVal,
+      `, [inicio, tipo, solicitanteId, fechaVal,
           datos.estudiante_id || null, datos.motivo_proceso || null, datos.seccion_id || null]);
       if (!r.rows.length) throw new Error(`No hay consecutivos disponibles para ${tipo}`);
       return r.rows[0];

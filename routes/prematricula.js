@@ -98,13 +98,16 @@ router.post("/paso3/:prematricula_id", canAccess, async (req, res) => {
       await client.query("BEGIN");
       await client.query("SELECT pg_advisory_xact_lock($1)",[76103]);
       const siguiente = await client.query(`
-        WITH limite AS (
-          SELECT COALESCE(MAX(consecutivo_prematricula),0)::int+1 AS hasta FROM prematricula
+        WITH candidatos AS (
+          SELECT 1::int AS numero
+          UNION ALL
+          SELECT consecutivo_prematricula+1 FROM prematricula
+          WHERE consecutivo_prematricula IS NOT NULL
         )
-        SELECT n::int AS numero FROM limite,generate_series(1,limite.hasta) n
+        SELECT MIN(c.numero)::int AS numero FROM candidatos c
         WHERE NOT EXISTS (
-          SELECT 1 FROM prematricula p WHERE p.consecutivo_prematricula=n
-        ) ORDER BY n LIMIT 1
+          SELECT 1 FROM prematricula p WHERE p.consecutivo_prematricula=c.numero
+        )
       `);
       const num = siguiente.rows[0].numero;
 
