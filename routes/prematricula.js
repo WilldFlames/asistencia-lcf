@@ -91,18 +91,22 @@ router.post("/paso2/:prematricula_id", canAccess, async (req, res) => {
 router.post("/paso3/:prematricula_id", canAccess, async (req, res) => {
   const pid = req.params.prematricula_id;
 
-  // Buscar siguiente consecutivo libre (001-220)
+  // Asignar el siguiente consecutivo sin tope, conservando todos los ya usados.
   for(let intento=0; intento<5; intento++){
     const client = await pool.connect();
     try{
       await client.query("BEGIN");
-      const usados = await client.query(
-        "SELECT consecutivo_prematricula FROM prematricula WHERE consecutivo_prematricula IS NOT NULL ORDER BY consecutivo_prematricula"
-      );
-      const set = new Set(usados.rows.map(r=>r.consecutivo_prematricula));
-      let num = null;
-      for(let n=1; n<=220; n++){ if(!set.has(n)){ num=n; break; } }
-      if(!num){ await client.query("ROLLBACK"); return res.status(400).json({ error:"No hay consecutivos disponibles (máximo 220)." }); }
+      await client.query("SELECT pg_advisory_xact_lock($1)",[76103]);
+      const siguiente = await client.query(`
+        WITH limite AS (
+          SELECT COALESCE(MAX(consecutivo_prematricula),0)::int+1 AS hasta FROM prematricula
+        )
+        SELECT n::int AS numero FROM limite,generate_series(1,limite.hasta) n
+        WHERE NOT EXISTS (
+          SELECT 1 FROM prematricula p WHERE p.consecutivo_prematricula=n
+        ) ORDER BY n LIMIT 1
+      `);
+      const num = siguiente.rows[0].numero;
 
       await client.query(
         "UPDATE prematricula SET consecutivo_prematricula=$1, estado='prematriculado' WHERE id=$2 AND consecutivo_prematricula IS NULL",

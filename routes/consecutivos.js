@@ -3,7 +3,9 @@ const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 
 const INICIO = { oficio: 181, minuta: 88, proceso: 50, protocolo: 1 };
-const MAX = 500;
+// Sin tope institucional práctico. Se conserva el inicio histórico de cada
+// serie y todos los números existentes; únicamente se amplía su capacidad.
+const MAX = 2147483647;
 
 const TIPOS_PROTOCOLO = [
   "Pautas generales para protocolos de actuación en situaciones de violencia y riesgo",

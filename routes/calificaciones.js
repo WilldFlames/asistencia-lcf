@@ -129,7 +129,13 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
   const r = await pool.query(`
     SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo,
            m.nombre AS materia_nombre, s.nombre AS seccion_nombre,
-           (a.modo_simplificado OR COALESCE(m.modo_simplificado, false)) AS modo_simplificado,
+           (
+             COALESCE(m.modo_simplificado,false)
+             OR (
+               COALESCE(a.modo_simplificado,false)
+               AND $5 = ANY(COALESCE(a.simplificado_periodos,ARRAY[]::TEXT[]))
+             )
+           ) AS modo_simplificado,
            s.nivel AS seccion_nivel,
            COALESCE(a.periodo,'I Período') AS periodo,
            mre.regla_id, reg.codigo AS regla_codigo, reg.cantidad_pruebas, reg.cantidad_proyectos, reg.proyecto_o_prueba
@@ -505,7 +511,11 @@ router.get("/evaluaciones/:id/notas", requireAuth, async (req, res) => {
     const r = await pool.query("SELECT estudiante_id, indicador_id, puntaje FROM notas_indicador WHERE evaluacion_id=$1", [ev.id]);
     notas = r.rows;
   }
-  res.json({ evaluacion: ev, estudiantes: estudiantes.rows, indicadores, notas });
+  const observaciones=await pool.query(
+    "SELECT estudiante_id,observacion FROM evaluacion_observaciones WHERE evaluacion_id=$1",
+    [ev.id]
+  );
+  res.json({ evaluacion: ev, estudiantes: estudiantes.rows, indicadores, notas, observaciones:observaciones.rows });
 });
 
 // ── GUARDAR notas de una evaluación ────────────────────────────────────
@@ -517,8 +527,9 @@ router.put("/evaluaciones/:id/notas", requireAuth, async (req, res) => {
   if (err) return res.status(err).json({ error: msg });
   const cierre = await getEstadoPeriodo(u.id, ev.seccion_id, ev.materia_id, ev.subgrupo, ev.periodo);
   if (cierre.cerrado) return res.status(423).json({ error: "El período está cerrado. Pedile al admin que lo reabra para hacer cambios." });
-  const { notas } = req.body;
+  const { notas, observaciones=[] } = req.body;
   if (!Array.isArray(notas)) return res.status(400).json({ error: "El campo notas debe ser un array." });
+  if (!Array.isArray(observaciones)) return res.status(400).json({ error: "El campo observaciones debe ser un array." });
 
   const client = await pool.connect();
   try {
@@ -572,6 +583,25 @@ router.put("/evaluaciones/:id/notas", requireAuth, async (req, res) => {
           ON CONFLICT (evaluacion_id, indicador_id, estudiante_id) DO UPDATE
             SET puntaje = EXCLUDED.puntaje, updated_at = NOW()
         `, [ev.id, iid, eid, num]);
+      }
+    }
+
+    // Una observación pertenece a esta evaluación concreta y al estudiante.
+    // Por eso una nota de Tarea nunca se mezcla con Examen, Cotidiano,
+    // Proyecto ni con las observaciones independientes de Asistencia.
+    for(const item of observaciones){
+      const estudianteId=Number(item.estudiante_id);
+      const texto=String(item.observacion||'').trim().slice(0,2000);
+      if(!estudianteId) continue;
+      if(!texto){
+        await client.query("DELETE FROM evaluacion_observaciones WHERE evaluacion_id=$1 AND estudiante_id=$2",[ev.id,estudianteId]);
+      }else{
+        await client.query(`INSERT INTO evaluacion_observaciones
+          (evaluacion_id,estudiante_id,observacion,registrado_por,updated_at)
+          VALUES($1,$2,$3,$4,NOW())
+          ON CONFLICT(evaluacion_id,estudiante_id) DO UPDATE SET
+            observacion=EXCLUDED.observacion,registrado_por=EXCLUDED.registrado_por,updated_at=NOW()`,
+          [ev.id,estudianteId,texto,u.id]);
       }
     }
 
@@ -758,6 +788,21 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
       AND (($4::text IS NULL AND e.subgrupo IS NULL) OR e.subgrupo=$4)
       AND e.periodo = $5
   `, [profesor_id, seccion_id, materia_id, sub, periodo]);
+  const observacionesR=await pool.query(`
+    SELECT eo.estudiante_id,e.tipo,e.nombre,eo.observacion
+    FROM evaluacion_observaciones eo
+    JOIN evaluaciones e ON e.id=eo.evaluacion_id
+    WHERE e.profesor_id=$1 AND e.seccion_id=$2 AND e.materia_id=$3
+      AND (($4::text IS NULL AND e.subgrupo IS NULL) OR e.subgrupo=$4)
+      AND e.periodo=$5 AND BTRIM(eo.observacion)<>''
+    ORDER BY e.fecha,e.id
+  `,[profesor_id,seccion_id,materia_id,sub,periodo]);
+  const observacionesPorEstudiante=new Map();
+  for(const o of observacionesR.rows){
+    const id=Number(o.estudiante_id);
+    if(!observacionesPorEstudiante.has(id)) observacionesPorEstudiante.set(id,[]);
+    observacionesPorEstudiante.get(id).push({tipo:o.tipo,evaluacion:o.nombre,observacion:o.observacion});
+  }
 
   // Para cada estudiante, acumuladores por tipo
   // Para exámenes: si la evaluación tiene valor_porcentual definido, vamos
@@ -949,6 +994,7 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
         pct: pctAsist,
         peso: pesos.asistencia
       },
+      observaciones_evaluaciones:observacionesPorEstudiante.get(Number(e.id))||[],
       total: totalPct
     };
   });
@@ -1215,7 +1261,13 @@ router.post("/simplificado", requireAuth, async (req, res) => {
     // Verificar permisos y que la asignación O su materia esté en modo simplificado
     const aR = await pool.query(`
       SELECT a.profesor_id,
-             (a.modo_simplificado OR COALESCE(m.modo_simplificado, false)) AS modo_simplificado
+             (
+               COALESCE(m.modo_simplificado,false)
+               OR (
+                 COALESCE(a.modo_simplificado,false)
+                 AND $2 = ANY(COALESCE(a.simplificado_periodos,ARRAY[]::TEXT[]))
+               )
+             ) AS modo_simplificado
       FROM asignaciones a
       JOIN materias m ON m.id = a.materia_id
       WHERE a.id = $1`, [asignacion_id]);

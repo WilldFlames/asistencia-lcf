@@ -22913,6 +22913,7 @@ let evalData = [];               // evaluaciones de la asignación actual
 let evalActual = null;           // evaluación específica al calificar
 let evalEstudiantes = [];        // estudiantes de la sección/subgrupo
 let evalIndicadores = [];        // indicadores de la evaluación actual
+let evalObservaciones = new Map();// observación propia de esta evaluación por estudiante
 
 function abrirEvaluaciones(asignacionId){
   const a = califAsigData.find(x => x.asignacion_id === asignacionId);
@@ -23643,6 +23644,7 @@ async function iniciarCalificar(){
     evalEstudiantes = r.estudiantes || [];
     evalIndicadores = r.indicadores || [];
     const notasArr = r.notas || [];
+    evalObservaciones = new Map((r.observaciones||[]).map(o=>[Number(o.estudiante_id),o.observacion||'']));
 
     const a = evalAsigActual;
     const tipoLbl = {examen:'Examen',tarea:'Tarea',cotidiano:'Cotidiano',proyecto:'Proyecto'}[evalActual.tipo];
@@ -23837,6 +23839,7 @@ function renderGrillaNotas(notasArr){
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Puntos obtenidos<br/><span style="font-size:11px;font-weight:normal;">/ ${ptotal}</span></th>
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Nota /100</th>
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;" title="Aporte de este examen al porcentaje del período">Porcentaje obtenido<br/><span style="font-size:11px;font-weight:normal;">de ${valorPorc}%</span></th>
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;min-width:210px;">Observación del examen</th>
     </tr>`;
     // notasArr: [{estudiante_id, puntos_obtenidos}]
     const notasMap = new Map(notasArr.map(n => [Number(n.estudiante_id), n.puntos_obtenidos]));
@@ -23862,6 +23865,8 @@ function renderGrillaNotas(notasArr){
         </td>
         <td style="text-align:center;font-weight:bold;color:var(--azul);" id="nota-${e.id}">${tieneNota ? nota100.toFixed(1) : "—"}</td>
         <td style="text-align:center;font-weight:bold;color:var(--verde);" id="porc-${e.id}">${porcentajeObtenido != null ? porcentajeObtenido.toFixed(2) + '%' : '—'}</td>
+        <td><textarea class="calif-observacion-eval" data-estudiante="${e.id}" maxlength="2000" ${readonly}
+          placeholder="Observación de este examen…" style="width:100%;min-height:48px;padding:6px;border:1px solid var(--border);border-radius:6px;resize:vertical;${styleRO}">${htmlSeguro(evalObservaciones.get(e.id)||'')}</textarea></td>
       </tr>`;
     }).join("");
   } else {
@@ -23872,6 +23877,7 @@ function renderGrillaNotas(notasArr){
       ${evalIndicadores.map((i,idx)=>`<th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;font-size:12px;min-width:90px;" title="${i.descripcion}">${idx+1}<br/><span style="font-size:10px;font-weight:normal;">/${i.puntaje_maximo}</span></th>`).join("")}
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Total<br/><span style="font-size:11px;font-weight:normal;">/${sumaMax}</span></th>
       <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;text-align:center;">Nota /100</th>
+      <th style="position:sticky;top:0;background:var(--azul);color:#fff;z-index:2;min-width:210px;">Observación de ${htmlSeguro(({tarea:'la tarea',cotidiano:'cotidiano',proyecto:'el proyecto'})[evalActual.tipo]||'la evaluación')}</th>
     </tr>`;
     // notasArr: [{estudiante_id, indicador_id, puntaje}]
     // Map: estudiante_id -> Map(indicador_id -> puntaje)
@@ -23924,6 +23930,8 @@ function renderGrillaNotas(notasArr){
         ${cols}
         <td style="text-align:center;font-weight:bold;" id="suma-${e.id}">${suma}${cantBlancos>0?`<br/><small style="font-weight:normal;color:#dc2626;font-size:10px;" title="${tituloBlancos}">⚠️ ${cantBlancos} en blanco</small>`:''}</td>
         <td style="text-align:center;font-weight:bold;color:${colorNota};" id="nota-${e.id}" title="${tituloBlancos}">${notaCalc}</td>
+        <td><textarea class="calif-observacion-eval" data-estudiante="${e.id}" maxlength="2000" ${readonly}
+          placeholder="Observación de ${htmlSeguro(evalActual.tipo)}…" style="width:100%;min-height:48px;padding:6px;border:1px solid var(--border);border-radius:6px;resize:vertical;${styleRO}">${htmlSeguro(evalObservaciones.get(e.id)||'')}</textarea></td>
       </tr>`;
     }).join("");
   }
@@ -24037,7 +24045,10 @@ async function guardarNotas(){
         });
       });
     }
-    await api(`/api/calificaciones/evaluaciones/${evalActual.id}/notas`,"PUT",{notas});
+    const observaciones=[...document.querySelectorAll('textarea.calif-observacion-eval')].map(inp=>({
+      estudiante_id:Number(inp.dataset.estudiante),observacion:inp.value.trim()
+    }));
+    await api(`/api/calificaciones/evaluaciones/${evalActual.id}/notas`,"PUT",{notas,observaciones});
     sa("alert-calif-notas","✅ Notas guardadas.","success");
   }catch(e){
     sa("alert-calif-notas", e.message, "danger");
@@ -24340,6 +24351,10 @@ function renderPromPeriodo(data){
     document.getElementById("prom-tbody").innerHTML = `<tr><td colspan="${totalCols}" class="empty">Sin estudiantes en esta asignación.</td></tr>`;
   } else {
     document.getElementById("prom-tbody").innerHTML = est.map(e=>{
+      const obsAcademicas=(e.observaciones_evaluaciones||[]).map(o=>{
+        const tipo=({examen:'Examen',tarea:'Tarea',cotidiano:'Cotidiano',proyecto:'Proyecto'})[o.tipo]||o.tipo;
+        return `<div style="font-size:10.5px;color:#475569;margin-top:3px;"><strong>📝 ${htmlSeguro(tipo)} · ${htmlSeguro(o.evaluacion||'Evaluación')}:</strong> ${htmlSeguro(o.observacion)}</div>`;
+      }).join('');
       const cels = colDef.map(c=>{
         const r = e.rubros && e.rubros[c.key];
         const pct = r && r.pct != null ? Number(r.pct).toFixed(1) : '—';
@@ -24369,7 +24384,7 @@ function renderPromPeriodo(data){
       return `<tr>
         <td><strong>${nombreEstudianteLista(e)}</strong>${badgeAdecuacion(e)}
           <button class="btn-xs" onclick='prom_verDesglose(${JSON.stringify(e).replace(/'/g, "&#39;")})' style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 5px;cursor:pointer;margin-left:4px;font-size:11px;" title="Ver desglose del cálculo">🔍</button>
-          <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
+          <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span>${obsAcademicas}</td>
         ${cels}
         ${celAsist}
         <td style="text-align:center;font-weight:bold;font-size:15px;color:${colorEst};">${total.toFixed(1)}</td>

@@ -1945,6 +1945,19 @@ async function initDB() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_notas_ind_est ON notas_indicador(estudiante_id, evaluacion_id)`);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS evaluacion_observaciones (
+        evaluacion_id   INTEGER NOT NULL REFERENCES evaluaciones(id) ON DELETE CASCADE,
+        estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        observacion     TEXT NOT NULL DEFAULT '',
+        registrado_por  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        updated_at      TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY(evaluacion_id,estudiante_id)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_eval_obs_estudiante
+      ON evaluacion_observaciones(estudiante_id,evaluacion_id)`);
+
     // ── MÓDULO DE CALIFICACIONES (Fase 3) ─────────────────────────────────
     // Tabla para registrar cuándo un profesor cierra el período de una de sus
     // asignaciones. Si existe el registro con reabierto_en NULL, el período
