@@ -22,9 +22,8 @@ test('cada examen aporta solo su valor porcentual y reserva las pruebas pendient
   const calificaciones=read('routes/calificaciones.js');
   assert.match(calificaciones,/SELECT e\.id, e\.tipo, e\.puntaje_total, e\.valor_porcentual/);
   assert.match(calificaciones,/const cantidadPruebasOficial = Math\.max\(0, Number\(regla\.cantidad_pruebas \|\| 0\)\)/);
-  assert.match(calificaciones,/const cuposSinVp = Math\.max\(sinVpCount, cantidadPruebasOficial - conVpCount\)/);
-  assert.match(calificaciones,/vpDisponibleRestante \/ Math\.max\(1,cuposSinVp\)/);
-  assert.match(calificaciones,/r\.pct_sumado \+= \(puntos \/ ptotal\) \* vp/);
+  assert.match(calificaciones,/valorVirtualPrueba\(\{/);
+  assert.match(calificaciones,/r\.pct_sumado \+= aporteEvaluacion\(puntos,ptotal,vp\)/);
 });
 
 test('Archivo docente limita estudiantes, subgrupos y materias al profesor autenticado',()=>{

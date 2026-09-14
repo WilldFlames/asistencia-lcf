@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerRangoPeriodo } = require("../utils/lectivo");
+const { aporteEvaluacion, valorVirtualPrueba } = require("../utils/calculo-calificaciones");
 
 // Año actual en zona horaria de Costa Rica (UTC-6)
 // ── Política de acceso del módulo de Calificaciones ────────────────────
@@ -786,24 +787,16 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
   // La diferencia es porque LEGACY asume que TODOS los puntos posibles del
   // rubro cuentan como una única masa, en vez de tratar cada examen aparte.
   const examenesEvals = evalsR.rows.filter(e => e.tipo === 'examen');
-  let vpTotalAsignado = 0;
-  let sinVpCount = 0;
-  let conVpCount = 0;
-  for (const ev of examenesEvals) {
-    const vp = Number(ev.valor_porcentual || 0);
-    if (vp > 0) { vpTotalAsignado += vp; conVpCount++; }
-    else sinVpCount++;
-  }
   const pesoPruebasRubro = Number(regla.porc_pruebas || 0);
-  const vpDisponibleRestante = Math.max(0, pesoPruebasRubro - vpTotalAsignado);
   // En registros antiguos sin valor porcentual, reservar también los cupos de
   // pruebas que todavía no se han creado. Ej.: rubro 50%, dos pruebas y solo
   // una creada => esa primera prueba vale 25%, nunca el 50% completo.
   const cantidadPruebasOficial = Math.max(0, Number(regla.cantidad_pruebas || 0));
-  const cuposSinVp = Math.max(sinVpCount, cantidadPruebasOficial - conVpCount);
-  const vpVirtualPorSinVp = (sinVpCount > 0 && vpDisponibleRestante > 0)
-    ? vpDisponibleRestante / Math.max(1,cuposSinVp)
-    : 0;
+  const vpVirtualPorSinVp = valorVirtualPrueba({
+    pesoRubro:pesoPruebasRubro,
+    cantidadPruebas:cantidadPruebasOficial,
+    valoresExistentes:examenesEvals.map(ev=>ev.valor_porcentual)
+  });
 
   // Cargar notas por cada evaluación
   for (const ev of evalsR.rows) {
@@ -829,7 +822,7 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
           r.obtenido += puntos;
           r.cant_con_nota += 1;
           if (vp > 0 && ptotal > 0) {
-            r.pct_sumado += (puntos / ptotal) * vp;
+            r.pct_sumado += aporteEvaluacion(puntos,ptotal,vp);
           }
         }
       }
