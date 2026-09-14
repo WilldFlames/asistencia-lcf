@@ -6181,8 +6181,10 @@ async function iniciarApp(){
   // ── CONSTANCIA / ARCHIVO ─────────────────────────────────────
   if(esAdmin||esAuxiliar){
     document.getElementById("nav-constancia").style.display="";
-    document.getElementById("nav-archivo").style.display="";
   }
+  // El docente ve únicamente estudiantes y notas de sus propias asignaciones.
+  if(esAdmin||esAuxiliar||esProfesor||esGuia||esOrientador)
+    document.getElementById("nav-archivo").style.display="";
 
   // ── PREMATRÍCULA / MATRÍCULA ─────────────────────────────────
   if(esAdmin||esAuxiliar||esAdminIst){
@@ -18913,11 +18915,11 @@ async function verHistorialAcademico(estudianteId, nombre){
               <div class="table-wrap"><table style="font-size:11.5px;">
                 <thead><tr>
                   <th>Materia</th><th>Profesor</th>
-                  <th style="text-align:center;">Cot.</th>
-                  <th style="text-align:center;">Tar.</th>
-                  <th style="text-align:center;">Prue.</th>
-                  <th style="text-align:center;">Proy.</th>
-                  <th style="text-align:center;">Asist.</th>
+                  <th style="text-align:center;">Cot. %</th>
+                  <th style="text-align:center;">Tar. %</th>
+                  <th style="text-align:center;">Prue. %</th>
+                  <th style="text-align:center;">Proy. %</th>
+                  <th style="text-align:center;">Asist. %</th>
                   <th style="text-align:center;font-weight:bold;">TOTAL</th>
                   <th style="text-align:center;" title="Ausencias / Ausencias justificadas / Tardías">A / AJ / T</th>
                 </tr></thead>
@@ -18927,14 +18929,15 @@ async function verHistorialAcademico(estudianteId, nombre){
                     const color = total===null||total===undefined ? '#94a3b8'
                                 : (parseFloat(total) < (m.materia_nombre==='Conducta' ? 65 : 70) ? '#dc2626' : 'var(--verde)');
                     const num = v => (v===null||v===undefined) ? '<span style="color:#cbd5e1;">—</span>' : parseFloat(v).toFixed(1);
+                    const pct = v => (v===null||v===undefined) ? '<span style="color:#cbd5e1;">—</span>' : `${parseFloat(v).toFixed(1)}%`;
                     return `<tr>
                       <td><strong>${m.materia_nombre}</strong></td>
                       <td>${m.profesor_nombre||'<span style="color:var(--muted);">—</span>'}</td>
-                      <td style="text-align:center;">${num(m.nota_cotidiano)}</td>
-                      <td style="text-align:center;">${num(m.nota_tareas)}</td>
-                      <td style="text-align:center;">${num(m.nota_pruebas)}</td>
-                      <td style="text-align:center;">${num(m.nota_proyecto)}</td>
-                      <td style="text-align:center;">${num(m.nota_asistencia)}</td>
+                      <td style="text-align:center;">${pct(m.nota_cotidiano)}</td>
+                      <td style="text-align:center;">${pct(m.nota_tareas)}</td>
+                      <td style="text-align:center;">${pct(m.nota_pruebas)}</td>
+                      <td style="text-align:center;">${pct(m.nota_proyecto)}</td>
+                      <td style="text-align:center;">${pct(m.nota_asistencia)}</td>
                       <td style="text-align:center;font-weight:bold;color:${color};">${num(total)}</td>
                       <td style="text-align:center;color:var(--muted);">${m.ausencias||0} / ${m.ausencias_just||0} / ${m.tardias||0}</td>
                     </tr>`;
@@ -19172,13 +19175,17 @@ async function verDetalleArchivado(id){
   document.getElementById('modal-detalle-archivado').classList.add('show');
 
   try {
-    // Cargar información personal, académica y de conducta en paralelo.
-    const [encs, historial, academico, conductaArchivo] = await Promise.all([
-      api(`/api/encargados/estudiante/${id}`).catch(() => []),
-      api(`/api/estudiantes/${id}/historial`).catch(() => []),
-      api(`/api/expediente/${id}/historial-academico`).catch(() => ({historial:{}})),
-      api(`/api/expediente/${id}/conducta-desglosada`).catch(() => ({historial:{}})),
-    ]);
+    const archivoSoloAcademico=!['admin','auxiliar'].includes(ME.rol);
+    // Docentes reciben solo su historial académico; datos familiares, movimientos
+    // y conducta continúan reservados para administración y auxiliares.
+    const academico=await api(`/api/expediente/${id}/historial-academico`).catch(() => ({historial:{}}));
+    const [encs,historial,conductaArchivo]=archivoSoloAcademico
+      ? [[],[],{historial:{}}]
+      : await Promise.all([
+          api(`/api/encargados/estudiante/${id}`).catch(() => []),
+          api(`/api/estudiantes/${id}/historial`).catch(() => []),
+          api(`/api/expediente/${id}/conducta-desglosada`).catch(() => ({historial:{}})),
+        ]);
 
     const row = (label, value) =>
       `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--border);font-size:13px;">
@@ -19194,6 +19201,7 @@ async function verDetalleArchivado(id){
 
     let html = '';
 
+    if(!archivoSoloAcademico){
     // Aviso de archivado con datos completos: quién retiró, cuándo y por qué
     const retiradoPor = e.retirado_por_nombre
       ? nombreDesdeCampos(e.retirado_por_nombre,e.retirado_por_ap1,e.retirado_por_ap2)
@@ -19243,6 +19251,7 @@ async function verDetalleArchivado(id){
       ${row('Beca de comedor', e.beca_comedor ? 'Sí' : 'No')}
       ${row('Transporte estudiantil', e.transporte ? 'Sí' : 'No')}
     `);
+    }
 
     // Promedios: solo aparecen los períodos y materias que realmente tengan
     // calificaciones. No se crean filas vacías para un II Período inexistente.
@@ -19250,18 +19259,20 @@ async function verDetalleArchivado(id){
     const aniosAcademicos=Object.keys(historialAcademico).sort((a,b)=>Number(b)-Number(a));
     let academicoHtml='';
     const numArchivo=v=>(v===null||v===undefined||v==='')?'<span style="color:#cbd5e1;">—</span>':Number(v).toFixed(1);
+    const pctArchivo=v=>(v===null||v===undefined||v==='')?'<span style="color:#cbd5e1;">—</span>':`${Number(v).toFixed(1)}%`;
     aniosAcademicos.forEach(anio=>{
       const h=historialAcademico[anio]||{};
       const periodos=['I','II'].map(clave=>({clave,rows:(h[clave]||[]).filter(m=>m.materia_nombre!=='Conducta')})).filter(x=>x.rows.length);
       if(!periodos.length)return;
       academicoHtml+=`<div style="margin-bottom:12px;"><div style="font-weight:bold;color:#4338ca;margin-bottom:6px;">📅 ${htmlSeguro(anio)} · Sección ${htmlSeguro(h.seccion||e.seccion_nombre||'—')}</div>`;
       periodos.forEach(p=>{
-        academicoHtml+=`<div style="font-size:12px;font-weight:bold;color:#475569;margin:8px 0 4px;">${p.clave} Período</div><div class="table-wrap"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Profesor</th><th style="text-align:center;">Cot.</th><th style="text-align:center;">Tar.</th><th style="text-align:center;">Prue.</th><th style="text-align:center;">Proy.</th><th style="text-align:center;">Asist.</th><th style="text-align:center;">Total</th></tr></thead><tbody>${p.rows.map(m=>`<tr><td><strong>${htmlSeguro(m.materia_nombre||'—')}</strong></td><td>${htmlSeguro(m.profesor_nombre||'—')}</td><td style="text-align:center;">${numArchivo(m.nota_cotidiano)}</td><td style="text-align:center;">${numArchivo(m.nota_tareas)}</td><td style="text-align:center;">${numArchivo(m.nota_pruebas)}</td><td style="text-align:center;">${numArchivo(m.nota_proyecto)}</td><td style="text-align:center;">${numArchivo(m.nota_asistencia)}</td><td style="text-align:center;font-weight:bold;color:${Number(m.nota_total)>=70?'#15803d':'#dc2626'};">${numArchivo(m.nota_total)}</td></tr>`).join('')}</tbody></table></div>`;
+        academicoHtml+=`<div style="font-size:12px;font-weight:bold;color:#475569;margin:8px 0 4px;">${p.clave} Período</div><div class="table-wrap"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Profesor</th><th style="text-align:center;">Cot. %</th><th style="text-align:center;">Tar. %</th><th style="text-align:center;">Prue. %</th><th style="text-align:center;">Proy. %</th><th style="text-align:center;">Asist. %</th><th style="text-align:center;">Total</th></tr></thead><tbody>${p.rows.map(m=>`<tr><td><strong>${htmlSeguro(m.materia_nombre||'—')}</strong></td><td>${htmlSeguro(m.profesor_nombre||'—')}</td><td style="text-align:center;">${pctArchivo(m.nota_cotidiano)}</td><td style="text-align:center;">${pctArchivo(m.nota_tareas)}</td><td style="text-align:center;">${pctArchivo(m.nota_pruebas)}</td><td style="text-align:center;">${pctArchivo(m.nota_proyecto)}</td><td style="text-align:center;">${pctArchivo(m.nota_asistencia)}</td><td style="text-align:center;font-weight:bold;color:${Number(m.nota_total)>=70?'#15803d':'#dc2626'};">${numArchivo(m.nota_total)}</td></tr>`).join('')}</tbody></table></div>`;
       });
       academicoHtml+='</div>';
     });
     html+=seccion('📊 Promedios desglosados por período','#4f46e5',academicoHtml||'<div style="color:var(--muted);font-style:italic;">No hay calificaciones cargadas para mostrar.</div>');
 
+    if(!archivoSoloAcademico){
     // Conducta: conserva cada boleta, sus puntos, fecha, materia, responsable
     // y observación. Los años legados que perdieron el detalle muestran solo
     // el resumen disponible, identificado claramente.
@@ -19325,6 +19336,7 @@ async function verDetalleArchivado(id){
         </div>
       `).join('');
       html += seccion('📜 Historial reciente', '#6b7280', filas + (historial.length > 20 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;">Mostrando 20 de ${historial.length}.</div>` : ''));
+    }
     }
 
     document.getElementById('darch-contenido').innerHTML = html;

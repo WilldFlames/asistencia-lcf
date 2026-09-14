@@ -613,20 +613,34 @@ router.put("/:id/foto", canManage, async (req, res) => {
 });
 
 // ── LISTAR ARCHIVADOS ────────────────────────────────────────────────
-router.get("/archivados", canManage, async (req, res) => {
+router.get("/archivados", requireRol("admin","auxiliar","profesor","profesor_guia","orientador"), async (req, res) => {
+  const soloDocente=!(["admin","auxiliar"].includes(req.session.usuario.rol));
+  const campos=soloDocente
+    ? `e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,
+       e.fecha_archivo,e.fecha_retiro,e.motivo_archivo,e.motivo_retiro,
+       COALESCE(s.nombre,e.seccion_archivo) AS seccion_nombre`
+    : `e.*,
+       COALESCE(s.nombre, e.seccion_archivo) AS seccion_nombre,
+       u.nombre AS retirado_por_nombre,
+       u.primer_apellido AS retirado_por_ap1,
+       u.segundo_apellido AS retirado_por_ap2,
+       u.rol AS retirado_por_rol`;
   const r = await pool.query(`
-    SELECT e.*,
-      COALESCE(s.nombre, e.seccion_archivo) AS seccion_nombre,
-      u.nombre AS retirado_por_nombre,
-      u.primer_apellido AS retirado_por_ap1,
-      u.segundo_apellido AS retirado_por_ap2,
-      u.rol AS retirado_por_rol
+    SELECT ${campos}
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN usuarios u ON u.id=e.retirado_por
     WHERE e.archivado=true
+      AND ($1::boolean=false OR EXISTS (
+        SELECT 1 FROM expediente_academico ea
+        JOIN asignaciones a ON a.anio=ea.anio AND a.profesor_id=$2
+        JOIN materias ma ON ma.id=a.materia_id AND ma.nombre=ea.materia_nombre
+        JOIN secciones sa ON sa.id=a.seccion_id AND sa.nombre=ea.seccion_nombre
+        WHERE ea.estudiante_id=e.id
+          AND (a.subgrupo IS NULL OR a.subgrupo=e.subgrupo)
+      ))
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
-  `);
+  `,[soloDocente,req.session.usuario.id]);
   res.json(r.rows);
 });
 

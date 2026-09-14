@@ -50,4 +50,8 @@ test('el Archivo muestra promedios y conducta desglosados por los períodos exis
   assert.match(frontend,/No hay calificaciones cargadas para mostrar/);
   assert.match(frontend,/No hay boletas de conducta registradas/);
   assert.match(frontend,/conducta-desglosada/);
+  assert.match(frontend,/const pctArchivo=/);
+  assert.match(frontend,/Cot\. %/);
+  assert.match(frontend,/pctArchivo\(m\.nota_cotidiano\)/);
+  assert.match(frontend,/pct\(m\.nota_cotidiano\)/);
 });

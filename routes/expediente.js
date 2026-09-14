@@ -1,10 +1,21 @@
 const router = require("express").Router();
 const { pool } = require("../db");
-const { requireAuth, requireRol } = require("../middleware/auth");
+const { requireAuth, requireRol, tieneRol } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 const { calcularPromedioEstudianteArchivado } = require("./calificaciones");
 
 const canManage = requireRol("admin","auxiliar");
+const canReadAcademic = requireRol("admin","auxiliar","profesor","profesor_guia","orientador");
+
+function esDocenteArchivo(usuario){
+  return !tieneRol(usuario,["admin","auxiliar"])
+    && tieneRol(usuario,["profesor","profesor_guia","orientador"]);
+}
+
+function aportePonderado(nota,peso){
+  if(nota===null||nota===undefined||peso===null||peso===undefined) return null;
+  return Number(nota)*Number(peso)/100;
+}
 
 function promedioTieneDatos(est){
   const rubros=est?.rubros||{};
@@ -141,16 +152,42 @@ router.get("/matricula/stats/:anio", canManage, async (req, res) => {
 // ── HISTORIAL ACADÉMICO (auxiliares/admin) ──────────────────────────────
 // Devuelve las notas archivadas por año/período/materia de un estudiante,
 // con totales de asistencia (ausencias, tardías, justificadas).
-router.get("/:id/historial-academico", canManage, async (req, res) => {
+router.get("/:id/historial-academico", canReadAcademic, async (req, res) => {
+  const soloDocente=esDocenteArchivo(req.session.usuario);
   const r = await pool.query(`
-    SELECT anio, periodo, seccion_nombre, materia_nombre, profesor_nombre,
+    SELECT ea.anio, ea.periodo, ea.seccion_nombre, ea.materia_nombre, ea.profesor_nombre,
       nota_cotidiano, nota_tareas, nota_pruebas, nota_proyecto, nota_asistencia,
-      nota_total, ausencias, ausencias_just, tardias, conducta_nota
-    FROM expediente_academico
-    WHERE estudiante_id = $1
-    ORDER BY anio DESC, periodo, materia_nombre
-  `, [req.params.id]);
-  const filas=new Map(r.rows.map(x=>[`${x.anio}|${x.periodo}|${x.materia_nombre}`,x]));
+      nota_total, ausencias, ausencias_just, tardias, conducta_nota,
+      regla.porc_cotidiano,regla.porc_tareas,regla.porc_pruebas,
+      regla.porc_proyectos,regla.porc_asistencia
+    FROM expediente_academico ea
+    LEFT JOIN secciones sec ON sec.nombre=ea.seccion_nombre
+    LEFT JOIN materias mat ON mat.nombre=ea.materia_nombre
+    LEFT JOIN materia_regla_evaluacion mre ON mre.materia_id=mat.id
+      AND sec.nivel BETWEEN mre.nivel_min AND mre.nivel_max
+    LEFT JOIN materia_evaluacion_oficial regla ON regla.id=mre.regla_id
+    WHERE ea.estudiante_id = $1
+      AND ($2::boolean=false OR EXISTS (
+        SELECT 1 FROM asignaciones a
+        JOIN materias ma ON ma.id=a.materia_id
+        JOIN secciones sa ON sa.id=a.seccion_id
+        JOIN estudiantes est ON est.id=ea.estudiante_id
+        WHERE a.profesor_id=$3 AND a.anio=ea.anio
+          AND ma.nombre=ea.materia_nombre AND sa.nombre=ea.seccion_nombre
+          AND (a.subgrupo IS NULL OR a.subgrupo=est.subgrupo)
+      ))
+    ORDER BY ea.anio DESC, ea.periodo, ea.materia_nombre
+  `, [req.params.id,soloDocente,req.session.usuario.id]);
+  const filas=new Map(r.rows.map(x=>{
+    const fila={...x,
+      nota_cotidiano:aportePonderado(x.nota_cotidiano,x.porc_cotidiano),
+      nota_tareas:aportePonderado(x.nota_tareas,x.porc_tareas),
+      nota_pruebas:aportePonderado(x.nota_pruebas,x.porc_pruebas),
+      nota_proyecto:aportePonderado(x.nota_proyecto,x.porc_proyectos)
+      // La asistencia ya se archiva como puntos aportados al total.
+    };
+    return [`${fila.anio}|${fila.periodo}|${fila.materia_nombre}`,fila];
+  }));
 
   // Si el retiro ocurrió durante el curso actual, las notas todavía viven en
   // las tablas operativas. Las calculamos incluyendo expresamente al estudiante
@@ -175,9 +212,10 @@ router.get("/:id/historial-academico", canManage, async (req, res) => {
       JOIN secciones s ON s.id=a.seccion_id
       JOIN usuarios u ON u.id=a.profesor_id
       WHERE a.anio=$1 AND a.seccion_id=$2
+        AND ($4::boolean=false OR a.profesor_id=$5)
         AND (a.subgrupo IS NULL OR a.subgrupo=$3)
       ORDER BY m.nombre,a.profesor_id,a.subgrupo
-    `,[anio,est.consulta_seccion_id,est.subgrupo||null]);
+    `,[anio,est.consulta_seccion_id,est.subgrupo||null,soloDocente,req.session.usuario.id]);
     for(const a of bases.rows){
       for(const periodo of ["I Período","II Período"]){
         try{
@@ -190,10 +228,10 @@ router.get("/:id/historial-academico", canManage, async (req, res) => {
           const fila={
             anio,periodo,seccion_nombre:a.seccion_nombre,materia_nombre:a.materia_nombre,
             profesor_nombre:[a.prof_nombre,a.prof_ap1,a.prof_ap2].filter(Boolean).join(" "),
-            nota_cotidiano:rb.cotidiano?.nota_100??null,
-            nota_tareas:rb.tarea?.nota_100??null,
-            nota_pruebas:rb.examen?.nota_100??null,
-            nota_proyecto:rb.proyecto?.nota_100??null,
+            nota_cotidiano:rb.cotidiano?.pct??null,
+            nota_tareas:rb.tarea?.pct??null,
+            nota_pruebas:rb.examen?.pct??null,
+            nota_proyecto:rb.proyecto?.pct??null,
             nota_asistencia:nota.asistencia?.puntos_mep??nota.asistencia?.pct??null,
             nota_total:nota.total??null,
             ausencias:nota.asistencia?.lecciones_ausentes_injust||0,
