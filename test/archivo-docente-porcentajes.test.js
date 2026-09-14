@@ -18,6 +18,15 @@ test('el historial muestra el aporte ponderado y no la nota cruda de cada rubro'
   assert.match(ui,/pctArchivo\(m\.nota_cotidiano\)/);
 });
 
+test('cada examen aporta solo su valor porcentual y reserva las pruebas pendientes',()=>{
+  const calificaciones=read('routes/calificaciones.js');
+  assert.match(calificaciones,/SELECT e\.id, e\.tipo, e\.puntaje_total, e\.valor_porcentual/);
+  assert.match(calificaciones,/const cantidadPruebasOficial = Math\.max\(0, Number\(regla\.cantidad_pruebas \|\| 0\)\)/);
+  assert.match(calificaciones,/const cuposSinVp = Math\.max\(sinVpCount, cantidadPruebasOficial - conVpCount\)/);
+  assert.match(calificaciones,/vpDisponibleRestante \/ Math\.max\(1,cuposSinVp\)/);
+  assert.match(calificaciones,/r\.pct_sumado \+= \(puntos \/ ptotal\) \* vp/);
+});
+
 test('Archivo docente limita estudiantes, subgrupos y materias al profesor autenticado',()=>{
   assert.match(estudiantes,/requireRol\("admin","auxiliar","profesor","profesor_guia","orientador"\)/);
   assert.match(estudiantes,/a\.profesor_id=\$2/);

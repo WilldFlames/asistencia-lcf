@@ -751,7 +751,7 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
 
   // 4. Cargar todas las evaluaciones del período para esta asignación, con sus notas
   const evalsR = await pool.query(`
-    SELECT e.id, e.tipo, e.puntaje_total
+    SELECT e.id, e.tipo, e.puntaje_total, e.valor_porcentual
     FROM evaluaciones e
     WHERE e.profesor_id = $1 AND e.seccion_id = $2 AND e.materia_id = $3
       AND (($4::text IS NULL AND e.subgrupo IS NULL) OR e.subgrupo=$4)
@@ -788,15 +788,21 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
   const examenesEvals = evalsR.rows.filter(e => e.tipo === 'examen');
   let vpTotalAsignado = 0;
   let sinVpCount = 0;
+  let conVpCount = 0;
   for (const ev of examenesEvals) {
     const vp = Number(ev.valor_porcentual || 0);
-    if (vp > 0) vpTotalAsignado += vp;
+    if (vp > 0) { vpTotalAsignado += vp; conVpCount++; }
     else sinVpCount++;
   }
   const pesoPruebasRubro = Number(regla.porc_pruebas || 0);
   const vpDisponibleRestante = Math.max(0, pesoPruebasRubro - vpTotalAsignado);
+  // En registros antiguos sin valor porcentual, reservar también los cupos de
+  // pruebas que todavía no se han creado. Ej.: rubro 50%, dos pruebas y solo
+  // una creada => esa primera prueba vale 25%, nunca el 50% completo.
+  const cantidadPruebasOficial = Math.max(0, Number(regla.cantidad_pruebas || 0));
+  const cuposSinVp = Math.max(sinVpCount, cantidadPruebasOficial - conVpCount);
   const vpVirtualPorSinVp = (sinVpCount > 0 && vpDisponibleRestante > 0)
-    ? vpDisponibleRestante / sinVpCount
+    ? vpDisponibleRestante / Math.max(1,cuposSinVp)
     : 0;
 
   // Cargar notas por cada evaluación
