@@ -65,6 +65,36 @@ async function hayChoqueCita(db, profesorId, estudianteId, fecha, hora, duracion
   `, [profesorId, estudianteId, fecha, hora, duracion, excluirId]);
   return r.rows.length > 0;
 }
+async function hayChoqueFuncionario(db,usuarioId,fecha,hora,duracion,excluirCita=null){
+  const r=await db.query(`SELECT 1 FROM (
+    SELECT e.hora_inicio inicio,e.hora_fin fin FROM agenda_eventos e
+    JOIN agenda_participantes ap ON ap.evento_id=e.id
+    WHERE ap.usuario_id=$1 AND ap.estado<>'rechazado' AND e.estado='activo' AND e.fecha=$2
+    UNION ALL
+    SELECT c.hora inicio,c.hora+make_interval(mins=>c.duracion_min) fin FROM citas c
+    LEFT JOIN citas_participantes cp ON cp.cita_id=c.id AND cp.usuario_id=$1
+    WHERE (c.profesor_id=$1 OR cp.usuario_id=$1) AND COALESCE(cp.estado,'aceptado')<>'rechazado'
+      AND c.estado IN ('pendiente','confirmada') AND c.fecha=$2 AND ($5::int IS NULL OR c.id<>$5)
+  ) x WHERE x.inicio<($3::time+make_interval(mins=>$4::int)) AND x.fin>$3::time LIMIT 1`,[usuarioId,fecha,hora,duracion,excluirCita]);
+  return r.rows.length>0;
+}
+async function validarOrientadoraCita(db,orientadoraId,anio,fecha,hora,duracion){
+  if(!orientadoraId)return null;
+  const u=await db.query("SELECT id FROM usuarios WHERE id=$1 AND rol='orientador' AND activo=true",[orientadoraId]);
+  if(!u.rows.length)return "La orientadora seleccionada no está activa.";
+  const fin=await db.query("SELECT ($1::time+make_interval(mins=>$2::int))::time::text fin",[hora,duracion]);
+  const hf=fin.rows[0].fin.slice(0,5);
+  const j=await db.query(`SELECT hora_inicio::text,hora_fin::text FROM agenda_horarios_oficina
+    WHERE usuario_id=$1 AND anio=$2 AND dia_semana=EXTRACT(ISODOW FROM $3::date) AND activo=true`,[orientadoraId,anio,fecha]);
+  if(!j.rows.length)return "La orientadora no tiene jornada laboral configurada para ese día.";
+  if(hora<j.rows[0].hora_inicio.slice(0,5)||hf>j.rows[0].hora_fin.slice(0,5))return "La cita queda fuera de la jornada laboral de la orientadora.";
+  const p=await db.query(`SELECT motivo FROM agenda_bloqueos WHERE usuario_id=$1 AND anio=$2 AND activo=true
+    AND (fecha=$3::date OR (fecha IS NULL AND dia_semana=EXTRACT(ISODOW FROM $3::date)))
+    AND hora_inicio<$5::time AND hora_fin>$4::time LIMIT 1`,[orientadoraId,anio,fecha,hora,hf]);
+  if(p.rows.length)return `La orientadora tiene su pausa de ${p.rows[0].motivo} en ese horario.`;
+  if(await hayChoqueFuncionario(db,orientadoraId,fecha,hora,duracion))return "La orientadora ya tiene otra cita o reunión en ese horario.";
+  return null;
+}
 
 // Estudiantes a quienes el docente realmente imparte alguna materia este año.
 router.get("/estudiantes", requireDocente, async (req, res) => {
@@ -144,15 +174,19 @@ router.get("/mis-citas", requireDocente, async (req, res) => {
   const r = await pool.query(`
     SELECT c.id, c.anio, c.fecha::text, c.hora::text, c.duracion_min, c.motivo,
       c.estado, c.pendiente_de, c.solicitada_por, c.es_contrapropuesta,
+      c.profesor_id, cp.estado AS mi_participacion,
       c.respuesta_mensaje, c.created_at,
       e.id AS estudiante_id, e.nombre AS est_nombre, e.primer_apellido AS est_ap1,
       e.segundo_apellido AS est_ap2, s.nombre AS seccion_nombre,
       m.nombre AS materia_nombre,
+      COALESCE((SELECT json_agg(json_build_object('id',cp.usuario_id,'estado',cp.estado,'nombre',TRIM(CONCAT_WS(' ',ou.nombre,ou.primer_apellido,ou.segundo_apellido))))
+        FROM citas_participantes cp JOIN usuarios ou ON ou.id=cp.usuario_id WHERE cp.cita_id=c.id),'[]') orientadoras,
       enc.nombre AS enc_nombre, enc.primer_apellido AS enc_ap1, enc.segundo_apellido AS enc_ap2
     FROM citas c
     JOIN estudiantes e ON e.id=c.estudiante_id
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN asignaciones a ON a.id=c.asignacion_id
+    LEFT JOIN citas_participantes cp ON cp.cita_id=c.id AND cp.usuario_id=$1
     LEFT JOIN materias m ON m.id=a.materia_id
     LEFT JOIN LATERAL (
       SELECT nombre, primer_apellido, segundo_apellido FROM encargados x
@@ -160,7 +194,7 @@ router.get("/mis-citas", requireDocente, async (req, res) => {
         AND REPLACE(REPLACE(REPLACE(x.cedula,'-',''),'.',''),' ','')=c.encargado_cedula
       ORDER BY x.es_principal DESC, x.id LIMIT 1
     ) enc ON true
-    WHERE c.profesor_id=$1 AND c.anio=$2
+    WHERE (c.profesor_id=$1 OR cp.usuario_id=$1) AND c.anio=$2
     ORDER BY CASE WHEN c.estado='pendiente' THEN 0 WHEN c.estado='confirmada' THEN 1 ELSE 2 END,
       c.fecha, c.hora
   `, [req.session.usuario.id, anio]);
@@ -188,7 +222,11 @@ router.post("/solicitar", requireDocente, async (req, res) => {
   const cedula = limpiarCedula(encR.rows[0].cedula);
   const anio = await obtenerAnioActivo();
   const duracion = Number(req.body.duracion_min || 20);
+  const orientadoraId = Number(req.body.orientadora_id) || null;
   if(duracion < 10 || duracion > 120) return res.status(400).json({ error:"Duración inválida." });
+  if(await hayChoqueFuncionario(pool,profesorId,fecha,hora,duracion)) return res.status(409).json({error:"Ya tiene otra cita o reunión en ese horario."});
+  const errorOrientadora=await validarOrientadoraCita(pool,orientadoraId,anio,fecha,hora,duracion);
+  if(errorOrientadora)return res.status(409).json({error:errorOrientadora});
   const client = await pool.connect();
   try{
     await client.query("BEGIN");
@@ -204,6 +242,10 @@ router.post("/solicitar", requireDocente, async (req, res) => {
       VALUES($1,$2,$3,$4,$5,'profesor',$6,$7,$8,$9,'pendiente','encargado',$3)
       RETURNING id
     `, [anio, estudianteId, profesorId, asig.id, cedula, fecha, hora, duracion, motivo]);
+    if(orientadoraId){
+      await client.query("INSERT INTO citas_participantes(cita_id,usuario_id) VALUES($1,$2)",[r.rows[0].id,orientadoraId]);
+      await notificar(orientadoraId,`📅 Invitación a cita con familia el ${fechaTexto(fecha)} a las ${hora}.`,r.rows[0].id);
+    }
     await client.query("COMMIT");
     await notificarCedula(cedula, {
       title:"📅 Nueva solicitud de cita",
@@ -218,6 +260,29 @@ router.post("/solicitar", requireDocente, async (req, res) => {
     if(e.code === "23505") return res.status(409).json({ error:"Ya existe otra cita del docente en esa fecha y hora." });
     throw e;
   }finally{ client.release(); }
+});
+
+router.post("/:id/invitar-orientadora", requireDocente, async(req,res)=>{
+  const profesorId=req.session.usuario.id,orientadoraId=Number(req.body.orientadora_id);
+  const q=await pool.query("SELECT * FROM citas WHERE id=$1 AND profesor_id=$2 AND estado IN ('pendiente','confirmada')",[req.params.id,profesorId]);
+  if(!q.rows.length)return res.status(404).json({error:"Cita activa no encontrada."});
+  const c=q.rows[0],err=await validarOrientadoraCita(pool,orientadoraId,c.anio,String(c.fecha).slice(0,10),String(c.hora).slice(0,5),Number(c.duracion_min));
+  if(err)return res.status(409).json({error:err});
+  try{await pool.query("INSERT INTO citas_participantes(cita_id,usuario_id) VALUES($1,$2)",[c.id,orientadoraId]);}
+  catch(e){if(e.code==='23505')return res.status(409).json({error:"Esa orientadora ya está invitada a la cita."});throw e;}
+  await notificar(orientadoraId,`📅 Invitación a cita con familia el ${fechaTexto(c.fecha)} a las ${String(c.hora).slice(0,5)}.`,c.id);
+  res.json({ok:true});
+});
+
+router.put("/:id/responder-participacion", requireDocente, async(req,res)=>{
+  const estado=req.body.accion==='aceptar'?'aceptado':req.body.accion==='rechazar'?'rechazado':null;
+  if(!estado)return res.status(400).json({error:"Respuesta inválida."});
+  const r=await pool.query(`UPDATE citas_participantes SET estado=$1,respuesta=$2,responded_at=NOW()
+    WHERE cita_id=$3 AND usuario_id=$4 AND estado='pendiente' RETURNING cita_id`,[estado,String(req.body.mensaje||'').slice(0,500),req.params.id,req.session.usuario.id]);
+  if(!r.rows.length)return res.status(404).json({error:"Invitación pendiente no encontrada."});
+  const c=await pool.query("SELECT profesor_id FROM citas WHERE id=$1",[req.params.id]);
+  if(c.rows[0])await notificar(c.rows[0].profesor_id,`📅 ${req.session.usuario.nombre} ${estado==='aceptado'?'aceptó':'rechazó'} participar en la cita con la familia.`,Number(req.params.id));
+  res.json({ok:true});
 });
 
 router.put("/:id/responder", requireDocente, async (req, res) => {

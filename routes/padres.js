@@ -94,6 +94,12 @@ async function hayChoqueCita(db, profesorId, estudianteId, fecha, hora, duracion
   `,[profesorId,estudianteId,fecha,hora,duracion,excluirId]);
   return r.rows.length>0;
 }
+async function hayChoqueAgenda(db,profesorId,fecha,hora,duracion){
+  const r=await db.query(`SELECT 1 FROM agenda_eventos e JOIN agenda_participantes ap ON ap.evento_id=e.id
+    WHERE ap.usuario_id=$1 AND ap.estado<>'rechazado' AND e.estado='activo' AND e.fecha=$2
+      AND e.hora_inicio<($3::time+make_interval(mins=>$4::int)) AND e.hora_fin>$3::time LIMIT 1`,[profesorId,fecha,hora,duracion]);
+  return r.rows.length>0;
+}
 
 async function notificarDocente(profesorId,mensaje,citaId){
   await pool.query(
@@ -492,6 +498,10 @@ router.get("/hijo/:id/citas/slots", requirePadre, hijoDelPadre, async (req,res)=
     WHERE profesor_id=$1 AND estado IN ('pendiente','confirmada')
       AND fecha BETWEEN $2 AND $3`,[profesorId,fechaCR(),hasta.toISOString().slice(0,10)]);
   const ocupadas=ocupadasR.rows.map(x=>({fecha:String(x.fecha).slice(0,10),inicio:minutos(x.hora),fin:minutos(x.hora)+Number(x.duracion_min)}));
+  const agendaR=await pool.query(`SELECT e.fecha::text,e.hora_inicio::text,e.hora_fin::text FROM agenda_eventos e
+    JOIN agenda_participantes ap ON ap.evento_id=e.id WHERE ap.usuario_id=$1 AND ap.estado<>'rechazado'
+      AND e.estado='activo' AND e.fecha BETWEEN $2 AND $3`,[profesorId,fechaCR(),hasta.toISOString().slice(0,10)]);
+  agendaR.rows.forEach(x=>ocupadas.push({fecha:String(x.fecha).slice(0,10),inicio:minutos(x.hora_inicio),fin:minutos(x.hora_fin)}));
   const slots=[];
   const d=new Date(`${fechaCR()}T12:00:00Z`);
   while(d<=hasta){
@@ -550,6 +560,7 @@ router.post("/hijo/:id/citas", requirePadre, hijoDelPadre, async (req,res)=>{
       await client.query('ROLLBACK');
       return res.status(409).json({error:"Esa hora se cruza con otra cita. Seleccione una diferente."});
     }
+    if(await hayChoqueAgenda(client,profesorId,fecha,hora,Number(bloque.duracion_min))){await client.query('ROLLBACK');return res.status(409).json({error:"El docente ya tiene una reunión en ese horario."});}
     const r=await client.query(`INSERT INTO citas(anio,estudiante_id,profesor_id,asignacion_id,
       encargado_cedula,solicitada_por,fecha,hora,duracion_min,motivo,estado,pendiente_de)
       VALUES($1,$2,$3,$4,$5,'encargado',$6,$7,$8,$9,'pendiente','profesor') RETURNING id`,
@@ -589,6 +600,7 @@ router.put("/citas/:id/responder", requirePadre, async (req,res)=>{
       if(await hayChoqueCita(client,cita.profesor_id,cita.estudiante_id,fecha,hora,Number(bloque.duracion_min),cita.id)){
         await client.query('ROLLBACK');return res.status(409).json({error:"La hora se cruza con otra cita."});
       }
+      if(await hayChoqueAgenda(client,cita.profesor_id,fecha,hora,Number(bloque.duracion_min))){await client.query('ROLLBACK');return res.status(409).json({error:"El docente ya tiene una reunión en ese horario."});}
       await client.query(`UPDATE citas SET fecha=$1,hora=$2,duracion_min=$3,estado='pendiente',pendiente_de='profesor',
         es_contrapropuesta=true,respuesta_mensaje=$4,updated_at=NOW() WHERE id=$5`,[fecha,hora,Number(bloque.duracion_min),mensaje,cita.id]);
     }

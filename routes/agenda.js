@@ -36,6 +36,19 @@ async function validarOrientacion(db, usuarioId, anio, fecha, inicio, fin){
     return `La orientadora atiende ese día de ${h.hora_inicio.slice(0,5)} a ${h.hora_fin.slice(0,5)}.`;
   return null;
 }
+async function compromisoExistente(db,usuarioId,fecha,inicio,fin){
+  const r=await db.query(`SELECT 1 FROM (
+    SELECT e.hora_inicio inicio,e.hora_fin fin
+    FROM agenda_eventos e JOIN agenda_participantes p ON p.evento_id=e.id
+    WHERE p.usuario_id=$1 AND p.estado<>'rechazado' AND e.estado='activo' AND e.fecha=$2
+    UNION ALL
+    SELECT c.hora inicio,c.hora+make_interval(mins=>c.duracion_min) fin
+    FROM citas c LEFT JOIN citas_participantes cp ON cp.cita_id=c.id AND cp.usuario_id=$1
+    WHERE (c.profesor_id=$1 OR cp.usuario_id=$1) AND COALESCE(cp.estado,'aceptado')<>'rechazado'
+      AND c.estado IN ('pendiente','confirmada') AND c.fecha=$2
+  ) x WHERE x.inicio<$4::time AND x.fin>$3::time LIMIT 1`,[usuarioId,fecha,inicio,fin]);
+  return r.rows.length>0;
+}
 
 router.use(autorizado);
 
@@ -69,18 +82,15 @@ router.get("/eventos", async (req,res)=>{
       AND (e.creador_id=$1 OR ap.usuario_id=$1 OR (e.institucional=true AND $5::boolean=true))
     GROUP BY e.id,uc.id,ap.id ORDER BY e.fecha,e.hora_inicio`,[uid,anio,desde,hasta,esAdmin(req.session.usuario)]);
   const citas=await pool.query(`SELECT c.id,c.fecha::text,c.hora::text,c.duracion_min,c.motivo,c.estado,c.pendiente_de,
+    cp.estado participante_estado,
     TRIM(CONCAT_WS(' ',e.nombre,e.primer_apellido,e.segundo_apellido)) estudiante,s.nombre seccion
     FROM citas c JOIN estudiantes e ON e.id=c.estudiante_id LEFT JOIN secciones s ON s.id=e.seccion_id
-    WHERE c.profesor_id=$1 AND c.anio=$2 AND c.fecha BETWEEN $3 AND $4 AND c.estado<>'cancelada'
+    LEFT JOIN citas_participantes cp ON cp.cita_id=c.id AND cp.usuario_id=$1
+    WHERE (c.profesor_id=$1 OR cp.usuario_id=$1) AND c.anio=$2 AND c.fecha BETWEEN $3 AND $4 AND c.estado<>'cancelada'
     ORDER BY c.fecha,c.hora`,[uid,anio,desde,hasta]);
   const blocks=await pool.query(`SELECT id,fecha::text,dia_semana,hora_inicio::text,hora_fin::text,motivo
     FROM agenda_bloqueos WHERE usuario_id=$1 AND anio=$2 AND activo=true ORDER BY dia_semana,fecha,hora_inicio`,[uid,anio]);
-  const referencias=await pool.query(`SELECT h.dia,h.leccion,s.nombre seccion,m.nombre materia
-    FROM horarios h JOIN asignaciones a ON a.id=h.asignacion_id
-    JOIN secciones s ON s.id=h.seccion_id JOIN materias m ON m.id=a.materia_id
-    WHERE a.profesor_id=$1 AND h.anio=$2 AND COALESCE(a.activa,true)=true
-    ORDER BY h.dia,h.leccion`,[uid,anio]);
-  res.json({eventos:propios.rows,citas:citas.rows,bloqueos:blocks.rows,referencias:referencias.rows});
+  res.json({eventos:propios.rows,citas:citas.rows,bloqueos:blocks.rows});
 });
 
 router.post("/eventos", async (req,res)=>{
@@ -102,6 +112,7 @@ router.post("/eventos", async (req,res)=>{
     if(tipo==="orientacion" && (p.rol==="orientador")){
       const err=await validarOrientacion(pool,p.id,anio,fecha,inicio,fin); if(err)return res.status(409).json({error:err});
     }
+    if(await compromisoExistente(pool,p.id,fecha,inicio,fin))return res.status(409).json({error:`${p.nombre} ${p.primer_apellido} ya tiene una cita o reunión en ese horario.`});
   }
   const client=await pool.connect();
   try{
@@ -146,6 +157,7 @@ router.put("/eventos/:id/cancelar", async (req,res)=>{
 });
 
 router.get("/configuracion", async (req,res)=>{
+  if(req.session.usuario.rol!=="admin")return res.status(403).json({error:"Solo el administrador puede configurar la jornada de Orientación."});
   const anio=await obtenerAnioActivo(); let uid=req.session.usuario.id;
   if(req.query.usuario_id && esAdmin(req.session.usuario))uid=Number(req.query.usuario_id);
   const [h,b]=await Promise.all([
@@ -155,25 +167,42 @@ router.get("/configuracion", async (req,res)=>{
 });
 
 router.put("/horario-oficina", async (req,res)=>{
-  let uid=req.session.usuario.id; if(req.body.usuario_id && esAdmin(req.session.usuario))uid=Number(req.body.usuario_id);
+  if(req.session.usuario.rol!=="admin")return res.status(403).json({error:"Solo el administrador puede asignar el horario laboral de Orientación."});
+  const uid=Number(req.body.usuario_id);
   const target=await pool.query("SELECT id,rol FROM usuarios WHERE id=$1 AND activo=true",[uid]);
   if(!target.rows.length || target.rows[0].rol!=="orientador")return res.status(400).json({error:"El horario de oficina corresponde a una orientadora activa."});
-  if(uid!==req.session.usuario.id && !esAdmin(req.session.usuario))return res.status(403).json({error:"Sin permiso."});
   const horarios=Array.isArray(req.body.horarios)?req.body.horarios:[], anio=await obtenerAnioActivo();
   for(const h of horarios)if(Number(h.dia_semana)<1||Number(h.dia_semana)>5||!horaOk(h.hora_inicio)||!horaOk(h.hora_fin)||h.hora_fin<=h.hora_inicio)return res.status(400).json({error:"Hay un horario de oficina inválido."});
+  const pausas=await pool.query(`SELECT dia_semana,hora_inicio::text,hora_fin::text,motivo FROM agenda_bloqueos
+    WHERE usuario_id=$1 AND anio=$2 AND activo=true AND fecha IS NULL`,[uid,anio]);
+  for(const p of pausas.rows){
+    const jornada=horarios.find(h=>Number(h.dia_semana)===Number(p.dia_semana));
+    if(!jornada || p.hora_inicio.slice(0,5)<jornada.hora_inicio || p.hora_fin.slice(0,5)>jornada.hora_fin)
+      return res.status(409).json({error:`La pausa de ${p.motivo} del día ${p.dia_semana} quedaría fuera de la nueva jornada. Ajuste o elimine primero esa pausa.`});
+  }
   const c=await pool.connect();try{await c.query("BEGIN");await c.query("DELETE FROM agenda_horarios_oficina WHERE usuario_id=$1 AND anio=$2",[uid,anio]);for(const h of horarios)await c.query(`INSERT INTO agenda_horarios_oficina(usuario_id,anio,dia_semana,hora_inicio,hora_fin) VALUES($1,$2,$3,$4,$5)`,[uid,anio,Number(h.dia_semana),h.hora_inicio,h.hora_fin]);await c.query("COMMIT");res.json({ok:true});}catch(e){await c.query("ROLLBACK");throw e;}finally{c.release();}
 });
 
 router.post("/bloqueos", async (req,res)=>{
-  let uid=req.session.usuario.id;if(req.body.usuario_id && esAdmin(req.session.usuario))uid=Number(req.body.usuario_id);
-  if(uid!==req.session.usuario.id&&!esAdmin(req.session.usuario))return res.status(403).json({error:"Sin permiso."});
-  const fecha=limpio(req.body.fecha)||null,dia=Number(req.body.dia_semana)||null,inicio=limpio(req.body.hora_inicio).slice(0,5),fin=limpio(req.body.hora_fin).slice(0,5),motivo=limpio(req.body.motivo);
-  if((fecha&&!fechaOk(fecha))||(!fecha&&!dia)||dia<0||dia>7||!horaOk(inicio)||!horaOk(fin)||fin<=inicio||motivo.length<2)return res.status(400).json({error:"Complete correctamente el bloqueo."});
-  const anio=await obtenerAnioActivo();const r=await pool.query(`INSERT INTO agenda_bloqueos(usuario_id,anio,fecha,dia_semana,hora_inicio,hora_fin,motivo,creado_por) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,[uid,anio,fecha,dia,inicio,fin,motivo.slice(0,300),req.session.usuario.id]);res.json({ok:true,id:r.rows[0].id});
+  if(req.session.usuario.rol!=="admin")return res.status(403).json({error:"Solo el administrador puede asignar las pausas de Orientación."});
+  const uid=Number(req.body.usuario_id),dia=Number(req.body.dia_semana)||null,inicio=limpio(req.body.hora_inicio).slice(0,5),fin=limpio(req.body.hora_fin).slice(0,5),tipo=limpio(req.body.tipo_pausa);
+  if(!uid||!dia||dia<1||dia>5||!horaOk(inicio)||!horaOk(fin)||fin<=inicio||!["Desayuno","Almuerzo"].includes(tipo))return res.status(400).json({error:"Indique orientadora, día, tipo de pausa y horario."});
+  const orientadora=await pool.query("SELECT id FROM usuarios WHERE id=$1 AND rol='orientador' AND activo=true",[uid]);
+  if(!orientadora.rows.length)return res.status(400).json({error:"Seleccione una orientadora activa."});
+  const anio=await obtenerAnioActivo();
+  const jornada=await pool.query(`SELECT hora_inicio::text,hora_fin::text FROM agenda_horarios_oficina
+    WHERE usuario_id=$1 AND anio=$2 AND dia_semana=$3 AND activo=true`,[uid,anio,dia]);
+  if(!jornada.rows.length)return res.status(409).json({error:"Primero asigne la jornada laboral de ese día."});
+  if(inicio<jornada.rows[0].hora_inicio.slice(0,5)||fin>jornada.rows[0].hora_fin.slice(0,5))return res.status(409).json({error:"La pausa debe quedar dentro de la jornada laboral."});
+  const cruce=await pool.query(`SELECT motivo FROM agenda_bloqueos WHERE usuario_id=$1 AND anio=$2 AND activo=true
+    AND fecha IS NULL AND dia_semana=$3 AND hora_inicio<$5::time AND hora_fin>$4::time LIMIT 1`,[uid,anio,dia,inicio,fin]);
+  if(cruce.rows.length)return res.status(409).json({error:`La pausa se cruza con ${cruce.rows[0].motivo}.`});
+  const r=await pool.query(`INSERT INTO agenda_bloqueos(usuario_id,anio,fecha,dia_semana,hora_inicio,hora_fin,motivo,creado_por) VALUES($1,$2,NULL,$3,$4,$5,$6,$7) RETURNING id`,[uid,anio,dia,inicio,fin,tipo,req.session.usuario.id]);res.json({ok:true,id:r.rows[0].id});
 });
 
 router.delete("/bloqueos/:id", async (req,res)=>{
-  const q=await pool.query(`UPDATE agenda_bloqueos SET activo=false WHERE id=$1 AND (usuario_id=$2 OR $3::boolean=true) RETURNING id`,[req.params.id,req.session.usuario.id,esAdmin(req.session.usuario)]);
+  if(req.session.usuario.rol!=="admin")return res.status(403).json({error:"Solo el administrador puede modificar las pausas de Orientación."});
+  const q=await pool.query(`UPDATE agenda_bloqueos SET activo=false WHERE id=$1 RETURNING id`,[req.params.id]);
   if(!q.rows.length)return res.status(404).json({error:"Bloqueo no encontrado."});res.json({ok:true});
 });
 

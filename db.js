@@ -2594,9 +2594,23 @@ async function initDB() {
         CHECK(hora_fin > hora_inicio)
       )
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS citas_participantes (
+        id            SERIAL PRIMARY KEY,
+        cita_id       INTEGER NOT NULL REFERENCES citas(id) ON DELETE CASCADE,
+        usuario_id    INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        estado        TEXT NOT NULL DEFAULT 'pendiente'
+                      CHECK(estado IN ('pendiente','aceptado','rechazado')),
+        respuesta     TEXT DEFAULT '',
+        responded_at  TIMESTAMP,
+        created_at    TIMESTAMP DEFAULT NOW(),
+        UNIQUE(cita_id,usuario_id)
+      )
+    `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_agenda_eventos_fecha ON agenda_eventos(fecha,hora_inicio)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_agenda_participante ON agenda_participantes(usuario_id,estado)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_agenda_bloqueo_usuario ON agenda_bloqueos(usuario_id,anio)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_citas_participante_usuario ON citas_participantes(usuario_id,estado)`);
 
     // ── ANUNCIOS (secretarias/admin/administrativos → padres) ────────────
     await client.query(`
