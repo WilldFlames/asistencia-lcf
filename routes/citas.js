@@ -103,7 +103,7 @@ router.get("/estudiantes", requireDocente, async (req, res) => {
   const periodo = (await obtenerPeriodoActual()).nombre;
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
-      s.nombre AS seccion_nombre,
+      s.id AS seccion_id, s.nombre AS seccion_nombre,
       STRING_AGG(DISTINCT m.nombre, ', ' ORDER BY m.nombre) AS materias
     FROM asignaciones a
     JOIN estudiantes e ON e.seccion_id=a.seccion_id
@@ -114,7 +114,7 @@ router.get("/estudiantes", requireDocente, async (req, res) => {
       AND COALESCE(a.periodo,'I Período') IN ('I Período',$3)
       AND e.activo=true AND COALESCE(e.archivado,false)=false
       AND (COALESCE(a.subgrupo,'')='' OR UPPER(a.subgrupo)=UPPER(COALESCE(e.subgrupo,'')))
-    GROUP BY e.id, s.nombre
+    GROUP BY e.id, s.id, s.nombre
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [profesorId, anio, periodo]);
   res.json(r.rows);

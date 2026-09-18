@@ -3657,6 +3657,9 @@ tr:hover td{background:#f8fafc;}
           <input type="search" id="cita-doc-buscar" oninput="citasFiltrarEstudiantes()" onkeydown="citasBuscarEstudianteTecla(event)"
             placeholder="Escriba nombre, apellidos, cédula o sección…" autocomplete="off" style="padding-left:38px;"/>
         </div>
+        <label style="margin-top:8px">Filtrar por sección</label>
+        <select id="cita-doc-seccion" onchange="citasFiltrarEstudiantes()"><option value="">Todas las secciones</option></select>
+        <div style="height:7px"></div>
         <select id="cita-doc-estudiante"><option value="">— Seleccione —</option></select>
         <div id="cita-doc-resultados" style="font-size:11.5px;color:var(--muted);margin-top:5px;">Escriba para encontrar al estudiante más rápido.</div>
       </div>
@@ -17128,6 +17131,8 @@ async function citasAbrirNueva(){
   try{
     const resultados=await Promise.all([api('/api/citas/estudiantes'),agendaPersonal.length?Promise.resolve(agendaPersonal):api('/api/agenda/personal')]);citasEstudiantes=ordenarEstudiantes(resultados[0]);agendaPersonal=resultados[1];
     document.getElementById('cita-doc-buscar').value='';
+    const secciones=[...new Map(citasEstudiantes.filter(e=>e.seccion_id).map(e=>[String(e.seccion_id),e.seccion_nombre])).entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'es',{numeric:true,sensitivity:'base'}));
+    document.getElementById('cita-doc-seccion').innerHTML='<option value="">Todas las secciones</option>'+secciones.map(([id,nombre])=>`<option value="${id}">${htmlSeguro(nombre)}</option>`).join('');
     citasRenderEstudiantes(citasEstudiantes,'');
     document.getElementById('cita-doc-fecha').min=fechaHoyCR();document.getElementById('cita-doc-fecha').value='';document.getElementById('cita-doc-hora').value='';document.getElementById('cita-doc-motivo').value='';
     document.getElementById('alert-cita-doc-modal').className='alert';
@@ -17161,12 +17166,14 @@ function citasRenderEstudiantes(lista,busqueda){
 
 function citasFiltrarEstudiantes(){
   const busqueda=document.getElementById('cita-doc-buscar').value;
+  const seccion=document.getElementById('cita-doc-seccion').value;
   const terminos=citasNormalizarBusqueda(busqueda).split(' ').filter(Boolean);
-  const filtrados=!terminos.length?citasEstudiantes:citasEstudiantes.filter(e=>{
+  const filtrados=citasEstudiantes.filter(e=>{
+    if(seccion&&String(e.seccion_id)!==seccion)return false;
     const texto=citasNormalizarBusqueda(`${nombreEstudianteLista(e)} ${nombrePersona(e)} ${e.cedula||''} ${e.seccion_nombre||''} ${e.materias||''}`);
     return terminos.every(t=>texto.includes(t));
   });
-  citasRenderEstudiantes(filtrados,busqueda.trim());
+  citasRenderEstudiantes(filtrados,busqueda.trim()||(seccion?'sección seleccionada':''));
 }
 
 function citasBuscarEstudianteTecla(event){
