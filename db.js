@@ -633,6 +633,7 @@ async function initDB() {
       )
     `);
     await client.query(`ALTER TABLE medidas_estudiantiles ADD COLUMN IF NOT EXISTS activa BOOLEAN DEFAULT true`);
+    await client.query(`ALTER TABLE medidas_estudiantiles ADD COLUMN IF NOT EXISTS encargado_id INTEGER REFERENCES encargados(id) ON DELETE SET NULL`);
     await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_est ON medidas_estudiantiles(estudiante_id)");
     await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_tipo ON medidas_estudiantiles(tipo)");
     await client.query("CREATE INDEX IF NOT EXISTS idx_medidas_fechas ON medidas_estudiantiles(fecha_inicio, fecha_fin)");

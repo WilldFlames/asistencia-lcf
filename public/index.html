@@ -5614,9 +5614,13 @@ tr:hover td{background:#f8fafc;}
       </div>
       <div class="fg" style="grid-column:1/-1">
         <label>Estudiante *</label>
-        <select id="medida-estudiante">
+        <select id="medida-estudiante" onchange="cargarEncargadosMedida()">
           <option value="">— Seleccionar estudiante —</option>
         </select>
+      </div>
+      <div class="fg" id="medida-encargado-wrap" style="grid-column:1/-1;display:none;">
+        <label>Encargado que recibe la boleta *</label>
+        <select id="medida-encargado"><option value="">— Seleccionar encargado —</option></select>
       </div>
       <div class="fg">
         <label>Fecha de inicio *</label>
@@ -11633,6 +11637,8 @@ async function abrirNuevaMedida(tipo){
   document.getElementById('medida-modal-titulo').textContent = `${cfg.icono} Nueva ${cfg.label}`;
   document.getElementById('alert-medida-modal').className='alert';
   document.getElementById('medida-estudiante').innerHTML='<option value="">— Seleccionar estudiante —</option>';
+  document.getElementById('medida-encargado').innerHTML='<option value="">— Seleccionar encargado —</option>';
+  document.getElementById('medida-encargado-wrap').style.display=tipo==='precautoria'?'':'none';
   document.getElementById('medida-obs').value='';
   const obs=document.getElementById('medida-obs');
   document.getElementById('medida-obs-label').textContent=tipo==='precautoria'?'Incidente *':'Observación';
@@ -11664,19 +11670,33 @@ async function cargarEstudiantesMedida(){
   }catch{}
 }
 
+async function cargarEncargadosMedida(){
+  const estId=document.getElementById('medida-estudiante').value;
+  const sel=document.getElementById('medida-encargado');
+  sel.innerHTML='<option value="">— Seleccionar encargado —</option>';
+  if(medidaTipoModal!=='precautoria'||!estId)return;
+  try{
+    const rows=await api(`/api/encargados/estudiante/${estId}`)||[];
+    sel.innerHTML='<option value="">— Seleccionar encargado —</option>'+rows.map(e=>`<option value="${e.id}">${htmlSeguro(nombrePersona(e))} · ${htmlSeguro(e.parentesco||'Encargado')}${e.es_principal?' (principal)':''}</option>`).join('');
+    const principal=rows.find(e=>e.es_principal)||rows[0];if(principal)sel.value=principal.id;
+  }catch(e){sa('alert-medida-modal','No se pudieron cargar los encargados: '+e.message,'danger');}
+}
+
 async function guardarMedida(){
   const estId  = document.getElementById('medida-estudiante').value;
   const inicio = document.getElementById('medida-inicio').value;
   const fin    = document.getElementById('medida-fin').value;
   const observacion=document.getElementById('medida-obs').value.trim();
+  const encargadoId=document.getElementById('medida-encargado').value;
   if(!estId||!inicio||!fin){ sa('alert-medida-modal','Sección, estudiante y fechas son requeridos.','danger'); return; }
   if(medidaTipoModal==='precautoria'&&!observacion){sa('alert-medida-modal','Describa el incidente para generar la boleta precautoria.','danger');return;}
+  if(medidaTipoModal==='precautoria'&&!encargadoId){sa('alert-medida-modal','Seleccione el encargado que recibirá la boleta.','danger');return;}
   if(fin<inicio){ sa('alert-medida-modal','La fecha de fin debe ser mayor o igual a la de inicio.','danger'); return; }
   try{
     const creada=await api('/api/medidas','POST',{
       estudiante_id:+estId, tipo:medidaTipoModal,
       fecha_inicio:inicio, fecha_fin:fin,
-      observacion
+      observacion,encargado_id:encargadoId?+encargadoId:null
     });
     cerrarModal('modal-medida');
     await iniciarMedidas(medidaTipoModal);
@@ -11704,9 +11724,12 @@ async function imprimirBoletaPrecautoria(id){
       <div style="margin:32px 0 24px;"><strong>Señor(a)</strong><br/><span style="display:inline-block;min-width:330px;border-bottom:1px solid #111;">${htmlSeguro(encargado)}</span><br/>Encargado(a) legal del alumno(a)</div>
       <p>Estimado(a) señor(a):</p>
       <p>Le comunico que su hijo(a): <strong>${htmlSeguro(estudiante)}</strong>, estudiante de la sección <strong>${htmlSeguro(d.seccion_nombre||'—')}</strong>, participó en el siguiente incidente:</p>
-      <div style="min-height:130px;border-bottom:1px solid #94a3b8;white-space:pre-wrap;padding:8px 0;margin-bottom:22px;">${htmlSeguro(d.observacion||'')}</div>
+      <div style="min-height:38px;white-space:pre-wrap;padding:4px 0 8px;margin-bottom:12px;text-decoration:underline;text-underline-offset:3px;">${htmlSeguro(d.observacion||'')}</div>
       <p>De acuerdo con lo que establece el Reglamento de Evaluación de los Aprendizajes, se le impone como medida precautoria la interrupción del proceso educativo hasta por <strong>${dias}</strong> día${dias===1?'':'s'} natural${dias===1?'':'es'}, regresando el día <strong>${regreso.getDate()}</strong> del mes de <strong>${meses[regreso.getMonth()]}</strong> de <strong>${regreso.getFullYear()}</strong>, en tanto se realiza la investigación y se concede el derecho de defensa del estudiante. Se otorga el derecho a la justificación y reprogramación de componentes de evaluación.</p>
-      <div style="margin-top:75px;width:330px;text-align:center;"><div style="border-top:1px solid #111;padding-top:7px;font-weight:bold;">Laura Cruz Jiménez</div><div>Directora</div><div>Liceo de Calle Fallas</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:55px;margin-top:55px;page-break-inside:avoid;">
+        <div style="text-align:center;"><div style="border-top:1px solid #111;padding-top:7px;font-weight:bold;">Laura Cruz Jiménez</div><div>Directora</div><div>Liceo de Calle Fallas</div></div>
+        <div style="font-size:12px;"><div style="border-top:1px solid #111;padding-top:7px;text-align:center;font-weight:bold;">Recibido por el encargado legal</div><div style="margin-top:10px;">Nombre: <u>${htmlSeguro(encargado)}</u></div><div style="margin-top:8px;">Firma: __________________________</div><div style="margin-top:8px;">Fecha: ____ / ____ / ______ &nbsp; Hora: ________</div></div>
+      </div>
     </section>`;
     await imprimirPDFMEP('BOLETA MEDIDA PRECAUTORIA',contenidoHTML,`medida_precautoria_${folio}.pdf`);
   }catch(e){alert('No se pudo generar la boleta precautoria: '+e.message);}

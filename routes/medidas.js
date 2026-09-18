@@ -68,7 +68,7 @@ router.get("/:id/boleta-precautoria", requireAuth, async (req,res)=>{
     LEFT JOIN LATERAL (
       SELECT x.nombre,x.primer_apellido,x.segundo_apellido,x.cedula,x.parentesco
       FROM encargados x WHERE x.estudiante_id=e.id
-      ORDER BY x.es_principal DESC,x.id ASC LIMIT 1
+      ORDER BY (x.id=m.encargado_id) DESC,x.es_principal DESC,x.id ASC LIMIT 1
     ) enc ON true
     WHERE m.id=$1 AND m.tipo='precautoria'`,[req.params.id]);
   if(!r.rows.length) return res.status(404).json({error:"Medida precautoria no encontrada."});
@@ -77,15 +77,21 @@ router.get("/:id/boleta-precautoria", requireAuth, async (req,res)=>{
 
 // ── CREAR medida ─────────────────────────────────────────────────────────────
 router.post("/", canAccess, async (req, res) => {
-  const { estudiante_id, tipo, fecha_inicio, fecha_fin, observacion } = req.body;
+  const { estudiante_id, tipo, fecha_inicio, fecha_fin, observacion, encargado_id } = req.body;
   if(!estudiante_id||!tipo||!fecha_inicio||!fecha_fin)
     return res.status(400).json({ error:"Todos los campos son requeridos" });
   if(fecha_inicio > fecha_fin)
     return res.status(400).json({ error:"La fecha de inicio no puede ser posterior a la fecha de fin." });
+  if(tipo==='precautoria' && !encargado_id)
+    return res.status(400).json({error:"Seleccione el encargado legal que recibirá la boleta."});
+  if(encargado_id){
+    const enc=await pool.query("SELECT id FROM encargados WHERE id=$1 AND estudiante_id=$2",[encargado_id,estudiante_id]);
+    if(!enc.rows.length) return res.status(400).json({error:"El encargado seleccionado no pertenece al estudiante."});
+  }
   const r = await pool.query(`
-    INSERT INTO medidas_estudiantiles (estudiante_id,tipo,fecha_inicio,fecha_fin,observacion,creado_por)
-    VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
-  `, [estudiante_id, tipo, fecha_inicio, fecha_fin, observacion||'', req.session.usuario.id]);
+    INSERT INTO medidas_estudiantiles (estudiante_id,tipo,fecha_inicio,fecha_fin,observacion,creado_por,encargado_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id
+  `, [estudiante_id, tipo, fecha_inicio, fecha_fin, observacion||'', req.session.usuario.id, encargado_id||null]);
   res.json({ ok:true, id:r.rows[0].id, tipo });
 });
 
