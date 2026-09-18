@@ -1158,10 +1158,11 @@ tr:hover td{background:#f8fafc;}
         <section class="pp-panel">
           <div class="pp-section-title"><h2>📅 Solicitar una cita</h2></div>
           <div class="pp-form-grid">
-            <div class="pp-field full"><label>Docente y materia</label><select id="pp-cita-docente" onchange="ppCargarSlots()"><option value="">— Seleccione —</option></select></div>
+            <div class="pp-field full"><label>Docente y materia</label><select id="pp-cita-docente"><option value="">— Seleccione —</option></select></div>
             <div class="pp-field full"><label>Motivo</label><textarea id="pp-cita-motivo" rows="3" maxlength="700" placeholder="Explique brevemente qué desea conversar"></textarea></div>
-            <div class="pp-field"><label>Día disponible</label><select id="pp-cita-fecha" onchange="ppRenderHoras()"><option value="">— Primero seleccione docente —</option></select></div>
-            <div class="pp-field"><label>Hora disponible</label><select id="pp-cita-hora"><option value="">— Seleccione día —</option></select></div>
+            <div class="pp-field"><label>Fecha propuesta</label><input type="date" id="pp-cita-fecha"/></div>
+            <div class="pp-field"><label>Hora propuesta</label><input type="time" id="pp-cita-hora"/></div>
+            <div class="pp-field"><label>Duración</label><select id="pp-cita-duracion"><option value="15">15 minutos</option><option value="20" selected>20 minutos</option><option value="30">30 minutos</option><option value="40">40 minutos</option><option value="60">60 minutos</option></select></div>
             <div class="pp-field full"><div id="pp-cita-ayuda" class="pp-help">La solicitud quedará pendiente hasta que el docente la confirme.</div></div>
             <div class="pp-field full"><button class="pp-primary" id="pp-cita-enviar" onclick="ppSolicitarCita()">Enviar solicitud</button></div>
           </div>
@@ -3619,14 +3620,6 @@ tr:hover td{background:#f8fafc;}
     </div>
     <div id="alert-citas" class="alert"></div>
     <div id="citas-doc-lista"><div class="empty">Cargando agenda...</div></div>
-  </div>
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-      <div><h2 style="margin:0 0 4px;font-size:16px;">🕐 Mis horas disponibles</h2><p style="margin:0;color:var(--muted);font-size:12px;">Estas son las horas que los encargados podrán escoger.</p></div>
-      <button class="btn btn-outline btn-sm" onclick="citasAgregarBloque()">+ Agregar bloque</button>
-    </div>
-    <div id="citas-disponibilidad"></div>
-    <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="citasGuardarDisponibilidad()">💾 Guardar disponibilidad</button>
   </div>
 </div>
 
@@ -17075,10 +17068,7 @@ const CITAS_DIAS=['','Lunes','Martes','Miércoles','Jueves','Viernes'];
 async function iniciarCitasDocente(){
   try{
     const btnConfig=document.getElementById('agenda-btn-config');if(btnConfig)btnConfig.style.display=ME.rol==='admin'?'':'none';
-    const [agenda,disp]=await Promise.all([api('/api/citas/mis-citas'),api('/api/citas/disponibilidad'),agendaCargar()]);
-    citasBloques=(disp?.bloques||[]).map(b=>({...b,hora_inicio:String(b.hora_inicio).slice(0,5),hora_fin:String(b.hora_fin).slice(0,5)}));
-    if(!citasBloques.length)citasBloques=[{dia_semana:1,hora_inicio:'15:00',hora_fin:'16:00',duracion_min:20}];
-    citasRenderDisponibilidad();
+    const [agenda]=await Promise.all([api('/api/citas/mis-citas'),agendaCargar()]);
     citasRenderAgenda(agenda||[]);
   }catch(e){sa('alert-citas',e.message,'danger');}
 }
@@ -17533,7 +17523,7 @@ async function ppCargarConducta(){
   }catch(e){ tbody.innerHTML = `<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
 }
 
-let ppCitaSlots=[],ppCitaRespuestaId=null;
+let ppCitaRespuestaId=null;
 
 async function ppCargarCitas(){
   if(!ppHijoActual)return;
@@ -17548,6 +17538,7 @@ async function ppCargarCitas(){
     sel.innerHTML='<option value="">— Seleccione docente y materia —</option>'+(docentes||[]).map(d=>
       `<option value="${d.profesor_id}|${d.asignacion_id}">${htmlSeguro(d.materia_nombre)} · ${htmlSeguro(nombrePersona(d))}</option>`).join('');
     if([...sel.options].some(o=>o.value===seleccionAnterior))sel.value=seleccionAnterior;
+    const fechaInput=document.getElementById('pp-cita-fecha');fechaInput.min=fechaHoyCR();if(!fechaInput.value)fechaInput.value=fechaHoyCR();
     const EST={pendiente:['Pendiente','warn'],confirmada:['Confirmada','ok'],rechazada:['Rechazada','bad'],cancelada:['Cancelada','muted']};
     lista.innerHTML=(citas||[]).length?citas.map(c=>{
       const [estado,clase]=EST[c.estado]||[c.estado,'muted'];
@@ -17568,44 +17559,21 @@ async function ppCargarCitas(){
   }catch(e){lista.innerHTML=`<div class="pp-help">${htmlSeguro(e.message)}</div>`;}
 }
 
-async function ppCargarSlots(){
-  ppCitaSlots=[];
-  const raw=document.getElementById('pp-cita-docente').value;
-  const fechaSel=document.getElementById('pp-cita-fecha');
-  const horaSel=document.getElementById('pp-cita-hora');
-  if(!raw){fechaSel.innerHTML='<option value="">— Primero seleccione docente —</option>';horaSel.innerHTML='<option value="">— Seleccione día —</option>';return;}
-  const [profesor_id,asignacion_id]=raw.split('|');
-  document.getElementById('pp-cita-ayuda').textContent='Buscando horas disponibles...';
-  try{
-    const r=await api(`/api/padres/hijo/${ppHijoActual.id}/citas/slots?profesor_id=${profesor_id}&asignacion_id=${asignacion_id}`);
-    ppCitaSlots=r.slots||[];
-    const fechas=[...new Set(ppCitaSlots.map(s=>s.fecha))];
-    fechaSel.innerHTML=fechas.length?'<option value="">— Seleccione día —</option>'+fechas.map(f=>`<option value="${f}">${new Date(f+'T12:00:00').toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long'})}</option>`).join(''):'<option value="">Sin horas publicadas</option>';
-    horaSel.innerHTML='<option value="">— Seleccione día —</option>';
-    document.getElementById('pp-cita-ayuda').textContent=fechas.length?'La solicitud quedará pendiente hasta que el docente la confirme.':'Este docente todavía no ha publicado horas disponibles.';
-  }catch(e){document.getElementById('pp-cita-ayuda').textContent=e.message;}
-}
-
-function ppRenderHoras(){
-  const fecha=document.getElementById('pp-cita-fecha').value;
-  const slots=ppCitaSlots.filter(s=>s.fecha===fecha);
-  document.getElementById('pp-cita-hora').innerHTML=slots.length?'<option value="">— Seleccione hora —</option>'+slots.map(s=>`<option value="${s.hora}">${s.hora} · ${s.duracion_min} minutos</option>`).join(''):'<option value="">Sin horas</option>';
-}
-
 async function ppSolicitarCita(){
   const raw=document.getElementById('pp-cita-docente').value;
   const fecha=document.getElementById('pp-cita-fecha').value,hora=document.getElementById('pp-cita-hora').value;
+  const duracion_min=Number(document.getElementById('pp-cita-duracion').value||20);
   const motivo=document.getElementById('pp-cita-motivo').value.trim();
   if(!raw||!fecha||!hora){document.getElementById('pp-cita-ayuda').textContent='Seleccione docente, día y hora.';return;}
   const [profesor_id,asignacion_id]=raw.split('|');
   const btn=document.getElementById('pp-cita-enviar');btn.disabled=true;
   try{
     if(ppCitaRespuestaId){
-      await api(`/api/padres/citas/${ppCitaRespuestaId}/responder`,'PUT',{accion:'proponer',fecha,hora,mensaje:motivo});
+      await api(`/api/padres/citas/${ppCitaRespuestaId}/responder`,'PUT',{accion:'proponer',fecha,hora,duracion_min,mensaje:motivo});
       ppCitaRespuestaId=null;btn.textContent='Enviar solicitud';
     }else{
       if(motivo.length<3)throw new Error('Indique brevemente el motivo de la cita.');
-      await api(`/api/padres/hijo/${ppHijoActual.id}/citas`,'POST',{profesor_id:Number(profesor_id),asignacion_id:Number(asignacion_id),fecha,hora,motivo});
+      await api(`/api/padres/hijo/${ppHijoActual.id}/citas`,'POST',{profesor_id:Number(profesor_id),asignacion_id:Number(asignacion_id),fecha,hora,duracion_min,motivo});
     }
     document.getElementById('pp-cita-motivo').value='';
     document.getElementById('pp-cita-ayuda').textContent='✓ Solicitud enviada correctamente.';
@@ -17623,7 +17591,8 @@ async function ppPrepararPropuesta(id,profesorId,asignacionId){
   const sel=document.getElementById('pp-cita-docente');
   const opcion=[...sel.options].find(o=>o.value===`${profesorId}|${asignacionId}`)||[...sel.options].find(o=>o.value.startsWith(`${profesorId}|`));
   if(opcion)sel.value=opcion.value;
-  await ppCargarSlots();
+  document.getElementById('pp-cita-fecha').min=fechaHoyCR();
+  document.getElementById('pp-cita-fecha').value='';document.getElementById('pp-cita-hora').value='';
   document.getElementById('pp-cita-enviar').textContent='Proponer este nuevo horario';
   document.getElementById('pp-cita-ayuda').textContent='Seleccione una hora diferente. El docente deberá aprobarla.';
   document.getElementById('pp-cita-docente').scrollIntoView({behavior:'smooth',block:'center'});

@@ -542,29 +542,28 @@ router.get("/hijo/:id/citas", requirePadre, hijoDelPadre, async (req,res)=>{
 router.post("/hijo/:id/citas", requirePadre, hijoDelPadre, async (req,res)=>{
   const profesorId=Number(req.body.profesor_id), asignacionId=Number(req.body.asignacion_id)||null;
   const fecha=String(req.body.fecha||""),hora=String(req.body.hora||"").slice(0,5);
+  const duracion=Math.max(15,Math.min(60,Number(req.body.duracion_min)||20));
   const motivo=String(req.body.motivo||"").trim();
   const err=validarMomento(fecha,hora);
   if(err) return res.status(400).json({error:err});
   if(motivo.length<3) return res.status(400).json({error:"Indique brevemente el motivo de la cita."});
   const docente=await docenteDelHijo(req.hijo,profesorId,asignacionId);
   if(!docente) return res.status(403).json({error:"Ese docente no imparte clases al estudiante."});
-  const bloque=await validarSlotProfesor(profesorId,fecha,hora);
-  if(!bloque) return res.status(400).json({error:"La hora elegida ya no está disponible. Seleccione otra."});
   const anio=await obtenerAnioActivo(),ced=limpiarCedula(req.session.padre.cedula);
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))',[profesorId,fecha]);
     await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))',[-req.hijo.id,fecha]);
-    if(await hayChoqueCita(client,profesorId,req.hijo.id,fecha,hora,Number(bloque.duracion_min))){
+    if(await hayChoqueCita(client,profesorId,req.hijo.id,fecha,hora,duracion)){
       await client.query('ROLLBACK');
       return res.status(409).json({error:"Esa hora se cruza con otra cita. Seleccione una diferente."});
     }
-    if(await hayChoqueAgenda(client,profesorId,fecha,hora,Number(bloque.duracion_min))){await client.query('ROLLBACK');return res.status(409).json({error:"El docente ya tiene una reunión en ese horario."});}
+    if(await hayChoqueAgenda(client,profesorId,fecha,hora,duracion)){await client.query('ROLLBACK');return res.status(409).json({error:"El docente ya tiene una reunión en ese horario."});}
     const r=await client.query(`INSERT INTO citas(anio,estudiante_id,profesor_id,asignacion_id,
       encargado_cedula,solicitada_por,fecha,hora,duracion_min,motivo,estado,pendiente_de)
       VALUES($1,$2,$3,$4,$5,'encargado',$6,$7,$8,$9,'pendiente','profesor') RETURNING id`,
-      [anio,req.hijo.id,profesorId,docente.asignacion_id,ced,fecha,hora,Number(bloque.duracion_min),motivo]);
+      [anio,req.hijo.id,profesorId,docente.asignacion_id,ced,fecha,hora,duracion,motivo]);
     await client.query('COMMIT');
     const nombre=`${req.hijo.nombre} ${req.hijo.primer_apellido} ${req.hijo.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
     await notificarDocente(profesorId,`Nueva solicitud de cita para ${nombre}, el ${fecha} a las ${hora}.`,r.rows[0].id);
@@ -593,16 +592,16 @@ router.put("/citas/:id/responder", requirePadre, async (req,res)=>{
     else if(accion==='rechazar') await client.query(`UPDATE citas SET estado='rechazada',pendiente_de=NULL,respuesta_mensaje=$1,updated_at=NOW() WHERE id=$2`,[mensaje,cita.id]);
     else{
       const fecha=String(req.body.fecha||""),hora=String(req.body.hora||"").slice(0,5);
-      const err=validarMomento(fecha,hora),bloque=err?null:await validarSlotProfesor(cita.profesor_id,fecha,hora);
-      if(err||!bloque){await client.query('ROLLBACK');return res.status(400).json({error:err||"La hora seleccionada no está disponible."});}
+      const err=validarMomento(fecha,hora),duracion=Math.max(15,Math.min(60,Number(req.body.duracion_min)||Number(cita.duracion_min)||20));
+      if(err){await client.query('ROLLBACK');return res.status(400).json({error:err});}
       await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))',[cita.profesor_id,fecha]);
       await client.query('SELECT pg_advisory_xact_lock($1,hashtext($2))',[-cita.estudiante_id,fecha]);
-      if(await hayChoqueCita(client,cita.profesor_id,cita.estudiante_id,fecha,hora,Number(bloque.duracion_min),cita.id)){
+      if(await hayChoqueCita(client,cita.profesor_id,cita.estudiante_id,fecha,hora,duracion,cita.id)){
         await client.query('ROLLBACK');return res.status(409).json({error:"La hora se cruza con otra cita."});
       }
-      if(await hayChoqueAgenda(client,cita.profesor_id,fecha,hora,Number(bloque.duracion_min))){await client.query('ROLLBACK');return res.status(409).json({error:"El docente ya tiene una reunión en ese horario."});}
+      if(await hayChoqueAgenda(client,cita.profesor_id,fecha,hora,duracion)){await client.query('ROLLBACK');return res.status(409).json({error:"El docente ya tiene una reunión en ese horario."});}
       await client.query(`UPDATE citas SET fecha=$1,hora=$2,duracion_min=$3,estado='pendiente',pendiente_de='profesor',
-        es_contrapropuesta=true,respuesta_mensaje=$4,updated_at=NOW() WHERE id=$5`,[fecha,hora,Number(bloque.duracion_min),mensaje,cita.id]);
+        es_contrapropuesta=true,respuesta_mensaje=$4,updated_at=NOW() WHERE id=$5`,[fecha,hora,duracion,mensaje,cita.id]);
     }
     await client.query('COMMIT');
     await notificarDocente(cita.profesor_id,`El encargado respondió una solicitud de cita (${accion}).`,cita.id);
