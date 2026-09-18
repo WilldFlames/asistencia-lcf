@@ -1227,6 +1227,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="expediente" id="nav-expediente" onclick="goTo('expediente')" style="display:none"><span class="icon">📁</span><span>Expediente</span></button>
   <button class="nav-btn" data-page="prematricula" id="nav-prematricula" onclick="goTo('prematricula')" style="display:none"><span class="icon">📋</span><span>Prematrícula</span></button>
   <button class="nav-btn" data-page="matricula" id="nav-matricula" onclick="goTo('matricula')" style="display:none"><span class="icon">🎓</span><span>Matrícula</span></button>
+  <button class="nav-btn" id="nav-bloqueos-orientacion" onclick="abrirBloqueosOrientacion()" style="display:none"><span class="icon">🔒</span><span>Matrícula restringida</span></button>
   <button class="nav-btn" id="nav-gestion-padres" onclick="abrirGestionPadres()" style="display:none"><span class="icon">📱</span><span>LCF Familias</span></button>
   <button class="nav-btn" data-page="config-anio" id="nav-config-anio" onclick="goTo('config-anio')" style="display:none"><span class="icon">📚</span><span>Configurar Año</span></button>
   <button class="nav-btn" data-page="idiomatec" id="nav-idiomatec" onclick="goTo('idiomatec')" style="display:none"><span class="icon">🗣️</span><span>Idioma/Tecnología</span></button>
@@ -2926,6 +2927,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-orange btn-sm" id="mat-btn-aplicar" onclick="matAplicarAnio()" style="display:none;">▶️ Aplicar Matrículas</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-frances" onclick="abrirSeccionesFrances()" style="display:none;">🇫🇷 Secciones Francés</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-restricciones" onclick="abrirRestriccionesMatricula()">🚫 Restricciones</button>
+        <button class="btn btn-outline btn-sm" id="mat-btn-bloqueos" onclick="abrirBloqueosMatricula()">🔒 Matrícula restringida</button>
         <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
       </div>
     </div>
@@ -3074,6 +3076,23 @@ tr:hover td{background:#f8fafc;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-restricciones-matricula')">Cerrar</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-bloqueos-matricula">
+  <div class="modal" style="max-width:850px;">
+    <h3>🔒 Matrícula restringida — <span id="bm-anio"></span></h3>
+    <p style="font-size:12.5px;color:var(--muted);">Orientación o administración pueden restringir el trámite. Mientras Dirección no lo autorice, el sistema no permitirá guardar ni finalizar la matrícula.</p>
+    <div id="alert-bm" class="alert"></div>
+    <div class="form-grid">
+      <div class="fg"><label>Sección</label><select id="bm-seccion" onchange="bmFiltrar()"></select></div>
+      <div class="fg"><label>Buscar</label><input id="bm-buscar" placeholder="Nombre o cédula" oninput="bmFiltrar()"/></div>
+      <div class="fg" style="grid-column:1/-1"><label>Estudiante</label><select id="bm-estudiante"></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>Motivo interno</label><textarea id="bm-motivo" rows="2" maxlength="1000"></textarea></div>
+    </div>
+    <div style="text-align:right;margin-bottom:14px"><button class="btn btn-danger" onclick="bmGuardar()">🔒 Restringir matrícula</button></div>
+    <div id="bm-lista" class="table-wrap"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-bloqueos-matricula')">Cerrar</button></div>
   </div>
 </div>
 
@@ -3856,6 +3875,7 @@ tr:hover td{background:#f8fafc;}
     <div id="alert-dpd" class="alert" style="margin-top:10px;"></div>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
       <button class="btn btn-outline" onclick="imprimirPortadaDP()" style="border-color:#6366f1;color:#6366f1;">📄 Imprimir Portada del Expediente</button>
+      <button class="btn btn-outline" onclick="imprimirObservacionesDP()" style="border-color:#0f766e;color:#0f766e;">📝 Imprimir consolidado de observaciones</button>
       <button class="btn btn-outline" id="btn-dp-sustituto" onclick="abrirAsignarSustituto()" style="display:none;border-color:#ea580c;color:#ea580c;">🔄 Guía Sustituto</button>
       <button class="btn btn-outline" id="btn-dp-conciliacion" onclick="abrirConciliacionDP()" style="display:none;border-color:#0f766e;color:#0f766e;">🤝 Conciliación</button>
       <button class="btn btn-outline" id="btn-dp-solicitar-archivo" onclick="abrirSolicitarArchivo()" style="display:none;border-color:#7c3aed;color:#7c3aed;">📦 Solicitar Archivo</button>
@@ -3893,6 +3913,10 @@ tr:hover td{background:#f8fafc;}
     <h3 id="dpp-titulo">Paso</h3>
     <div id="dpp-subtitulo" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
     <div id="dpp-form" style="max-height:60vh;overflow:auto;"></div>
+    <div id="dpp-observacion-wrap" class="fg" style="margin-top:12px;">
+      <label>Observaciones de este paso</label>
+      <textarea id="dpp-observacion" rows="4" maxlength="4000" placeholder="Anote aquí observaciones particulares de este paso..."></textarea>
+    </div>
     <div id="alert-dpp" class="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-dp-paso')">Cancelar</button>
@@ -6190,6 +6214,10 @@ async function iniciarApp(){
   if(esAdmin||esAuxiliar||esAdminIst){
     document.getElementById("nav-prematricula").style.display="";
     document.getElementById("nav-matricula").style.display="";
+  }
+  if(esOrientador){
+    document.getElementById('nav-bloqueos-orientacion').style.display='';
+    document.getElementById('sec-gestion').style.display='';
   }
   // ── CONFIGURAR AÑO NUEVO (solo admin) ────────────────────────
   if(esAdmin){
@@ -10816,6 +10844,8 @@ async function iniciarMatricula(){
   if(btnApl) btnApl.style.display = (esFuturo && ME.rol === "admin") ? "" : "none";
   const btnFr = document.getElementById("mat-btn-frances");
   if(btnFr) btnFr.style.display = ME.rol === "admin" ? "" : "none";
+  const btnBloq=document.getElementById('mat-btn-bloqueos');
+  if(btnBloq) btnBloq.style.display=['admin','administrativo','orientador'].includes(ME.rol)?'':'none';
 
   const [data, cupos, futuras, restricciones] = await Promise.all([
     api(`/api/matricula?anio=${matAnio}`),
@@ -10881,6 +10911,43 @@ function renderCuposWidget(){
 }
 
 function matCambioAnio(){ iniciarMatricula(); }
+
+let bmEstudiantes=[];
+function bmFiltrar(){
+  const sec=document.getElementById('bm-seccion').value;
+  const q=document.getElementById('bm-buscar').value.trim().toLocaleLowerCase('es-CR');
+  const sel=document.getElementById('bm-estudiante'),actual=sel.value;
+  const rows=bmEstudiantes.filter(e=>(!sec||String(e.seccion_id)===sec)&&(!q||`${e.cedula} ${nombreEstudianteLista(e)}`.toLocaleLowerCase('es-CR').includes(q)));
+  sel.innerHTML='<option value="">— Seleccione —</option>'+rows.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.cedula||'')}</option>`).join('');
+  if(rows.some(e=>String(e.id)===actual))sel.value=actual;
+}
+async function abrirBloqueosMatricula(){
+  if(!['admin','administrativo','orientador'].includes(ME.rol)){alert('Solo Dirección, administración u orientación pueden usar esta sección.');return;}
+  document.getElementById('bm-anio').textContent=matAnio;document.getElementById('bm-buscar').value='';document.getElementById('bm-motivo').value='';
+  bmEstudiantes=ordenarEstudiantes(await api(`/api/matricula/bloqueos-estudiantes/${matAnio}`)||[]);
+  const secs=[...new Map(bmEstudiantes.filter(e=>e.seccion_id).map(e=>[String(e.seccion_id),e.seccion_nombre||'Sin sección'])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'es',{numeric:true}));
+  document.getElementById('bm-seccion').innerHTML='<option value="">Todas las secciones</option>'+secs.map(([id,n])=>`<option value="${id}">${htmlSeguro(n)}</option>`).join('');
+  bmFiltrar();await bmCargar();document.getElementById('modal-bloqueos-matricula').classList.add('show');
+}
+async function abrirBloqueosOrientacion(){
+  const actual=ANIO_LECTIVO_ACTIVO,mes=parseInt(fechaHoyCR().slice(5,7));
+  matAnio=mes>=9?actual+1:actual;
+  await abrirBloqueosMatricula();
+}
+async function bmCargar(){
+  const rows=await api(`/api/matricula/bloqueos/${matAnio}`)||[],cont=document.getElementById('bm-lista');
+  cont.innerHTML=rows.length?`<table><thead><tr><th>Estudiante</th><th>Motivo</th><th>Registrado por</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td><strong>${htmlSeguro(nombreEstudianteLista(r))}</strong><br/><small>${htmlSeguro(r.seccion_nombre||'Sin sección')}</small></td><td>${htmlSeguro(r.motivo)}</td><td>${htmlSeguro(r.creado_por_nombre||'—')}</td><td>${r.autorizado_at?`<span class="badge" style="background:#dcfce7;color:#166534">✅ Autorizada por ${htmlSeguro(r.autorizado_por_nombre||'Dirección')}</span>`:'<span class="badge" style="background:#fee2e2;color:#991b1b">🔒 Restringida</span>'}</td><td style="white-space:nowrap">${!r.autorizado_at&&ME.rol==='admin'?`<button class="btn btn-success btn-xs" onclick="bmAutorizar(${r.id})">Autorizar</button>`:''} <button class="btn btn-danger btn-xs" onclick="bmLevantar(${r.id})">Quitar</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">No hay matrículas restringidas para este año.</div>';
+}
+async function bmGuardar(){
+  const estudiante_id=+document.getElementById('bm-estudiante').value,motivo=document.getElementById('bm-motivo').value.trim();
+  if(!estudiante_id||motivo.length<5){sa('alert-bm','Seleccione estudiante y escriba el motivo.','danger');return;}
+  try{await api('/api/matricula/bloqueos','POST',{anio:matAnio,estudiante_id,motivo});document.getElementById('bm-motivo').value='';await bmCargar();sa('alert-bm','🔒 Matrícula restringida. Solo Dirección podrá autorizar el trámite.','success');}catch(e){sa('alert-bm',e.message,'danger');}
+}
+async function bmAutorizar(id){
+  const nota=prompt('Nota de autorización de Dirección (opcional):','')??null;if(nota===null)return;
+  try{await api(`/api/matricula/bloqueos/${id}/autorizar`,'POST',{nota});await bmCargar();sa('alert-bm','✅ Dirección autorizó esta matrícula.','success');}catch(e){sa('alert-bm',e.message,'danger');}
+}
+async function bmLevantar(id){if(!confirm('¿Quitar esta restricción de matrícula? La acción quedará auditada.'))return;try{await api(`/api/matricula/bloqueos/${id}`,'DELETE',{});await bmCargar();}catch(e){sa('alert-bm',e.message,'danger');}}
 
 // ── Restricciones de convivencia ─────────────────────────────────────
 function rmNombre(r, lado){
@@ -12554,10 +12621,12 @@ function renderDPPasos(d){
 function abrirPasoDP(tipo, orden, testigoId, ofendidoId){
   const reg = (dpProcesoActual?.pasos || []).find(p => p.tipo === tipo && Number(p.orden) === Number(orden));
   const info = DP_TIPOS_PASO[tipo];
-  dpPasoEnEdicion = { tipo, orden, contenido: reg?.contenido || {}, testigo_id: testigoId, ofendido_id: ofendidoId };
+  dpPasoEnEdicion = { tipo, orden, contenido: reg?.contenido || {}, observacion:reg?.observacion || '', testigo_id: testigoId, ofendido_id: ofendidoId };
   document.getElementById('dpp-titulo').textContent = `${info.icono} ${info.nombre}`;
   document.getElementById('dpp-subtitulo').textContent = reg?.completado_en ? `Última edición: ${new Date(reg.completado_en).toLocaleString('es-CR')}` : 'Sin completar todavía';
   document.getElementById('alert-dpp').className = 'alert';
+  document.getElementById('dpp-observacion-wrap').style.display=tipo==='acta_apertura'?'none':'';
+  document.getElementById('dpp-observacion').value=tipo==='acta_apertura'?'':(reg?.observacion||'');
   renderFormularioPaso(tipo, dpPasoEnEdicion.contenido, testigoId, ofendidoId);
   document.getElementById('modal-dp-paso').classList.add('show');
 }
@@ -12847,6 +12916,7 @@ async function guardarPasoDP(){
       tipo: dpPasoEnEdicion.tipo,
       orden: dpPasoEnEdicion.orden,
       contenido,
+      observacion: document.getElementById('dpp-observacion')?.value.trim()||'',
       completar: true
     });
     cerrarModal('modal-dp-paso');
@@ -12876,6 +12946,7 @@ async function imprimirPasoDP(){
       tipo: tipoCopy,
       orden: ordenCopy,
       contenido,
+      observacion: document.getElementById('dpp-observacion')?.value.trim()||'',
       completar: true
     });
     cerrarModal('modal-dp-paso');
@@ -12886,6 +12957,19 @@ async function imprimirPasoDP(){
     // Ahora sí imprimir, con dpProcesoActual ya actualizado
     setTimeout(() => imprimirPasoDPDirecto(tipoCopy, ordenCopy), 200);
   } catch(e){ sa('alert-dpp', e.message, 'danger'); }
+}
+
+async function imprimirObservacionesDP(){
+  if(!dpProcesoActual) return;
+  const dp=dpProcesoActual.proceso;
+  const filas=(dpProcesoActual.pasos||[])
+    .filter(p=>p.tipo!=='acta_apertura' && String(p.observacion||'').trim())
+    .sort((a,b)=>Number(a.orden)-Number(b.orden)||Number(a.id)-Number(b.id));
+  const estudiante=nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2);
+  const contenido=`<p><strong>Expediente:</strong> N° ${String(dp.numero).padStart(3,'0')}-${dp.anio}<br/>
+    <strong>Estudiante:</strong> ${htmlSeguro(estudiante)}<br/><strong>Cédula:</strong> ${htmlSeguro(dp.cedula||'—')} · <strong>Sección:</strong> ${htmlSeguro(dp.seccion_nombre||'—')}</p>
+    ${filas.length?filas.map((p,i)=>{const info=DP_TIPOS_PASO[p.tipo]||{nombre:p.tipo};return `<section class="reporte-materia" style="margin:12px 0;padding:10px;border:1px solid #cbd5e1;border-radius:6px;page-break-inside:avoid;"><h3 style="margin:0 0 6px;font-size:13px;">${i+1}. ${htmlSeguro(info.nombre)}${Number(p.orden)>1?' · registro '+p.orden:''}</h3><div style="white-space:pre-wrap;">${htmlSeguro(p.observacion)}</div><small>Actualizado: ${p.updated_at?new Date(p.updated_at).toLocaleString('es-CR'):'—'}</small></section>`}).join(''):'<p>No se registraron observaciones en los pasos de este proceso.</p>'}`;
+  await imprimirPDFMEP('CONSOLIDADO DE OBSERVACIONES DEL DEBIDO PROCESO',contenido,`observaciones_debido_proceso_${dp.numero}_${dp.anio}.pdf`);
 }
 
 // ── PORTADA DEL EXPEDIENTE ───────────────────────────────────────────
@@ -19897,6 +19981,8 @@ async function imprimirCompromiso(){
     <p>Las estipuladas por el Ministerio de Educación Pública a través del Reglamento de Evaluación de los Aprendizajes y Conducta como lo establecido dentro de la Normativa Institucional como método de mantener el bienestar y seguridad de la comunidad educativa cítese el artículo 9, 14 del REAC, CIRCULAR N° DM-DVM-PICR-0002-2026</p>
 
     <p>Declaro que he leído tanto el REAC como Normativa y asumo las responsabilidades que indica tanto compromiso de matrícula como las leyes que se citan en este documento, por lo tanto, no puedo alegar desconocimiento de esta ley.</p>
+
+    <p style="text-align:center;margin:18px 0;"><strong><u>NO HABRÁ CAMBIOS DE SECCIÓN PARA EL CURSO LECTIVO 2027.</u></strong></p>
 
     <p>Firmo conforme en el Liceo de Calle Fallas &nbsp;&nbsp;&nbsp; día _______ mes _________________ 2027</p>
 

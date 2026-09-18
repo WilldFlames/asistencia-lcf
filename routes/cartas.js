@@ -53,11 +53,10 @@ async function calcularAusentismo(asignacionId, estudianteId, usuario, permitirA
         FILTER (WHERE ast.estado='A' AND NOT ast.justificada),0)::int AS ausencias
     FROM sesiones_asistencia sa
     JOIN asignaciones ax ON ax.id=sa.asignacion_id
-    LEFT JOIN asistencia ast ON ast.sesion_id=sa.id AND ast.estudiante_id=$1
-    WHERE ax.anio=$4 AND ax.profesor_id=$5 AND ax.seccion_id=$6 AND ax.materia_id=$7
-      AND COALESCE(ax.subgrupo,'')=COALESCE($8::text,'')
+    JOIN asistencia ast ON ast.sesion_id=sa.id AND ast.estudiante_id=$1
+    WHERE ax.anio=$4 AND ax.profesor_id=$5 AND ax.materia_id=$6
       AND sa.fecha BETWEEN $2 AND $3
-  `, [estudianteId,rango.desde,rango.hasta,anio,a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo||null]);
+  `, [estudianteId,rango.desde,rango.hasta,anio,a.profesor_id,a.materia_id]);
   const total = Number(stats.rows[0].total_lecciones)||0;
   const ausencias = Number(stats.rows[0].ausencias)||0;
   const porcentaje = total ? Math.round((ausencias/total)*10000)/100 : 0;

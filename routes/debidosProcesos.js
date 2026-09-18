@@ -528,7 +528,7 @@ router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
 router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const procesoId = req.params.id;
-  const { tipo, orden, contenido, completar, testigo_id } = req.body;
+  const { tipo, orden, contenido, completar, testigo_id, observacion } = req.body;
   if (!tipo) return res.status(400).json({ error: "Falta tipo" });
 
   // Validar permisos: el guía del proceso, admin o el asignado pueden modificar
@@ -588,19 +588,19 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
       ? ", completado=true, completado_por=$4, completado_en=NOW()"
       : "";
     const params = completar
-      ? [JSON.stringify(contenido || {}), procesoId, pasoId, u.id]
-      : [JSON.stringify(contenido || {}), procesoId, pasoId];
+      ? [JSON.stringify(contenido || {}), procesoId, pasoId, u.id, String(observacion || '').trim()]
+      : [JSON.stringify(contenido || {}), procesoId, pasoId, String(observacion || '').trim()];
     await pool.query(
-      `UPDATE dp_pasos SET contenido=$1::jsonb, updated_at=NOW()${setComp}
+      `UPDATE dp_pasos SET contenido=$1::jsonb, observacion=$${completar ? 5 : 4}, updated_at=NOW()${setComp}
        WHERE proceso_id=$2 AND id=$3`,
       params
     );
   } else {
     const ins = await pool.query(`
-      INSERT INTO dp_pasos (proceso_id, tipo, orden, completado, completado_por, completado_en, contenido)
-      VALUES ($1, $2, $3, $4, $5, ${completar ? "NOW()" : "NULL"}, $6::jsonb)
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, completado, completado_por, completado_en, contenido, observacion)
+      VALUES ($1, $2, $3, $4, $5, ${completar ? "NOW()" : "NULL"}, $6::jsonb, $7)
       RETURNING id
-    `, [procesoId, tipo, ordenFinal, !!completar, completar ? u.id : null, JSON.stringify(contenido || {})]);
+    `, [procesoId, tipo, ordenFinal, !!completar, completar ? u.id : null, JSON.stringify(contenido || {}), String(observacion || '').trim()]);
     pasoId = ins.rows[0].id;
   }
 

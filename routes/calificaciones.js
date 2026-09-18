@@ -127,7 +127,7 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
   //               cuando no existe una versión específica del II)
   // Prioriza siempre la más específica (por eso el ORDER BY).
   const r = await pool.query(`
-    SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo,
+    SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.anio,
            m.nombre AS materia_nombre, s.nombre AS seccion_nombre,
            (
              COALESCE(m.modo_simplificado,false)
@@ -705,25 +705,18 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
     // IMPORTANTE: la tabla sesiones_asistencia solo tiene la columna `lecciones`
     // (no lecciones_realizadas ni lecciones_planeadas). Hay que usar esa.
     const fechasSimpl = await obtenerRangoPeriodo(periodo);
-    const totLeccR = await pool.query(`
-      SELECT COALESCE(SUM(s.lecciones), 0)::int AS total
-      FROM sesiones_asistencia s
-      WHERE s.asignacion_id = $1
-        AND s.fecha BETWEEN $2 AND $3
-    `, [asig.id, fechasSimpl.desde, fechasSimpl.hasta]);
-    const totalLeccionesGlobal = totLeccR.rows[0].total || 0;
-
     const ausR = await pool.query(`
-      SELECT a.estudiante_id, COALESCE(SUM(a.lecciones_ausentes), 0)::int AS aus
+      SELECT a.estudiante_id, COALESCE(SUM(s.lecciones),0)::int AS total,
+        COALESCE(SUM(CASE WHEN a.estado='A' AND a.justificada=false THEN COALESCE(a.lecciones_ausentes,s.lecciones) ELSE 0 END),0)::int AS aus
       FROM asistencia a
       JOIN sesiones_asistencia s ON s.id = a.sesion_id
-      WHERE s.asignacion_id = $1
-        AND s.fecha BETWEEN $2 AND $3
-        AND a.estado = 'A'
-        AND a.justificada = false
+      JOIN asignaciones ax ON ax.id=s.asignacion_id
+      WHERE ax.anio=$1 AND ax.profesor_id=$2 AND ax.materia_id=$3
+        AND s.fecha BETWEEN $4 AND $5 AND a.estudiante_id=ANY($6::int[])
       GROUP BY a.estudiante_id
-    `, [asig.id, fechasSimpl.desde, fechasSimpl.hasta]);
+    `, [asig.anio,asig.profesor_id,asig.materia_id,fechasSimpl.desde,fechasSimpl.hasta,estudiantes.map(e=>e.id)]);
     const ausPorEst = new Map(ausR.rows.map(r => [Number(r.estudiante_id), Number(r.aus)]));
+    const totalPorEst = new Map(ausR.rows.map(r => [Number(r.estudiante_id), Number(r.total)]));
 
     const resultado = estudiantes.map(e => {
       const cs = porEst.get(e.id) || {};
@@ -740,6 +733,7 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
 
       // Asistencia (idéntica al modo normal: tabla MEP de puntos)
       const ausentes = ausPorEst.get(e.id) || 0;
+      const totalLeccionesGlobal=totalPorEst.get(e.id)||0;
       const porcAusencias = totalLeccionesGlobal > 0 ? (ausentes / totalLeccionesGlobal) * 100 : 0;
       let ptosAsist = pesos.asistencia;
       if (porcAusencias > 0) {
@@ -905,25 +899,18 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
   // Pero para cada estudiante calculamos sus propias ausencias.
   // Estrategia: por asignación, sumamos total lecciones impartidas
   // y por estudiante, sumamos lecciones_ausentes donde justificada=false.
-  const sesionesR = await pool.query(`
-    SELECT s.id, s.lecciones
-    FROM sesiones_asistencia s
-    WHERE s.asignacion_id = $1
-      AND s.fecha BETWEEN $2 AND $3
-  `, [asig.id, fechas.desde, fechas.hasta]);
-  const totalLecciones = sesionesR.rows.reduce((s, r) => s + Number(r.lecciones), 0);
-
   const ausR = await pool.query(`
-    SELECT a.estudiante_id, COALESCE(SUM(a.lecciones_ausentes), 0) AS ausentes
+    SELECT a.estudiante_id, COALESCE(SUM(s.lecciones),0)::int AS total_lecciones,
+      COALESCE(SUM(CASE WHEN a.estado='A' AND a.justificada=false THEN COALESCE(a.lecciones_ausentes,s.lecciones) ELSE 0 END),0)::int AS ausentes
     FROM asistencia a
     JOIN sesiones_asistencia s ON s.id = a.sesion_id
-    WHERE s.asignacion_id = $1
-      AND s.fecha BETWEEN $2 AND $3
-      AND a.estado = 'A'
-      AND a.justificada = false
+    JOIN asignaciones ax ON ax.id=s.asignacion_id
+    WHERE ax.anio=$1 AND ax.profesor_id=$2 AND ax.materia_id=$3
+      AND s.fecha BETWEEN $4 AND $5 AND a.estudiante_id=ANY($6::int[])
     GROUP BY a.estudiante_id
-  `, [asig.id, fechas.desde, fechas.hasta]);
+  `, [asig.anio,asig.profesor_id,asig.materia_id,fechas.desde,fechas.hasta,estudiantes.map(e=>e.id)]);
   const ausPorEst = new Map(ausR.rows.map(r => [Number(r.estudiante_id), Number(r.ausentes)]));
+  const totalPorEst = new Map(ausR.rows.map(r => [Number(r.estudiante_id), Number(r.total_lecciones)]));
 
   // 6. Armar respuesta por estudiante
   const pesos = {
@@ -935,6 +922,7 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
   };
 
   const resultado = estudiantes.map(e => {
+    const totalLecciones=totalPorEst.get(e.id)||0;
     const r = rubros.get(e.id);
     // Nota /100 por rubro
     const notaCotid = r.cotidiano.max > 0 ? (r.cotidiano.obtenido * 100) / r.cotidiano.max : null;

@@ -785,6 +785,26 @@ async function initDB() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_restricciones_matricula_est_b
       ON restricciones_matricula(estudiante_b_id, anio) WHERE activa=true`);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS bloqueos_matricula (
+        id SERIAL PRIMARY KEY,
+        anio INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        motivo TEXT NOT NULL,
+        activo BOOLEAN NOT NULL DEFAULT true,
+        creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        creado_at TIMESTAMP DEFAULT NOW(),
+        autorizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        autorizado_at TIMESTAMP,
+        autorizacion_nota TEXT,
+        levantado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        levantado_at TIMESTAMP,
+        UNIQUE (anio, estudiante_id)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_bloqueos_matricula_activos
+      ON bloqueos_matricula(anio, estudiante_id) WHERE activo=true`);
+
     // ── SIN DERECHO A CONVOCATORIA POR AUSENTISMO ───────────────────────
     // Cada docente registra su decisión por estudiante y asignatura. Se
     // conserva una fotografía del cálculo anual que la justificó, aun si la
@@ -1086,6 +1106,7 @@ async function initDB() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dpp_proceso ON dp_pasos(proceso_id, orden)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dpp_asignado ON dp_pasos(asignado_a) WHERE asignado_a IS NOT NULL`);
+      await client.query(`ALTER TABLE dp_pasos ADD COLUMN IF NOT EXISTS observacion TEXT DEFAULT ''`);
       console.log("✅ DP: tabla dp_pasos lista");
 
       await client.query(`

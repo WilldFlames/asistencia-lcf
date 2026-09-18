@@ -16,6 +16,19 @@ async function canAccess(req, res, next) {
   return res.status(403).json({ error:"Sin permisos" });
 }
 
+function puedeGestionarBloqueos(req, res, next){
+  const u=req.session.usuario;
+  if(u && ["admin","administrativo","orientador"].includes(u.rol)) return next();
+  return res.status(403).json({error:"Solo Dirección, administración u orientación pueden gestionar matrículas restringidas."});
+}
+
+async function bloqueoPendiente(estudianteId, anio, db=pool){
+  const r=await db.query(`SELECT b.*,TRIM(CONCAT_WS(' ',u.nombre,u.primer_apellido,u.segundo_apellido)) AS creado_por_nombre
+    FROM bloqueos_matricula b LEFT JOIN usuarios u ON u.id=b.creado_por
+    WHERE b.estudiante_id=$1 AND b.anio=$2 AND b.activo=true AND b.autorizado_at IS NULL`,[estudianteId,anio]);
+  return r.rows[0]||null;
+}
+
 // ── LISTAR MATRÍCULAS ─────────────────────────────────────────────────
 router.get("/", canAccess, async (req, res) => {
   const anioActivo = await obtenerAnioActivo();
@@ -123,6 +136,12 @@ router.post("/guardar", canAccess, async (req, res) => {
   const existe = await pool.query("SELECT id FROM estudiantes WHERE cedula=$1", [cedula]);
   let estId;
 
+  const anioDestino = parseInt(anio) || await obtenerAnioActivo();
+  if(existe.rows.length){
+    const bloqueo=await bloqueoPendiente(existe.rows[0].id,anioDestino);
+    if(bloqueo) return res.status(423).json({error:`MATRÍCULA RESTRINGIDA. Motivo: ${bloqueo.motivo}. Se requiere autorización de Dirección para continuar.`,matricula_restringida:true,bloqueo});
+  }
+
   if(existe.rows.length){
     estId = existe.rows[0].id;
     await pool.query(`
@@ -185,7 +204,6 @@ router.post("/guardar", canAccess, async (req, res) => {
 
   // Crear o reactivar el borrador anual. Guardar el paso 1 no equivale a
   // finalizar: la bandera completada solo cambia en /completar.
-  const anioDestino = parseInt(anio) || await obtenerAnioActivo();
   await pool.query(`INSERT INTO matricula(estudiante_id,anio,completada,estado,confirmado_por)
     VALUES($1,$2,false,'pendiente',$3)
     ON CONFLICT(estudiante_id,anio) DO UPDATE SET
@@ -279,6 +297,64 @@ router.post("/adecuacion", canAccess, async (req, res) => {
   res.json({ ok:true });
 });
 
+// ── MATRÍCULA RESTRINGIDA (bloqueo individual) ───────────────────────
+router.get("/bloqueos-estudiantes/:anio", puedeGestionarBloqueos, async (req,res)=>{
+  const anio=parseInt(req.params.anio),activo=await obtenerAnioActivo();
+  if(!anio) return res.status(400).json({error:"Año inválido."});
+  const esActual=anio===activo;
+  const r=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,
+      CASE WHEN $2::boolean THEN e.seccion_id ELSE m.seccion_id END AS seccion_id,
+      s.nombre AS seccion_nombre
+    FROM estudiantes e LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$1
+    LEFT JOIN secciones s ON s.id=CASE WHEN $2::boolean THEN e.seccion_id ELSE m.seccion_id END
+    WHERE e.activo=true AND COALESCE(e.archivado,false)=false
+    ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre`,[anio,esActual]);
+  res.json(r.rows);
+});
+
+router.get("/bloqueos/:anio", puedeGestionarBloqueos, async (req,res)=>{
+  const anio=parseInt(req.params.anio);
+  if(!anio) return res.status(400).json({error:"Año inválido."});
+  const r=await pool.query(`SELECT b.*,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
+      s.nombre AS seccion_nombre,
+      TRIM(CONCAT_WS(' ',uc.nombre,uc.primer_apellido,uc.segundo_apellido)) AS creado_por_nombre,
+      TRIM(CONCAT_WS(' ',ua.nombre,ua.primer_apellido,ua.segundo_apellido)) AS autorizado_por_nombre
+    FROM bloqueos_matricula b JOIN estudiantes e ON e.id=b.estudiante_id
+    LEFT JOIN secciones s ON s.id=e.seccion_id LEFT JOIN usuarios uc ON uc.id=b.creado_por
+    LEFT JOIN usuarios ua ON ua.id=b.autorizado_por
+    WHERE b.anio=$1 AND b.activo=true ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre`,[anio]);
+  res.json(r.rows);
+});
+
+router.post("/bloqueos", puedeGestionarBloqueos, async (req,res)=>{
+  const anio=parseInt(req.body.anio), estudianteId=parseInt(req.body.estudiante_id);
+  const motivo=String(req.body.motivo||'').trim();
+  if(!anio||!estudianteId||motivo.length<5) return res.status(400).json({error:"Seleccione estudiante, año y escriba el motivo."});
+  await pool.query("INSERT INTO anios_lectivos(anio,estado) VALUES($1,'preparacion') ON CONFLICT(anio) DO NOTHING",[anio]);
+  await pool.query(`INSERT INTO bloqueos_matricula(anio,estudiante_id,motivo,activo,creado_por,creado_at,autorizado_por,autorizado_at,autorizacion_nota,levantado_por,levantado_at)
+    VALUES($1,$2,$3,true,$4,NOW(),NULL,NULL,NULL,NULL,NULL)
+    ON CONFLICT(anio,estudiante_id) DO UPDATE SET motivo=EXCLUDED.motivo,activo=true,creado_por=EXCLUDED.creado_por,
+      creado_at=NOW(),autorizado_por=NULL,autorizado_at=NULL,autorizacion_nota=NULL,levantado_por=NULL,levantado_at=NULL`,
+    [anio,estudianteId,motivo,req.session.usuario.id]);
+  res.json({ok:true});
+});
+
+router.post("/bloqueos/:id/autorizar", puedeGestionarBloqueos, async (req,res)=>{
+  if(req.session.usuario.rol!=="admin") return res.status(403).json({error:"Solo Dirección puede autorizar una matrícula restringida."});
+  const nota=String(req.body?.nota||'').trim();
+  const r=await pool.query(`UPDATE bloqueos_matricula SET autorizado_por=$1,autorizado_at=NOW(),autorizacion_nota=$2
+    WHERE id=$3 AND activo=true RETURNING id`,[req.session.usuario.id,nota||null,req.params.id]);
+  if(!r.rows.length) return res.status(404).json({error:"Restricción no encontrada."});
+  res.json({ok:true});
+});
+
+router.delete("/bloqueos/:id", puedeGestionarBloqueos, async (req,res)=>{
+  const r=await pool.query(`UPDATE bloqueos_matricula SET activo=false,levantado_por=$1,levantado_at=NOW()
+    WHERE id=$2 AND activo=true RETURNING id`,[req.session.usuario.id,req.params.id]);
+  if(!r.rows.length) return res.status(404).json({error:"Restricción no encontrada."});
+  res.json({ok:true});
+});
+
 // ── COMPLETAR MATRÍCULA ───────────────────────────────────────────────
 router.post("/completar/:id", canAccess, async (req, res) => {
   const anioActivo = await obtenerAnioActivo();
@@ -286,6 +362,8 @@ router.post("/completar/:id", canAccess, async (req, res) => {
   const convocatoria = req.body?.convocatoria === true;
   const nivelSolicitado = parseInt(req.body?.nivel_solicitado) || null;
   const uid = req.session.usuario.id;
+  const bloqueo=await bloqueoPendiente(req.params.id,anio);
+  if(bloqueo) return res.status(423).json({error:`MATRÍCULA RESTRINGIDA. Motivo: ${bloqueo.motivo}. Dirección debe autorizarla antes de finalizar.`,matricula_restringida:true,bloqueo});
   if(convocatoria){
     const est = await pool.query(`SELECT e.id,e.nivel_matricula,s.nivel AS nivel_actual
       FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`, [req.params.id]);
