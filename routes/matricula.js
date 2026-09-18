@@ -303,10 +303,10 @@ router.get("/bloqueos-estudiantes/:anio", puedeGestionarBloqueos, async (req,res
   if(!anio) return res.status(400).json({error:"Año inválido."});
   const esActual=anio===activo;
   const r=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,
-      CASE WHEN $2::boolean THEN e.seccion_id ELSE m.seccion_id END AS seccion_id,
+      CASE WHEN $2::boolean THEN e.seccion_id ELSE COALESCE(m.seccion_id,e.seccion_id) END AS seccion_id,
       s.nombre AS seccion_nombre
     FROM estudiantes e LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$1
-    LEFT JOIN secciones s ON s.id=CASE WHEN $2::boolean THEN e.seccion_id ELSE m.seccion_id END
+    LEFT JOIN secciones s ON s.id=CASE WHEN $2::boolean THEN e.seccion_id ELSE COALESCE(m.seccion_id,e.seccion_id) END
     WHERE e.activo=true AND COALESCE(e.archivado,false)=false
     ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre`,[anio,esActual]);
   res.json(r.rows);

@@ -20,6 +20,7 @@ test('matrícula restringida es individual, auditada y solo Dirección autoriza'
   assert.match(r,/MATRÍCULA RESTRINGIDA/);
   assert.match(r,/req\.session\.usuario\.rol!==['"]admin['"]/);
   assert.match(ui,/Matrícula restringida/);
+  assert.match(r,/COALESCE\(m\.seccion_id,e\.seccion_id\)/);
 });
 
 test('ausencias trasladadas se reúnen por estudiante, mismo docente, materia y año',()=>{
