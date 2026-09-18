@@ -895,6 +895,13 @@ tr:hover td{background:#f8fafc;}
 .at-detail-head{border-radius:14px;padding:15px;background:linear-gradient(135deg,#123f65,#176b72);color:#fff;margin-bottom:12px}.at-detail-head h2{margin:0 0 5px;font-size:18px}.at-detail-head p{margin:0;color:#d8e9f4;font-size:12px}.at-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.at-panel{border:1px solid #dce7f1;border-radius:13px;padding:13px;background:#fff}.at-panel.full{grid-column:1/-1}.at-panel h3{font-size:14px;color:#173f62;margin:0 0 10px}.at-timeline{position:relative;padding-left:18px}.at-timeline:before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:#dbe7f3}.at-event{position:relative;padding:0 0 13px 9px}.at-event:before{content:"";position:absolute;left:-17px;top:4px;width:10px;height:10px;border-radius:50%;background:#2c7cb7;border:2px solid #fff;box-shadow:0 0 0 2px #bfd7ea}.at-event strong{font-size:12px}.at-event div{font-size:11.5px;color:#64748b;margin-top:2px;white-space:pre-wrap}.at-inline-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:11px;background:#f8fafc;border-radius:10px;margin-top:9px}.at-inline-form .full{grid-column:1/-1}.at-inline-form input,.at-inline-form select,.at-inline-form textarea{width:100%}
 .at-call-effective{display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:12px}.at-call-effective.show{display:block}.at-call-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.at-call-motivos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.at-call-motivos label{display:flex;gap:7px;align-items:flex-start;border:1px solid #e3eaf1;border-radius:8px;padding:8px;font-size:11.5px;background:#fff}.at-call-motivos input{width:16px;height:16px;flex:0 0 16px}
 @media(max-width:760px){.at-hero,.at-hero-actions,.at-hero-actions .btn,.at-toolbar,.at-toolbar .fg,.at-toolbar .btn{width:100%}.at-summary{grid-template-columns:1fr 1fr}.at-card{grid-template-columns:1fr}.at-card-actions{justify-content:flex-start}.at-catalogo,.at-detail-grid,.at-inline-form,.at-call-row,.at-call-motivos{grid-template-columns:1fr}.at-panel.full,.at-inline-form .full{grid-column:auto}.at-tabs{overflow-x:auto}.at-tab{white-space:nowrap}}
+  .agenda-hero{margin-bottom:14px;background:linear-gradient(145deg,#fff 72%,#eff6ff)}
+  .agenda-head,.agenda-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.agenda-head h2{margin:0 0 4px}.agenda-head p{margin:0;color:var(--muted);font-size:12.5px}.agenda-actions,.agenda-toolbar>div{display:flex;gap:6px;flex-wrap:wrap}
+  .agenda-toolbar{padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-top:14px}.agenda-layout{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;margin-top:14px}.agenda-layout aside{border-left:1px solid var(--border);padding-left:14px}.agenda-layout aside h3{font-size:13px;color:var(--azul);margin:0 0 8px}
+  .agenda-week{display:grid;grid-template-columns:repeat(7,minmax(105px,1fr));gap:6px;overflow-x:auto}.agenda-day{min-height:170px;border:1px solid var(--border);border-radius:10px;background:#f8fafc;padding:7px}.agenda-day.today{border:2px solid #2563eb;background:#eff6ff}.agenda-day-head{text-align:center;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:7px}.agenda-day-head b{display:block;font-size:18px;color:var(--azul)}
+  .agenda-event{display:block;border:0;border-left:4px solid var(--event,#2563eb);background:#fff;border-radius:6px;padding:6px;margin-bottom:5px;font-size:10.5px;box-shadow:0 1px 4px #0f172a12;cursor:pointer;text-align:left;width:100%}.agenda-event strong{display:block;color:#172554}.agenda-event.pending{background:#fffbeb}.agenda-event.block{--event:#94a3b8;background:#f1f5f9;color:#64748b;cursor:default}.agenda-side-item{border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:7px;font-size:11px}.agenda-side-item strong{display:block;color:var(--azul)}
+  .agenda-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:10.5px;color:var(--muted)}.agenda-legend span{display:flex;align-items:center;gap:4px}.agenda-legend i{width:9px;height:9px;border-radius:50%}.agenda-people{border:1px solid var(--border);border-radius:9px;max-height:210px;overflow:auto;margin-top:6px;padding:5px}.agenda-person{display:flex;gap:8px;align-items:center;padding:7px;border-bottom:1px solid #edf2f7;font-size:12px}.agenda-person input{width:auto}.agenda-person small{display:block;color:var(--muted)}.agenda-office-row{display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center;margin-bottom:7px;font-size:12px}
+  @media(max-width:900px){.agenda-layout{grid-template-columns:1fr}.agenda-layout aside{border-left:0;border-top:1px solid var(--border);padding:12px 0 0}.agenda-week{grid-template-columns:repeat(7,minmax(150px,1fr))}}
 </style>
 </head>
 <body>
@@ -1215,7 +1222,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
   <button class="nav-btn" data-page="horario" id="nav-horario" onclick="goTo('horario')" style="display:none"><span class="icon">🕐</span><span>Horario</span></button>
-  <button class="nav-btn" data-page="citas" id="nav-citas" onclick="goTo('citas')" style="display:none"><span class="icon">📅</span><span>Citas con encargados</span></button>
+  <button class="nav-btn" data-page="citas" id="nav-citas" onclick="goTo('citas')" style="display:none"><span class="icon">📅</span><span>Agenda institucional</span></button>
   <button class="nav-btn" data-page="rendimiento" id="nav-rendimiento" onclick="goTo('rendimiento')" style="display:none"><span class="icon">🎯</span><span>Rendimiento</span></button>
   <button class="nav-btn" data-page="adecuaciones" id="nav-adecuaciones" onclick="goTo('adecuaciones')" style="display:none"><span class="icon">🧩</span><span>Adecuaciones</span></button>
   <button class="nav-btn" data-page="alerta-temprana" id="nav-alerta-temprana" onclick="goTo('alerta-temprana')" style="display:none"><span class="icon">🚨</span><span>Alerta Temprana</span></button>
@@ -3591,6 +3598,20 @@ tr:hover td{background:#f8fafc;}
 
 <!-- CITAS CON ENCARGADOS -->
 <div class="page" id="page-citas">
+  <div class="card agenda-hero">
+    <div class="agenda-head">
+      <div><h2>📅 Agenda institucional</h2><p>Reuniones, citas y compromisos en un solo lugar. Las clases se muestran como referencia y no bloquean una solicitud.</p></div>
+      <div class="agenda-actions"><button class="btn btn-outline" onclick="agendaAbrirConfiguracion()">⚙ Horario y bloqueos</button><button class="btn btn-primary" onclick="agendaAbrirNuevo()">+ Nueva reunión</button></div>
+    </div>
+    <div id="alert-agenda" class="alert"></div>
+    <div class="agenda-toolbar">
+      <div><button class="btn btn-outline btn-sm" onclick="agendaMover(-1)">‹</button><button class="btn btn-outline btn-sm" onclick="agendaHoy()">Hoy</button><button class="btn btn-outline btn-sm" onclick="agendaMover(1)">›</button></div>
+      <strong id="agenda-rango"></strong>
+      <div><button id="agenda-vista-semana" class="btn btn-primary btn-sm" onclick="agendaCambiarVista('semana')">Semana</button><button id="agenda-vista-mes" class="btn btn-outline btn-sm" onclick="agendaCambiarVista('mes')">Mes</button></div>
+    </div>
+    <div class="agenda-layout"><div id="agenda-calendario" class="agenda-calendar"><div class="empty">Cargando agenda…</div></div><aside><h3>🔔 Pendientes</h3><div id="agenda-pendientes"></div><h3 style="margin-top:16px">☀️ Hoy</h3><div id="agenda-hoy"></div></aside></div>
+    <div class="agenda-legend"><span><i style="background:#2563eb"></i>Reunión</span><span><i style="background:#7c3aed"></i>Orientación</span><span><i style="background:#dc2626"></i>Debido proceso</span><span><i style="background:#ea580c"></i>Pauta</span><span><i style="background:#059669"></i>Familias</span><span><i style="background:#475569"></i>Institucional</span></div>
+  </div>
   <div class="card" style="margin-bottom:14px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
       <div><h2 style="margin:0 0 4px;">📅 Citas con encargados</h2><p style="margin:0;color:var(--muted);font-size:12.5px;">Apruebe solicitudes, proponga otra hora o solicite usted una reunión.</p></div>
@@ -3608,6 +3629,29 @@ tr:hover td{background:#f8fafc;}
     <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="citasGuardarDisponibilidad()">💾 Guardar disponibilidad</button>
   </div>
 </div>
+
+<div class="modal-overlay" id="modal-agenda-evento"><div class="modal" style="max-width:680px;max-height:92vh;overflow:auto">
+  <div class="modal-title">📅 Nueva reunión o evento</div><div class="form-grid">
+    <div class="fg full"><label>Título *</label><input id="ag-titulo" maxlength="180" placeholder="Ej. Reunión de seguimiento"/></div>
+    <div class="fg"><label>Tipo *</label><select id="ag-tipo"><option value="reunion">Reunión</option><option value="orientacion">Cita con Orientación</option><option value="debido_proceso">Debido proceso</option><option value="pauta">Pauta / protocolo</option><option value="atencion_familia">Atención a familia</option><option value="institucional">Evento institucional</option><option value="otro">Otro</option></select></div>
+    <div class="fg"><label>Lugar o modalidad</label><input id="ag-lugar" maxlength="250" placeholder="Oficina, aula o virtual"/></div>
+    <div class="fg"><label>Fecha *</label><input type="date" id="ag-fecha"/></div><div class="fg"><label>Inicio *</label><input type="time" id="ag-inicio"/></div><div class="fg"><label>Fin *</label><input type="time" id="ag-fin"/></div>
+    <div class="fg full"><label>Invitados * <small style="color:var(--muted)">Puede marcar varias personas. En Orientación se indica el nivel asignado.</small></label><input type="search" id="ag-buscar-persona" oninput="agendaFiltrarPersonal()" placeholder="Buscar por nombre o cargo…"/><div id="ag-personal" class="agenda-people"></div></div>
+    <div class="fg full"><label>Descripción</label><textarea id="ag-descripcion" rows="3" maxlength="2000"></textarea></div>
+    <label id="ag-institucional-wrap" style="display:none;align-items:center;gap:7px"><input type="checkbox" id="ag-institucional" style="width:auto"> Visible como evento institucional</label>
+  </div><div id="alert-agenda-modal" class="alert"></div><div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-agenda-evento')">Cancelar</button><button class="btn btn-primary" onclick="agendaGuardarEvento()">Enviar invitaciones</button></div>
+</div></div>
+
+<div class="modal-overlay" id="modal-agenda-config"><div class="modal" style="max-width:720px;max-height:92vh;overflow:auto">
+  <div class="modal-title">⚙ Horario de oficina y horas bloqueadas</div>
+  <p style="font-size:12.5px;color:var(--muted)">El horario de oficina indica cuándo atiende Orientación. Los bloqueos sí impiden reservar; utilícelos para almuerzo, reuniones fijas u otras horas no disponibles.</p>
+  <div id="ag-config-persona-wrap" class="fg" style="display:none"><label>Configurar a</label><select id="ag-config-persona" onchange="agendaCargarConfiguracion()"></select></div>
+  <section id="ag-oficina-wrap"><h3 style="font-size:14px;color:var(--azul);margin:15px 0 8px">Horario de oficina</h3><div id="ag-oficina"></div><button class="btn btn-primary btn-sm" onclick="agendaGuardarOficina()">💾 Guardar horario</button></section>
+  <h3 style="font-size:14px;color:var(--azul);margin:18px 0 8px">Bloquear una hora</h3>
+  <div class="form-grid"><div class="fg"><label>Se repite cada</label><select id="ag-bloq-dia"><option value="">Solo una fecha</option><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option></select></div><div class="fg"><label>Fecha específica</label><input type="date" id="ag-bloq-fecha"/></div><div class="fg"><label>Desde</label><input type="time" id="ag-bloq-inicio"/></div><div class="fg"><label>Hasta</label><input type="time" id="ag-bloq-fin"/></div><div class="fg full"><label>Motivo</label><input id="ag-bloq-motivo" maxlength="300" placeholder="Ej. Almuerzo"/></div></div>
+  <button class="btn btn-outline btn-sm" onclick="agendaAgregarBloqueo()">🔒 Agregar bloqueo</button><div id="ag-bloqueos-lista" style="margin-top:10px"></div><div id="alert-agenda-config" class="alert"></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="cerrarModal('modal-agenda-config')">Listo</button></div>
+</div></div>
 
 <div class="modal-overlay" id="modal-cita-docente">
   <div class="modal" style="max-width:580px;">
@@ -6114,6 +6158,12 @@ async function iniciarApp(){
     document.getElementById("nav-promedio").style.display="";
     document.getElementById("nav-citas").style.display="";
   }
+  // La agenda institucional también corresponde a personal de apoyo y
+  // administración, aunque no tenga asignaciones académicas.
+  if(esAdmin||esAdminIst||esSecretaria||esAuxiliar||esBibliotecologa){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-citas").style.display="";
+  }
   // Admin también puede ver Promedio (para reabrir períodos cerrados)
   if(esAdmin){
     document.getElementById("nav-promedio").style.display="";
@@ -6959,6 +7009,7 @@ async function cargarDashboard(){
   }
   })();
   try { await cargarDashboard._enCurso; } finally { cargarDashboard._enCurso = null; }
+  agendaCargarResumenDashboard();
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -16967,13 +17018,61 @@ async function escanearComedor(){
 // ════════════════════════════════════
 //  CITAS CON ENCARGADOS · VISTA DOCENTE
 // ════════════════════════════════════
+let agendaFechaBase=new Date(),agendaVista='semana',agendaDatos={eventos:[],citas:[],bloqueos:[],referencias:[]},agendaPersonal=[];
+const AGENDA_COLOR={reunion:'#2563eb',orientacion:'#7c3aed',debido_proceso:'#dc2626',pauta:'#ea580c',atencion_familia:'#059669',institucional:'#475569',otro:'#0891b2'};
+const AGENDA_TIPO={reunion:'Reunión',orientacion:'Orientación',debido_proceso:'Debido proceso',pauta:'Pauta / protocolo',atencion_familia:'Atención a familia',institucional:'Institucional',otro:'Otro'};
+function agendaISO(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function agendaDesde(){const d=new Date(agendaFechaBase);if(agendaVista==='semana'){const n=(d.getDay()+6)%7;d.setDate(d.getDate()-n)}else d.setDate(1);d.setHours(12,0,0,0);return d}
+function agendaHasta(){const d=agendaDesde();if(agendaVista==='semana')d.setDate(d.getDate()+6);else{d.setMonth(d.getMonth()+1);d.setDate(0)}return d}
+function agendaHoy(){agendaFechaBase=new Date();agendaCargar()}
+function agendaMover(n){if(agendaVista==='semana')agendaFechaBase.setDate(agendaFechaBase.getDate()+7*n);else agendaFechaBase.setMonth(agendaFechaBase.getMonth()+n);agendaCargar()}
+function agendaCambiarVista(v){agendaVista=v;document.getElementById('agenda-vista-semana').className='btn '+(v==='semana'?'btn-primary':'btn-outline')+' btn-sm';document.getElementById('agenda-vista-mes').className='btn '+(v==='mes'?'btn-primary':'btn-outline')+' btn-sm';agendaCargar()}
+async function agendaCargar(){
+  const desde=agendaISO(agendaDesde()),hasta=agendaISO(agendaHasta());
+  try{agendaDatos=await api(`/api/agenda/eventos?desde=${desde}&hasta=${hasta}`);agendaRender();}catch(e){sa('alert-agenda',e.message,'danger')}
+}
+function agendaEventosFecha(fecha){
+  const ev=(agendaDatos.eventos||[]).filter(e=>String(e.fecha).slice(0,10)===fecha).map(e=>({...e,_clase:'evento'}));
+  const ci=(agendaDatos.citas||[]).filter(c=>String(c.fecha).slice(0,10)===fecha).map(c=>({id:c.id,titulo:`Cita: ${c.estudiante}`,tipo:'atencion_familia',hora_inicio:c.hora,hora_fin:'',mi_estado:c.estado,descripcion:c.motivo,_clase:'cita'}));
+  const day=new Date(fecha+'T12:00:00').getDay()||7;
+  const bl=(agendaDatos.bloqueos||[]).filter(b=>String(b.fecha||'').slice(0,10)===fecha||(!b.fecha&&Number(b.dia_semana)===day)).map(b=>({titulo:`🔒 ${b.motivo}`,hora_inicio:b.hora_inicio,hora_fin:b.hora_fin,_clase:'bloqueo'}));
+  const horas=Number(ANIO_LECTIVO_ACTIVO)>=2027?[['07:00','07:40'],['07:40','08:20'],['08:35','09:15'],['09:15','09:55'],['10:00','10:40'],['10:40','11:20'],['12:00','12:40'],['12:40','13:20'],['13:30','14:10'],['14:10','14:50'],['15:00','15:40'],['15:40','16:20']]:[['07:00','07:40'],['07:40','08:20'],['08:35','09:15'],['09:15','09:55'],['10:00','10:40'],['10:40','11:20'],['12:00','12:40'],['12:40','13:20'],['13:30','14:10'],['14:10','14:50'],['14:55','15:35'],['15:35','16:15']];
+  const refs=(agendaDatos.referencias||[]).filter(r=>Number(r.dia)===day).map(r=>({titulo:`Clase (referencia): ${r.materia} · ${r.seccion}`,hora_inicio:horas[Number(r.leccion)-1]?.[0]||'',hora_fin:horas[Number(r.leccion)-1]?.[1]||'',_clase:'referencia'}));
+  return [...ev,...ci,...bl,...refs].sort((a,b)=>String(a.hora_inicio).localeCompare(String(b.hora_inicio)));
+}
+function agendaRender(){
+  const inicio=agendaDesde(),fin=agendaHasta(),hoy=agendaISO(new Date()),dias=[];for(let d=new Date(inicio);d<=fin;d.setDate(d.getDate()+1))dias.push(new Date(d));
+  document.getElementById('agenda-rango').textContent=agendaVista==='semana'?`${inicio.toLocaleDateString('es-CR',{day:'numeric',month:'long'})} – ${fin.toLocaleDateString('es-CR',{day:'numeric',month:'long',year:'numeric'})}`:inicio.toLocaleDateString('es-CR',{month:'long',year:'numeric'});
+  document.getElementById('agenda-calendario').innerHTML=`<div class="agenda-week">${dias.map(d=>{const f=agendaISO(d),items=agendaEventosFecha(f);return `<div class="agenda-day ${f===hoy?'today':''}"><div class="agenda-day-head">${d.toLocaleDateString('es-CR',{weekday:'short'})}<b>${d.getDate()}</b></div>${items.map(agendaEventoHTML).join('')||'<div style="text-align:center;color:#94a3b8;font-size:10px;padding:8px">Libre</div>'}</div>`}).join('')}</div>`;
+  const pendientes=(agendaDatos.eventos||[]).filter(e=>e.mi_estado==='pendiente'||e.mi_estado==='propuesto');
+  document.getElementById('agenda-pendientes').innerHTML=pendientes.length?pendientes.map(e=>`<div class="agenda-side-item"><strong>${htmlSeguro(e.titulo)}</strong>${fmtF(e.fecha)} · ${String(e.hora_inicio).slice(0,5)}<div style="display:flex;gap:4px;margin-top:6px"><button class="btn btn-success btn-xs" onclick="agendaResponder(${e.id},'aceptar')">Aceptar</button><button class="btn btn-danger btn-xs" onclick="agendaResponder(${e.id},'rechazar')">Rechazar</button><button class="btn btn-outline btn-xs" onclick="agendaProponer(${e.id})">Cambiar</button></div></div>`).join(''):'<div class="empty" style="padding:8px">Sin pendientes</div>';
+  const deHoy=agendaEventosFecha(hoy);document.getElementById('agenda-hoy').innerHTML=deHoy.length?deHoy.map(x=>`<div class="agenda-side-item"><strong>${String(x.hora_inicio).slice(0,5)} · ${htmlSeguro(x.titulo)}</strong>${htmlSeguro(x.lugar||x.descripcion||'')}</div>`).join(''):'<div class="empty" style="padding:8px">Sin eventos hoy</div>';
+}
+function agendaEventoHTML(e){if(e._clase==='bloqueo'||e._clase==='referencia')return `<div class="agenda-event block" style="${e._clase==='referencia'?'opacity:.72;border-left-style:dashed':''}"><strong>${String(e.hora_inicio).slice(0,5)}–${String(e.hora_fin).slice(0,5)}</strong>${htmlSeguro(e.titulo)}</div>`;const color=AGENDA_COLOR[e.tipo]||'#2563eb';return `<button class="agenda-event ${e.mi_estado==='pendiente'?'pending':''}" style="--event:${color}" onclick="agendaVer(${e.id},'${e._clase}')"><strong>${String(e.hora_inicio).slice(0,5)} ${htmlSeguro(e.titulo)}</strong>${e.mi_estado==='pendiente'?'⏳ Pendiente':htmlSeguro(e.lugar||'')}</button>`}
+function agendaVer(id,clase){if(clase==='cita'){goTo('citas');document.getElementById('citas-doc-lista')?.scrollIntoView({behavior:'smooth'});return}const e=(agendaDatos.eventos||[]).find(x=>Number(x.id)===Number(id));if(!e)return;const ps=(e.participantes||[]).map(p=>`${p.nombre}: ${p.estado}`).join('\n');const detalle=`${e.titulo}\n${AGENDA_TIPO[e.tipo]||e.tipo}\n${fmtF(e.fecha)} · ${String(e.hora_inicio).slice(0,5)}–${String(e.hora_fin).slice(0,5)}\n${e.lugar||''}\n\n${e.descripcion||''}\n\nParticipantes:\n${ps}`;if(confirm(detalle+'\n\n¿Desea cancelar este evento?'))agendaCancelar(id)}
+async function agendaResponder(id,accion){const mensaje=accion==='rechazar'?(prompt('Motivo del rechazo (opcional):')||''):'';try{await api(`/api/agenda/eventos/${id}/responder`,'PUT',{accion,mensaje});agendaCargar();cargarNotificaciones()}catch(e){sa('alert-agenda',e.message,'danger')}}
+async function agendaProponer(id){const fecha=prompt('Nueva fecha (AAAA-MM-DD):',agendaISO(new Date()));if(!fecha)return;const hora_inicio=prompt('Hora de inicio (HH:MM):','08:00');if(!hora_inicio)return;const hora_fin=prompt('Hora de finalización (HH:MM):','08:30');if(!hora_fin)return;const mensaje=prompt('Mensaje (opcional):')||'';try{await api(`/api/agenda/eventos/${id}/responder`,'PUT',{accion:'proponer',fecha,hora_inicio,hora_fin,mensaje});agendaCargar()}catch(e){sa('alert-agenda',e.message,'danger')}}
+async function agendaCancelar(id){try{await api(`/api/agenda/eventos/${id}/cancelar`,'PUT',{});agendaCargar()}catch(e){sa('alert-agenda',e.message,'danger')}}
+async function agendaAbrirNuevo(){
+  try{if(!agendaPersonal.length)agendaPersonal=await api('/api/agenda/personal');['ag-titulo','ag-lugar','ag-descripcion','ag-buscar-persona'].forEach(id=>document.getElementById(id).value='');document.getElementById('ag-fecha').value=agendaISO(new Date());document.getElementById('ag-inicio').value='08:00';document.getElementById('ag-fin').value='08:30';document.getElementById('ag-tipo').value='reunion';document.getElementById('ag-institucional').checked=false;document.getElementById('ag-institucional-wrap').style.display=['admin','administrativo'].includes(ME.rol)?'flex':'none';agendaRenderPersonal(agendaPersonal);document.getElementById('modal-agenda-evento').classList.add('show')}catch(e){sa('alert-agenda',e.message,'danger')}
+}
+function agendaRenderPersonal(lista){document.getElementById('ag-personal').innerHTML=lista.filter(p=>Number(p.id)!==Number(ME.id)).map(p=>`<label class="agenda-person"><input type="checkbox" value="${p.id}"/><span><b>${htmlSeguro(nombrePersona(p))}</b><small>${htmlSeguro(RLBL[p.rol]||p.rol)}${p.secciones_orientacion?` · Atiende ${htmlSeguro(p.secciones_orientacion)}`:''}</small></span></label>`).join('')}
+function agendaFiltrarPersonal(){const q=citasNormalizarBusqueda(document.getElementById('ag-buscar-persona').value);agendaRenderPersonal(agendaPersonal.filter(p=>citasNormalizarBusqueda(`${nombrePersona(p)} ${p.rol} ${p.secciones_orientacion}`).includes(q)))}
+async function agendaGuardarEvento(){const participantes=[...document.querySelectorAll('#ag-personal input:checked')].map(x=>Number(x.value));const body={titulo:document.getElementById('ag-titulo').value,tipo:document.getElementById('ag-tipo').value,fecha:document.getElementById('ag-fecha').value,hora_inicio:document.getElementById('ag-inicio').value,hora_fin:document.getElementById('ag-fin').value,lugar:document.getElementById('ag-lugar').value,descripcion:document.getElementById('ag-descripcion').value,institucional:document.getElementById('ag-institucional').checked,participantes};if(!participantes.length){sa('alert-agenda-modal','Seleccione al menos una persona invitada.','danger');return}try{await api('/api/agenda/eventos','POST',body);cerrarModal('modal-agenda-evento');sa('alert-agenda','✅ Invitaciones enviadas.','success');agendaCargar()}catch(e){sa('alert-agenda-modal',e.message,'danger')}}
+async function agendaAbrirConfiguracion(){try{if(!agendaPersonal.length)agendaPersonal=await api('/api/agenda/personal');const esAdm=['admin','administrativo'].includes(ME.rol),sel=document.getElementById('ag-config-persona');document.getElementById('ag-config-persona-wrap').style.display=esAdm?'block':'none';sel.innerHTML=agendaPersonal.filter(p=>p.rol==='orientador').map(p=>`<option value="${p.id}" ${Number(p.id)===Number(ME.id)?'selected':''}>${htmlSeguro(nombrePersona(p))}</option>`).join('');if(!esAdm)sel.innerHTML=`<option value="${ME.id}">${htmlSeguro(nombrePersona(ME))}</option>`;document.getElementById('ag-oficina-wrap').style.display=(ME.rol==='orientador'||esAdm)?'block':'none';document.getElementById('modal-agenda-config').classList.add('show');agendaCargarConfiguracion()}catch(e){sa('alert-agenda',e.message,'danger')}}
+async function agendaCargarConfiguracion(){const uid=document.getElementById('ag-config-persona').value||ME.id;try{const d=await api(`/api/agenda/configuracion?usuario_id=${uid}`);const map=Object.fromEntries((d.horarios||[]).map(x=>[x.dia_semana,x]));document.getElementById('ag-oficina').innerHTML=['Lunes','Martes','Miércoles','Jueves','Viernes'].map((n,i)=>{const h=map[i+1]||{};return `<div class="agenda-office-row"><label><input type="checkbox" data-dia="${i+1}" ${h.hora_inicio?'checked':''} style="width:auto"> ${n}</label><input type="time" data-ini="${i+1}" value="${String(h.hora_inicio||'08:00').slice(0,5)}"><input type="time" data-fin="${i+1}" value="${String(h.hora_fin||'16:00').slice(0,5)}"></div>`}).join('');document.getElementById('ag-bloqueos-lista').innerHTML=(d.bloqueos||[]).map(b=>`<div class="agenda-side-item"><strong>🔒 ${htmlSeguro(b.motivo)}</strong>${b.fecha?fmtF(b.fecha):CITAS_DIAS[b.dia_semana]||'Semanal'} · ${String(b.hora_inicio).slice(0,5)}–${String(b.hora_fin).slice(0,5)} <button class="btn btn-danger btn-xs" onclick="agendaBorrarBloqueo(${b.id})">Quitar</button></div>`).join('')||'<div class="empty">Sin bloqueos</div>'}catch(e){sa('alert-agenda-config',e.message,'danger')}}
+async function agendaGuardarOficina(){const usuario_id=Number(document.getElementById('ag-config-persona').value||ME.id),horarios=[...document.querySelectorAll('#ag-oficina input[data-dia]:checked')].map(c=>({dia_semana:Number(c.dataset.dia),hora_inicio:document.querySelector(`[data-ini="${c.dataset.dia}"]`).value,hora_fin:document.querySelector(`[data-fin="${c.dataset.dia}"]`).value}));try{await api('/api/agenda/horario-oficina','PUT',{usuario_id,horarios});sa('alert-agenda-config','✅ Horario de oficina guardado.','success')}catch(e){sa('alert-agenda-config',e.message,'danger')}}
+async function agendaAgregarBloqueo(){const body={usuario_id:Number(document.getElementById('ag-config-persona').value||ME.id),dia_semana:document.getElementById('ag-bloq-dia').value||null,fecha:document.getElementById('ag-bloq-fecha').value||null,hora_inicio:document.getElementById('ag-bloq-inicio').value,hora_fin:document.getElementById('ag-bloq-fin').value,motivo:document.getElementById('ag-bloq-motivo').value};try{await api('/api/agenda/bloqueos','POST',body);agendaCargarConfiguracion();agendaCargar()}catch(e){sa('alert-agenda-config',e.message,'danger')}}
+async function agendaBorrarBloqueo(id){try{await api(`/api/agenda/bloqueos/${id}`,'DELETE');agendaCargarConfiguracion();agendaCargar()}catch(e){sa('alert-agenda-config',e.message,'danger')}}
+async function agendaCargarResumenDashboard(){const cont=document.getElementById('dash-profesor-content');if(!cont||!ME)return;const hoy=agendaISO(new Date()),fin=new Date();fin.setDate(fin.getDate()+7);try{const d=await api(`/api/agenda/eventos?desde=${hoy}&hasta=${agendaISO(fin)}`),items=[...(d.eventos||[]).map(e=>({...e,n:e.titulo,h:e.hora_inicio})),...(d.citas||[]).map(c=>({fecha:c.fecha,n:`Cita: ${c.estudiante}`,h:c.hora,tipo:'atencion_familia'}))].sort((a,b)=>`${a.fecha}${a.h}`.localeCompare(`${b.fecha}${b.h}`));cont.insertAdjacentHTML('afterbegin',`<div class="card" style="margin:12px 0;border-left:5px solid #2563eb"><div style="display:flex;justify-content:space-between"><strong style="color:var(--azul)">📅 Mi agenda · próximos 7 días</strong><button class="btn btn-outline btn-xs" onclick="goTo('citas')">Abrir agenda</button></div>${items.length?items.slice(0,6).map(x=>`<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:12px"><b>${fmtF(x.fecha)} · ${String(x.h).slice(0,5)}</b> — ${htmlSeguro(x.n)}</div>`).join(''):'<div class="empty" style="padding:10px">Sin compromisos próximos</div>'}</div>`)}catch{}}
+
 let citasBloques=[];
 let citasEstudiantes=[];
 const CITAS_DIAS=['','Lunes','Martes','Miércoles','Jueves','Viernes'];
 
 async function iniciarCitasDocente(){
   try{
-    const [agenda,disp]=await Promise.all([api('/api/citas/mis-citas'),api('/api/citas/disponibilidad')]);
+    const [agenda,disp]=await Promise.all([api('/api/citas/mis-citas'),api('/api/citas/disponibilidad'),agendaCargar()]);
     citasBloques=(disp?.bloques||[]).map(b=>({...b,hora_inicio:String(b.hora_inicio).slice(0,5),hora_fin:String(b.hora_fin).slice(0,5)}));
     if(!citasBloques.length)citasBloques=[{dia_semana:1,hora_inicio:'15:00',hora_fin:'16:00',duracion_min:20}];
     citasRenderDisponibilidad();

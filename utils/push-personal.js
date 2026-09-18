@@ -22,7 +22,7 @@ function destinoNotificacion(n){
     return `/personal?app=personal&abrir=alerta-temprana&ref=${encodeURIComponent(ref)}`;
   }
   const porTipo={
-    informe:"mensajes",informe_respondido:"mensajes",cita:"citas",
+    informe:"mensajes",informe_respondido:"mensajes",cita:"citas",agenda:"citas",
     boleta:"conducta",conducta:"conducta",adecuacion:"adecuaciones",
     protocolo:"protocolos",debido_proceso:"debidos"
   };

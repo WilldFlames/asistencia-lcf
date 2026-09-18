@@ -73,6 +73,7 @@ app.use("/api/porteria",   requireAuth, require("./routes/porteria"));
 app.use("/api/anuncios",   requireAuth, require("./routes/anuncios"));
 app.use("/api/config-anio",requireAuth, require("./routes/configAnio"));
 app.use("/api/citas",      requireAuth, require("./routes/citas"));
+app.use("/api/agenda",     requireAuth, require("./routes/agenda"));
 app.use("/api/padres",     require("./routes/padres")); // auth propia (portal de encargados)
 app.use("/api/inventario", requireAuth, require("./routes/inventario"));
 app.use("/api/rendimiento",requireAuth, require("./routes/rendimiento"));

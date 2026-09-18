@@ -2529,6 +2529,75 @@ async function initDB() {
       ON citas(profesor_id, fecha, hora)
       WHERE estado IN ('pendiente','confirmada')`);
 
+    // ── AGENDA INSTITUCIONAL ────────────────────────────────────────────
+    // Reuniones entre funcionarios. Los horarios académicos son únicamente
+    // una referencia; solo los bloqueos explícitos y, para Orientación, el
+    // horario de oficina, determinan disponibilidad real.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS agenda_eventos (
+        id              SERIAL PRIMARY KEY,
+        anio            INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE RESTRICT,
+        titulo          TEXT NOT NULL,
+        tipo            TEXT NOT NULL DEFAULT 'reunion'
+                        CHECK(tipo IN ('reunion','orientacion','debido_proceso','pauta','atencion_familia','institucional','otro')),
+        fecha           DATE NOT NULL,
+        hora_inicio     TIME NOT NULL,
+        hora_fin        TIME NOT NULL,
+        lugar           TEXT DEFAULT '',
+        descripcion     TEXT DEFAULT '',
+        creador_id      INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+        estudiante_id   INTEGER REFERENCES estudiantes(id) ON DELETE SET NULL,
+        institucional   BOOLEAN NOT NULL DEFAULT false,
+        estado          TEXT NOT NULL DEFAULT 'activo' CHECK(estado IN ('activo','cancelado')),
+        created_at      TIMESTAMP DEFAULT NOW(),
+        updated_at      TIMESTAMP DEFAULT NOW(),
+        CHECK(hora_fin > hora_inicio)
+      );
+      CREATE TABLE IF NOT EXISTS agenda_participantes (
+        id              SERIAL PRIMARY KEY,
+        evento_id       INTEGER NOT NULL REFERENCES agenda_eventos(id) ON DELETE CASCADE,
+        usuario_id      INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        requerido       BOOLEAN NOT NULL DEFAULT true,
+        estado          TEXT NOT NULL DEFAULT 'pendiente'
+                        CHECK(estado IN ('pendiente','aceptado','rechazado','propuesto')),
+        respuesta       TEXT DEFAULT '',
+        propuesta_fecha DATE,
+        propuesta_inicio TIME,
+        propuesta_fin   TIME,
+        responded_at    TIMESTAMP,
+        UNIQUE(evento_id,usuario_id)
+      );
+      CREATE TABLE IF NOT EXISTS agenda_horarios_oficina (
+        id              SERIAL PRIMARY KEY,
+        usuario_id      INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        anio            INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        dia_semana      INTEGER NOT NULL CHECK(dia_semana BETWEEN 1 AND 5),
+        hora_inicio     TIME NOT NULL,
+        hora_fin        TIME NOT NULL,
+        activo          BOOLEAN NOT NULL DEFAULT true,
+        CHECK(hora_fin > hora_inicio),
+        UNIQUE(usuario_id,anio,dia_semana)
+      );
+      CREATE TABLE IF NOT EXISTS agenda_bloqueos (
+        id              SERIAL PRIMARY KEY,
+        usuario_id      INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        anio            INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        fecha           DATE,
+        dia_semana      INTEGER CHECK(dia_semana BETWEEN 1 AND 7),
+        hora_inicio     TIME NOT NULL,
+        hora_fin        TIME NOT NULL,
+        motivo          TEXT NOT NULL,
+        activo          BOOLEAN NOT NULL DEFAULT true,
+        creado_por      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at      TIMESTAMP DEFAULT NOW(),
+        CHECK(fecha IS NOT NULL OR dia_semana IS NOT NULL),
+        CHECK(hora_fin > hora_inicio)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_agenda_eventos_fecha ON agenda_eventos(fecha,hora_inicio)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_agenda_participante ON agenda_participantes(usuario_id,estado)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_agenda_bloqueo_usuario ON agenda_bloqueos(usuario_id,anio)`);
+
     // ── ANUNCIOS (secretarias/admin/administrativos → padres) ────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS anuncios (
