@@ -5627,7 +5627,7 @@ tr:hover td{background:#f8fafc;}
         <input type="date" id="medida-fin"/>
       </div>
       <div class="fg" style="grid-column:1/-1">
-        <label>Observación</label>
+        <label id="medida-obs-label">Observación</label>
         <textarea id="medida-obs" rows="3" placeholder="Motivo o detalle..."></textarea>
       </div>
     </div>
@@ -11620,7 +11620,7 @@ function renderMedidas(rows, tipo){
       <td style="font-size:12px;font-weight:bold;color:${activa?cfg.color:'#64748b'};">${fmtF(r.fecha_fin)}</td>
       <td>${estado}</td>
       <td style="font-size:12px;color:var(--muted);">${nombreDesdeCampos(r.creado_nombre,r.creado_ap1,r.creado_ap2)}</td>
-      <td>${!window.puedeEditarMedida?.(tipo) ? '<span style="color:var(--muted);font-size:11px;" title="Solo lectura">👁️</span>' : tipo==='educacion_hibrida' ? `<button class="btn btn-outline btn-xs" onclick="cambiarEstadoHibrida(${r.id},${habilitada?'false':'true'})">${habilitada?'⏸ Desactivar':'▶ Activar'}</button>` : `<button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button>`}</td>
+      <td style="white-space:nowrap;">${tipo==='precautoria'?`<button class="btn btn-outline btn-xs" onclick="imprimirBoletaPrecautoria(${r.id})">🖨️ Boleta</button> `:''}${!window.puedeEditarMedida?.(tipo) ? '<span style="color:var(--muted);font-size:11px;" title="Solo lectura">👁️</span>' : tipo==='educacion_hibrida' ? `<button class="btn btn-outline btn-xs" onclick="cambiarEstadoHibrida(${r.id},${habilitada?'false':'true'})">${habilitada?'⏸ Desactivar':'▶ Activar'}</button>` : `<button class="btn btn-danger btn-xs" onclick="eliminarMedida(${r.id},'${tipo}')">🗑️</button>`}</td>
     </tr>`;
   }).join('');
 }
@@ -11634,6 +11634,9 @@ async function abrirNuevaMedida(tipo){
   document.getElementById('alert-medida-modal').className='alert';
   document.getElementById('medida-estudiante').innerHTML='<option value="">— Seleccionar estudiante —</option>';
   document.getElementById('medida-obs').value='';
+  const obs=document.getElementById('medida-obs');
+  document.getElementById('medida-obs-label').textContent=tipo==='precautoria'?'Incidente *':'Observación';
+  obs.placeholder=tipo==='precautoria'?'Describa el incidente que se comunicará al encargado legal...':'Motivo o detalle...';
 
   // Fecha inicio hoy por defecto
   const hoy = fechaHoyCR();
@@ -11665,19 +11668,48 @@ async function guardarMedida(){
   const estId  = document.getElementById('medida-estudiante').value;
   const inicio = document.getElementById('medida-inicio').value;
   const fin    = document.getElementById('medida-fin').value;
+  const observacion=document.getElementById('medida-obs').value.trim();
   if(!estId||!inicio||!fin){ sa('alert-medida-modal','Sección, estudiante y fechas son requeridos.','danger'); return; }
+  if(medidaTipoModal==='precautoria'&&!observacion){sa('alert-medida-modal','Describa el incidente para generar la boleta precautoria.','danger');return;}
   if(fin<inicio){ sa('alert-medida-modal','La fecha de fin debe ser mayor o igual a la de inicio.','danger'); return; }
   try{
-    await api('/api/medidas','POST',{
+    const creada=await api('/api/medidas','POST',{
       estudiante_id:+estId, tipo:medidaTipoModal,
       fecha_inicio:inicio, fecha_fin:fin,
-      observacion:document.getElementById('medida-obs').value
+      observacion
     });
     cerrarModal('modal-medida');
     await iniciarMedidas(medidaTipoModal);
     // Reload medidas activas para asistencia
     allMedidasActivas = await api('/api/medidas/activas')||[];
+    if(medidaTipoModal==='precautoria') await imprimirBoletaPrecautoria(creada.id);
   }catch(e){ sa('alert-medida-modal',e.message,'danger'); }
+}
+
+async function imprimirBoletaPrecautoria(id){
+  try{
+    const d=await api(`/api/medidas/${id}/boleta-precautoria`);
+    const inicio=new Date(`${String(d.fecha_inicio).slice(0,10)}T12:00:00`);
+    const fin=new Date(`${String(d.fecha_fin).slice(0,10)}T12:00:00`);
+    const dias=Math.max(1,Math.round((fin-inicio)/86400000)+1);
+    const regreso=new Date(fin);regreso.setDate(regreso.getDate()+1);
+    const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const fechaEmision=new Date(`${String(d.fecha_inicio).slice(0,10)}T12:00:00`);
+    const estudiante=nombreDesdeCampos(d.nombre,d.primer_apellido,d.segundo_apellido);
+    const encargado=nombreDesdeCampos(d.enc_nombre,d.enc_ap1,d.enc_ap2)||'____________________________';
+    const folio=`${String(d.id).padStart(4,'0')}-${fechaEmision.getFullYear()}`;
+    const contenidoHTML=`<section style="font-size:13px;line-height:1.75;text-align:justify;">
+      <div style="text-align:right;margin-bottom:24px;"><strong>Folio:</strong> ${htmlSeguro(folio)}</div>
+      <p>Desamparados, <strong>${fechaEmision.getDate()}</strong> de <strong>${meses[fechaEmision.getMonth()]}</strong> de <strong>${fechaEmision.getFullYear()}</strong></p>
+      <div style="margin:32px 0 24px;"><strong>Señor(a)</strong><br/><span style="display:inline-block;min-width:330px;border-bottom:1px solid #111;">${htmlSeguro(encargado)}</span><br/>Encargado(a) legal del alumno(a)</div>
+      <p>Estimado(a) señor(a):</p>
+      <p>Le comunico que su hijo(a): <strong>${htmlSeguro(estudiante)}</strong>, estudiante de la sección <strong>${htmlSeguro(d.seccion_nombre||'—')}</strong>, participó en el siguiente incidente:</p>
+      <div style="min-height:130px;border-bottom:1px solid #94a3b8;white-space:pre-wrap;padding:8px 0;margin-bottom:22px;">${htmlSeguro(d.observacion||'')}</div>
+      <p>De acuerdo con lo que establece el Reglamento de Evaluación de los Aprendizajes, se le impone como medida precautoria la interrupción del proceso educativo hasta por <strong>${dias}</strong> día${dias===1?'':'s'} natural${dias===1?'':'es'}, regresando el día <strong>${regreso.getDate()}</strong> del mes de <strong>${meses[regreso.getMonth()]}</strong> de <strong>${regreso.getFullYear()}</strong>, en tanto se realiza la investigación y se concede el derecho de defensa del estudiante. Se otorga el derecho a la justificación y reprogramación de componentes de evaluación.</p>
+      <div style="margin-top:75px;width:330px;text-align:center;"><div style="border-top:1px solid #111;padding-top:7px;font-weight:bold;">Laura Cruz Jiménez</div><div>Directora</div><div>Liceo de Calle Fallas</div></div>
+    </section>`;
+    await imprimirPDFMEP('BOLETA MEDIDA PRECAUTORIA',contenidoHTML,`medida_precautoria_${folio}.pdf`);
+  }catch(e){alert('No se pudo generar la boleta precautoria: '+e.message);}
 }
 
 async function eliminarMedida(id, tipo){

@@ -54,6 +54,27 @@ router.get("/tipo/:tipo", requireAuth, async (req, res) => {
   res.json(r.rows);
 });
 
+// Datos completos para generar o reimprimir la boleta de medida precautoria.
+router.get("/:id/boleta-precautoria", requireAuth, async (req,res)=>{
+  const r=await pool.query(`
+    SELECT m.id,m.tipo,m.fecha_inicio::text AS fecha_inicio,m.fecha_fin::text AS fecha_fin,
+      m.observacion,m.created_at,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
+      s.nombre AS seccion_nombre,
+      enc.nombre AS enc_nombre,enc.primer_apellido AS enc_ap1,enc.segundo_apellido AS enc_ap2,
+      enc.cedula AS enc_cedula,enc.parentesco AS enc_parentesco
+    FROM medidas_estudiantiles m
+    JOIN estudiantes e ON e.id=m.estudiante_id
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    LEFT JOIN LATERAL (
+      SELECT x.nombre,x.primer_apellido,x.segundo_apellido,x.cedula,x.parentesco
+      FROM encargados x WHERE x.estudiante_id=e.id
+      ORDER BY x.es_principal DESC,x.id ASC LIMIT 1
+    ) enc ON true
+    WHERE m.id=$1 AND m.tipo='precautoria'`,[req.params.id]);
+  if(!r.rows.length) return res.status(404).json({error:"Medida precautoria no encontrada."});
+  res.json(r.rows[0]);
+});
+
 // ── CREAR medida ─────────────────────────────────────────────────────────────
 router.post("/", canAccess, async (req, res) => {
   const { estudiante_id, tipo, fecha_inicio, fecha_fin, observacion } = req.body;
@@ -65,7 +86,7 @@ router.post("/", canAccess, async (req, res) => {
     INSERT INTO medidas_estudiantiles (estudiante_id,tipo,fecha_inicio,fecha_fin,observacion,creado_por)
     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
   `, [estudiante_id, tipo, fecha_inicio, fecha_fin, observacion||'', req.session.usuario.id]);
-  res.json({ ok:true, id:r.rows[0].id });
+  res.json({ ok:true, id:r.rows[0].id, tipo });
 });
 
 // ── ELIMINAR medida ──────────────────────────────────────────────────────────
