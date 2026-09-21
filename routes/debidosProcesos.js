@@ -528,7 +528,7 @@ router.post("/", requireRol(...ROLES_INICIAR), async (req, res) => {
 router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) => {
   const u = req.session.usuario;
   const procesoId = req.params.id;
-  const { tipo, orden, contenido, completar, testigo_id, observacion } = req.body;
+  const { tipo, orden, contenido, completar, testigo_id, observacion, paso_id } = req.body;
   if (!tipo) return res.status(400).json({ error: "Falta tipo" });
 
   // Validar permisos: el guía del proceso, admin o el asignado pueden modificar
@@ -547,10 +547,13 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
   // Para pasos asignados a otro profe (declaración de testigo en otra sección)
   // verificamos si u.id es el asignado
   let esAsignado = false;
-  if (orden) {
+  if (paso_id || orden) {
     const pR = await pool.query(
-      "SELECT asignado_a FROM dp_pasos WHERE proceso_id=$1 AND tipo=$2 AND orden=$3",
-      [procesoId, tipo, orden]
+      `SELECT asignado_a FROM dp_pasos
+       WHERE proceso_id=$1 AND tipo=$2
+         AND (($3::int IS NOT NULL AND id=$3) OR ($3::int IS NULL AND orden=$4))
+       ORDER BY CASE WHEN id=$3 THEN 0 ELSE 1 END LIMIT 1`,
+      [procesoId, tipo, paso_id || null, orden || 1]
     );
     if (pR.rows.length && pR.rows[0].asignado_a === u.id) esAsignado = true;
   }
@@ -576,10 +579,18 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
 
   // Crear o actualizar
   const ordenFinal = orden || 1;
-  const existente = await pool.query(
-    "SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo=$2 AND orden=$3",
-    [procesoId, tipo, ordenFinal]
-  );
+  const existente = paso_id
+    ? await pool.query(
+        "SELECT id FROM dp_pasos WHERE id=$1 AND proceso_id=$2 AND tipo=$3",
+        [paso_id, procesoId, tipo]
+      )
+    : await pool.query(
+        "SELECT id FROM dp_pasos WHERE proceso_id=$1 AND tipo=$2 AND orden=$3 ORDER BY id LIMIT 1",
+        [procesoId, tipo, ordenFinal]
+      );
+  if (paso_id && !existente.rows.length) {
+    return res.status(404).json({ error: "El documento solicitado ya no existe o no pertenece a este proceso." });
+  }
 
   let pasoId;
   if (existente.rows.length) {
@@ -648,9 +659,13 @@ router.post("/:id/testigos", requireAuth, requireProcesoAccess, async (req, res)
   const esOtraSeccion = guiaTestigo && guiaTestigo !== dp.guia_a_cargo;
   const asignadoA = esOtraSeccion ? guiaTestigo : null;
 
-  // Calcular el orden secuencial (1, 2, 3...) basado en cuántos testigos hay
-  const cont = await pool.query("SELECT COUNT(*)::int AS n FROM dp_testigos WHERE proceso_id=$1", [procesoId]);
-  const ordenTestigo = cont.rows[0].n + 1;
+  // El orden debe continuar desde el máximo histórico. COUNT podía reutilizar
+  // un número al eliminar un testigo y terminaba mezclando sus documentos.
+  const cont = await pool.query(
+    "SELECT COALESCE(MAX(orden),0)::int + 1 AS n FROM dp_pasos WHERE proceso_id=$1 AND tipo='cita_testigo'",
+    [procesoId]
+  );
+  const ordenTestigo = cont.rows[0].n;
 
   const client = await pool.connect();
   try {

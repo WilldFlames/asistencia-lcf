@@ -648,7 +648,7 @@ async function getEstadoPeriodo(profesor_id, seccion_id, materia_id, subgrupo, p
 
 // Calcula los rubros para todos los estudiantes de una asignación.
 // Devuelve { regla, estudiantes: [{estudiante_id, rubros, total, asistencia}] }
-async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo, estudianteForzadoId=null) {
+async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, subgrupo, periodo, estudianteForzadoId=null, permitirTrasladoAnterior=true) {
   const sub = subgrupo || null;
 
   // 1. Verificar acceso y obtener regla REAC
@@ -987,6 +987,47 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
     };
   });
 
+  // Si el estudiante cambió de sección durante el II período, su I período
+  // debe conservarse completo. Recuperamos el cálculo ya existente en su
+  // sección anterior solamente cuando aquí no tiene ninguna nota. No se hace
+  // en II período: las evaluaciones en curso se trasladan manualmente.
+  if (permitirTrasladoAnterior && periodo === 'I Período') {
+    const sinNotas = resultado.filter(x =>
+      !['cotidiano','tarea','examen','proyecto'].some(k => Number(x.rubros[k]?.cant_con_nota || 0) > 0)
+    );
+    if (sinNotas.length) {
+      const ids = sinNotas.map(x => Number(x.estudiante_id));
+      const origenR = await pool.query(`
+        SELECT DISTINCT ON (n.estudiante_id)
+          n.estudiante_id, ev.profesor_id, ev.seccion_id, ev.subgrupo
+        FROM (
+          SELECT evaluacion_id, estudiante_id FROM notas_examen WHERE estudiante_id=ANY($1::int[]) AND puntos_obtenidos IS NOT NULL
+          UNION ALL
+          SELECT evaluacion_id, estudiante_id FROM notas_indicador WHERE estudiante_id=ANY($1::int[]) AND puntaje IS NOT NULL
+        ) n
+        JOIN evaluaciones ev ON ev.id=n.evaluacion_id
+        WHERE ev.materia_id=$2 AND ev.periodo='I Período'
+          AND ev.seccion_id<>$3 AND EXTRACT(YEAR FROM ev.fecha)=$4
+        ORDER BY n.estudiante_id, ev.fecha DESC, ev.id DESC
+      `,[ids,materia_id,seccion_id,asig.anio]);
+      for(const origen of origenR.rows){
+        try{
+          const previo=await calcularPromediosAsignacion(
+            Number(origen.profesor_id),origen.seccion_id,materia_id,origen.subgrupo,'I Período',
+            Number(origen.estudiante_id),false
+          );
+          const calculado=previo.estudiantes.find(x=>Number(x.estudiante_id)===Number(origen.estudiante_id));
+          const destino=resultado.find(x=>Number(x.estudiante_id)===Number(origen.estudiante_id));
+          if(calculado&&destino){
+            Object.assign(destino,calculado,{promedio_trasladado:true,seccion_origen_id:Number(origen.seccion_id)});
+          }
+        }catch(e){
+          console.warn(`No se pudo recuperar I Período del estudiante ${origen.estudiante_id}:`,e.message);
+        }
+      }
+    }
+  }
+
   return { asignacion: asig, regla, estudiantes: resultado };
 }
 
@@ -1030,6 +1071,35 @@ router.get("/promedio/anual", requireAuth, async (req, res) => {
     let dataI = null, dataII = null;
     try { dataI = await calcularPromediosAsignacion(u.id, seccion_id, materia_id, subgrupo, 'I Período'); } catch(e) { /* no asignación en I */ }
     try { dataII = await calcularPromediosAsignacion(u.id, seccion_id, materia_id, subgrupo, 'II Período'); } catch(e) { /* no asignación en II */ }
+
+    // Puede no existir asignación de I Período en la sección nueva. En ese
+    // caso reconstruimos únicamente los promedios cerrados de los estudiantes
+    // actuales que sí fueron evaluados en la misma materia, aunque haya sido
+    // otro profesor, en otra sección. El II Período nunca entra aquí ni se mezcla.
+    if (!dataI && dataII?.estudiantes?.length) {
+      const ids=dataII.estudiantes.map(x=>Number(x.estudiante_id));
+      const origenR=await pool.query(`
+        SELECT DISTINCT ON (n.estudiante_id) n.estudiante_id,ev.profesor_id,ev.seccion_id,ev.subgrupo
+        FROM (
+          SELECT evaluacion_id,estudiante_id FROM notas_examen WHERE estudiante_id=ANY($1::int[]) AND puntos_obtenidos IS NOT NULL
+          UNION ALL
+          SELECT evaluacion_id,estudiante_id FROM notas_indicador WHERE estudiante_id=ANY($1::int[]) AND puntaje IS NOT NULL
+        ) n
+        JOIN evaluaciones ev ON ev.id=n.evaluacion_id
+        WHERE ev.materia_id=$2 AND ev.periodo='I Período'
+          AND ev.seccion_id<>$3 AND EXTRACT(YEAR FROM ev.fecha)=$4
+        ORDER BY n.estudiante_id,ev.fecha DESC,ev.id DESC
+      `,[ids,materia_id,seccion_id,dataII.asignacion.anio]);
+      const recuperados=[];
+      for(const origen of origenR.rows){
+        try{
+          const previo=await calcularPromediosAsignacion(Number(origen.profesor_id),origen.seccion_id,materia_id,origen.subgrupo,'I Período',Number(origen.estudiante_id),false);
+          const est=previo.estudiantes.find(x=>Number(x.estudiante_id)===Number(origen.estudiante_id));
+          if(est) recuperados.push({...est,promedio_trasladado:true,seccion_origen_id:Number(origen.seccion_id)});
+        }catch(_){ }
+      }
+      if(recuperados.length) dataI={asignacion:dataII.asignacion,regla:dataII.regla,estudiantes:recuperados};
+    }
 
     if (!dataI && !dataII) {
       return res.status(403).json({ error: "Sin acceso a esta asignación en ningún período." });
@@ -1325,7 +1395,7 @@ router.get("/historial-previo", requireAuth, async (req, res) => {
   try {
     // Datos de la asignación actual (para filtrar materia + periodo)
     const aR = await pool.query(`
-      SELECT a.materia_id, a.periodo, a.profesor_id
+      SELECT a.materia_id, a.periodo, a.profesor_id, a.anio
       FROM asignaciones a WHERE a.id = $1
     `, [asignacion_id]);
     if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
@@ -1342,7 +1412,7 @@ router.get("/historial-previo", requireAuth, async (req, res) => {
     const r = await pool.query(`
       SELECT
         e.id AS evaluacion_id, e.tipo, e.nombre, e.descripcion, e.fecha, e.fecha_asignacion,
-        e.puntaje_total, e.valor_porcentual, e.subgrupo,
+        e.puntaje_total, e.valor_porcentual, e.subgrupo, e.periodo,
         prof.primer_apellido AS prof_ap1, prof.segundo_apellido AS prof_ap2, prof.nombre AS prof_nombre,
         sec.nombre AS seccion_nombre,
         -- Para EXÁMENES: nota directa
@@ -1359,7 +1429,7 @@ router.get("/historial-previo", requireAuth, async (req, res) => {
       JOIN secciones sec ON sec.id = e.seccion_id
       LEFT JOIN notas_examen ne ON ne.evaluacion_id = e.id AND ne.estudiante_id = $2
       WHERE e.materia_id = $3
-        AND e.periodo = $4
+        AND EXTRACT(YEAR FROM e.fecha) = $4
         AND (
           -- Solo evaluaciones donde el estudiante TIENE nota registrada
           ne.puntos_obtenidos IS NOT NULL
@@ -1371,7 +1441,7 @@ router.get("/historial-previo", requireAuth, async (req, res) => {
                  AND e.seccion_id = (SELECT seccion_id FROM asignaciones WHERE id = $1)
                  AND COALESCE(e.subgrupo,'') = COALESCE((SELECT subgrupo FROM asignaciones WHERE id = $1),''))
       ORDER BY e.fecha DESC, e.tipo
-    `, [asignacion_id, estudiante_id, a.materia_id, a.periodo]);
+    `, [asignacion_id, estudiante_id, a.materia_id, a.anio]);
 
     res.json(r.rows.map(row => {
       const profe = `${row.prof_nombre||''} ${row.prof_ap1||''} ${row.prof_ap2||''}`.replace(/\s+/g,' ').trim();
@@ -1387,6 +1457,7 @@ router.get("/historial-previo", requireAuth, async (req, res) => {
       return {
         evaluacion_id: row.evaluacion_id,
         tipo: row.tipo,
+        periodo: row.periodo,
         nombre: row.nombre,
         descripcion: row.descripcion,
         fecha: row.fecha,
@@ -1590,7 +1661,7 @@ router.get("/mis-evaluaciones-misma-materia", requireAuth, async (req, res) => {
   if (!asignacion_id) return res.status(400).json({ error: "asignacion_id requerido" });
   try {
     const aR = await pool.query(
-      `SELECT profesor_id, seccion_id, materia_id, subgrupo, periodo
+      `SELECT profesor_id, seccion_id, materia_id, subgrupo, periodo, anio
        FROM asignaciones WHERE id = $1`, [asignacion_id]
     );
     if (!aR.rows.length) return res.status(404).json({ error: "Asignación no encontrada" });
@@ -1598,16 +1669,16 @@ router.get("/mis-evaluaciones-misma-materia", requireAuth, async (req, res) => {
     if (u.rol !== "admin" && Number(a.profesor_id) !== Number(u.id)) return res.status(403).json({ error: "Solo el profesor a cargo o administración puede consultar estas evaluaciones." });
 
     const r = await pool.query(`
-      SELECT id, tipo, nombre, fecha, puntaje_total,
+      SELECT id, tipo, nombre, fecha, puntaje_total, periodo,
         (SELECT COUNT(*) FROM indicadores i WHERE i.evaluacion_id = e.id) AS cant_indicadores
       FROM evaluaciones e
       WHERE e.profesor_id = $1
         AND e.seccion_id = $2
         AND e.materia_id = $3
         AND COALESCE(e.subgrupo,'') = COALESCE($4,'')
-        AND e.periodo = $5
+        AND EXTRACT(YEAR FROM e.fecha) = $5
       ORDER BY e.tipo, e.fecha
-    `, [a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.periodo]);
+    `, [a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.anio]);
     res.json(r.rows);
   } catch (e) {
     console.error("GET mis-evaluaciones-misma-materia:", e);

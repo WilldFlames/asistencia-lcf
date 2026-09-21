@@ -12489,9 +12489,11 @@ function renderDPPasos(d){
 
   // Mapeo paso → registro existente
   const pasosByKey = {};
+  const pasosById = {};
   d.pasos.forEach(p => {
     const key = `${p.tipo}_${p.orden}`;
     pasosByKey[key] = p;
+    pasosById[Number(p.id)] = p;
   });
 
   // Lista lineal de pasos a mostrar
@@ -12506,16 +12508,20 @@ function renderDPPasos(d){
     pasosSecuencia.push({ tipo:'decl_ofendido', orden:1 });
   } else {
     ofendidos.forEach((o, idx) => {
-      pasosSecuencia.push({ tipo:'cita_ofendido', orden:idx+1, ofendido:o });
-      pasosSecuencia.push({ tipo:'decl_ofendido', orden:idx+1, ofendido:o });
+      const cita=pasosById[Number(o.paso_cita_id)];
+      const decl=pasosById[Number(o.paso_decl_id)];
+      pasosSecuencia.push({ tipo:'cita_ofendido', orden:cita?.orden||idx+1, pasoId:cita?.id, ofendido:o });
+      pasosSecuencia.push({ tipo:'decl_ofendido', orden:decl?.orden||idx+1, pasoId:decl?.id, ofendido:o });
     });
   }
   pasosSecuencia.push({ tipo:'cita_ofensor', orden:1 });
   pasosSecuencia.push({ tipo:'decl_ofensor', orden:1 });
   // Testigos: agregar dinámicamente
   d.testigos.forEach((t, idx) => {
-    pasosSecuencia.push({ tipo:'cita_testigo', orden:idx+1, testigo:t });
-    pasosSecuencia.push({ tipo:'decl_testigo', orden:idx+1, testigo:t });
+    const cita=pasosById[Number(t.paso_cita_id)];
+    const decl=pasosById[Number(t.paso_decl_id)];
+    pasosSecuencia.push({ tipo:'cita_testigo', orden:cita?.orden||idx+1, pasoId:cita?.id, testigo:t });
+    pasosSecuencia.push({ tipo:'decl_testigo', orden:decl?.orden||idx+1, pasoId:decl?.id, testigo:t });
   });
   // Paso 8: acta de sesión (independiente del número de ofendidos y testigos)
   pasosSecuencia.push({ tipo:'acta_sesion', orden:8 });
@@ -12533,7 +12539,7 @@ function renderDPPasos(d){
   const items = pasosSecuencia.map(ps => {
     const info = DP_TIPOS_PASO[ps.tipo];
     const key = `${ps.tipo}_${ps.orden}`;
-    const reg = pasosByKey[key];
+    const reg = ps.pasoId ? pasosById[Number(ps.pasoId)] : pasosByKey[key];
     const completado = reg?.completado;
     const verificado = reg?.verificado;
     const asignadoOtro = reg?.asignado_a && reg.asignado_a !== ME.id;
@@ -12610,7 +12616,7 @@ function renderDPPasos(d){
         // Pasos normales
         const puedeEditar = esGuia || meAsignado;
         if(puedeEditar){
-          acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden}${ps.testigo?`,${ps.testigo.id},null`:''}${ps.ofendido?`,null,${ps.ofendido.id}`:''})'>${reg?'✏️ Ver / Editar':'📝 Llenar'}</button>`);
+          acciones.push(`<button class="btn btn-outline btn-xs" onclick='abrirPasoDP("${ps.tipo}",${ps.orden},${ps.testigo?ps.testigo.id:'null'},${ps.ofendido?ps.ofendido.id:'null'},${reg?.id||'null'})'>${reg?'✏️ Ver / Editar':'📝 Llenar'}</button>`);
         }
         // Botón de imprimir:
         // - Para las declaraciones (decl_ofendido, decl_ofensor, decl_testigo),
@@ -12620,7 +12626,7 @@ function renderDPPasos(d){
         const esDecl = ps.tipo === 'decl_ofendido' || ps.tipo === 'decl_ofensor' || ps.tipo === 'decl_testigo';
         if(reg?.completado || (esDecl && puedeEditar)){
           const etiqueta = (esDecl && !reg?.completado) ? '🖨️ Imprimir (vacío)' : '🖨️ Imprimir';
-          acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden})'>${etiqueta}</button>`);
+          acciones.push(`<button class="btn btn-success btn-xs" onclick='imprimirPasoDPDirecto("${ps.tipo}",${ps.orden},${reg?.id||'null'})'>${etiqueta}</button>`);
         }
         // Verificar si asignado a otro y completó
         if(esGuia && reg?.completado && reg?.asignado_a && !reg?.verificado){
@@ -12721,10 +12727,10 @@ function renderDPPasos(d){
 }
 
 // ── ABRIR Y EDITAR UN PASO ────────────────────────────────────────────
-function abrirPasoDP(tipo, orden, testigoId, ofendidoId){
-  const reg = (dpProcesoActual?.pasos || []).find(p => p.tipo === tipo && Number(p.orden) === Number(orden));
+function abrirPasoDP(tipo, orden, testigoId, ofendidoId, pasoId){
+  const reg = (dpProcesoActual?.pasos || []).find(p => pasoId ? Number(p.id)===Number(pasoId) : (p.tipo === tipo && Number(p.orden) === Number(orden)));
   const info = DP_TIPOS_PASO[tipo];
-  dpPasoEnEdicion = { tipo, orden, contenido: reg?.contenido || {}, observacion:reg?.observacion || '', testigo_id: testigoId, ofendido_id: ofendidoId };
+  dpPasoEnEdicion = { tipo, orden, paso_id:reg?.id||pasoId||null, contenido: reg?.contenido || {}, observacion:reg?.observacion || '', testigo_id: testigoId, ofendido_id: ofendidoId };
   document.getElementById('dpp-titulo').textContent = `${info.icono} ${info.nombre}`;
   document.getElementById('dpp-subtitulo').textContent = reg?.completado_en ? `Última edición: ${new Date(reg.completado_en).toLocaleString('es-CR')}` : 'Sin completar todavía';
   document.getElementById('alert-dpp').className = 'alert';
@@ -13018,6 +13024,7 @@ async function guardarPasoDP(){
     await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
       tipo: dpPasoEnEdicion.tipo,
       orden: dpPasoEnEdicion.orden,
+      paso_id: dpPasoEnEdicion.paso_id,
       contenido,
       observacion: document.getElementById('dpp-observacion')?.value.trim()||'',
       completar: true
@@ -13044,10 +13051,12 @@ async function imprimirPasoDP(){
   const contenido = leerContenidoPaso(dpPasoEnEdicion.tipo);
   const tipoCopy = dpPasoEnEdicion.tipo;
   const ordenCopy = dpPasoEnEdicion.orden;
+  const pasoIdCopy = dpPasoEnEdicion.paso_id;
   try {
     await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
       tipo: tipoCopy,
       orden: ordenCopy,
+      paso_id: pasoIdCopy,
       contenido,
       observacion: document.getElementById('dpp-observacion')?.value.trim()||'',
       completar: true
@@ -13058,7 +13067,7 @@ async function imprimirPasoDP(){
     await abrirDPDetalle(dpProcesoActual.proceso.id);
     if(tipoCopy.startsWith('conciliacion_'))renderConciliacionDP();
     // Ahora sí imprimir, con dpProcesoActual ya actualizado
-    setTimeout(() => imprimirPasoDPDirecto(tipoCopy, ordenCopy), 200);
+    setTimeout(() => imprimirPasoDPDirecto(tipoCopy, ordenCopy, pasoIdCopy), 200);
   } catch(e){ sa('alert-dpp', e.message, 'danger'); }
 }
 
@@ -13149,10 +13158,10 @@ async function imprimirPortadaDP(){
 // Imprimir un paso ya guardado, generando una hoja con encabezado oficial.
 // Las declaraciones se pueden imprimir aunque no estén completas, para
 // llenarse a mano sobre la hoja impresa.
-async function imprimirPasoDPDirecto(tipo, orden){
+async function imprimirPasoDPDirecto(tipo, orden, pasoId){
   if(!dpProcesoActual) return;
   const dp = dpProcesoActual.proceso;
-  const reg = (dpProcesoActual.pasos || []).find(p => p.tipo === tipo && Number(p.orden) === Number(orden));
+  const reg = (dpProcesoActual.pasos || []).find(p => pasoId ? Number(p.id)===Number(pasoId) : (p.tipo === tipo && Number(p.orden) === Number(orden)));
   const esDecl = tipo === 'decl_ofendido' || tipo === 'decl_ofensor' || tipo === 'decl_testigo';
   if(!reg && tipo !== 'acta_apertura' && !esDecl){ alert('Este paso aún no se completó.'); return; }
   const c = reg?.contenido || {};
@@ -13183,7 +13192,7 @@ async function imprimirPasoDPDirecto(tipo, orden){
   let testigo = null;
   if((tipo === 'cita_testigo' || tipo === 'decl_testigo') && dpProcesoActual.testigos){
     if (reg) {
-      testigo = dpProcesoActual.testigos.find(t => t.paso_cita_id === reg.id || t.paso_decl_id === reg.id);
+      testigo = dpProcesoActual.testigos.find(t => Number(t.paso_cita_id) === Number(reg.id) || Number(t.paso_decl_id) === Number(reg.id));
     }
     if (!testigo) {
       // Fallback: por orden (1=primer testigo, 2=segundo, etc.)
@@ -13196,7 +13205,7 @@ async function imprimirPasoDPDirecto(tipo, orden){
   const ofArr = dpProcesoActual.ofendidos || [];
   if((tipo === 'cita_ofendido' || tipo === 'decl_ofendido') && ofArr.length){
     if (reg) {
-      ofendido = ofArr.find(o => o.paso_cita_id === reg.id || o.paso_decl_id === reg.id);
+      ofendido = ofArr.find(o => Number(o.paso_cita_id) === Number(reg.id) || Number(o.paso_decl_id) === Number(reg.id));
     }
     if (!ofendido) {
       const idx = Number(orden) - 1;
@@ -17045,7 +17054,7 @@ function agendaRender(){
 }
 function agendaEventoHTML(e){if(e._clase==='bloqueo')return `<div class="agenda-event block"><strong>${String(e.hora_inicio).slice(0,5)}–${String(e.hora_fin).slice(0,5)}</strong>${htmlSeguro(e.titulo)}</div>`;const color=AGENDA_COLOR[e.tipo]||'#2563eb';return `<button class="agenda-event ${e.mi_estado==='pendiente'?'pending':''}" style="--event:${color}" onclick="agendaVer(${e.id},'${e._clase}')"><strong>${String(e.hora_inicio).slice(0,5)} ${htmlSeguro(e.titulo)}</strong>${e.mi_estado==='pendiente'?'⏳ Pendiente':htmlSeguro(e.lugar||'')}</button>`}
 function agendaVer(id,clase){if(clase==='cita'){goTo('citas');document.getElementById('citas-doc-lista')?.scrollIntoView({behavior:'smooth'});return}const e=(agendaDatos.eventos||[]).find(x=>Number(x.id)===Number(id));if(!e)return;const ps=(e.participantes||[]).map(p=>`${p.nombre}: ${p.estado}`).join('\n');const detalle=`${e.titulo}\n${AGENDA_TIPO[e.tipo]||e.tipo}\n${fmtF(e.fecha)} · ${String(e.hora_inicio).slice(0,5)}–${String(e.hora_fin).slice(0,5)}\n${e.lugar||''}\n\n${e.descripcion||''}\n\nParticipantes:\n${ps}`;if(confirm(detalle+'\n\n¿Desea cancelar este evento?'))agendaCancelar(id)}
-async function agendaResponder(id,accion){const mensaje=accion==='rechazar'?(prompt('Motivo del rechazo (opcional):')||''):'';try{await api(`/api/agenda/eventos/${id}/responder`,'PUT',{accion,mensaje});agendaCargar();cargarNotificaciones()}catch(e){sa('alert-agenda',e.message,'danger')}}
+async function agendaResponder(id,accion){const mensaje=accion==='rechazar'?(prompt('Motivo del rechazo (opcional):')||''):'';try{await api(`/api/agenda/eventos/${id}/responder`,'PUT',{accion,mensaje});await agendaCargar();verificarNotif()}catch(e){sa('alert-agenda',e.message,'danger')}}
 async function agendaProponer(id){const fecha=prompt('Nueva fecha (AAAA-MM-DD):',agendaISO(new Date()));if(!fecha)return;const hora_inicio=prompt('Hora de inicio (HH:MM):','08:00');if(!hora_inicio)return;const hora_fin=prompt('Hora de finalización (HH:MM):','08:30');if(!hora_fin)return;const mensaje=prompt('Mensaje (opcional):')||'';try{await api(`/api/agenda/eventos/${id}/responder`,'PUT',{accion:'proponer',fecha,hora_inicio,hora_fin,mensaje});agendaCargar()}catch(e){sa('alert-agenda',e.message,'danger')}}
 async function agendaCancelar(id){try{await api(`/api/agenda/eventos/${id}/cancelar`,'PUT',{});agendaCargar()}catch(e){sa('alert-agenda',e.message,'danger')}}
 async function agendaAbrirNuevo(){
@@ -23919,7 +23928,7 @@ async function verHistorialPrevio(estudianteId, nombreEst){
   document.getElementById('histprev-titulo').textContent = `📋 Historial previo — ${nombreEst}`;
   document.getElementById('histprev-info').innerHTML = `
     Buscando notas previas del estudiante en <strong>${evalAsigActual.materia_nombre}</strong>
-    durante <strong>${document.getElementById("calif-periodo").value}</strong>
+    durante <strong>I y II Período</strong>, separadas por período,
     en OTRAS asignaciones (cambios de sección o subgrupo).
   `;
   document.getElementById('alert-histprev').className = 'alert';
@@ -23935,11 +23944,13 @@ async function verHistorialPrevio(estudianteId, nombreEst){
     ]);
     const rowsArr = rows || [];
     const misEvalsArr = misEvals || [];
+    const periodoActual = document.getElementById("calif-periodo").value;
+    rowsArr.sort((a,b)=>(a.periodo==='I Período'?1:2)-(b.periodo==='I Período'?1:2) || String(a.fecha).localeCompare(String(b.fecha)));
     const wrap = document.getElementById('histprev-contenido');
 
     if(!rowsArr.length){
       wrap.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">
-        ✅ Este estudiante no tiene notas previas en otra asignación de esta materia/período.<br/>
+        ✅ Este estudiante no tiene notas previas en otra asignación de esta materia.<br/>
         <small>Solo aparece historial cuando el estudiante estuvo en otra sección o subgrupo y ya tenía calificaciones registradas.</small>
       </div>`;
       return;
@@ -23948,6 +23959,7 @@ async function verHistorialPrevio(estudianteId, nombreEst){
     const tipoIcono = { examen:'📝', tarea:'📄', cotidiano:'📋', proyecto:'📦' };
     const tipoLbl = { examen:'Examen', tarea:'Tarea', cotidiano:'Cotidiano', proyecto:'Proyecto' };
 
+    let ultimoPeriodo='';
     wrap.innerHTML = `
       <div style="background:#eff6ff;border-left:4px solid var(--azul);padding:10px 14px;margin-bottom:10px;border-radius:6px;font-size:13px;">
         Encontradas <strong>${rowsArr.length}</strong> evaluación(es) con notas previas.<br/>
@@ -23970,21 +23982,27 @@ async function verHistorialPrevio(estudianteId, nombreEst){
           </thead>
           <tbody>
             ${rowsArr.map((r, idx) => {
+              const encabezadoPeriodo = r.periodo!==ultimoPeriodo
+                ? `<tr><td colspan="4" style="padding:8px 10px;background:#dbeafe;color:#1e3a8a;font-weight:bold;border:1px solid var(--border);">${r.periodo}</td></tr>` : '';
+              ultimoPeriodo=r.periodo;
               const nota = (r.nota_obtenida != null && r.nota_maxima)
                 ? `${Number(r.nota_obtenida).toFixed(1)} / ${Number(r.nota_maxima).toFixed(1)}`
                 : '—';
               const sub = r.subgrupo_origen ? ` <span class="badge b-guia" style="font-size:10px;">G ${r.subgrupo_origen}</span>` : '';
               // Filtrar mis evaluaciones del mismo TIPO que la previa
-              const candidatas = misEvalsArr.filter(m => m.tipo === r.tipo);
+              const candidatas = misEvalsArr.filter(m => m.tipo === r.tipo && m.periodo === r.periodo);
               const selectId = `histprev-dest-${idx}`;
-              return `<tr>
+              const esPeriodoCerrado = r.periodo !== periodoActual;
+              return `${encabezadoPeriodo}<tr>
                 <td style="padding:6px 8px;border:1px solid var(--border);">
                   ${tipoIcono[r.tipo]||''} <strong>${r.nombre}</strong>
                   <br/><small style="color:var(--muted);">${tipoLbl[r.tipo]||r.tipo} · ${r.seccion_origen}${sub} · ${r.profesor_origen} · ${fmtF(r.fecha)}</small>
                 </td>
                 <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;font-weight:bold;color:var(--azul);">${nota}</td>
                 <td style="padding:6px 8px;border:1px solid var(--border);">
-                  ${candidatas.length === 0
+                  ${esPeriodoCerrado
+                    ? `<small style="color:#047857;font-weight:bold;">✅ El promedio cerrado se recupera automáticamente</small>`
+                    : candidatas.length === 0
                     ? `<small style="color:#dc2626;">⚠️ No tenés evaluaciones de tipo ${tipoLbl[r.tipo]||r.tipo} en esta asignación</small>`
                     : `<select id="${selectId}" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
                         <option value="">— Elegí evaluación destino —</option>
@@ -23995,7 +24013,7 @@ async function verHistorialPrevio(estudianteId, nombreEst){
                       </select>`}
                 </td>
                 <td style="padding:6px 8px;border:1px solid var(--border);text-align:center;">
-                  ${candidatas.length === 0
+                  ${esPeriodoCerrado || candidatas.length === 0
                     ? '—'
                     : `<button class="btn btn-primary btn-xs" onclick="jalarNotaAEval(${r.evaluacion_id}, ${estudianteId}, '${selectId}', '${(r.nombre||'').replace(/'/g,"\\'")}')">📥 Jalar nota</button>`}
                 </td>
