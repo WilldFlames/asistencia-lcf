@@ -1578,7 +1578,7 @@ tr:hover td{background:#f8fafc;}
     <!-- Tab activos (selección por sección) -->
     <div id="rep-panel-activos">
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
-        <div class="fg"><label>Sección</label><select id="rep-seccion" onchange="cargarEstReporte()"><option value="">— Sección —</option></select></div>
+        <div class="fg" style="min-width:320px"><label>Solicitar reporte como</label><select id="rep-seccion" onchange="cargarEstReporte()"><option value="">— Seleccione función, materia y grupo —</option></select></div>
         <div class="fg"><label>Estudiante</label><select id="rep-estudiante"><option value="">— Estudiante —</option></select></div>
         <div class="fg"><label>Desde</label><input type="date" id="rep-desde"/></div>
         <div class="fg"><label>Hasta</label><input type="date" id="rep-hasta"/></div>
@@ -2141,7 +2141,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" id="btn-imprimir-seccion-cond" onclick="abrirMenuInformeSeccion(this)" style="display:none">📋 Imprimir Informe de Sección ▾</button>
       </div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
-        <div class="fg"><label>Sección</label><select id="cond-seccion" onchange="cargarEstConducta()"><option value="">— Seleccionar —</option></select></div>
+        <div class="fg"><label>Grupo / sección</label><select id="cond-seccion" onchange="cargarEstConducta()"><option value="">— Seleccionar grupo —</option></select></div>
         <div class="fg"><label>Estudiante</label><select id="cond-estudiante"><option value="">— Seleccionar —</option></select></div>
         <button class="btn btn-primary" onclick="verConductaEstudiante()">🔍 Ver Conducta</button>
       </div>
@@ -9261,9 +9261,10 @@ async function guardarObservacion(){
 
 // ════════════════════════════════════
 async function initReportes(){
-  const secs=await api("/api/reportes/mis-secciones");if(!secs)return;
+  const secs=await api("/api/reportes/mis-alcances-reporte");if(!secs)return;
+  window._repGrupos=secs;
   const sel=document.getElementById("rep-seccion");
-  sel.innerHTML='<option value="">— Sección —</option>'+secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+  sel.innerHTML='<option value="">— Seleccione función, materia y grupo —</option>'+secs.map((s,i)=>`<option value="${i}">${htmlSeguro(s.label||s.nombre)}</option>`).join("");
   const hoy=fechaHoyCR();
   document.getElementById("rep-hasta").value=hoy;
   const ini=new Date();ini.setMonth(ini.getMonth()-3);
@@ -9271,8 +9272,12 @@ async function initReportes(){
 }
 
 async function cargarEstReporte(){
-  const sid=document.getElementById("rep-seccion").value;if(!sid)return;
-  const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);if(!rows)return;
+  const idx=document.getElementById("rep-seccion").value;
+  document.getElementById("rep-estudiante").innerHTML='<option value="">— Estudiante —</option>';
+  if(idx==='')return;
+  const grupo=(window._repGrupos||[])[Number(idx)];if(!grupo)return;
+  const qs=grupo.subgrupo?`?subgrupo=${encodeURIComponent(grupo.subgrupo)}`:'';
+  const rows=await api(`/api/reportes/seccion/${grupo.seccion_id}/estudiantes${qs}`);if(!rows)return;
   document.getElementById("rep-estudiante").innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${nombreEstudianteLista(e)}</option>`).join("");
 }
 
@@ -9352,9 +9357,12 @@ async function generarReporte(){
   const hasta=document.getElementById("rep-hasta").value;
   if(!eid){alert("Seleccioná un estudiante.");return;}
   reporteEstId=eid;
+  const alcanceIdx=document.getElementById("rep-seccion")?.value;
+  const alcance=alcanceIdx===''?null:(window._repGrupos||[])[Number(alcanceIdx)];
   let url=`/api/reportes/estudiante/${eid}?`;
   if(desde) url+=`desde=${desde}&`;
   if(hasta) url+=`hasta=${hasta}`;
+  if(alcance?.asignacion_id) url+=`${url.endsWith('?')||url.endsWith('&')?'':'&'}asignacion_id=${alcance.asignacion_id}`;
   const d=await api(url);if(!d)return;
   const e=d.estudiante;
   const canEmail=["admin","orientador","profesor_guia"].includes(ME.rol);
@@ -9369,6 +9377,7 @@ async function generarReporte(){
       <div style="margin-bottom:14px;">
       <div style="font-size:17px;font-weight:bold;">${nombrePersona(e)}</div>
         <div style="font-size:13px;color:var(--muted);">Cédula: ${e.cedula} · Sección: ${e.seccion_nombre||"—"} · Nac.: ${fmtF(e.fecha_nacimiento)}</div>
+        ${alcance?`<div style="margin-top:6px;padding:6px 10px;background:#eff6ff;border-left:3px solid var(--azul);border-radius:5px;font-size:12.5px;color:#1e3a8a;"><strong>Reporte solicitado como:</strong> ${htmlSeguro(alcance.label||'')}</div>`:''}
         <div style="font-size:13px;color:var(--azul);font-weight:bold;">${detectarPeriodo(hasta||desde||null)}</div>
         ${desde||hasta?`<div style="font-size:12px;color:var(--muted);">Período: ${desde?fmtF(desde):"inicio"} al ${hasta?fmtF(hasta):"hoy"}</div>`:""}
       </div>
@@ -9472,10 +9481,12 @@ async function imprimirReporteAsistencia(){
 async function enviarEmailReporte(){
   const desde=document.getElementById("rep-desde").value;
   const hasta=document.getElementById("rep-hasta").value;
+  const alcanceIdx=document.getElementById("rep-seccion")?.value;
+  const alcance=alcanceIdx===''?null:(window._repGrupos||[])[Number(alcanceIdx)];
   if(!reporteEstId){alert("Generá el reporte primero.");return;}
   try{
     sa("alert-rep","Enviando correo...","info");
-    const r=await api(`/api/reportes/enviar-email/${reporteEstId}`,"POST",{desde,hasta});
+    const r=await api(`/api/reportes/enviar-email/${reporteEstId}`,"POST",{desde,hasta,asignacion_id:alcance?.asignacion_id||null});
     if(r) sa("alert-rep","✅ Correo enviado a: "+(r.enviado_a?.join(", ")||"encargados")+".","success");
   }catch(e){sa("alert-rep","❌ "+e.message,"danger");}
 }
@@ -9658,11 +9669,12 @@ async function abrirModalInforme(){
 
   // Cargar secciones según el rol (mis-secciones devuelve las correctas para cada rol)
   try{
-    const secs = await api("/api/reportes/mis-secciones");
+    const secs = await api("/api/reportes/mis-grupos");
+    window._informeGrupos=secs||[];
     const sel = document.getElementById("mi-seccion");
     if(secs && secs.length){
-      sel.innerHTML='<option value="">— Seleccionar sección —</option>'+
-        secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+      sel.innerHTML='<option value="">— Seleccionar grupo —</option>'+
+        secs.map((s,i)=>`<option value="${i}">${htmlSeguro(s.label||s.nombre)}</option>`).join("");
     } else {
       sel.innerHTML='<option value="">Sin secciones asignadas</option>';
     }
@@ -9672,9 +9684,11 @@ async function abrirModalInforme(){
 }
 
 async function cargarEstInforme(){
-  const sid=document.getElementById("mi-seccion").value;
-  if(!sid) return;
-  const rows=await api(`/api/reportes/seccion/${sid}/estudiantes`);
+  const idx=document.getElementById("mi-seccion").value;
+  if(idx==='') return;
+  const grupo=(window._informeGrupos||[])[Number(idx)];if(!grupo)return;
+  const qs=grupo.subgrupo?`?subgrupo=${encodeURIComponent(grupo.subgrupo)}`:'';
+  const rows=await api(`/api/reportes/seccion/${grupo.seccion_id}/estudiantes${qs}`);
   if(!rows) return;
   document.getElementById("mi-estudiante").innerHTML=
     '<option value="">— Seleccionar estudiante —</option>'+
@@ -9737,7 +9751,9 @@ async function enviarRespuesta(){
 
 async function enviarInformeTodos(){
   const eid=document.getElementById("mi-estudiante").value;
-  const sid=document.getElementById("mi-seccion").value;
+  const idx=document.getElementById("mi-seccion").value;
+  const grupo=idx===''?null:(window._informeGrupos||[])[Number(idx)];
+  const sid=grupo?.seccion_id;
   const obs=document.getElementById("mi-obs")?.value||"";
   if(!eid||!sid){sa("alert-mi","Seleccioná la sección y el estudiante.","danger");return;}
   try{
@@ -9796,26 +9812,36 @@ async function eliminarObs(id, estId, fecha){
 let allInfracciones = [];
 let condEstudianteActual = null;
 let condSeccionActual = null;
+let condSubgrupoActual = null;
+let condGrupoLabelActual = '';
+let condGrupos = [];
 
 async function initConducta(){
   document.getElementById("conducta-view-lista").style.display="";
   document.getElementById("conducta-view-detalle").style.display="none";
-  const secs = await api("/api/reportes/mis-secciones");
+  const secs = await api("/api/reportes/mis-grupos");
   if(!secs) return;
+  condGrupos=secs;
   const sel = document.getElementById("cond-seccion");
-  sel.innerHTML='<option value="">— Seleccionar —</option>'+secs.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
+  sel.innerHTML='<option value="">— Seleccionar grupo —</option>'+secs.map((s,i)=>`<option value="${i}">${htmlSeguro(s.label||s.nombre)}</option>`).join("");
   // Cargar infracciones
   const infs = await api("/api/conducta/infracciones");
   if(infs) allInfracciones = infs;
 }
 
 async function cargarEstConducta(){
-  const sid = document.getElementById("cond-seccion").value;
-  condSeccionActual = sid || null;
+  const idx = document.getElementById("cond-seccion").value;
+  const grupo=idx===''?null:condGrupos[Number(idx)];
+  const sid=grupo?.seccion_id||null;
+  condSeccionActual = sid;
+  condSubgrupoActual = grupo?.subgrupo||null;
+  condGrupoLabelActual = grupo?.label||grupo?.nombre||'';
   const btnSec = document.getElementById("btn-imprimir-seccion-cond");
   if(btnSec) btnSec.style.display = sid ? "" : "none";
+  document.getElementById("cond-estudiante").innerHTML='<option value="">— Seleccionar estudiante —</option>';
   if(!sid) return;
-  const rows = await api(`/api/reportes/seccion/${sid}/estudiantes`);
+  const qs=condSubgrupoActual?`?subgrupo=${encodeURIComponent(condSubgrupoActual)}`:'';
+  const rows = await api(`/api/reportes/seccion/${sid}/estudiantes${qs}`);
   if(!rows) return;
   document.getElementById("cond-estudiante").innerHTML=
     '<option value="">— Seleccionar estudiante —</option>'+
@@ -9824,7 +9850,7 @@ async function cargarEstConducta(){
 
 async function verConductaEstudiante(){
   const eid = document.getElementById("cond-estudiante").value;
-  const sid = document.getElementById("cond-seccion").value;
+  const sid = condSeccionActual;
   if(!eid){ alert("Seleccioná un estudiante."); return; }
   condEstudianteActual = eid;
   condSeccionActual    = sid;
@@ -20585,7 +20611,7 @@ async function imprimirCumplimiento(){
 
 async function imprimirInformeSeccionConducta(periodoOpt){
   // Leer la sección del dropdown directamente (no depende de condSeccionActual)
-  const secId = condSeccionActual || document.getElementById("cond-seccion")?.value;
+  const secId = condSeccionActual;
   if(!secId){ alert("Seleccioná una sección primero."); return; }
 
   // Período elegido por el usuario ('I Período', 'II Período' o 'anual')
@@ -20593,7 +20619,8 @@ async function imprimirInformeSeccionConducta(periodoOpt){
   let periodoLabel = per === 'anual' ? 'Anual' : per;
 
   // Obtener todos los estudiantes de la sección con sus notas de conducta
-  const ests = await api(`/api/reportes/seccion/${secId}/estudiantes`);
+  const qs=condSubgrupoActual?`?subgrupo=${encodeURIComponent(condSubgrupoActual)}`:'';
+  const ests = await api(`/api/reportes/seccion/${secId}/estudiantes${qs}`);
   if(!ests || !ests.length){ alert("No hay estudiantes en esta sección."); return; }
 
   // Calcular la nota de cada estudiante SEGÚN EL PERÍODO ELEGIDO.
@@ -20639,7 +20666,7 @@ async function imprimirInformeSeccionConducta(periodoOpt){
       if(adminSec){ sec = { ...sec, ...adminSec }; }
     } catch(_){}  // si falla (es orientador), seguir sin info del guía
   }
-  const nombreSec = sec?.nombre || "";
+  const nombreSec = condGrupoLabelActual || sec?.nombre || "";
   const guia = sec ? nombreDesdeCampos(sec.guia_nombre,sec.guia_ap1,sec.guia_ap2,{vacio:''}) : "";
   const periodo = periodoLabel;
   const fechaGen = new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"});

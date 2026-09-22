@@ -8,6 +8,18 @@ const { seccionesPermitidas } = require("../utils/acceso-estudiantes");
 // ── REPORTE ESTUDIANTE ────────────────────────────────────────
 router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
   const { desde, hasta } = req.query;
+  const asignacionId=Number(req.query.asignacion_id)||null;
+  if(asignacionId){
+    const alcance=await pool.query(`SELECT a.id,a.seccion_id,NULLIF(UPPER(TRIM(a.subgrupo)),'') AS subgrupo
+      FROM asignaciones a WHERE a.id=$1 AND a.profesor_id=$2 AND COALESCE(a.activa,true)=true`,
+      [asignacionId,req.session.usuario.id]);
+    if(!alcance.rows.length) return res.status(403).json({error:'Esta asignación no le pertenece.'});
+    const a=alcance.rows[0];
+    const pertenece=await pool.query(`SELECT 1 FROM estudiantes WHERE id=$1 AND seccion_id=$2
+      AND ($3::text IS NULL OR UPPER(COALESCE(TRIM(subgrupo),''))=$3)`,
+      [req.params.id,a.seccion_id,a.subgrupo]);
+    if(!pertenece.rows.length) return res.status(403).json({error:'El estudiante no pertenece a este grupo.'});
+  }
   const estR = await pool.query(`SELECT e.*, s.nombre AS seccion_nombre FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`, [req.params.id]);
   if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
 
@@ -15,6 +27,7 @@ router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.param
   const params = [req.params.id];
   if (desde) { params.push(desde); dateFilter += ` AND sa.fecha >= $${params.length}`; }
   if (hasta) { params.push(hasta); dateFilter += ` AND sa.fecha <= $${params.length}`; }
+  if (asignacionId) { params.push(asignacionId); dateFilter += ` AND asig.id = $${params.length}`; }
 
   const r = await pool.query(`
     SELECT m.nombre AS materia, u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1,
@@ -59,6 +72,7 @@ router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.param
 // ── ENVIAR REPORTE POR CORREO ─────────────────────────────────
 router.post("/enviar-email/:estudiante_id", requireAuth, exigirAccesoEstudiante(req=>req.params.estudiante_id), async (req, res) => {
   const { desde, hasta } = req.body;
+  const asignacionId=Number(req.body.asignacion_id)||null;
   try {
     const nodemailer = require("nodemailer");
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -70,6 +84,16 @@ router.post("/enviar-email/:estudiante_id", requireAuth, exigirAccesoEstudiante(
     if (!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
     const est = estR.rows[0];
 
+    if(asignacionId){
+      const alcance=await pool.query(`SELECT a.id,a.seccion_id,NULLIF(UPPER(TRIM(a.subgrupo)),'') AS subgrupo
+        FROM asignaciones a WHERE a.id=$1 AND a.profesor_id=$2 AND COALESCE(a.activa,true)=true`,
+        [asignacionId,req.session.usuario.id]);
+      if(!alcance.rows.length) return res.status(403).json({error:'Esta asignación no le pertenece.'});
+      const a=alcance.rows[0];
+      if(Number(est.seccion_id)!==Number(a.seccion_id) || (a.subgrupo && String(est.subgrupo||'').trim().toUpperCase()!==a.subgrupo))
+        return res.status(403).json({error:'El estudiante no pertenece a este grupo.'});
+    }
+
     const encR = await pool.query("SELECT * FROM encargados WHERE estudiante_id=$1 AND email!='' ORDER BY es_principal DESC", [req.params.estudiante_id]);
     if (!encR.rows.length) return res.status(400).json({ error: "El estudiante no tiene encargados con correo electrónico registrado." });
 
@@ -77,6 +101,7 @@ router.post("/enviar-email/:estudiante_id", requireAuth, exigirAccesoEstudiante(
     const params = [req.params.estudiante_id];
     if (desde) { params.push(desde); dateFilter += ` AND sa.fecha >= $${params.length}`; }
     if (hasta) { params.push(hasta); dateFilter += ` AND sa.fecha <= $${params.length}`; }
+    if (asignacionId) { params.push(asignacionId); dateFilter += ` AND asig.id = $${params.length}`; }
 
     const matR = await pool.query(`
       SELECT m.nombre AS materia,
@@ -190,12 +215,135 @@ router.get("/mis-secciones", requireAuth, async (req, res) => {
   }
 });
 
+// Grupos reales para Informes y Conducta. A diferencia de mis-secciones,
+// conserva si el docente atiende A, B o la sección completa. Si además es
+// guía, su sección guía se ofrece completa sin ampliar las otras materias.
+router.get("/mis-grupos", requireAuth, async (req,res)=>{
+  try{
+    const u=req.session.usuario;
+    const anio=await obtenerAnioActivo();
+    const [asigs,guias,orienta]=await Promise.all([
+      pool.query(`SELECT DISTINCT s.id AS seccion_id,s.nombre,s.nivel,
+          NULLIF(UPPER(TRIM(a.subgrupo)),'') AS subgrupo
+        FROM asignaciones a JOIN secciones s ON s.id=a.seccion_id
+        WHERE a.profesor_id=$1 AND (a.anio=$2 OR a.anio IS NULL)
+          AND COALESCE(a.activa,true)=true
+        ORDER BY s.nivel,s.nombre,subgrupo`,[u.id,anio]),
+      pool.query(`SELECT s.id AS seccion_id,s.nombre,s.nivel
+        FROM seccion_guia sg JOIN secciones s ON s.id=sg.seccion_id
+        WHERE sg.profesor_id=$1 ORDER BY s.nivel,s.nombre`,[u.id]),
+      pool.query(`SELECT s.id AS seccion_id,s.nombre,s.nivel
+        FROM seccion_orientador so JOIN secciones s ON s.id=so.seccion_id
+        WHERE so.orientador_id=$1 ORDER BY s.nivel,s.nombre`,[u.id])
+    ]);
+    const propios=[];
+    guias.rows.forEach(x=>propios.push({...x,tipo:'guia',subgrupo:null,label:`${x.nombre} · Sección guía completa`}));
+    orienta.rows.forEach(x=>propios.push({...x,tipo:'orientacion',subgrupo:null,label:`${x.nombre} · Sección completa (Orientación)`}));
+    asigs.rows.forEach(x=>{
+      // Una relación de guía/orientación completa ya incluye el subgrupo.
+      if(propios.some(g=>g.seccion_id===x.seccion_id && !g.subgrupo)) return;
+      // Si imparte alguna materia al grupo completo, no duplicar A/B para la
+      // misma sección: su alcance real ya comprende a todos sus estudiantes.
+      if(x.subgrupo && asigs.rows.some(a=>a.seccion_id===x.seccion_id && !a.subgrupo)) return;
+      propios.push({...x,tipo:'docente',label:`${x.nombre} · ${x.subgrupo?`Grupo ${x.subgrupo}`:'Grupo completo'}`});
+    });
+    if(propios.length) return res.json(propios);
+
+    // Personal institucional sin grupos docentes: conserva acceso general.
+    const permitidas=await seccionesPermitidas(u);
+    if(permitidas===null){
+      const r=await pool.query(`SELECT DISTINCT s.id AS seccion_id,s.nombre,s.nivel
+        FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id
+        WHERE sa.anio=$1 AND sa.activa=true ORDER BY s.nivel,s.nombre`,[anio]);
+      return res.json(r.rows.map(x=>({...x,tipo:'institucional',subgrupo:null,label:`${x.nombre} · Sección completa`})));
+    }
+    res.json([]);
+  }catch(e){
+    console.error('mis-grupos error:',e.message);
+    res.status(500).json({error:'No fue posible cargar sus grupos. '+e.message});
+  }
+});
+
+// Alcances del reporte de asistencia. Aquí no se deduplican las materias:
+// el usuario debe saber si consulta como guía (informe general) o como
+// profesor de una asignación concreta (solo su materia y su grupo A/B).
+router.get("/mis-alcances-reporte", requireAuth, async (req,res)=>{
+  try{
+    const u=req.session.usuario;
+    const anio=await obtenerAnioActivo();
+    const [asigs,guias,orienta]=await Promise.all([
+      pool.query(`SELECT a.id AS asignacion_id,s.id AS seccion_id,s.nombre,s.nivel,
+          m.nombre AS materia_nombre,NULLIF(UPPER(TRIM(a.subgrupo)),'') AS subgrupo
+        FROM asignaciones a JOIN secciones s ON s.id=a.seccion_id
+        JOIN materias m ON m.id=a.materia_id
+        WHERE a.profesor_id=$1 AND (a.anio=$2 OR a.anio IS NULL)
+          AND COALESCE(a.activa,true)=true
+        ORDER BY s.nivel,s.nombre,m.nombre,subgrupo`,[u.id,anio]),
+      pool.query(`SELECT s.id AS seccion_id,s.nombre,s.nivel FROM seccion_guia sg
+        JOIN secciones s ON s.id=sg.seccion_id WHERE sg.profesor_id=$1
+        ORDER BY s.nivel,s.nombre`,[u.id]),
+      pool.query(`SELECT s.id AS seccion_id,s.nombre,s.nivel FROM seccion_orientador so
+        JOIN secciones s ON s.id=so.seccion_id WHERE so.orientador_id=$1
+        ORDER BY s.nivel,s.nombre`,[u.id])
+    ]);
+    const rows=[];
+    guias.rows.forEach(x=>rows.push({...x,tipo:'guia',asignacion_id:null,subgrupo:null,
+      label:`Profesor guía — ${x.nombre} · Sección completa`}));
+    orienta.rows.forEach(x=>rows.push({...x,tipo:'orientacion',asignacion_id:null,subgrupo:null,
+      label:`Orientación — ${x.nombre} · Informe general`}));
+    asigs.rows.forEach(x=>rows.push({...x,tipo:'materia',
+      label:`Profesor de ${x.materia_nombre} — ${x.nombre} · ${x.subgrupo?`Grupo ${x.subgrupo}`:'Grupo completo'}`}));
+    if(rows.length) return res.json(rows);
+    const permitidas=await seccionesPermitidas(u);
+    if(permitidas===null){
+      const r=await pool.query(`SELECT DISTINCT s.id AS seccion_id,s.nombre,s.nivel FROM secciones s
+        JOIN secciones_anio sa ON sa.seccion_id=s.id WHERE sa.anio=$1 AND sa.activa=true
+        ORDER BY s.nivel,s.nombre`,[anio]);
+      return res.json(r.rows.map(x=>({...x,tipo:'institucional',asignacion_id:null,subgrupo:null,
+        label:`Consulta institucional — ${x.nombre} · Sección completa`})));
+    }
+    res.json([]);
+  }catch(e){
+    console.error('mis-alcances-reporte error:',e.message);
+    res.status(500).json({error:'No fue posible cargar los alcances del reporte. '+e.message});
+  }
+});
+
 router.get("/seccion/:seccion_id/estudiantes", requireAuth, async (req, res) => {
-  const permitidas=await seccionesPermitidas(req.session.usuario);
-  if(Array.isArray(permitidas) && !permitidas.includes(Number(req.params.seccion_id)))
-    return res.status(403).json({error:"No tiene acceso a esta sección."});
-  const r = await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido FROM estudiantes WHERE seccion_id=$1 AND activo=true ORDER BY primer_apellido,segundo_apellido,nombre`, [req.params.seccion_id]);
-  res.json(r.rows);
+  try{
+    const u=req.session.usuario;
+    const sid=Number(req.params.seccion_id);
+    const subgrupo=String(req.query.subgrupo||'').trim().toUpperCase();
+    const anio=await obtenerAnioActivo();
+    const permitidas=await seccionesPermitidas(u);
+    if(Array.isArray(permitidas) && !permitidas.includes(sid))
+      return res.status(403).json({error:"No tiene acceso a esta sección."});
+
+    // Con acceso docente, nunca permitir que omitir el parámetro convierta un
+    // subgrupo A/B en la sección entera. Guía, orientación y una asignación sin
+    // subgrupo sí autorizan el grupo completo.
+    if(Array.isArray(permitidas)){
+      const alcance=await pool.query(`SELECT
+        EXISTS(SELECT 1 FROM seccion_guia WHERE seccion_id=$2 AND profesor_id=$1)
+        OR EXISTS(SELECT 1 FROM seccion_orientador WHERE seccion_id=$2 AND orientador_id=$1)
+        OR EXISTS(SELECT 1 FROM asignaciones WHERE seccion_id=$2 AND profesor_id=$1
+          AND (anio=$3 OR anio IS NULL) AND COALESCE(activa,true)=true
+          AND COALESCE(TRIM(subgrupo),'')='') AS completo,
+        EXISTS(SELECT 1 FROM asignaciones WHERE seccion_id=$2 AND profesor_id=$1
+          AND (anio=$3 OR anio IS NULL) AND COALESCE(activa,true)=true
+          AND UPPER(COALESCE(TRIM(subgrupo),''))=$4) AS subgrupo`,[u.id,sid,anio,subgrupo]);
+      const a=alcance.rows[0];
+      if(!a.completo && (!subgrupo || !a.subgrupo))
+        return res.status(403).json({error:"Seleccione el grupo A o B que tiene asignado."});
+    }
+    const params=[sid];
+    let filtro='';
+    if(subgrupo){params.push(subgrupo);filtro=` AND UPPER(COALESCE(TRIM(subgrupo),''))=$2`;}
+    const r=await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido,subgrupo
+      FROM estudiantes WHERE seccion_id=$1 AND activo=true ${filtro}
+      ORDER BY primer_apellido,segundo_apellido,nombre`,params);
+    res.json(r.rows);
+  }catch(e){res.status(500).json({error:'No fue posible cargar los estudiantes. '+e.message});}
 });
 
 // ── BUSCAR ESTUDIANTES ARCHIVADOS / RETIRADOS ──────────────────────────
