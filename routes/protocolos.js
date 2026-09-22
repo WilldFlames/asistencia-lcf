@@ -162,6 +162,7 @@ router.get("/", requireAuth, async (req, res) => {
       SELECT p.id, p.numero, p.anio, p.pauta, p.estado, p.created_at, p.updated_at,
              p.iniciado_por,
              ini.primer_apellido AS ini_ap1, ini.segundo_apellido AS ini_ap2, ini.nombre AS ini_nombre,
+             fin.primer_apellido AS fin_ap1, fin.segundo_apellido AS fin_ap2, fin.nombre AS fin_nombre,
              ori.primer_apellido AS ori_ap1, ori.segundo_apellido AS ori_ap2, ori.nombre AS ori_nombre,
              (SELECT COUNT(*) FROM protocolo_formularios pf WHERE pf.protocolo_id=p.id AND pf.estado='completado')::int AS f_completados,
              (SELECT COUNT(*) FROM protocolo_formularios pf WHERE pf.protocolo_id=p.id AND pf.estado='no_aplica')::int AS f_no_aplica,
@@ -175,6 +176,11 @@ router.get("/", requireAuth, async (req, res) => {
              ) AS afectados_txt
       FROM protocolos p
       LEFT JOIN usuarios ini ON ini.id = p.iniciado_por
+      LEFT JOIN usuarios fin ON fin.id = COALESCE(p.finalizado_por,(
+        SELECT pf.completado_por FROM protocolo_formularios pf
+        WHERE pf.protocolo_id=p.id AND pf.estado IN ('completado','no_aplica') AND pf.completado_por IS NOT NULL
+        ORDER BY pf.completado_en DESC NULLS LAST,pf.orden DESC,pf.id DESC LIMIT 1
+      ))
       LEFT JOIN usuarios ori ON ori.id = p.orientador_id
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
       ORDER BY p.updated_at DESC, p.id DESC
@@ -423,7 +429,7 @@ router.post("/:id/cerrar", requireAuth, async (req, res) => {
   if (!pR.rows.length) return res.status(404).json({ error: "Protocolo no encontrado" });
   const p = pR.rows[0];
   if (!puedeEditar(u, p)) return res.status(403).json({ error: "Sin permisos" });
-  await pool.query("UPDATE protocolos SET estado='cerrado', fecha_cierre=NOW(), updated_at=NOW() WHERE id=$1", [req.params.id]);
+  await pool.query("UPDATE protocolos SET estado='cerrado', fecha_cierre=NOW(), finalizado_por=$2, finalizado_en=NOW(), updated_at=NOW() WHERE id=$1", [req.params.id,u.id]);
 
   // Notificar a iniciador y orientador (los que no son el usuario actual)
   const nroTxt = `N°${String(p.numero).padStart(3,'0')}-${p.anio}`;
@@ -444,7 +450,7 @@ router.post("/:id/reabrir", requireAuth, async (req, res) => {
   if (!["admin","auxiliar","administrativo"].includes(u.rol)) {
     return res.status(403).json({ error: "Solo administración puede reabrir" });
   }
-  await pool.query("UPDATE protocolos SET estado='activo', fecha_cierre=NULL, updated_at=NOW() WHERE id=$1", [req.params.id]);
+  await pool.query("UPDATE protocolos SET estado='activo', fecha_cierre=NULL, finalizado_por=NULL, finalizado_en=NULL, updated_at=NOW() WHERE id=$1", [req.params.id]);
   res.json({ ok: true });
 });
 

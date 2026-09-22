@@ -203,6 +203,7 @@ router.get("/", requireAuth, async (req, res) => {
              gs.primer_apellido AS sust_ap1, gs.segundo_apellido AS sust_ap2, gs.nombre AS sust_nombre,
              o.primer_apellido AS orient_ap1, o.segundo_apellido AS orient_ap2, o.nombre AS orient_nombre,
              ini.primer_apellido AS ini_ap1, ini.segundo_apellido AS ini_ap2, ini.nombre AS ini_nombre,
+             fin.primer_apellido AS fin_ap1, fin.segundo_apellido AS fin_ap2, fin.nombre AS fin_nombre,
              (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.completado=true)::int AS pasos_completados,
              (SELECT COUNT(*) FROM dp_pasos pp WHERE pp.proceso_id=dp.id)::int AS pasos_totales
       FROM debidos_procesos dp
@@ -212,6 +213,11 @@ router.get("/", requireAuth, async (req, res) => {
       LEFT JOIN usuarios gs ON gs.id = dp.guia_sustituto_id
       LEFT JOIN usuarios o ON o.id = dp.orientador_id
       LEFT JOIN usuarios ini ON ini.id = dp.iniciado_por
+      LEFT JOIN usuarios fin ON fin.id = COALESCE(dp.finalizado_por,(
+        SELECT pp.completado_por FROM dp_pasos pp
+        WHERE pp.proceso_id=dp.id AND pp.completado=true AND pp.completado_por IS NOT NULL
+        ORDER BY pp.completado_en DESC NULLS LAST,pp.orden DESC,pp.id DESC LIMIT 1
+      ))
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
       ORDER BY dp.updated_at DESC, dp.id DESC
     `;
@@ -995,7 +1001,7 @@ router.post("/:id/conciliacion/cerrar", requireAuth, requireProcesoAccess, async
   try {
     await client.query("BEGIN");
     await client.query(`UPDATE dp_conciliaciones SET estado='cerrada', cerrado_por=$1, cerrado_en=NOW() WHERE id=$2`, [u.id, concR.rows[0].id]);
-    await client.query(`UPDATE debidos_procesos SET estado='conciliado', updated_at=NOW() WHERE id=$1`, [dp.id]);
+    await client.query(`UPDATE debidos_procesos SET estado='conciliado', finalizado_por=$2, finalizado_en=NOW(), updated_at=NOW() WHERE id=$1`, [dp.id,u.id]);
     await client.query("COMMIT");
   } catch (e) {
     await client.query("ROLLBACK");
@@ -1319,7 +1325,7 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
         efectos.suspension_creada=!!medida.rows.length;
       }
     }
-    await client.query("UPDATE debidos_procesos SET estado=$1, updated_at=NOW() WHERE id=$2", [nuevoEstado, req.params.id]);
+    await client.query("UPDATE debidos_procesos SET estado=$1, finalizado_por=$2, finalizado_en=NOW(), updated_at=NOW() WHERE id=$3", [nuevoEstado,u.id,req.params.id]);
     await client.query("COMMIT");
   }catch(e){
     await client.query("ROLLBACK");
@@ -1372,6 +1378,8 @@ router.post("/:id/reactivar", requireAuth, requireProcesoAccess, async (req, res
     await pool.query(`
       UPDATE debidos_procesos SET
         estado = 'en_curso',
+        finalizado_por = NULL,
+        finalizado_en = NULL,
         archivo_solicitado_por = NULL,
         archivo_solicitado_en = NULL,
         archivo_motivo = NULL,

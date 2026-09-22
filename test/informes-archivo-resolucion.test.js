@@ -33,6 +33,24 @@ test('debidos procesos y pautas tienen listados PDF separados por consecutivo',(
   assert.match(html,/Number\(a\.numero\)-Number\(b\.numero\)/);
 });
 
+test('los listados de debidos procesos y pautas imprimen el funcionario que los inició',()=>{
+  assert.match(html,/>Inició</);
+  assert.match(html,/nombreDesdeCampos\(x\.ini_nombre,x\.ini_ap1,x\.ini_ap2/);
+  assert.match(procesos,/ini\.primer_apellido AS ini_ap1/);
+  assert.match(pautas,/ini\.primer_apellido AS ini_ap1/);
+});
+
+test('los listados distinguen quién inició de quién completó o ejecutó',()=>{
+  assert.match(html,/Completó \/ ejecutó/);
+  assert.match(html,/nombreDesdeCampos\(x\.fin_nombre,x\.fin_ap1,x\.fin_ap2/);
+  assert.match(procesos,/fin\.primer_apellido AS fin_ap1/);
+  assert.match(procesos,/finalizado_por=\$2/);
+  assert.match(pautas,/fin\.primer_apellido AS fin_ap1/);
+  assert.match(pautas,/finalizado_por=\$2/);
+  assert.match(db,/ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS finalizado_por/);
+  assert.match(db,/ALTER TABLE protocolos ADD COLUMN IF NOT EXISTS finalizado_por/);
+});
+
 test('Portería imprime entrada salida y permiso para una fecha elegida',()=>{
   assert.match(html,/function ptImprimirInforme/);
   assert.match(html,/INFORME DIARIO DE PORTERÍA/);

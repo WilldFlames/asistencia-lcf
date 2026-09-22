@@ -1116,6 +1116,8 @@ async function initDB() {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dpp_asignado ON dp_pasos(asignado_a) WHERE asignado_a IS NOT NULL`);
       await client.query(`ALTER TABLE dp_pasos ADD COLUMN IF NOT EXISTS observacion TEXT DEFAULT ''`);
       console.log("✅ DP: tabla dp_pasos lista");
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS finalizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+      await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS finalizado_en TIMESTAMP`);
 
       await client.query(`
         CREATE TABLE IF NOT EXISTS dp_testigos (
@@ -1289,6 +1291,8 @@ async function initDB() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_pf_proto ON protocolo_formularios(protocolo_id, orden)`);
       console.log("✅ Protocolos: tabla protocolo_formularios lista");
+      await client.query(`ALTER TABLE protocolos ADD COLUMN IF NOT EXISTS finalizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+      await client.query(`ALTER TABLE protocolos ADD COLUMN IF NOT EXISTS finalizado_en TIMESTAMP`);
 
       // Personas vinculadas al protocolo. Pueden ser estudiantes registrados
       // (estudiante_id NOT NULL) o externos (datos cargados a mano).
