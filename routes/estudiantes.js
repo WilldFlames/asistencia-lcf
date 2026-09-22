@@ -626,7 +626,14 @@ router.get("/archivados", requireRol("admin","auxiliar","profesor","profesor_gui
        u.segundo_apellido AS retirado_por_ap2,
        u.rol AS retirado_por_rol`;
   const r = await pool.query(`
-    SELECT ${campos}
+    SELECT ${campos},
+      (SELECT COUNT(*)::int FROM debidos_procesos dp WHERE dp.estudiante_id=e.id) AS debidos_procesos_total,
+      (SELECT string_agg('N°'||LPAD(dp.numero::text,3,'0')||'-'||dp.anio||' ('||
+        CASE dp.estado WHEN 'en_curso' THEN 'Pendiente' WHEN 'resuelto' THEN 'Resuelto'
+        WHEN 'desestimado' THEN 'Desestimado' WHEN 'conciliado' THEN 'Conciliado'
+        WHEN 'archivado' THEN 'Archivado' WHEN 'pendiente_archivo' THEN 'Pendiente de archivo'
+        ELSE dp.estado END||')', ', ' ORDER BY dp.anio,dp.numero)
+       FROM debidos_procesos dp WHERE dp.estudiante_id=e.id) AS debidos_procesos_resumen
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN usuarios u ON u.id=e.retirado_por

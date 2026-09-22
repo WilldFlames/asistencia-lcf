@@ -2643,7 +2643,7 @@ tr:hover td{background:#f8fafc;}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
       <h2 style="margin:0">🛂 Portería — Control de Entrada y Salida</h2>
-      <div style="font-size:13px;color:var(--muted);" id="pt-fecha-label"></div>
+      <div style="display:flex;align-items:end;gap:7px;flex-wrap:wrap;"><div class="fg"><label>Fecha</label><input type="date" id="pt-fecha" onchange="ptCambiarFecha()"/></div><button class="btn btn-outline btn-sm" id="pt-btn-informe" onclick="ptImprimirInforme()" style="display:none;">🖨️ Informe diario</button></div>
     </div>
     <div id="alert-porteria" class="alert"></div>
 
@@ -2890,8 +2890,8 @@ tr:hover td{background:#f8fafc;}
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección anterior</th><th>Fecha retiro</th><th>Motivo</th><th></th></tr></thead>
-        <tbody id="archivo-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección anterior</th><th>Fecha retiro</th><th>Debido proceso</th><th>Motivo</th><th></th></tr></thead>
+        <tbody id="archivo-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -3764,6 +3764,7 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
       <h2 style="margin:0;">⚖️ Debidos Procesos</h2>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="imprimirListadoDP()">🖨️ Imprimir listado</button>
         <button class="btn btn-primary" onclick="abrirNuevoDP()">+ Nuevo Debido Proceso</button>
       </div>
     </div>
@@ -4157,6 +4158,7 @@ tr:hover td{background:#f8fafc;}
       <h2 style="margin:0;">🛡️ Pautas MEP</h2>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-outline" id="btn-config-centro" onclick="abrirConfigCentro()" style="display:none;">⚙️ Configurar Centro</button>
+        <button class="btn btn-outline" onclick="imprimirListadoPautas()">🖨️ Imprimir listado</button>
         <button class="btn btn-primary" onclick="abrirNuevoProtocolo()">+ Nueva Pauta</button>
       </div>
     </div>
@@ -9357,8 +9359,8 @@ async function generarReporte(){
   const e=d.estudiante;
   const canEmail=["admin","orientador","profesor_guia"].includes(ME.rol);
   document.getElementById("btn-enviar-email").style.display=canEmail?"":"none";
-  let totalA=0,totalJ=0,totalT=0,totalL=0;
-  d.materias.forEach(m=>{totalA+=(parseInt(m.ausencias)||0);totalJ+=(parseInt(m.justificadas)||0);totalT+=(parseInt(m.tardias)||0);totalL+=(parseInt(m.total_lecciones)||0);});
+  let totalA=0,totalJ=0,totalT=0,totalP=0,totalL=0;
+  d.materias.forEach(m=>{totalA+=(parseInt(m.ausencias)||0);totalJ+=(parseInt(m.justificadas)||0);totalT+=(parseInt(m.tardias)||0);totalP+=(parseInt(m.presentes)||0);totalL+=(parseInt(m.total_lecciones)||0);});
   // Regla MEP: 2 tardías equivalen a 1 ausencia. Se aplica sobre el total de lecciones tardías.
   const totalTeqA = Math.floor(totalT / 2);
   const totalAusenciasEfectivas = totalA + totalTeqA;
@@ -9370,8 +9372,9 @@ async function generarReporte(){
         <div style="font-size:13px;color:var(--azul);font-weight:bold;">${detectarPeriodo(hasta||desde||null)}</div>
         ${desde||hasta?`<div style="font-size:12px;color:var(--muted);">Período: ${desde?fmtF(desde):"inicio"} al ${hasta?fmtF(hasta):"hoy"}</div>`:""}
       </div>
-      <div class="stats" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px;">
+      <div class="stats" style="grid-template-columns:repeat(6,1fr);margin-bottom:14px;">
         <div class="stat"><div class="num">${totalL}</div><div class="lbl">Lecciones</div></div>
+        <div class="stat"><div class="num green">${totalP}</div><div class="lbl">Presentes</div></div>
         <div class="stat"><div class="num red">${totalA}</div><div class="lbl">Ausencias</div></div>
         <div class="stat"><div class="num green">${totalJ}</div><div class="lbl">Justificadas</div></div>
         <div class="stat"><div class="num orange">${totalT}</div><div class="lbl">Tardías${totalTeqA>0?` <span style="font-size:9px;color:var(--muted);font-weight:normal;">(≈${totalTeqA} aus.)</span>`:''}</div></div>
@@ -9385,6 +9388,7 @@ async function generarReporte(){
           <h4>${m.materia} <small style="font-weight:normal;color:var(--muted);">— ${nombreDesdeCampos(m.prof_nombre,m.prof_ap1,m.prof_ap2)}</small></h4>
           <div style="display:flex;gap:14px;font-size:13px;margin-bottom:8px;flex-wrap:wrap;">
             <span>📚 ${m.total_lecciones||0} lecc.</span>
+            <span style="color:var(--verde)">✅ ${m.presentes||0} lecc. presentes</span>
             <span style="color:var(--rojo)">❌ ${m.ausencias||0} lecc. ausentes</span>
             <span style="color:var(--verde)">✅ ${m.justificadas||0} justificadas</span>
             <span style="color:var(--naranja)">⏰ ${tarMat} lecc. tardías${tarEqMat>0?` <span style="font-size:11px;color:var(--muted);">(≈${tarEqMat} aus.)</span>`:''}</span>
@@ -11805,6 +11809,16 @@ async function cambiarEstadoHibrida(id, activa){
 // ════════════════════════════════════════════════════════════════════
 // Estado global del módulo
 let dpEstadoActual = 'en_curso';
+
+async function imprimirListadoDP(){
+  try{
+    const rows=(await api('/api/debidos-procesos'))||[];
+    rows.sort((a,b)=>Number(a.anio)-Number(b.anio)||Number(a.numero)-Number(b.numero));
+    const estados={en_curso:'Pendiente',resuelto:'Resuelto',desestimado:'Desestimado',conciliado:'Conciliado',archivado:'Archivado',pendiente_archivo:'Pendiente de archivo'};
+    const body=`<p><strong>Total:</strong> ${rows.length} debido(s) proceso(s).</p><table class="tabla-reporte"><thead><tr><th>Consecutivo</th><th>Estudiante</th><th>Fecha</th><th>Condición</th></tr></thead><tbody>${rows.map(x=>`<tr><td>N°${String(x.numero).padStart(3,'0')}-${x.anio}</td><td>${htmlSeguro(nombreEstudianteLista(x))}</td><td>${fmtF(x.created_at)}</td><td>${htmlSeguro(estados[x.estado]||x.estado)}</td></tr>`).join('')}</tbody></table>`;
+    await imprimirPDFMEP('LISTADO DE DEBIDOS PROCESOS',body,`listado_debidos_procesos_${fechaHoyCR()}.pdf`);
+  }catch(e){sa('alert-dp',e.message,'danger');}
+}
 let dpProcesoActual = null;  // datos completos del proceso abierto en el modal
 let dpPasoEnEdicion = null;  // {tipo, orden, contenido} del paso en el modal de edición
 
@@ -12962,7 +12976,14 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
         </div>
       </div>
       ${f('puntos_rebajados','Puntos rebajados', valPuntos, 'number', 'readonly style="background:#f8fafc;font-weight:bold;color:#991b1b;"')}
-      ${f('semestre','Semestre', c.semestre)}
+      <div class="fg" style="margin-bottom:8px;"><label>Período al que se rebajan los puntos *</label>
+        <select id="dpp-periodo_conducta">
+          <option value="">— Elegí el período —</option>
+          <option value="I Período" ${(c.periodo_conducta||c.semestre)==='I Período'?'selected':''}>I Período</option>
+          <option value="II Período" ${(c.periodo_conducta||c.semestre)==='II Período'?'selected':''}>II Período</option>
+        </select>
+        <small style="color:var(--muted);font-size:11px;">Al finalizar, el rebajo se registra automáticamente en este período.</small>
+      </div>
       <div style="background:#dbeafe;border-left:3px solid #2563eb;padding:8px 12px;border-radius:6px;margin:8px 0;">
         <strong style="font-size:12px;color:#1e3a8a;">🛠️ Acción correctiva</strong>
         <div class="fg" style="margin-top:6px;"><label>Artículo</label>
@@ -12984,6 +13005,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
         </div>
       </div>
       ${f('fecha_inicio_accion','Fecha de inicio acción', c.fecha_inicio_accion, 'date')}
+      <div style="font-size:11.5px;color:#1e3a8a;background:#eff6ff;padding:8px 10px;border-radius:6px;">Si la acción seleccionada es una <strong>inasistencia al centro educativo</strong>, al finalizar se creará automáticamente la suspensión. Su fecha final contará días naturales, incluidos sábados y domingos.</div>
     `;
     // Pre-cargar incisos para cada select donde haya artículo seleccionado
     setTimeout(async () => {
@@ -13824,9 +13846,10 @@ async function aprobarSesion(decision){
 async function cerrarProcesoDP(){
   if(!confirm('¿Cerrar el proceso? Esta acción no se puede deshacer.')) return;
   try {
-    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/cerrar`,'POST');
+    const r=await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/cerrar`,'POST');
     cerrarModal('modal-dp-detalle');
-    sa('alert-dp','✅ Proceso cerrado.','success');
+    const extras=[r.efectos?.rebajo_creado?'rebajo de conducta aplicado':'',r.efectos?.suspension_creada?'suspensión creada':''].filter(Boolean);
+    sa('alert-dp',`✅ Proceso cerrado${extras.length?` · ${extras.join(' · ')}`:''}.`,'success');
     await cargarDPLista(dpEstadoActual);
   } catch(e){ alert(e.message); }
 }
@@ -15313,6 +15336,15 @@ async function invCfgGuardar(){
 //  PROTOCOLOS (Pautas MEP)
 // ════════════════════════════════════════════════════════════════════
 let protEstadoActual = 'activo';
+
+async function imprimirListadoPautas(){
+  try{
+    const rows=(await api('/api/protocolos?estado=todos'))||[];
+    rows.sort((a,b)=>Number(a.anio)-Number(b.anio)||Number(a.numero)-Number(b.numero));
+    const body=`<p><strong>Total:</strong> ${rows.length} pauta(s).</p><table class="tabla-reporte"><thead><tr><th>Consecutivo</th><th>Estudiante(s)</th><th>Pauta</th><th>Fecha</th><th>Condición</th></tr></thead><tbody>${rows.map(x=>`<tr><td>N°${String(x.numero).padStart(3,'0')}-${x.anio}</td><td>${htmlSeguro(x.afectados_txt||'—')}</td><td>${htmlSeguro(x.pauta_nombre||x.pauta||'—')}</td><td>${fmtF(x.created_at)}</td><td>${x.estado==='cerrado'?'Resuelto':'Pendiente'}</td></tr>`).join('')}</tbody></table>`;
+    await imprimirPDFMEP('LISTADO DE PAUTAS',body,`listado_pautas_${fechaHoyCR()}.pdf`);
+  }catch(e){sa('alert-prot',e.message,'danger');}
+}
 let protActual = null;        // proceso/protocolo abierto en el detalle
 let protFormEnEdicion = null; // {id, tipo, contenido}
 let protConfigCentro = {};    // cache local del config del centro
@@ -18869,11 +18901,19 @@ async function psAnular(id){
 // ════════════════════════════════════
 let ptModo = 'auto';
 let ptResultTimer = null;
+let ptRegistrosDia=[];
 
 async function iniciarPorteria(){
-  document.getElementById('pt-fecha-label').textContent = fechaHoyCR();
+  const fecha=document.getElementById('pt-fecha');
+  if(fecha&&!fecha.value)fecha.value=fechaHoyCR();
+  const btnInforme=document.getElementById('pt-btn-informe');
+  if(btnInforme)btnInforme.style.display=['admin','administrativo'].includes(ME.rol)?'':'none';
   await Promise.all([ptCargarStats(), ptCargarRegistros(), ptCargarPermisosHoy()]);
   document.getElementById('pt-scan-input')?.focus();
+}
+
+async function ptCambiarFecha(){
+  await Promise.all([ptCargarStats(),ptCargarRegistros(),ptCargarPermisosHoy()]);
 }
 
 function ptSetModo(modo){
@@ -18937,7 +18977,8 @@ async function ptEscanear(){
 
 async function ptCargarStats(){
   try{
-    const s = await api('/api/porteria/stats');
+    const fecha=document.getElementById('pt-fecha')?.value||fechaHoyCR();
+    const s = await api(`/api/porteria/stats?fecha=${encodeURIComponent(fecha)}`);
     document.getElementById('pt-entradas').textContent = s.entradas||0;
     document.getElementById('pt-salidas').textContent = s.salidas||0;
     document.getElementById('pt-denegadas').textContent = s.denegadas||0;
@@ -18947,7 +18988,9 @@ async function ptCargarStats(){
 async function ptCargarRegistros(){
   const tbody = document.getElementById('pt-tbody-reg');
   try{
-    const rows = await api('/api/porteria/registros')||[];
+    const fecha=document.getElementById('pt-fecha')?.value||fechaHoyCR();
+    const rows = await api(`/api/porteria/registros?fecha=${encodeURIComponent(fecha)}`)||[];
+    ptRegistrosDia=rows;
     if(!rows.length){ tbody.innerHTML='<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>'; return; }
     tbody.innerHTML = rows.map(r=>{
       const res = r.resultado==='permitido'
@@ -18967,7 +19010,8 @@ async function ptCargarRegistros(){
 async function ptCargarPermisosHoy(){
   const tbody = document.getElementById('pt-tbody-perm');
   try{
-    const rows = await api('/api/porteria/permisos')||[];
+    const fecha=document.getElementById('pt-fecha')?.value||fechaHoyCR();
+    const rows = await api(`/api/porteria/permisos?fecha=${encodeURIComponent(fecha)}`)||[];
     const vivos = rows.filter(p=>!p.anulado);
     if(!vivos.length){ tbody.innerHTML='<tr><td colspan="5" class="empty">Sin permisos hoy.</td></tr>'; return; }
     tbody.innerHTML = vivos.map(p=>{
@@ -18983,6 +19027,24 @@ async function ptCargarPermisosHoy(){
       </tr>`;
     }).join('');
   }catch(e){ tbody.innerHTML=`<tr><td colspan="5" class="empty">${e.message}</td></tr>`; }
+}
+
+async function ptImprimirInforme(){
+  const fecha=document.getElementById('pt-fecha')?.value||fechaHoyCR();
+  if(!['admin','administrativo'].includes(ME.rol)){sa('alert-porteria','Solo Administración puede imprimir este informe.','danger');return;}
+  const registrosInforme=await api(`/api/porteria/informe-diario?fecha=${encodeURIComponent(fecha)}`)||[];
+  const mapa=new Map();
+  for(const r of registrosInforme){
+    if(!mapa.has(r.estudiante_id))mapa.set(r.estudiante_id,{...r,entrada:'',salida:'',observacion:''});
+    const x=mapa.get(r.estudiante_id);
+    if(r.tipo==='entrada'&&(!x.entrada||String(r.hora)<x.entrada))x.entrada=String(r.hora).slice(0,5);
+    if(r.tipo==='salida'&&r.resultado==='permitido'&&(!x.salida||String(r.hora)>x.salida))x.salida=String(r.hora).slice(0,5);
+    if(r.tipo==='salida'&&r.resultado==='permitido'&&r.permiso_numero)x.observacion=`Permiso de salida N°${String(r.permiso_numero).padStart(3,'0')}-${r.permiso_anio}`;
+  }
+  const rows=[...mapa.values()].sort((a,b)=>nombreEstudianteLista(a).localeCompare(nombreEstudianteLista(b),'es'));
+  if(!rows.length){sa('alert-porteria','No hay movimientos para la fecha seleccionada.','danger');return;}
+  const body=`<p><strong>Fecha:</strong> ${fmtF(fecha)} · <strong>Estudiantes:</strong> ${rows.length}</p><table class="tabla-reporte"><thead><tr><th>#</th><th>Estudiante</th><th>Sección</th><th>Entrada</th><th>Salida</th><th>Observaciones</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${htmlSeguro(nombreEstudianteLista(x))}</td><td>${htmlSeguro(x.seccion_nombre||'—')}</td><td>${x.entrada||''}</td><td>${x.salida||''}</td><td>${htmlSeguro(x.observacion||'')}</td></tr>`).join('')}</tbody></table>`;
+  await imprimirPDFMEP('INFORME DIARIO DE PORTERÍA',body,`informe_porteria_${fecha}.pdf`);
 }
 
 // ════════════════════════════════════
@@ -19341,7 +19403,7 @@ function renderArchivo(){
   const q=(document.getElementById("buscar-archivo")?.value||"").toLowerCase();
   const tbody=document.getElementById("archivo-tbody");
   const lista=q?archivoData.filter(e=>`${e.primer_apellido} ${e.segundo_apellido||''} ${e.nombre}`.toLowerCase().includes(q)||(e.cedula||"").includes(q)):archivoData;
-  if(!lista.length){if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay estudiantes archivados.</td></tr>`;return;}
+  if(!lista.length){if(tbody) tbody.innerHTML=`<tr><td colspan="8" class="empty">No hay estudiantes archivados.</td></tr>`;return;}
   if(tbody) tbody.innerHTML=lista.map((e,i)=>{
     const nombreSafe = nombreEstudianteLista(e).replace(/'/g,"\\'");
     // Solo admin/auxiliar (canManage) ven el botón de reactivar
@@ -19352,6 +19414,7 @@ function renderArchivo(){
     <td>${e.cedula}</td>
     <td>${e.seccion_nombre||'—'}</td>
     <td>${e.fecha_archivo?fmtF(e.fecha_archivo):'—'}</td>
+    <td>${Number(e.debidos_procesos_total||0)>0?`<span class="badge" style="background:#ede9fe;color:#6d28d9;">⚖️ ${e.debidos_procesos_total}</span>`:'—'}</td>
     <td style="font-size:12px;color:var(--muted);">${e.motivo_archivo||'—'}</td>
     <td>
       <button class="btn btn-outline btn-xs" onclick="verDetalleArchivado(${e.id})">👁️ Ver</button>
@@ -19449,6 +19512,11 @@ async function verDetalleArchivado(id){
       ${retiradoPor ? '<br/>👤 Retirado por: <strong>'+retiradoPor+'</strong>'+(rolCap?' ('+rolCap+')':'')+'.' : ''}
       ${e.motivo_retiro ? '<br/>📝 Motivo: <em>'+e.motivo_retiro+'</em>' : (e.motivo_archivo ? '<br/>📝 Motivo: <em>'+e.motivo_archivo+'</em>' : '')}
     </div>`;
+
+    if(Number(e.debidos_procesos_total||0)>0){
+      html += seccion('⚖️ Debidos procesos registrados', '#7c3aed',
+        `<div style="font-size:12.5px;line-height:1.6;">${htmlSeguro(e.debidos_procesos_resumen||`${e.debidos_procesos_total} proceso(s) registrado(s)`)}</div>`);
+    }
 
     // Información personal
     html += seccion('👤 Información Personal', '#1e40af', `

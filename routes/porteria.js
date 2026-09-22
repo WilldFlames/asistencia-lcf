@@ -328,6 +328,23 @@ router.get("/registros", canVer, async (req, res) => {
   res.json(r.rows);
 });
 
+// Fuente exclusiva del PDF diario. Aunque seguridad y auxiliares pueden ver
+// la operación de portería, únicamente Administración puede emitir el informe.
+router.get("/informe-diario", requireRol("admin","administrativo"), async (req,res)=>{
+  const fecha=req.query.fecha||fechaCR();
+  const r=await pool.query(`
+    SELECT r.*,e.nombre,e.primer_apellido,e.segundo_apellido,e.cedula,
+      COALESCE(s.nombre,e.seccion_archivo) AS seccion_nombre,
+      p.numero AS permiso_numero,p.anio AS permiso_anio
+    FROM porteria_registros r
+    JOIN estudiantes e ON e.id=r.estudiante_id
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    LEFT JOIN permisos_salida p ON p.id=r.permiso_id
+    WHERE r.fecha=$1
+    ORDER BY r.hora,r.id`,[fecha]);
+  res.json(r.rows);
+});
+
 // ── STATS DEL DÍA ─────────────────────────────────────────────────────────
 router.get("/stats", canVer, async (req, res) => {
   const fecha = req.query.fecha || fechaCR();

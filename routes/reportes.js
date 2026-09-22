@@ -3,6 +3,7 @@ const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 const { exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
+const { seccionesPermitidas } = require("../utils/acceso-estudiantes");
 
 // ── REPORTE ESTUDIANTE ────────────────────────────────────────
 router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
@@ -22,6 +23,7 @@ router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.param
       SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
       -- Tardías ahora SUMA lecciones tardías (no cuenta eventos), igual que ausencias
       SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') AS tardias,
+      SUM(sa.lecciones) FILTER (WHERE a.estado='P') AS presentes,
       -- Regla MEP: 2 tardías equivalen a 1 ausencia. Se calcula en frontend pero se expone aquí también.
       FLOOR(SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') / 2.0) AS tardias_equiv_ausencias,
       JSON_AGG(JSON_BUILD_OBJECT(
@@ -82,6 +84,7 @@ router.post("/enviar-email/:estudiante_id", requireAuth, exigirAccesoEstudiante(
         SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND NOT a.justificada) AS ausencias,
         SUM(COALESCE(a.lecciones_ausentes, sa.lecciones)) FILTER (WHERE a.estado='A' AND a.justificada) AS justificadas,
         SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') AS tardias,
+        SUM(sa.lecciones) FILTER (WHERE a.estado='P') AS presentes,
         FLOOR(SUM(COALESCE(a.lecciones_tardias, 1)) FILTER (WHERE a.estado='T') / 2.0) AS tardias_equiv_ausencias
       FROM asistencia a
       JOIN sesiones_asistencia sa ON sa.id=a.sesion_id
@@ -110,6 +113,7 @@ router.post("/enviar-email/:estudiante_id", requireAuth, exigirAccesoEstudiante(
               <tr style="background:#f1f5f9;">
                 <th style="padding:8px;border:1px solid #e2e8f0;text-align:left;">Materia</th>
                 <th style="padding:8px;border:1px solid #e2e8f0;">Lecciones</th>
+                <th style="padding:8px;border:1px solid #e2e8f0;color:#16a34a;">Presentes</th>
                 <th style="padding:8px;border:1px solid #e2e8f0;color:#dc2626;">Ausencias</th>
                 <th style="padding:8px;border:1px solid #e2e8f0;color:#16a34a;">Justificadas</th>
                 <th style="padding:8px;border:1px solid #e2e8f0;color:#d97706;">Tardías</th>
@@ -127,6 +131,7 @@ router.post("/enviar-email/:estudiante_id", requireAuth, exigirAccesoEstudiante(
                 <tr>
                   <td style="padding:7px 8px;border:1px solid #e2e8f0;">${m.materia}</td>
                   <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;">${lecc}</td>
+                  <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#16a34a;">${m.presentes||0}</td>
                   <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#dc2626;font-weight:bold;">${aus}</td>
                   <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#16a34a;">${m.justificadas||0}</td>
                   <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;color:#d97706;">${tar}${tarEq>0?` <span style="font-size:10px;color:#64748b;">(≈${tarEq})</span>`:''}</td>
@@ -175,18 +180,18 @@ router.get("/mis-secciones", requireAuth, async (req, res) => {
       WHERE sa.anio=$1 AND sa.activa=true ORDER BY s.nivel,s.nombre`, [anioActivo]);
     return res.json(r.rows);
   }
-  if (esGuia) {
-    const r = await pool.query("SELECT s.* FROM secciones s JOIN seccion_guia sg ON sg.seccion_id=s.id WHERE sg.profesor_id=$1 ORDER BY s.nivel,s.nombre", [u.id]);
-    return res.json(r.rows);
-  }
-  if (esOrientador) {
-    const r = await pool.query("SELECT DISTINCT s.* FROM secciones s JOIN seccion_orientador so ON so.seccion_id=s.id WHERE so.orientador_id=$1 ORDER BY s.nivel,s.nombre", [u.id]);
-    return res.json(r.rows);
-  }
-  res.json([]);
+  // Reúne todas las secciones válidas: las materias que imparte y, cuando
+  // corresponde, las que atiende como guía u orientador.
+  const ids=await seccionesPermitidas(u);
+  if(!ids?.length) return res.json([]);
+  const r=await pool.query("SELECT * FROM secciones WHERE id=ANY($1::int[]) ORDER BY nivel,nombre",[ids]);
+  res.json(r.rows);
 });
 
 router.get("/seccion/:seccion_id/estudiantes", requireAuth, async (req, res) => {
+  const permitidas=await seccionesPermitidas(req.session.usuario);
+  if(Array.isArray(permitidas) && !permitidas.includes(Number(req.params.seccion_id)))
+    return res.status(403).json({error:"No tiene acceso a esta sección."});
   const r = await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido FROM estudiantes WHERE seccion_id=$1 AND activo=true ORDER BY primer_apellido,segundo_apellido,nombre`, [req.params.seccion_id]);
   res.json(r.rows);
 });

@@ -35,7 +35,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const { asignarConsecutivoInterno } = require("./consecutivos");
-const { obtenerAnioActivo } = require("../utils/lectivo");
+const { obtenerAnioActivo, obtenerRangoPeriodo } = require("../utils/lectivo");
 
 // Roles que pueden iniciar un acta de apertura (cualquier docente/admin)
 const ROLES_INICIAR = ["admin","auxiliar","profesor","profesor_guia","orientador","secretaria","administrativo"];
@@ -1271,7 +1271,60 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
   } else {
     return res.status(400).json({ error: "Debe completarse el acta sesión antes de cerrar." });
   }
-  await pool.query("UPDATE debidos_procesos SET estado=$1, updated_at=NOW() WHERE id=$2", [nuevoEstado, req.params.id]);
+  const client=await pool.connect();
+  let efectos={rebajo_creado:false,suspension_creada:false};
+  try{
+    await client.query("BEGIN");
+    if(nuevoEstado==="resuelto"){
+      const resolR=await client.query(`SELECT contenido FROM dp_pasos
+        WHERE proceso_id=$1 AND tipo='resolucion_final' AND completado=true
+        ORDER BY id DESC LIMIT 1 FOR UPDATE`,[dp.id]);
+      const c=resolR.rows[0]?.contenido||{};
+      const puntos=Number(c.puntos_rebajados||0);
+      const periodoRaw=String(c.periodo_conducta||c.semestre||'').trim();
+      const periodo=/^(i|1|primer)/i.test(periodoRaw)?'I Período':/^(ii|2|segundo)/i.test(periodoRaw)?'II Período':periodoRaw;
+      if(puntos>0){
+        if(!['I Período','II Período'].includes(periodo))
+          throw new Error('Indique el período al que corresponde el rebajo de conducta.');
+        const rango=await obtenerRangoPeriodo(periodo,client,dp.anio);
+        let fecha=String(c.fecha_resol||'');
+        if(!fecha || fecha<rango.desde || fecha>rango.hasta) fecha=rango.hasta;
+        const tipo=puntos>=50?'gravisima':puntos>=30?'muy_grave':puntos>=20?'grave':puntos>=10?'leve':'muy_leve';
+        const desc=String(c.desc_falta||c.desc_rebajo||`Resolución del debido proceso N°${dp.numero}-${dp.anio}`);
+        let inf=await client.query("SELECT id FROM infracciones WHERE puntos=$1 AND tipo=$2 ORDER BY id LIMIT 1",[puntos,tipo]);
+        if(!inf.rows.length) inf=await client.query("INSERT INTO infracciones(tipo,puntos,descripcion) VALUES($1,$2,$3) RETURNING id",[tipo,puntos,desc]);
+        const boleta=await client.query(`INSERT INTO boletas_conducta
+          (estudiante_id,infraccion_id,registrado_por,fecha,observacion,debido_proceso_id)
+          VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (debido_proceso_id) WHERE debido_proceso_id IS NOT NULL
+          DO UPDATE SET infraccion_id=EXCLUDED.infraccion_id,registrado_por=EXCLUDED.registrado_por,
+            fecha=EXCLUDED.fecha,observacion=EXCLUDED.observacion RETURNING id`,
+          [dp.estudiante_id,inf.rows[0].id,u.id,fecha,`Rebajo automático por resolución del debido proceso N°${dp.numero}-${dp.anio}.`,dp.id]);
+        efectos.rebajo_creado=!!boleta.rows.length;
+      }
+
+      const accion=String(c.desc_accion||'');
+      if(/ina[cs]istencia/i.test(accion)){
+        const diasPorAccion={"155:d":15,"156:a":20,"157:a":30};
+        const dias=diasPorAccion[`${c.art_accion}:${String(c.inc_accion||'').toLowerCase()}`]
+          || Number((accion.match(/(\d+)\s*d[ií]as?/i)||[])[1]||0);
+        const inicio=String(c.fecha_inicio_accion||'');
+        if(!inicio || !dias) throw new Error('La sanción de inasistencia requiere fecha de inicio y cantidad de días naturales.');
+        const medida=await client.query(`INSERT INTO medidas_estudiantiles
+          (estudiante_id,tipo,fecha_inicio,fecha_fin,observacion,creado_por,debido_proceso_id)
+          VALUES($1,'suspension',$2::date,$2::date + ($3::int-1),$4,$5,$6)
+          ON CONFLICT (debido_proceso_id) WHERE debido_proceso_id IS NOT NULL AND tipo='suspension'
+          DO UPDATE SET fecha_inicio=EXCLUDED.fecha_inicio,fecha_fin=EXCLUDED.fecha_fin,
+            observacion=EXCLUDED.observacion,creado_por=EXCLUDED.creado_por,activa=true RETURNING id,fecha_fin`,
+          [dp.estudiante_id,inicio,dias,`Suspensión automática de ${dias} días naturales. ${accion}`,u.id,dp.id]);
+        efectos.suspension_creada=!!medida.rows.length;
+      }
+    }
+    await client.query("UPDATE debidos_procesos SET estado=$1, updated_at=NOW() WHERE id=$2", [nuevoEstado, req.params.id]);
+    await client.query("COMMIT");
+  }catch(e){
+    await client.query("ROLLBACK");
+    return res.status(400).json({error:e.message});
+  }finally{client.release();}
 
   // Notificaciones: iniciador, orientador, guía original y sustituto si lo hay.
   const etiqueta = nuevoEstado === "resuelto" ? "✅ resuelto" : "❌ desestimado";
@@ -1285,7 +1338,7 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
       `📋 El debido proceso N°${dp.numero}-${dp.anio} fue cerrado como ${etiqueta}.`);
   }
 
-  res.json({ ok: true, estado: nuevoEstado });
+  res.json({ ok: true, estado: nuevoEstado, efectos });
 });
 
 // ── ELIMINAR un proceso completo (solo admin/administrativo) ──────────

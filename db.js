@@ -1085,6 +1085,13 @@ async function initDB() {
       await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS archivo_aprobado_en TIMESTAMP`);
       await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS archivo_decision_orientador TEXT`);
 
+      // Efectos automáticos de una resolución final. Los vínculos permiten
+      // que el cierre sea idempotente: nunca duplica rebajos ni suspensiones.
+      await client.query(`ALTER TABLE boletas_conducta ADD COLUMN IF NOT EXISTS debido_proceso_id INTEGER REFERENCES debidos_procesos(id) ON DELETE SET NULL`);
+      await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_boleta_debido_proceso ON boletas_conducta(debido_proceso_id) WHERE debido_proceso_id IS NOT NULL`);
+      await client.query(`ALTER TABLE medidas_estudiantiles ADD COLUMN IF NOT EXISTS debido_proceso_id INTEGER REFERENCES debidos_procesos(id) ON DELETE SET NULL`);
+      await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_suspension_debido_proceso ON medidas_estudiantiles(debido_proceso_id) WHERE debido_proceso_id IS NOT NULL AND tipo='suspension'`);
+
       console.log("✅ DP: tabla debidos_procesos lista");
 
       await client.query(`
