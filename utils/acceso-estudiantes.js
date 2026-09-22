@@ -13,16 +13,32 @@ function accesoTotal(usuario){
 
 async function seccionesPermitidas(usuario, db=pool){
   if(accesoTotal(usuario)) return null;
-  if(!usuario || !ROLES_DOCENTES.has(usuario.rol)) return [];
+  const funciones=new Set(usuario?.funciones_extra||[]);
+  const esDocente=Boolean(usuario && (
+    ROLES_DOCENTES.has(usuario.rol) ||
+    [...ROLES_DOCENTES].some(rol=>funciones.has(rol))
+  ));
+  if(!esDocente) return [];
   const anio=await obtenerAnioActivo(db);
+  // Equivale a reunir: SELECT seccion_id FROM asignaciones, guía y orientación.
+  // Se formula con EXISTS para que una misma persona pueda cumplir varios roles.
   const r=await db.query(`
-    SELECT DISTINCT seccion_id FROM (
-      SELECT seccion_id FROM asignaciones
-        WHERE profesor_id=$1 AND COALESCE(anio,$2)=$2 AND COALESCE(activa,true)=true
-      UNION SELECT seccion_id FROM seccion_guia WHERE profesor_id=$1
-      UNION SELECT seccion_id FROM seccion_orientador WHERE orientador_id=$1
-    ) x WHERE seccion_id IS NOT NULL`,[usuario.id,anio]);
-  return r.rows.map(x=>Number(x.seccion_id));
+    SELECT s.id AS seccion_id
+    FROM secciones s
+    WHERE EXISTS (
+      SELECT 1 FROM asignaciones a
+      WHERE a.seccion_id=s.id AND a.profesor_id=$1
+        AND (a.anio=$2 OR a.anio IS NULL)
+        AND COALESCE(a.activa,true)=true
+    ) OR EXISTS (
+      SELECT 1 FROM seccion_guia sg
+      WHERE sg.seccion_id=s.id AND sg.profesor_id=$1
+    ) OR EXISTS (
+      SELECT 1 FROM seccion_orientador so
+      WHERE so.seccion_id=s.id AND so.orientador_id=$1
+    )
+    ORDER BY s.nivel,s.nombre`,[usuario.id,anio]);
+  return [...new Set(r.rows.map(x=>Number(x.seccion_id)).filter(Number.isInteger))];
 }
 
 async function puedeAccederEstudiante(usuario, estudianteId, db=pool){

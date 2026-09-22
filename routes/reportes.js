@@ -169,23 +169,25 @@ router.post("/enviar-email/:estudiante_id", requireAuth, exigirAccesoEstudiante(
 
 // ── SECCIONES ACCESIBLES ──────────────────────────────────────
 router.get("/mis-secciones", requireAuth, async (req, res) => {
-  const u = req.session.usuario;
-  const anioActivo = await obtenerAnioActivo();
-  const fx = u.funciones_extra || [];
-  const esGuia      = u.rol === "profesor_guia" || fx.includes("profesor_guia");
-  const esOrientador= u.rol === "orientador"    || fx.includes("orientador");
-
-  if (u.rol === "admin" || u.rol === "auxiliar") {
-    const r = await pool.query(`SELECT s.* FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id
-      WHERE sa.anio=$1 AND sa.activa=true ORDER BY s.nivel,s.nombre`, [anioActivo]);
-    return res.json(r.rows);
+  try {
+    const u = req.session.usuario;
+    const anioActivo = await obtenerAnioActivo();
+    // null significa acceso institucional completo. Antes se interpretaba como
+    // una lista vacía para algunos roles administrativos.
+    const ids=await seccionesPermitidas(u);
+    if(ids===null){
+      const r=await pool.query(`SELECT DISTINCT s.* FROM secciones s
+        JOIN secciones_anio sa ON sa.seccion_id=s.id
+        WHERE sa.anio=$1 AND sa.activa=true ORDER BY s.nivel,s.nombre`,[anioActivo]);
+      return res.json(r.rows);
+    }
+    if(!ids.length) return res.json([]);
+    const r=await pool.query("SELECT * FROM secciones WHERE id=ANY($1::int[]) ORDER BY nivel,nombre",[ids]);
+    res.json(r.rows);
+  } catch(e) {
+    console.error("mis-secciones error:",e.message);
+    res.status(500).json({error:"No fue posible cargar las secciones. " + e.message});
   }
-  // Reúne todas las secciones válidas: las materias que imparte y, cuando
-  // corresponde, las que atiende como guía u orientador.
-  const ids=await seccionesPermitidas(u);
-  if(!ids?.length) return res.json([]);
-  const r=await pool.query("SELECT * FROM secciones WHERE id=ANY($1::int[]) ORDER BY nivel,nombre",[ids]);
-  res.json(r.rows);
 });
 
 router.get("/seccion/:seccion_id/estudiantes", requireAuth, async (req, res) => {
