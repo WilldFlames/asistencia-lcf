@@ -95,12 +95,15 @@ router.get("/eventos", async (req,res)=>{
 
 router.post("/eventos", async (req,res)=>{
   const u=req.session.usuario, anio=await obtenerAnioActivo();
+  const compromisoPropio=req.body.compromiso_propio===true;
   const titulo=limpio(req.body.titulo), tipo=limpio(req.body.tipo)||"reunion", fecha=limpio(req.body.fecha);
   const inicio=limpio(req.body.hora_inicio).slice(0,5), fin=limpio(req.body.hora_fin).slice(0,5);
   const participantes=[...new Set((Array.isArray(req.body.participantes)?req.body.participantes:[]).map(Number).filter(Boolean))];
   const institucional=!!req.body.institucional;
   if(titulo.length<3 || !TIPOS.has(tipo) || !fechaOk(fecha) || !horaOk(inicio) || !horaOk(fin) || fin<=inicio)
     return res.status(400).json({error:"Complete correctamente el título, la fecha y el horario."});
+  if(compromisoPropio && !esOrientador(u)) return res.status(403).json({error:"Solo Orientación puede agendar compromisos propios desde esta opción."});
+  if(compromisoPropio && participantes.length) return res.status(400).json({error:"Un compromiso propio no debe incluir invitados."});
   if(institucional && !esAdmin(u)) return res.status(403).json({error:"Solo Administración puede crear eventos institucionales."});
   if(participantes.length>100) return res.status(400).json({error:"Hay demasiadas personas invitadas."});
   const ids=[...new Set([u.id,...participantes])];
