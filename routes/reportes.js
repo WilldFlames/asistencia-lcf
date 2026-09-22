@@ -291,8 +291,16 @@ router.get("/mis-alcances-reporte", requireAuth, async (req,res)=>{
       label:`Profesor guía — ${x.nombre} · Sección completa`}));
     orienta.rows.forEach(x=>rows.push({...x,tipo:'orientacion',asignacion_id:null,subgrupo:null,
       label:`Orientación — ${x.nombre} · Informe general`}));
-    asigs.rows.forEach(x=>rows.push({...x,tipo:'materia',
-      label:`Profesor de ${x.materia_nombre} — ${x.nombre} · ${x.subgrupo?`Grupo ${x.subgrupo}`:'Grupo completo'}`}));
+    const seccionesGuia=new Set(guias.rows.map(x=>Number(x.seccion_id)));
+    asigs.rows.forEach(x=>{
+      // La lección administrativa "Guía" no es un segundo alcance. Si el
+      // usuario ya figura como profesor guía de esa sección, mostrar ambas
+      // opciones duplica exactamente el mismo grupo y confunde el informe.
+      const materiaNormalizada=String(x.materia_nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+      if(materiaNormalizada==='guia' && seccionesGuia.has(Number(x.seccion_id))) return;
+      rows.push({...x,tipo:'materia',
+        label:`Profesor de ${x.materia_nombre} — ${x.nombre} · ${x.subgrupo?`Grupo ${x.subgrupo}`:'Grupo completo'}`});
+    });
     if(rows.length) return res.json(rows);
     const permitidas=await seccionesPermitidas(u);
     if(permitidas===null){
@@ -306,6 +314,37 @@ router.get("/mis-alcances-reporte", requireAuth, async (req,res)=>{
   }catch(e){
     console.error('mis-alcances-reporte error:',e.message);
     res.status(500).json({error:'No fue posible cargar los alcances del reporte. '+e.message});
+  }
+});
+
+// Conducta es responsabilidad del profesor guía, no de cada profesor de
+// materia. Para docentes devuelve exclusivamente sus secciones guía completas.
+// El personal institucional conserva la supervisión general cuando no tiene
+// una sección guía propia.
+router.get("/mis-grupos-conducta", requireAuth, async (req,res)=>{
+  try{
+    const u=req.session.usuario;
+    const anio=await obtenerAnioActivo();
+    const guias=await pool.query(`SELECT s.id AS seccion_id,s.nombre,s.nivel
+      FROM seccion_guia sg JOIN secciones s ON s.id=sg.seccion_id
+      WHERE sg.profesor_id=$1 ORDER BY s.nivel,s.nombre`,[u.id]);
+    if(guias.rows.length){
+      return res.json(guias.rows.map(x=>({...x,tipo:'guia',subgrupo:null,
+        label:`${x.nombre} · Sección guía completa`})));
+    }
+    const permitidas=await seccionesPermitidas(u);
+    if(permitidas===null){
+      const r=await pool.query(`SELECT DISTINCT s.id AS seccion_id,s.nombre,s.nivel
+        FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id
+        WHERE sa.anio=$1 AND sa.activa=true ORDER BY s.nivel,s.nombre`,[anio]);
+      return res.json(r.rows.map(x=>({...x,tipo:'institucional',subgrupo:null,
+        label:`${x.nombre} · Sección completa`})));
+    }
+    // Un profesor de materia que no es guía no administra Conducta.
+    res.json([]);
+  }catch(e){
+    console.error('mis-grupos-conducta error:',e.message);
+    res.status(500).json({error:'No fue posible cargar sus secciones guía. '+e.message});
   }
 });
 

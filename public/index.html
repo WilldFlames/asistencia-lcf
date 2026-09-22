@@ -9819,7 +9819,7 @@ let condGrupos = [];
 async function initConducta(){
   document.getElementById("conducta-view-lista").style.display="";
   document.getElementById("conducta-view-detalle").style.display="none";
-  const secs = await api("/api/reportes/mis-grupos");
+  const secs = await api("/api/reportes/mis-grupos-conducta");
   if(!secs) return;
   condGrupos=secs;
   const sel = document.getElementById("cond-seccion");

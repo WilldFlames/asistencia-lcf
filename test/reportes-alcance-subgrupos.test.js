@@ -32,3 +32,14 @@ test('el reporte distingue claramente guía de profesor de materia',()=>{
   assert.match(front,/Reporte solicitado como:/);
   assert.match(front,/asignacion_id=\$\{alcance\.asignacion_id\}/);
 });
+
+test('la materia Guía no duplica la misma sección del profesor guía',()=>{
+  assert.match(rutas,/const seccionesGuia=new Set/);
+  assert.match(rutas,/materiaNormalizada==='guia' && seccionesGuia\.has/);
+});
+
+test('Conducta ofrece únicamente las secciones guía del docente',()=>{
+  assert.match(rutas,/router\.get\("\/mis-grupos-conducta"/);
+  assert.match(rutas,/Un profesor de materia que no es guía no administra Conducta/);
+  assert.match(front,/api\/reportes\/mis-grupos-conducta/);
+});
