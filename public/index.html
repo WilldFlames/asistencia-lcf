@@ -1931,6 +1931,10 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap">
         <div class="fg" id="at-filtro-estado-wrap"><label>Estado</label><select id="at-filtro-estado" onchange="atCargarAlertas()"><option value="">Todos</option><option value="activada">Activada</option><option value="en_proceso">En proceso</option><option value="en_espera">En espera</option><option value="cerrada">Cerrada</option><option value="eliminada">Eliminada</option></select></div>
         <div class="fg" id="at-busqueda-alertas"><label>Buscar estudiante</label><input id="at-buscar" placeholder="Apellido, nombre o cédula…" oninput="atRenderActual()"/></div>
+        <div id="at-filtros-alertas" style="display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap">
+          <div class="fg"><label>Sección con alertas</label><select id="at-alertas-seccion" onchange="atActualizarEstudiantesAlertas()"><option value="">Todas las secciones</option></select></div>
+          <div class="fg"><label>Estudiante con alerta</label><select id="at-alertas-estudiante" onchange="atRenderAlertas()" disabled><option value="">— Primero seleccione la sección —</option></select></div>
+        </div>
         <div id="at-filtros-llamadas" style="display:none;gap:9px;align-items:flex-end;flex-wrap:wrap">
           <div class="fg"><label>Sección</label><select id="at-llamadas-seccion" onchange="atActualizarEstudiantesLlamadas()"><option value="">— Seleccione una sección —</option></select></div>
           <div class="fg"><label>Estudiante con llamadas</label><select id="at-llamadas-estudiante" onchange="atRenderLlamadas()" disabled><option value="">— Primero seleccione la sección —</option></select></div>
@@ -2160,6 +2164,7 @@ tr:hover td{background:#f8fafc;}
           <option value="II Período">II Período</option>
         </select>
         <button class="btn btn-success no-print" onclick="imprimirConducta()">🖨️ Imprimir Informe</button>
+        <button class="btn btn-outline no-print" onclick="imprimirCartaConductaAplazada()">✉️ Carta de conducta aplazada</button>
         <button class="btn btn-outline no-print" onclick="abrirMenuInformeSeccion(this)">📋 Imprimir Informe de Sección ▾</button>
       </div>
       <div id="alert-cond" class="alert"></div>
@@ -2177,7 +2182,7 @@ tr:hover td{background:#f8fafc;}
       </div>
 
       <!-- Nueva boleta -->
-      <div style="border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px;background:#f8fafc;">
+      <div id="cond-nueva-boleta" style="border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px;background:#f8fafc;">
         <div style="font-size:13px;font-weight:bold;color:var(--azul);margin-bottom:10px;">➕ Registrar Nueva Boleta</div>
         <div class="form-grid">
           <div class="fg" style="grid-column:1/-1">
@@ -9816,6 +9821,7 @@ let condSeccionActual = null;
 let condSubgrupoActual = null;
 let condGrupoLabelActual = '';
 let condGrupos = [];
+let condSoloLectura = false;
 
 async function initConducta(){
   document.getElementById("conducta-view-lista").style.display="";
@@ -9823,6 +9829,8 @@ async function initConducta(){
   const secs = await api("/api/reportes/mis-grupos-conducta");
   if(!secs) return;
   condGrupos=secs;
+  condSoloLectura=tieneAlgunRol('orientador')&&!tieneAlgunRol('admin','auxiliar','profesor_guia');
+  const nueva=document.getElementById('cond-nueva-boleta');if(nueva)nueva.style.display=condSoloLectura?'none':'';
   const sel = document.getElementById("cond-seccion");
   sel.innerHTML='<option value="">— Seleccionar grupo —</option>'+secs.map((s,i)=>`<option value="${i}">${htmlSeguro(s.label||s.nombre)}</option>`).join("");
   // Cargar infracciones
@@ -9862,7 +9870,7 @@ async function verConductaEstudiante(){
   // Cargar opciones para "Asignar a": asignaciones materia+profe + personal de apoyo.
   // El value de las asignaciones se prefija con "a:" y el de apoyo con "u:" para
   // diferenciarlos al guardar.
-  const opts = await api(`/api/conducta/mis-asignaciones/${sid}`);
+  const opts = condSoloLectura?null:await api(`/api/conducta/mis-asignaciones/${sid}`);
   if(opts){
     // Soporte hacia atrás: el endpoint viejo devolvía un array directo
     const asignaciones = Array.isArray(opts) ? opts : (opts.asignaciones || []);
@@ -10027,10 +10035,11 @@ async function cargarBoletasLista(){
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:12px;color:var(--muted)">${fmtF(b.fecha)}</span>
-          <button class="btn btn-danger btn-xs" onclick="eliminarBoleta(${b.id})">🗑️</button>
+          ${condSoloLectura?'':`<button class="btn btn-danger btn-xs" onclick="eliminarBoleta(${b.id})">🗑️</button>`}
         </div>
       </div>
       <div style="font-size:13px;">${b.infraccion_desc}</div>
+      ${b.debido_proceso_numero?`<div style="font-size:12px;color:#6d28d9;font-weight:bold;margin-top:4px;">⚖️ Aplicado por resolución del expediente N°${b.debido_proceso_numero}-${b.debido_proceso_anio}</div>`:''}
       ${b.observacion?`<div style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic;">📝 ${b.observacion}</div>`:""}
       <div style="font-size:11px;color:var(--muted);margin-top:4px;">Registrado por: ${regNom}</div>
     </div>`;
@@ -10047,6 +10056,46 @@ function volverConducta(){
   condEstudianteActual = null;
   document.getElementById("conducta-view-lista").style.display="";
   document.getElementById("conducta-view-detalle").style.display="none";
+}
+
+async function imprimirCartaConductaAplazada(){
+  if(!condEstudianteActual){alert('Seleccione primero un estudiante.');return;}
+  try{
+    const base=`/api/conducta/estudiante/${condEstudianteActual}`;
+    const [datos,dI,dII]=await Promise.all([
+      api(`${base}/carta-aplazado`),
+      api(`${base}${queryRangoFrontend('I Período')}`),
+      api(`${base}${queryRangoFrontend('II Período')}`)
+    ]);
+    if(!datos||!dI||!dII)return;
+    const nota=Math.round((Number(dI.notaConducta)*0.5)+(Number(dII.notaConducta)*0.5));
+    const nivel=Number(datos.nivel)||0,notaMinima=nivel>=10?70:65;
+    const estudiante=nombreDesdeCampos(datos.nombre,datos.primer_apellido,datos.segundo_apellido,{mayusculas:true});
+    const guia=nombreDesdeCampos(datos.guia_nombre,datos.guia_ap1,datos.guia_ap2,{vacio:'____________________________'});
+    const fechaLarga=new Date().toLocaleDateString('es-CR',{day:'numeric',month:'long',year:'numeric'});
+    const contenido=`
+      <div style="font-family:Arial,sans-serif;font-size:11.2px;line-height:1.38;color:#222;">
+        <p style="text-align:right;margin:0 0 12px;">Desamparados, ${htmlSeguro(fechaLarga)}</p>
+        <p style="margin:0 0 8px;"><strong>Estudiante:</strong> ${htmlSeguro(estudiante)}<br/>
+        <strong>Cédula:</strong> ${htmlSeguro(datos.cedula||'—')} &nbsp;&nbsp; <strong>Sección:</strong> ${htmlSeguro(datos.seccion_nombre||'—')} &nbsp;&nbsp; <strong>Nivel:</strong> ${nivel||'—'}°<br/>
+        <strong>Nota anual de conducta:</strong> ${nota}</p>
+        <p>Estimado(a) estudiante y persona encargada legal:</p>
+        <p style="text-align:justify;">Por medio de la presente se comunica formalmente que la persona estudiante <strong>${htmlSeguro(estudiante)}</strong>, de la sección <strong>${htmlSeguro(datos.seccion_nombre||'—')}</strong>, obtuvo una nota anual ponderada de conducta de <strong>${nota} puntos</strong>.</p>
+        <p style="text-align:justify;">De conformidad con el Reglamento de Evaluación de los Aprendizajes y de la Conducta, Decreto Ejecutivo N.° 45509-MEP, el artículo 144 establece como nota mínima para la promoción ${notaMinima} puntos en el nivel que cursa la persona estudiante.</p>
+        <p style="text-align:justify;">Al haber obtenido una calificación inferior al mínimo establecido, y conforme al artículo 145, se comunica que la persona estudiante se encuentra en condición de <strong>aplazada en conducta</strong>.</p>
+        <p style="text-align:justify;">De acuerdo con el artículo 146, deberá realizar por una única vez un trabajo con enfoque socioeducativo, conforme a los lineamientos del Ministerio de Educación Pública y bajo la supervisión del Comité de Evaluación. Su cumplimiento satisfactorio permitirá adquirir la condición de aprobada en conducta. En caso de incumplimiento, se procederá según las disposiciones del mismo artículo.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:42px;margin-top:25px;text-align:center;font-size:10.5px;">
+          <div><div style="border-top:1px solid #333;padding-top:4px;"><strong>${htmlSeguro(guia)}</strong><br/>Docente guía · Sección ${htmlSeguro(datos.seccion_nombre||'—')}</div></div>
+          <div><div style="border-top:1px solid #333;padding-top:4px;"><strong>Laura Cruz Jiménez</strong><br/>Directora</div></div>
+        </div>
+        <div style="margin-top:22px;border-top:1px solid #999;padding-top:9px;">
+          <strong>RECIBIDO</strong><br/>
+          Yo, ________________________________________________, en calidad de □ estudiante mayor de edad &nbsp; □ padre, madre o persona encargada legal, hago constar que recibí esta notificación.<br/><br/>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:35px;"><span>Firma: ______________________________</span><span>Fecha: ____ / ____ / ${ANIO_LECTIVO_ACTIVO}</span></div>
+        </div>
+      </div>`;
+    await imprimirPDFMEP('NOTIFICACIÓN DE CONDICIÓN DE APLAZADO EN CONDUCTA',contenido,`carta_conducta_${String(datos.cedula||condEstudianteActual).replace(/[^0-9A-Za-z_-]/g,'_')}.pdf`);
+  }catch(e){sa('alert-cond',e.message,'danger');}
 }
 
 async function imprimirConducta(){
@@ -10142,7 +10191,7 @@ ${encabezadoMEP("INFORME DE CONDUCTA")}
             <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;color:#dc2626;font-weight:bold;">-${b.puntos}</td>
             <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${b.materia_nombre||"—"}</td>
             <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${b.infraccion_desc}</td>
-            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${b.observacion||"—"}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${b.debido_proceso_numero?`<strong>Expediente N°${b.debido_proceso_numero}-${b.debido_proceso_anio}</strong><br/>`:''}${b.observacion||"—"}</td>
           </tr>`).join("")}
         </tbody>
       </table>
@@ -25559,7 +25608,7 @@ const AT_RESULTADO={efectiva:"Comunicación efectiva",no_contesta:"No contestó"
 async function iniciarAlertaTemprana(){
   try{
     atInicio=await api("/api/alerta-temprana/inicio");
-    const opciones='<option value="">— Seleccione —</option>'+atInicio.asignaciones.map(a=>`<option value="${a.id}">${htmlSeguro(a.seccion_nombre)} · ${htmlSeguro(a.materia_nombre)}${a.subgrupo?` · Grupo ${htmlSeguro(a.subgrupo)}`:""}</option>`).join("");
+    const opciones='<option value="">— Seleccione —</option>'+atInicio.asignaciones.map(a=>`<option value="${a.id}" data-sec="${a.seccion_id}">${htmlSeguro(a.seccion_nombre)} · ${htmlSeguro(a.materia_nombre)}${a.subgrupo?` · Grupo ${htmlSeguro(a.subgrupo)}`:""}</option>`).join("");
     document.getElementById("at-nueva-asig").innerHTML=opciones;document.getElementById("at-call-asig").innerHTML=opciones;
     document.getElementById("at-btn-abrir").style.display=atInicio.puede_crear?"":"none";
     document.getElementById("at-btn-llamada").style.display=atInicio.puede_crear?"":"none";
@@ -25575,12 +25624,13 @@ function atCambiarVista(v){
   document.getElementById("at-tab-llamadas").classList.toggle("active",v==="llamadas");
   document.getElementById("at-filtro-estado-wrap").style.display=v==="alertas"?"":"none";
   document.getElementById("at-busqueda-alertas").style.display=v==="alertas"?"":"none";
+  document.getElementById("at-filtros-alertas").style.display=v==="alertas"?"flex":"none";
   document.getElementById("at-filtros-llamadas").style.display=v==="llamadas"?"flex":"none";
   document.getElementById("at-btn-consolidado").style.display="none";
   atRecargar();
 }
 async function atCargarAlertas(){
-  try{const estado=document.getElementById("at-filtro-estado").value;const d=await api(`/api/alerta-temprana/alertas${estado?`?estado=${estado}`:""}`);atAlertas=d.alertas||[];atRenderAlertas();}catch(e){sa("alert-at",e.message,"danger");}
+  try{const estado=document.getElementById("at-filtro-estado").value;const d=await api(`/api/alerta-temprana/alertas${estado?`?estado=${estado}`:""}`);atAlertas=d.alertas||[];atPrepararFiltrosAlertas();atRenderAlertas();}catch(e){sa("alert-at",e.message,"danger");}
 }
 async function atCargarLlamadas(){
   try{
@@ -25592,11 +25642,27 @@ async function atCargarLlamadas(){
 }
 function atFiltroTexto(){return document.getElementById("at-buscar").value.trim().toLocaleLowerCase("es");}
 function atRenderActual(){atVista==="alertas"?atRenderAlertas():atRenderLlamadas();}
+function atPrepararFiltrosAlertas(){
+  const sel=document.getElementById('at-alertas-seccion'),anterior=sel.value,secciones=new Map();
+  atAlertas.forEach(x=>{if(x.seccion_id&&x.seccion_nombre)secciones.set(String(x.seccion_id),x.seccion_nombre);});
+  const opciones=[...secciones.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'es',{numeric:true}));
+  sel.innerHTML='<option value="">Todas las secciones con alertas</option>'+opciones.map(([id,n])=>`<option value="${id}">${htmlSeguro(n)}</option>`).join('');
+  if(opciones.some(([id])=>id===anterior))sel.value=anterior;
+  atActualizarEstudiantesAlertas(true);
+}
+function atActualizarEstudiantesAlertas(conservar=false){
+  const seccion=document.getElementById('at-alertas-seccion').value,sel=document.getElementById('at-alertas-estudiante'),anterior=conservar?sel.value:'';
+  if(!seccion){sel.disabled=true;sel.innerHTML='<option value="">— Primero seleccione la sección —</option>';atRenderAlertas();return;}
+  const estudiantes=new Map();atAlertas.filter(x=>String(x.seccion_id)===seccion).forEach(x=>estudiantes.set(String(x.estudiante_id),{nombre:x.estudiante_nombre,cedula:x.cedula}));
+  const opciones=[...estudiantes.entries()].sort((a,b)=>String(a[1].nombre).localeCompare(String(b[1].nombre),'es',{numeric:true}));
+  sel.disabled=false;sel.innerHTML='<option value="">Todos los estudiantes con alertas</option>'+opciones.map(([id,e])=>`<option value="${id}">${htmlSeguro(e.nombre)} · ${htmlSeguro(e.cedula)}</option>`).join('');
+  if(opciones.some(([id])=>id===anterior))sel.value=anterior;atRenderAlertas();
+}
 function atRenderAlertas(){
-  const q=atFiltroTexto(),rows=atAlertas.filter(a=>`${a.estudiante_nombre} ${a.cedula} ${a.seccion_nombre} ${a.materia_nombre}`.toLocaleLowerCase("es").includes(q));
+  const q=atFiltroTexto(),seccion=document.getElementById('at-alertas-seccion').value,estudiante=document.getElementById('at-alertas-estudiante').value,rows=atAlertas.filter(a=>(!seccion||String(a.seccion_id)===seccion)&&(!estudiante||String(a.estudiante_id)===estudiante)&&`${a.estudiante_nombre} ${a.cedula} ${a.seccion_nombre} ${a.materia_nombre}`.toLocaleLowerCase("es").includes(q));
   const abiertas=rows.filter(a=>!["cerrada","eliminada"].includes(a.estado)).length;
   document.getElementById("at-resumen").innerHTML=`<div class="at-stat"><strong>${rows.length}</strong><span>Alertas mostradas</span></div><div class="at-stat"><strong>${abiertas}</strong><span>En seguimiento</span></div><div class="at-stat"><strong>${rows.filter(a=>a.estado==='en_espera').length}</strong><span>En espera</span></div><div class="at-stat"><strong>${rows.filter(a=>a.estado==='cerrada').length}</strong><span>Cerradas</span></div>`;
-  document.getElementById("at-lista").innerHTML=rows.length?rows.map(a=>`<article class="at-card ${a.estado}"><div><h3>${htmlSeguro(a.estudiante_nombre)}</h3><div class="at-card-meta"><span>🪪 ${htmlSeguro(a.cedula)}</span><span>🏫 ${htmlSeguro(a.seccion_nombre||"—")}</span><span>📘 ${htmlSeguro(a.materia_nombre||"—")}</span><span>👤 ${htmlSeguro(a.profesor_nombre)}</span><span>📝 ${a.seguimientos} seguimiento(s)</span></div></div><div class="at-card-actions"><span class="at-status ${a.estado}">${AT_ESTADO[a.estado]}</span><button class="btn btn-outline btn-sm" onclick="atVerDetalle(${a.id})">👁️ Ver expediente</button></div></article>`).join(""):'<div class="empty">No hay alertas que coincidan con la búsqueda.</div>';
+  document.getElementById("at-lista").innerHTML=rows.length?rows.map(a=>`<article class="at-card ${a.estado}"><div><h3>${htmlSeguro(a.estudiante_nombre)} ${a.estudiante_retirado?'<span class="badge b-admin">RETIRADO</span>':''}</h3><div class="at-card-meta"><span>🪪 ${htmlSeguro(a.cedula)}</span><span>🏫 ${htmlSeguro(a.seccion_nombre||"—")}</span><span>📘 ${htmlSeguro(a.materia_nombre||"Actuación de Auxiliar")}</span><span>👤 ${htmlSeguro(a.profesor_nombre)}</span><span>📝 ${a.seguimientos} seguimiento(s)</span></div></div><div class="at-card-actions"><span class="at-status ${a.estado}">${AT_ESTADO[a.estado]}</span><button class="btn btn-outline btn-sm" onclick="atVerDetalle(${a.id})">👁️ Ver expediente</button></div></article>`).join(""):'<div class="empty">No hay alertas que coincidan con la búsqueda.</div>';
 }
 function atPrepararFiltrosLlamadas(){
   const sel=document.getElementById("at-llamadas-seccion");
@@ -25648,9 +25714,10 @@ function atAbrirNueva(){
   document.getElementById("at-nueva-asig").value="";document.getElementById("at-nueva-est").innerHTML='<option value="">— Primero seleccione la materia —</option>';document.getElementById("at-riesgo-aus").checked=false;document.getElementById("at-observacion-inicial").value="";document.querySelectorAll('[name="at-codigo"]').forEach(x=>x.checked=false);document.getElementById("alert-at-nueva").className="alert";document.getElementById("modal-at-nueva").classList.add("show");
 }
 async function atCargarEstudiantes(tipo){
-  const asig=document.getElementById(tipo==="nueva"?"at-nueva-asig":"at-call-asig").value,sel=document.getElementById(tipo==="nueva"?"at-nueva-est":"at-call-est");
+  const contexto=document.getElementById(tipo==="nueva"?"at-nueva-asig":"at-call-asig"),asig=contexto.value,sel=document.getElementById(tipo==="nueva"?"at-nueva-est":"at-call-est");
   if(!asig){sel.innerHTML='<option value="">— Seleccione —</option>';return;}
-  try{const rows=await api(`/api/alerta-temprana/estudiantes?asignacion_id=${asig}`);sel.innerHTML='<option value="">— Seleccione —</option>'+rows.map(e=>`<option value="${e.id}" data-enc="${htmlSeguro(e.encargado_nombre||'Encargado principal')}" data-tel1="${htmlSeguro(e.encargado_telefono||'')}" data-tel2="${htmlSeguro(e.encargado_celular||'')}" data-tel3="${htmlSeguro(e.encargado_telefono_trabajo||'')}">${htmlSeguro(e.nombre_ordenado)} · ${htmlSeguro(e.cedula)}</option>`).join("");if(tipo==="call")sel.onchange=atPoblarTelefonosLlamada;}catch(e){sa(tipo==="nueva"?"alert-at-nueva":"alert-at-call",e.message,"danger");}
+  const esAux=String(asig).startsWith('aux:'),sec=contexto.selectedOptions[0]?.dataset.sec||'';
+  try{const rows=await api(`/api/alerta-temprana/estudiantes?${esAux?`seccion_id=${sec}`:`asignacion_id=${asig}`}`);sel.innerHTML='<option value="">— Seleccione —</option>'+rows.map(e=>`<option value="${e.id}" data-enc="${htmlSeguro(e.encargado_nombre||'Encargado principal')}" data-tel1="${htmlSeguro(e.encargado_telefono||'')}" data-tel2="${htmlSeguro(e.encargado_celular||'')}" data-tel3="${htmlSeguro(e.encargado_telefono_trabajo||'')}">${htmlSeguro(e.nombre_ordenado)} · ${htmlSeguro(e.cedula)}</option>`).join("");if(tipo==="call")sel.onchange=atPoblarTelefonosLlamada;}catch(e){sa(tipo==="nueva"?"alert-at-nueva":"alert-at-call",e.message,"danger");}
 }
 
 function atPoblarTelefonosLlamada(){
@@ -25671,8 +25738,8 @@ function atAlternarNumeroLlamada(){
   if(otro)setTimeout(()=>document.getElementById('at-call-numero-otro')?.focus(),0);
 }
 async function atGuardarNueva(){
-  const body={asignacion_id:Number(document.getElementById("at-nueva-asig").value),estudiante_id:Number(document.getElementById("at-nueva-est").value),riesgo_ausentismo:document.getElementById("at-riesgo-aus").checked,categorias:[...document.querySelectorAll('[name="at-codigo"]:checked')].map(x=>Number(x.value)),observacion_inicial:document.getElementById("at-observacion-inicial").value.trim()};
-  if(!body.asignacion_id||!body.estudiante_id){sa("alert-at-nueva","Seleccione la sección, materia y estudiante.","warning");return;}
+  const contexto=document.getElementById('at-nueva-asig'),ref=contexto.value,esAux=String(ref).startsWith('aux:');const body={asignacion_id:esAux?null:Number(ref),seccion_id:esAux?Number(contexto.selectedOptions[0]?.dataset.sec):null,estudiante_id:Number(document.getElementById("at-nueva-est").value),riesgo_ausentismo:document.getElementById("at-riesgo-aus").checked,categorias:[...document.querySelectorAll('[name="at-codigo"]:checked')].map(x=>Number(x.value)),observacion_inicial:document.getElementById("at-observacion-inicial").value.trim()};
+  if((!body.asignacion_id&&!body.seccion_id)||!body.estudiante_id){sa("alert-at-nueva","Seleccione la sección y el estudiante.","warning");return;}
   if(!body.riesgo_ausentismo&&!body.categorias.length){sa("alert-at-nueva","Seleccione al menos una alerta o riesgo por ausentismo.","warning");return;}
   try{const d=await api("/api/alerta-temprana/alertas","POST",body);cerrarModal("modal-at-nueva");await atCargarAlertas();await atVerDetalle(d.id);}catch(e){sa("alert-at-nueva",e.message,"danger");}
 }
@@ -25685,7 +25752,7 @@ function atRenderDetalle(d){const a=d.alerta;
   const seguimiento=d.seguimientos.map(s=>`<div class="at-event"><strong>${fmtF(s.fecha)} · <span class="at-status ${s.estado}">${AT_ESTADO[s.estado]}</span></strong><div>${htmlSeguro(s.observaciones)}</div><div>${htmlSeguro(s.registrado_nombre)}</div></div>`).join("");
   const acciones=d.acciones.length?`<div class="table-wrap"><table><thead><tr><th>Acción</th><th>Inicio</th><th>Final</th><th>Responsable</th><th>Observación</th></tr></thead><tbody>${d.acciones.map(x=>`<tr><td>${htmlSeguro(x.accion)}</td><td>${fmtF(x.fecha_inicio)}</td><td>${fmtF(x.fecha_final)}</td><td>${htmlSeguro(x.responsable||'—')}</td><td>${htmlSeguro(x.observaciones||'—')}${x.institucion_referida?`<br/><small>Referido a: ${htmlSeguro(x.institucion_referida)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aún no hay acciones registradas.</div>';
   const contactos=d.contactos.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Vía</th><th>Persona</th><th>Comentarios</th></tr></thead><tbody>${d.contactos.map(x=>`<tr><td>${fmtF(x.fecha)}</td><td>${htmlSeguro(x.via_contacto)}</td><td>${htmlSeguro(x.persona_contactada||'—')}</td><td>${htmlSeguro(x.comentarios||'—')}${x.llamada_id?' <span title="Registro de llamada">📞</span>':''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aún no hay contactos registrados.</div>';
-  document.getElementById("at-detalle-contenido").innerHTML=`<div class="at-detail-head"><h2>${htmlSeguro(a.estudiante_nombre)}</h2><p>${htmlSeguro(a.cedula)} · Sección ${htmlSeguro(a.seccion_nombre||'—')} · ${htmlSeguro(a.materia_nombre||'—')} · Responsable: ${htmlSeguro(a.profesor_nombre)}</p></div>
+  document.getElementById("at-detalle-contenido").innerHTML=`<div class="at-detail-head"><h2>${htmlSeguro(a.estudiante_nombre)} ${a.estudiante_retirado?'<span class="badge b-admin">RETIRADO</span>':''}</h2><p>${htmlSeguro(a.cedula)} · Sección ${htmlSeguro(a.seccion_nombre||'—')} · ${htmlSeguro(a.materia_nombre||'Actuación de Auxiliar')} · Responsable: ${htmlSeguro(a.profesor_nombre)}</p></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><span class="at-status ${a.estado}">${AT_ESTADO[a.estado]}</span><button class="btn btn-outline btn-sm" onclick="atImprimirExpediente()">🖨️ Imprimir expediente</button><button class="btn btn-success btn-sm" onclick="atDescargarExcel()">📥 Descargar Excel MEP</button></div>
   <div class="at-detail-grid"><section class="at-panel"><h3>👤 Datos automáticos</h3><div style="font-size:12px;line-height:1.7"><strong>Edad:</strong> ${a.edad??'—'}<br/><strong>Encargado:</strong> ${htmlSeguro(a.encargado_nombre||'—')}<br/><strong>Teléfono:</strong> ${htmlSeguro(a.encargado_telefono||'—')}<br/><strong>Centro:</strong> ${htmlSeguro(d.centro)}<br/><strong>Activación:</strong> ${fmtF(a.fecha_activacion)}</div></section><section class="at-panel"><h3>🚩 Alertas identificadas</h3>${atCategoriasTexto(d)}${a.observacion_inicial?`<p style="font-size:12px;background:#fff8e8;padding:9px;border-radius:8px;margin:9px 0 0"><strong>Observación:</strong> ${htmlSeguro(a.observacion_inicial)}</p>`:''}</section>
   <section class="at-panel"><h3>📝 Seguimientos</h3><div class="at-timeline">${seguimiento}</div>${d.editable?`<div class="at-inline-form"><div class="fg"><label>Nuevo estado</label><select id="at-seg-estado"><option value="en_proceso">En proceso</option><option value="en_espera">En espera</option><option value="cerrada">Cerrada</option><option value="eliminada">Eliminada</option></select></div><div class="fg"><label>Fecha</label><input id="at-seg-fecha" type="date" value="${fechaHoyCR()}"/></div><div class="fg full"><label>Seguimiento / justificación</label><textarea id="at-seg-obs" rows="3"></textarea></div><button class="btn btn-primary full" onclick="atAgregarSeguimiento()">＋ Guardar seguimiento</button></div>`:''}</section>
@@ -25701,8 +25768,8 @@ function atAbrirLlamada(){
 function atAlternarLlamadaEfectiva(){document.getElementById('at-call-effective').classList.toggle('show',document.getElementById('at-call-resultado').value==='efectiva');}
 function atAlternarOtrosLlamada(){document.getElementById('at-call-medio-otro-wrap').style.display=document.getElementById('at-call-medio').value==='otro'?'':'none';document.getElementById('at-call-resultado-otro-wrap').style.display=document.getElementById('at-call-resultado').value==='otro'?'':'none';document.getElementById('at-call-parentesco-otro-wrap').style.display=document.getElementById('at-call-parentesco').value==='Otro'?'':'none';}
 async function atGuardarLlamada(){
-  const efectiva=document.getElementById('at-call-resultado').value==='efectiva';const numeroSeleccionado=document.getElementById('at-call-numero').value;const numeroMarcado=numeroSeleccionado==='__otro__'?document.getElementById('at-call-numero-otro').value.trim():numeroSeleccionado.trim();const body={asignacion_id:Number(document.getElementById('at-call-asig').value),estudiante_id:Number(document.getElementById('at-call-est').value),fecha:document.getElementById('at-call-fecha').value,hora_inicio:document.getElementById('at-call-inicio').value,hora_fin:document.getElementById('at-call-fin').value||null,medio:document.getElementById('at-call-medio').value,medio_otro:document.getElementById('at-call-medio-otro').value.trim(),numero_marcado:numeroMarcado,resultado:document.getElementById('at-call-resultado').value,resultado_otro:document.getElementById('at-call-resultado-otro').value.trim(),observaciones:document.getElementById('at-call-obs').value.trim(),atendio_nombre:efectiva?document.getElementById('at-call-atendio').value.trim():'',parentesco:efectiva?document.getElementById('at-call-parentesco').value:'',parentesco_otro:efectiva?document.getElementById('at-call-parentesco-otro').value.trim():'',motivos:efectiva?[...document.querySelectorAll('#at-call-motivos input:checked')].map(x=>x.value):[],descripcion_situacion:efectiva?document.getElementById('at-call-descripcion').value.trim():'',respuesta_encargado:efectiva?document.getElementById('at-call-respuesta').value.trim():'',compromisos_encargado:efectiva?document.getElementById('at-call-comp-enc').value.trim():'',compromisos_docente:efectiva?document.getElementById('at-call-comp-doc').value.trim():'',fecha_seguimiento:efectiva?(document.getElementById('at-call-seguimiento').value||null):null};
-  if(!body.asignacion_id||!body.estudiante_id||!body.fecha||!body.hora_inicio||!body.resultado){sa('alert-at-call','Complete sección, materia, estudiante, fecha, hora y resultado.','warning');return;}
+  const efectiva=document.getElementById('at-call-resultado').value==='efectiva';const numeroSeleccionado=document.getElementById('at-call-numero').value;const numeroMarcado=numeroSeleccionado==='__otro__'?document.getElementById('at-call-numero-otro').value.trim():numeroSeleccionado.trim();const contexto=document.getElementById('at-call-asig'),ref=contexto.value,esAux=String(ref).startsWith('aux:');const body={asignacion_id:esAux?null:Number(ref),seccion_id:esAux?Number(contexto.selectedOptions[0]?.dataset.sec):null,estudiante_id:Number(document.getElementById('at-call-est').value),fecha:document.getElementById('at-call-fecha').value,hora_inicio:document.getElementById('at-call-inicio').value,hora_fin:document.getElementById('at-call-fin').value||null,medio:document.getElementById('at-call-medio').value,medio_otro:document.getElementById('at-call-medio-otro').value.trim(),numero_marcado:numeroMarcado,resultado:document.getElementById('at-call-resultado').value,resultado_otro:document.getElementById('at-call-resultado-otro').value.trim(),observaciones:document.getElementById('at-call-obs').value.trim(),atendio_nombre:efectiva?document.getElementById('at-call-atendio').value.trim():'',parentesco:efectiva?document.getElementById('at-call-parentesco').value:'',parentesco_otro:efectiva?document.getElementById('at-call-parentesco-otro').value.trim():'',motivos:efectiva?[...document.querySelectorAll('#at-call-motivos input:checked')].map(x=>x.value):[],descripcion_situacion:efectiva?document.getElementById('at-call-descripcion').value.trim():'',respuesta_encargado:efectiva?document.getElementById('at-call-respuesta').value.trim():'',compromisos_encargado:efectiva?document.getElementById('at-call-comp-enc').value.trim():'',compromisos_docente:efectiva?document.getElementById('at-call-comp-doc').value.trim():'',fecha_seguimiento:efectiva?(document.getElementById('at-call-seguimiento').value||null):null};
+  if((!body.asignacion_id&&!body.seccion_id)||!body.estudiante_id||!body.fecha||!body.hora_inicio||!body.resultado){sa('alert-at-call','Complete sección, estudiante, fecha, hora y resultado.','warning');return;}
   if(body.medio==='telefono'&&!body.numero_marcado){sa('alert-at-call','Seleccione uno de los teléfonos registrados o escriba otro número.','warning');return;}
   if(body.hora_fin&&body.hora_fin<body.hora_inicio){sa('alert-at-call','La hora final no puede ser anterior a la hora de inicio.','warning');return;}
   if(body.medio==='otro'&&!body.medio_otro){sa('alert-at-call','Especifique el medio de comunicación utilizado.','warning');return;}

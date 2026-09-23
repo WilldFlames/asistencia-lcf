@@ -34,6 +34,20 @@ const canEscanear = requireRol("admin","seguridad");
 const canPermisos = requireRol("admin","auxiliar");
 const canVer      = requireRol("admin","seguridad","auxiliar","administrativo");
 
+async function notificarMovimientoPorteria(estudianteId, tipo, hora, resultado="permitido", detalle=""){
+  const esEntrada=tipo==="entrada";
+  const permitido=resultado==="permitido";
+  const title=esEntrada ? "Ingreso registrado en portería" : (permitido ? "Salida registrada en portería" : "Salida no autorizada");
+  const accion=esEntrada ? "ingresó a la institución" : (permitido ? "salió de la institución" : "intentó salir, pero no tenía autorización");
+  await notificarEstudiante(estudianteId,{
+    title,
+    body:`{estudiante} ${accion} a las ${hora}.${detalle?` ${detalle}`:""}`,
+    url:"/?app=familias&abrir=porteria",
+    tag:`porteria-${tipo}-${resultado}-${estudianteId}-${fechaCR()}-${String(hora).replace(":","")}`,
+    urgency:"high"
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  PERMISOS DE SALIDA
 // ═══════════════════════════════════════════════════════════════════════════
@@ -226,6 +240,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
       INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
       VALUES ($1,$2,$3,'entrada','permitido','Ingreso registrado',$4)
     `, [est.id, fecha, hora, uid]);
+    await notificarMovimientoPorteria(est.id,"entrada",hora);
     return res.json({ ok: true, resultado: "permitido", tipo: "entrada", hora, estudiante: est, detalle: "Ingreso registrado" });
   }
 
@@ -238,6 +253,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
       INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
       VALUES ($1,$2,$3,'salida','permitido','Día no lectivo (fin de semana)',$4)
     `, [est.id, fecha, hora, uid]);
+    await notificarMovimientoPorteria(est.id,"salida",hora,"permitido","Día no lectivo.");
     return res.json({ ok: true, resultado: "permitido", tipo: "salida", hora, estudiante: est, detalle: "Día no lectivo (fin de semana)" });
   }
 
@@ -248,6 +264,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
       INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
       VALUES ($1,$2,$3,'salida','permitido','⚠️ Sin horario configurado para su sección',$4)
     `, [est.id, fecha, hora, uid]);
+    await notificarMovimientoPorteria(est.id,"salida",hora,"permitido","El sistema no encontró un horario configurado para la sección.");
     return res.json({ ok: true, resultado: "permitido", tipo: "salida", hora, estudiante: est,
       aviso: true, detalle: "⚠️ Sin horario configurado para su sección — configurar en módulo Horario" });
   }
@@ -257,6 +274,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
       INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
       VALUES ($1,$2,$3,'salida','permitido',$4,$5)
     `, [est.id, fecha, hora, `Fin de lecciones (terminó a las ${fin.horaFin})`, uid]);
+    await notificarMovimientoPorteria(est.id,"salida",hora,"permitido",`Finalizó sus lecciones a las ${fin.horaFin}.`);
     return res.json({ ok: true, resultado: "permitido", tipo: "salida", hora, estudiante: est,
       detalle: `Fin de lecciones (terminó a las ${fin.horaFin})` });
   }
@@ -297,6 +315,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
       return res.status(500).json({ error: e.message });
     }
     client.release();
+    await notificarMovimientoPorteria(est.id,"salida",hora,"permitido",`Permiso N.º ${p.numero}-${p.anio}.`);
     return res.json({ ok: true, resultado: "permitido", tipo: "salida", hora, estudiante: est,
       permiso: { numero: p.numero, anio: p.anio, motivo: p.motivo, autoriza: p.autoriza_nombre, tipo: p.tipo },
       detalle: `Permiso Nº ${p.numero}-${p.anio} · Autoriza: ${p.autoriza_nombre} · ${p.motivo}` });
@@ -307,6 +326,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
     VALUES ($1,$2,$3,'salida','denegado',$4,$5)
   `, [est.id, fecha, hora, `En horario lectivo (sus lecciones terminan a las ${fin.horaFin}) y sin permiso de salida`, uid]);
+  await notificarMovimientoPorteria(est.id,"salida",hora,"denegado",`Sus lecciones terminan a las ${fin.horaFin}.`);
   return res.json({ ok: true, resultado: "denegado", tipo: "salida", hora, estudiante: est,
     detalle: `En horario lectivo — sus lecciones terminan a las ${fin.horaFin}. Sin permiso de salida registrado.` });
 });

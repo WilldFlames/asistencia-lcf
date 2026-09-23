@@ -3,8 +3,9 @@ const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 const { notificarEstudiante } = require("../utils/push-familias");
+const { exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
 
-const canManage = requireRol("admin","auxiliar","orientador","profesor_guia");
+const canManage = requireRol("admin","auxiliar","profesor_guia");
 
 // ── INFRACCIONES (catálogo) ───────────────────────────────────────────────────
 router.get("/infracciones", requireAuth, async (req, res) => {
@@ -13,7 +14,7 @@ router.get("/infracciones", requireAuth, async (req, res) => {
 });
 
 // ── BOLETAS DE UN ESTUDIANTE ──────────────────────────────────────────────────
-router.get("/estudiante/:id", requireAuth, async (req, res) => {
+router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req, res) => {
   const { desde, hasta } = req.query;
   let sql = `
     SELECT b.*,
@@ -31,7 +32,9 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
       ap.nombre AS apoyo_nombre,
       ap.primer_apellido AS apoyo_ap1,
       ap.segundo_apellido AS apoyo_ap2,
-      ap.rol AS apoyo_rol
+      ap.rol AS apoyo_rol,
+      dp.numero AS debido_proceso_numero,
+      dp.anio AS debido_proceso_anio
     FROM boletas_conducta b
     JOIN infracciones i ON i.id = b.infraccion_id
     LEFT JOIN asignaciones a ON a.id = b.asignacion_id
@@ -39,6 +42,7 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
     LEFT JOIN usuarios u ON u.id = a.profesor_id
     JOIN usuarios r ON r.id = b.registrado_por
     LEFT JOIN usuarios ap ON ap.id = b.usuario_apoyo_id
+    LEFT JOIN debidos_procesos dp ON dp.id = b.debido_proceso_id
     WHERE b.estudiante_id = $1
   `;
   const params = [req.params.id];
@@ -51,6 +55,19 @@ router.get("/estudiante/:id", requireAuth, async (req, res) => {
   const notaConduccion = Math.max(0, 100 - totalRebajado);
 
   res.json({ boletas: r.rows, totalRebajado, notaConducta: notaConduccion });
+});
+
+// Datos autorrellenables para la notificación de condición aplazada.
+router.get("/estudiante/:id/carta-aplazado", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req,res)=>{
+  const r=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
+      s.id AS seccion_id,s.nombre AS seccion_nombre,s.nivel,
+      ug.nombre AS guia_nombre,ug.primer_apellido AS guia_ap1,ug.segundo_apellido AS guia_ap2
+    FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id
+    LEFT JOIN seccion_guia sg ON sg.seccion_id=s.id
+    LEFT JOIN usuarios ug ON ug.id=sg.profesor_id
+    WHERE e.id=$1`,[req.params.id]);
+  if(!r.rows.length) return res.status(404).json({error:"Estudiante no encontrado."});
+  res.json(r.rows[0]);
 });
 
 // ── REGISTRAR BOLETA ──────────────────────────────────────────────────────────

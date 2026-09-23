@@ -87,6 +87,8 @@ function esDocente(u){
   return ["profesor","profesor_guia","orientador"].includes(u?.rol) ||
     (u?.funciones_extra||[]).some(f=>["profesor_guia","orientador"].includes(f));
 }
+function esAuxiliar(u){return u?.rol==="auxiliar" || (u?.funciones_extra||[]).includes("auxiliar");}
+function puedeCrear(u){return esDocente(u)||esAuxiliar(u);}
 async function puedeSupervisar(u){
   if(["admin","auxiliar","administrativo"].includes(u?.rol)) return true;
   if((u?.funciones_extra||[]).includes("coordinador")) return true;
@@ -149,18 +151,33 @@ async function notificarSupervision(client,mensaje,alertaId,omitido){
 
 router.get("/inicio",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const u=req.session.usuario, anio=await obtenerAnioActivo(), supervisor=await puedeSupervisar(u);
-  const asignaciones=esDocente(u)?await pool.query(`
+  let asignaciones=esDocente(u)?await pool.query(`
     SELECT DISTINCT ON (a.seccion_id,a.materia_id,COALESCE(a.subgrupo,'')) a.id,a.seccion_id,a.materia_id,
       a.subgrupo,s.nombre AS seccion_nombre,m.nombre AS materia_nombre
     FROM asignaciones a JOIN secciones s ON s.id=a.seccion_id JOIN materias m ON m.id=a.materia_id
     WHERE a.profesor_id=$1 AND COALESCE(a.anio,$2)=$2 AND COALESCE(a.activa,true)=true
     ORDER BY a.seccion_id,a.materia_id,COALESCE(a.subgrupo,''),a.id DESC`,[u.id,anio]):{rows:[]};
-  res.json({anio,catalogo:CATALOGO,puede_crear:esDocente(u),puede_supervisar:supervisor,asignaciones:asignaciones.rows});
+  if(esAuxiliar(u)) asignaciones=await pool.query(`SELECT ('aux:'||s.id)::text AS id,s.id AS seccion_id,
+      NULL::int AS materia_id,NULL::text AS subgrupo,s.nombre AS seccion_nombre,
+      'Actuación de Auxiliar'::text AS materia_nombre,true AS es_auxiliar
+    FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id
+    WHERE sa.anio=$1 AND sa.activa=true ORDER BY s.nivel,s.nombre`,[anio]);
+  res.json({anio,catalogo:CATALOGO,puede_crear:puedeCrear(u),puede_supervisar:supervisor,
+    es_auxiliar:esAuxiliar(u),asignaciones:asignaciones.rows});
 }));
 
 router.get("/estudiantes",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
-  const a=await asignacionPropia(req.session.usuario.id,req.query.asignacion_id);
-  if(!a) return res.status(403).json({error:"La asignación no pertenece a sus clases del año vigente."});
+  const u=req.session.usuario;
+  let a=await asignacionPropia(u.id,req.query.asignacion_id);
+  if(!a&&esAuxiliar(u)){
+    const seccionId=enteroPositivo(req.query.seccion_id);
+    const anio=await obtenerAnioActivo();
+    const s=await pool.query(`SELECT s.id AS seccion_id,s.nombre AS seccion_nombre,NULL::text AS subgrupo
+      FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id
+      WHERE s.id=$1 AND sa.anio=$2 AND sa.activa=true`,[seccionId,anio]);
+    a=s.rows[0]||null;
+  }
+  if(!a) return res.status(403).json({error:"La sección o asignación no está disponible en el año vigente."});
   const q=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.fecha_nacimiento,
       ${nombreApellidos("e")} AS nombre_ordenado,${nombreCompleto("e")} AS nombre_completo,
       s.nombre AS seccion_nombre,EXTRACT(YEAR FROM AGE(CURRENT_DATE,e.fecha_nacimiento))::int AS edad,
@@ -183,6 +200,7 @@ router.get("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)=
   if(!supervisor){params.push(u.id);filtro=` AND at.profesor_id=$2`;}
   if(req.query.estado && ESTADOS.includes(req.query.estado)){params.push(req.query.estado);filtro+=` AND at.estado=$${params.length}`;}
   const q=await pool.query(`SELECT at.*,${nombreApellidos("e")} AS estudiante_nombre,e.cedula,
+      (NOT e.activo OR COALESCE(e.archivado,false)) AS estudiante_retirado,
       s.nombre AS seccion_nombre,m.nombre AS materia_nombre,${nombreCompleto("u")} AS profesor_nombre,
       (SELECT COUNT(*)::int FROM alerta_temprana_seguimientos sg WHERE sg.alerta_id=at.id) AS seguimientos,
       (SELECT MAX(created_at) FROM alerta_temprana_seguimientos sg WHERE sg.alerta_id=at.id) AS ultimo_seguimiento
@@ -191,16 +209,26 @@ router.get("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)=
     WHERE at.anio=$1 ${filtro}
     ORDER BY CASE at.estado WHEN 'activada' THEN 0 WHEN 'en_proceso' THEN 1 WHEN 'en_espera' THEN 2 ELSE 3 END,
       at.updated_at DESC,e.primer_apellido,e.segundo_apellido,e.nombre`,params);
-  res.json({solo_lectura:supervisor&&!esDocente(u),alertas:q.rows});
+  res.json({solo_lectura:supervisor&&!puedeCrear(u),alertas:q.rows});
 }));
 
 router.post("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const u=req.session.usuario;
-  if(!esDocente(u)) return res.status(403).json({error:"Solo el personal docente puede abrir una alerta."});
+  if(!puedeCrear(u)) return res.status(403).json({error:"Sin permiso para abrir una alerta."});
   const estudianteId=enteroPositivo(req.body?.estudiante_id),asignacionId=enteroPositivo(req.body?.asignacion_id);
-  if(!estudianteId||!asignacionId) return res.status(400).json({error:"Seleccione la sección, materia y estudiante."});
-  const a=await asignacionPropia(u.id,asignacionId,estudianteId);
-  if(!a) return res.status(403).json({error:"El estudiante no pertenece a esa asignación."});
+  if(!estudianteId) return res.status(400).json({error:"Seleccione la sección y el estudiante."});
+  let a=await asignacionPropia(u.id,asignacionId,estudianteId);
+  if(!a&&esAuxiliar(u)){
+    const seccionId=enteroPositivo(req.body?.seccion_id),anioActual=await obtenerAnioActivo();
+    const ar=await pool.query(`SELECT NULL::int AS id,NULL::int AS materia_id,e.seccion_id,
+        s.nombre AS seccion_nombre,'Actuación de Auxiliar'::text AS materia_nombre
+      FROM estudiantes e JOIN secciones s ON s.id=e.seccion_id
+      JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$3 AND sa.activa=true
+      WHERE e.id=$1 AND e.seccion_id=$2 AND e.activo=true AND COALESCE(e.archivado,false)=false`,
+      [estudianteId,seccionId,anioActual]);
+    a=ar.rows[0]||null;
+  }
+  if(!a) return res.status(403).json({error:"El estudiante no pertenece a la sección o asignación seleccionada."});
   const codigos=[...new Set((Array.isArray(req.body?.categorias)?req.body.categorias:[]).map(Number).filter(c=>CODIGOS.has(c)))];
   const riesgo=req.body?.riesgo_ausentismo===true, obs=String(req.body?.observacion_inicial||"").trim();
   if(!codigos.length&&!riesgo) return res.status(400).json({error:"Seleccione al menos una alerta o riesgo por ausentismo."});
@@ -211,7 +239,7 @@ router.post("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)
     const q=await client.query(`INSERT INTO alertas_tempranas
       (anio,estudiante_id,profesor_id,asignacion_id,materia_id,seccion_id,riesgo_ausentismo,categorias,observacion_inicial)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9) RETURNING id`,
-      [anio,estudianteId,u.id,a.id,a.materia_id,a.seccion_id,riesgo,JSON.stringify(codigos),obs]);
+      [anio,estudianteId,u.id,a.id||null,a.materia_id||null,a.seccion_id,riesgo,JSON.stringify(codigos),obs]);
     const id=q.rows[0].id;
     await client.query(`INSERT INTO alerta_temprana_seguimientos(alerta_id,estado,observaciones,registrado_por)
       VALUES($1,'activada',$2,$3)`,[id,obs||"Se abre la Alerta Temprana.",u.id]);
@@ -230,6 +258,7 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
     pool.query(`SELECT at.*,${nombreCompleto("e")} AS estudiante_nombre,${nombreApellidos("e")} AS estudiante_nombre_ordenado,
       e.cedula,e.fecha_nacimiento,EXTRACT(YEAR FROM AGE(at.fecha_activacion,e.fecha_nacimiento))::int AS edad,
       s.nombre AS seccion_nombre,m.nombre AS materia_nombre,${nombreCompleto("u")} AS profesor_nombre,
+      (NOT e.activo OR COALESCE(e.archivado,false)) AS estudiante_retirado,
       ${nombreCompleto("enc")} AS encargado_nombre,
       COALESCE(NULLIF(enc.celular,''),NULLIF(enc.telefono,''),NULLIF(enc.telefono_trabajo,''),'') AS encargado_telefono
       FROM alertas_tempranas at JOIN estudiantes e ON e.id=at.estudiante_id
@@ -367,11 +396,21 @@ router.post("/alertas/:id/contactos",requireAuth,requireParticipante,asyncRoute(
 
 router.post("/llamadas",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const u=req.session.usuario;
-  if(!esDocente(u)) return res.status(403).json({error:"Solo el personal docente registra llamadas."});
+  if(!puedeCrear(u)) return res.status(403).json({error:"Sin permiso para registrar llamadas."});
   const estudianteId=enteroPositivo(req.body?.estudiante_id),asignacionId=enteroPositivo(req.body?.asignacion_id);
-  if(!estudianteId||!asignacionId) return res.status(400).json({error:"Seleccione la sección, materia y estudiante."});
-  const a=await asignacionPropia(u.id,asignacionId,estudianteId);
-  if(!a) return res.status(403).json({error:"El estudiante no pertenece a esa asignación."});
+  if(!estudianteId) return res.status(400).json({error:"Seleccione la sección y el estudiante."});
+  let a=await asignacionPropia(u.id,asignacionId,estudianteId);
+  if(!a&&esAuxiliar(u)){
+    const seccionId=enteroPositivo(req.body?.seccion_id),anioActual=await obtenerAnioActivo();
+    const ar=await pool.query(`SELECT NULL::int AS id,NULL::int AS materia_id,e.seccion_id,
+        s.nombre AS seccion_nombre,'Actuación de Auxiliar'::text AS materia_nombre
+      FROM estudiantes e JOIN secciones s ON s.id=e.seccion_id
+      JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$3 AND sa.activa=true
+      WHERE e.id=$1 AND e.seccion_id=$2 AND e.activo=true AND COALESCE(e.archivado,false)=false`,
+      [estudianteId,seccionId,anioActual]);
+    a=ar.rows[0]||null;
+  }
+  if(!a) return res.status(403).json({error:"El estudiante no pertenece a la sección o asignación seleccionada."});
   const resultado=String(req.body?.resultado||""),medio=String(req.body?.medio||"");
   if(!RESULTADOS.includes(resultado)||!MEDIOS.includes(medio)||!req.body?.fecha||!req.body?.hora_inicio)
     return res.status(400).json({error:"Complete fecha, hora, medio y resultado."});
@@ -399,7 +438,7 @@ router.post("/llamadas",requireAuth,requireParticipante,asyncRoute(async(req,res
     if(!ar.rows.length) return res.status(400).json({error:"La alerta seleccionada no está abierta o no le pertenece."});
   }else{
     const ar=await pool.query(`SELECT id FROM alertas_tempranas WHERE anio=$1 AND estudiante_id=$2 AND profesor_id=$3
-      AND materia_id=$4 AND estado NOT IN ('cerrada','eliminada') ORDER BY updated_at DESC LIMIT 1`,[anio,estudianteId,u.id,a.materia_id]);
+      AND materia_id IS NOT DISTINCT FROM $4::int AND estado NOT IN ('cerrada','eliminada') ORDER BY updated_at DESC LIMIT 1`,[anio,estudianteId,u.id,a.materia_id||null]);
     alertaId=ar.rows[0]?.id||null;
   }
   const motivos=[...new Set((Array.isArray(req.body?.motivos)?req.body.motivos:[]).map(x=>String(x).trim()).filter(Boolean))];
@@ -411,7 +450,7 @@ router.post("/llamadas",requireAuth,requireParticipante,asyncRoute(async(req,res
        numero_marcado,resultado,resultado_otro,atendio_nombre,parentesco,parentesco_otro,motivos,motivo_otro,
        descripcion_situacion,respuesta_encargado,compromisos_encargado,compromisos_docente,fecha_seguimiento,observaciones)
       VALUES($1,$2,$3,$4,$5,$6,$7::date,$8::time,$9::time,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20,$21,$22,$23,$24::date,$25) RETURNING id`,
-      [anio,estudianteId,u.id,a.id,a.materia_id,alertaId,req.body.fecha,req.body.hora_inicio,req.body.hora_fin||null,medio,
+      [anio,estudianteId,u.id,a.id||null,a.materia_id||null,alertaId,req.body.fecha,req.body.hora_inicio,req.body.hora_fin||null,medio,
        String(req.body.medio_otro||"").trim(),String(req.body.numero_marcado||"").trim(),resultado,String(req.body.resultado_otro||"").trim(),
        resultado==="efectiva"?String(req.body.atendio_nombre||"").trim():"",resultado==="efectiva"?String(req.body.parentesco||"").trim():"",
        resultado==="efectiva"?String(req.body.parentesco_otro||"").trim():"",JSON.stringify(resultado==="efectiva"?motivos:[]),

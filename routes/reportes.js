@@ -332,6 +332,13 @@ router.get("/mis-grupos-conducta", requireAuth, async (req,res)=>{
       return res.json(guias.rows.map(x=>({...x,tipo:'guia',subgrupo:null,
         label:`${x.nombre} · Sección guía completa`})));
     }
+    if(u.rol==='orientador' || (u.funciones_extra||[]).includes('orientador')){
+      const orientacion=await pool.query(`SELECT s.id AS seccion_id,s.nombre,s.nivel
+        FROM seccion_orientador so JOIN secciones s ON s.id=so.seccion_id
+        WHERE so.orientador_id=$1 ORDER BY s.nivel,s.nombre`,[u.id]);
+      return res.json(orientacion.rows.map(x=>({...x,tipo:'orientacion',subgrupo:null,
+        label:`${x.nombre} · Consulta de Orientación`})));
+    }
     const permitidas=await seccionesPermitidas(u);
     if(permitidas===null){
       const r=await pool.query(`SELECT DISTINCT s.id AS seccion_id,s.nombre,s.nivel

@@ -36,8 +36,11 @@ app.use(session({
   saveUninitialized: false,
   proxy: true,
   name: "lcf.sid",
+  // En la aplicación instalada del celular la cookie se renueva con cada uso.
+  // Solo vence después de 30 días completos de inactividad.
+  rolling: true,
   cookie: {
-    maxAge: 10 * 60 * 60 * 1000,
+    maxAge: 30 * 24 * 60 * 60 * 1000,
     secure: process.env.NODE_ENV === "production",
     sameSite: 'lax',
     httpOnly: true
