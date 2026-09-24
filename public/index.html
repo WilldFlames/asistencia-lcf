@@ -2656,6 +2656,13 @@ tr:hover td{background:#f8fafc;}
       🔄 Modo automático: primer escaneo registra entrada; el siguiente registra salida.
     </div>
 
+    <div style="max-width:620px;margin:0 auto 14px;position:relative;">
+      <label for="pt-buscar-estudiante" style="display:block;font-size:12px;font-weight:700;color:var(--azul);margin-bottom:5px;">🔎 Buscar estudiante por nombre o cédula</label>
+      <input type="search" id="pt-buscar-estudiante" placeholder="Escriba al menos dos letras o números…" autocomplete="off"
+        oninput="ptProgramarBusqueda()" style="width:100%;padding:11px 13px;"/>
+      <div id="pt-resultados-busqueda" style="display:none;position:absolute;z-index:20;left:0;right:0;top:68px;max-height:310px;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:0 10px 25px #0f172a24;"></div>
+    </div>
+
     <!-- Input escaneo -->
     <div style="text-align:center;padding:4px 0 8px;">
       <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Escaneá o escribí la cédula del estudiante y presioná Enter</p>
@@ -3631,11 +3638,12 @@ tr:hover td{background:#f8fafc;}
 <div class="modal-overlay" id="modal-agenda-evento"><div class="modal" style="max-width:680px;max-height:92vh;overflow:auto">
   <div class="modal-title" id="ag-modal-titulo">📅 Nueva reunión o evento</div><div class="form-grid">
     <div class="fg full" id="ag-compromiso-ayuda" style="display:none;padding:10px 12px;border-radius:8px;background:#eff6ff;color:#1e3a5f;font-size:12.5px">Este compromiso quedará confirmado inmediatamente y bloqueará el horario para nuevas citas o reuniones.</div>
+    <div class="fg full" id="ag-gestionar-wrap" style="display:none;padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px solid var(--border)"><label>Secretaría: agregar directamente en la agenda de</label><select id="ag-gestionar-para" onchange="agendaActualizarGestion()"><option value="">— Reunión propia con invitaciones —</option></select><small style="color:var(--muted)">Puede gestionar docentes y, como excepción, la agenda de Dirección. La persona seleccionada recibe el evento ya confirmado.</small></div>
     <div class="fg full"><label>Título *</label><input id="ag-titulo" maxlength="180" placeholder="Ej. Reunión de seguimiento"/></div>
     <div class="fg"><label>Tipo *</label><select id="ag-tipo"><option value="reunion">Reunión</option><option value="orientacion">Cita con Orientación</option><option value="debido_proceso">Debido proceso</option><option value="pauta">Pauta / protocolo</option><option value="atencion_familia">Atención a familia</option><option value="institucional">Evento institucional</option><option value="otro">Otro</option></select></div>
     <div class="fg"><label>Lugar o modalidad</label><input id="ag-lugar" maxlength="250" placeholder="Oficina, aula o virtual"/></div>
     <div class="fg"><label>Fecha *</label><input type="date" id="ag-fecha"/></div><div class="fg"><label>Inicio *</label><input type="time" id="ag-inicio"/></div><div class="fg"><label>Fin *</label><input type="time" id="ag-fin"/></div>
-    <div class="fg full" id="ag-invitados-wrap"><label>Invitados * <small style="color:var(--muted)">Puede marcar varias personas.</small></label><div style="display:grid;grid-template-columns:180px 1fr;gap:7px"><select id="ag-filtro-rol" onchange="agendaFiltrarPersonal()"><option value="profesor">Profesores</option><option value="administrativo">Administrativos y auxiliares</option><option value="orientador">Orientadoras</option></select><input type="search" id="ag-buscar-persona" oninput="agendaFiltrarPersonal()" placeholder="Buscar por nombre…"/></div><div id="ag-personal" class="agenda-people"></div></div>
+    <div class="fg full" id="ag-invitados-wrap"><label>Invitados <small style="color:var(--muted)">Puede marcar varias personas.</small></label><div style="display:grid;grid-template-columns:180px 1fr;gap:7px"><select id="ag-filtro-rol" onchange="agendaFiltrarPersonal()"><option value="profesor">Profesores</option><option value="administrativo">Administrativos y auxiliares</option><option value="orientador">Orientadoras</option></select><input type="search" id="ag-buscar-persona" oninput="agendaFiltrarPersonal()" placeholder="Buscar por nombre…"/></div><div id="ag-personal" class="agenda-people"></div></div>
     <div class="fg full"><label>Descripción</label><textarea id="ag-descripcion" rows="3" maxlength="2000"></textarea></div>
     <label id="ag-institucional-wrap" style="display:none;align-items:center;gap:7px"><input type="checkbox" id="ag-institucional" style="width:auto"> Visible como evento institucional</label>
   </div><div id="alert-agenda-modal" class="alert"></div><div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-agenda-evento')">Cancelar</button><button class="btn btn-primary" id="ag-btn-guardar" onclick="agendaGuardarEvento()">Enviar invitaciones</button></div>
@@ -17167,14 +17175,34 @@ async function agendaResponder(id,accion){const mensaje=accion==='rechazar'?(pro
 async function agendaProponer(id){const fecha=prompt('Nueva fecha (AAAA-MM-DD):',agendaISO(new Date()));if(!fecha)return;const hora_inicio=prompt('Hora de inicio (HH:MM):','08:00');if(!hora_inicio)return;const hora_fin=prompt('Hora de finalización (HH:MM):','08:30');if(!hora_fin)return;const mensaje=prompt('Mensaje (opcional):')||'';try{await api(`/api/agenda/eventos/${id}/responder`,'PUT',{accion:'proponer',fecha,hora_inicio,hora_fin,mensaje});agendaCargar()}catch(e){sa('alert-agenda',e.message,'danger')}}
 async function agendaCancelar(id){try{await api(`/api/agenda/eventos/${id}/cancelar`,'PUT',{});agendaCargar()}catch(e){sa('alert-agenda',e.message,'danger')}}
 async function agendaAbrirNuevo(compromisoPropio=false){
-  try{if(compromisoPropio&&!tieneAlgunRol('orientador')){sa('alert-agenda','Esta opción es exclusiva de Orientación.','danger');return}if(!agendaPersonal.length)agendaPersonal=await api('/api/agenda/personal');agendaEsCompromisoPropio=compromisoPropio;agendaSeleccionados=new Set();['ag-titulo','ag-lugar','ag-descripcion','ag-buscar-persona'].forEach(id=>document.getElementById(id).value='');document.getElementById('ag-filtro-rol').value='profesor';document.getElementById('ag-fecha').value=agendaISO(new Date());document.getElementById('ag-inicio').value='08:00';document.getElementById('ag-fin').value='08:30';document.getElementById('ag-tipo').value=compromisoPropio?'otro':'reunion';document.getElementById('ag-institucional').checked=false;document.getElementById('ag-institucional-wrap').style.display=!compromisoPropio&&['admin','administrativo'].includes(ME.rol)?'flex':'none';document.getElementById('ag-invitados-wrap').style.display=compromisoPropio?'none':'block';document.getElementById('ag-compromiso-ayuda').style.display=compromisoPropio?'block':'none';document.getElementById('ag-modal-titulo').textContent=compromisoPropio?'🔒 Agendar compromiso propio':'📅 Nueva reunión o evento';document.getElementById('ag-btn-guardar').textContent=compromisoPropio?'Guardar y bloquear horario':'Enviar invitaciones';agendaFiltrarPersonal();document.getElementById('modal-agenda-evento').classList.add('show')}catch(e){sa('alert-agenda',e.message,'danger')}
+  try{
+    const puedePropio=tieneAlgunRol('orientador')||['admin','administrativo'].includes(ME.rol);
+    if(compromisoPropio&&!puedePropio){sa('alert-agenda','Esta opción es exclusiva de Orientación y Administración.','danger');return}
+    if(!agendaPersonal.length)agendaPersonal=await api('/api/agenda/personal');
+    agendaEsCompromisoPropio=compromisoPropio;agendaSeleccionados=new Set();
+    ['ag-titulo','ag-lugar','ag-descripcion','ag-buscar-persona'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('ag-filtro-rol').value='profesor';document.getElementById('ag-fecha').value=agendaISO(new Date());document.getElementById('ag-inicio').value='08:00';document.getElementById('ag-fin').value='08:30';document.getElementById('ag-tipo').value=compromisoPropio?'otro':'reunion';document.getElementById('ag-institucional').checked=false;
+    const esSec=tieneAlgunRol('secretaria'),wrapGestion=document.getElementById('ag-gestionar-wrap'),selGestion=document.getElementById('ag-gestionar-para');
+    wrapGestion.style.display=!compromisoPropio&&esSec?'block':'none';
+    selGestion.innerHTML='<option value="">— Reunión propia con invitaciones —</option>'+agendaPersonal.filter(p=>['profesor','profesor_guia','admin'].includes(p.rol)).map(p=>`<option value="${p.id}">${htmlSeguro(nombrePersona(p))} · ${p.rol==='admin'?'Dirección':htmlSeguro(RLBL[p.rol]||'Docente')}</option>`).join('');
+    document.getElementById('ag-invitados-wrap').style.display=compromisoPropio?'none':'block';document.getElementById('ag-compromiso-ayuda').style.display=compromisoPropio?'block':'none';document.getElementById('ag-modal-titulo').textContent=compromisoPropio?'🔒 Agendar compromiso propio':'📅 Nueva reunión o evento';
+    agendaFiltrarPersonal();agendaActualizarGestion();document.getElementById('modal-agenda-evento').classList.add('show');
+  }catch(e){sa('alert-agenda',e.message,'danger')}
 }
 function agendaAbrirCompromisoPropio(){return agendaAbrirNuevo(true)}
+function agendaActualizarGestion(){
+  const target=Number(document.getElementById('ag-gestionar-para')?.value)||null;
+  const persona=agendaPersonal.find(p=>Number(p.id)===target);
+  const puedeInstitucional=!agendaEsCompromisoPropio&&(['admin','administrativo'].includes(ME.rol)||(tieneAlgunRol('secretaria')&&persona?.rol==='admin'));
+  document.getElementById('ag-institucional-wrap').style.display=puedeInstitucional?'flex':'none';
+  if(!puedeInstitucional)document.getElementById('ag-institucional').checked=false;
+  document.getElementById('ag-btn-guardar').textContent=agendaEsCompromisoPropio?'Guardar y bloquear horario':target?'Guardar directamente en agenda':'Enviar invitaciones';
+}
 function agendaRenderPersonal(lista){document.getElementById('ag-personal').innerHTML=lista.filter(p=>Number(p.id)!==Number(ME.id)).map(p=>`<label class="agenda-person"><input type="checkbox" value="${p.id}" ${agendaSeleccionados.has(Number(p.id))?'checked':''} onchange="agendaTogglePersona(${p.id},this.checked)"/><span><b>${htmlSeguro(nombrePersona(p))}</b><small>${htmlSeguro(RLBL[p.rol]||p.rol)}${p.secciones_orientacion?` · Atiende ${htmlSeguro(p.secciones_orientacion)}`:''}</small></span></label>`).join('')}
 function agendaTogglePersona(id,marcado){if(marcado)agendaSeleccionados.add(Number(id));else agendaSeleccionados.delete(Number(id))}
 function agendaCategoriaPersonal(p){if(p.rol==='orientador')return'orientador';if(['profesor','profesor_guia'].includes(p.rol))return'profesor';return'administrativo'}
 function agendaFiltrarPersonal(){const q=citasNormalizarBusqueda(document.getElementById('ag-buscar-persona').value),cat=document.getElementById('ag-filtro-rol').value;agendaRenderPersonal(agendaPersonal.filter(p=>agendaCategoriaPersonal(p)===cat&&citasNormalizarBusqueda(`${nombrePersona(p)} ${p.rol} ${p.secciones_orientacion}`).includes(q)))}
-async function agendaGuardarEvento(){const participantes=agendaEsCompromisoPropio?[]:[...agendaSeleccionados];const body={titulo:document.getElementById('ag-titulo').value,tipo:document.getElementById('ag-tipo').value,fecha:document.getElementById('ag-fecha').value,hora_inicio:document.getElementById('ag-inicio').value,hora_fin:document.getElementById('ag-fin').value,lugar:document.getElementById('ag-lugar').value,descripcion:document.getElementById('ag-descripcion').value,institucional:agendaEsCompromisoPropio?false:document.getElementById('ag-institucional').checked,compromiso_propio:agendaEsCompromisoPropio,participantes};if(!agendaEsCompromisoPropio&&!participantes.length){sa('alert-agenda-modal','Seleccione al menos una persona invitada.','danger');return}try{await api('/api/agenda/eventos','POST',body);cerrarModal('modal-agenda-evento');sa('alert-agenda',agendaEsCompromisoPropio?'✅ Compromiso guardado; ese horario quedó ocupado.':'✅ Invitaciones enviadas.','success');agendaCargar()}catch(e){sa('alert-agenda-modal',e.message,'danger')}}
+async function agendaGuardarEvento(){const participantes=agendaEsCompromisoPropio?[]:[...agendaSeleccionados],gestionado_para=agendaEsCompromisoPropio?null:(Number(document.getElementById('ag-gestionar-para')?.value)||null);const body={titulo:document.getElementById('ag-titulo').value,tipo:document.getElementById('ag-tipo').value,fecha:document.getElementById('ag-fecha').value,hora_inicio:document.getElementById('ag-inicio').value,hora_fin:document.getElementById('ag-fin').value,lugar:document.getElementById('ag-lugar').value,descripcion:document.getElementById('ag-descripcion').value,institucional:agendaEsCompromisoPropio?false:document.getElementById('ag-institucional').checked,compromiso_propio:agendaEsCompromisoPropio,gestionado_para,participantes};if(!agendaEsCompromisoPropio&&!participantes.length&&!gestionado_para&&!body.institucional){sa('alert-agenda-modal','Seleccione al menos una persona invitada, una agenda por gestionar o marque el evento como institucional.','danger');return}try{await api('/api/agenda/eventos','POST',body);cerrarModal('modal-agenda-evento');sa('alert-agenda',agendaEsCompromisoPropio?'✅ Compromiso guardado; ese horario quedó ocupado.':gestionado_para?'✅ Evento guardado directamente en la agenda seleccionada.':body.institucional?'✅ Compromiso institucional publicado al personal docente.':'✅ Invitaciones enviadas.','success');agendaCargar()}catch(e){sa('alert-agenda-modal',e.message,'danger')}}
 async function agendaAbrirConfiguracion(){try{if(!agendaPersonal.length)agendaPersonal=await api('/api/agenda/personal');const esAdm=['admin','administrativo'].includes(ME.rol),sel=document.getElementById('ag-config-persona');document.getElementById('ag-config-persona-wrap').style.display=esAdm?'block':'none';sel.innerHTML=agendaPersonal.filter(p=>p.rol==='orientador').map(p=>`<option value="${p.id}" ${Number(p.id)===Number(ME.id)?'selected':''}>${htmlSeguro(nombrePersona(p))}</option>`).join('');if(!esAdm)sel.innerHTML=`<option value="${ME.id}">${htmlSeguro(nombrePersona(ME))}</option>`;document.getElementById('ag-oficina-wrap').style.display=(ME.rol==='orientador'||esAdm)?'block':'none';document.getElementById('modal-agenda-config').classList.add('show');agendaCargarConfiguracion()}catch(e){sa('alert-agenda',e.message,'danger')}}
 async function agendaAbrirConfiguracion(){try{if(ME.rol!=='admin'){sa('alert-agenda','Solo el administrador puede asignar la jornada de las orientadoras.','danger');return}if(!agendaPersonal.length)agendaPersonal=await api('/api/agenda/personal');const sel=document.getElementById('ag-config-persona');document.getElementById('ag-config-persona-wrap').style.display='block';sel.innerHTML=agendaPersonal.filter(p=>p.rol==='orientador').map(p=>`<option value="${p.id}">${htmlSeguro(nombrePersona(p))}</option>`).join('');if(!sel.value){sa('alert-agenda','No hay orientadoras activas para configurar.','danger');return}document.getElementById('ag-oficina-wrap').style.display='block';document.getElementById('modal-agenda-config').classList.add('show');agendaCargarConfiguracion()}catch(e){sa('alert-agenda',e.message,'danger')}}
 async function agendaCargarConfiguracion(){const uid=document.getElementById('ag-config-persona').value;try{const d=await api(`/api/agenda/configuracion?usuario_id=${uid}`);const map=Object.fromEntries((d.horarios||[]).map(x=>[x.dia_semana,x]));document.getElementById('ag-oficina').innerHTML=['Lunes','Martes','Miércoles','Jueves','Viernes'].map((n,i)=>{const h=map[i+1]||{};return `<div class="agenda-office-row"><label><input type="checkbox" data-dia="${i+1}" ${h.hora_inicio?'checked':''} style="width:auto"> ${n}</label><input type="time" data-ini="${i+1}" value="${String(h.hora_inicio||'08:00').slice(0,5)}"><input type="time" data-fin="${i+1}" value="${String(h.hora_fin||'16:00').slice(0,5)}"></div>`}).join('');document.getElementById('ag-bloqueos-lista').innerHTML=(d.bloqueos||[]).map(b=>`<div class="agenda-side-item"><strong>${b.motivo==='Desayuno'?'☕':'🍽️'} ${htmlSeguro(b.motivo)}</strong>${CITAS_DIAS[b.dia_semana]||''} · ${String(b.hora_inicio).slice(0,5)}–${String(b.hora_fin).slice(0,5)} <button class="btn btn-danger btn-xs" onclick="agendaBorrarBloqueo(${b.id})">Quitar</button></div>`).join('')||'<div class="empty">Sin pausas asignadas</div>'}catch(e){sa('alert-agenda-config',e.message,'danger')}}
@@ -17190,7 +17218,7 @@ const CITAS_DIAS=['','Lunes','Martes','Miércoles','Jueves','Viernes'];
 async function iniciarCitasDocente(){
   try{
     const btnConfig=document.getElementById('agenda-btn-config');if(btnConfig)btnConfig.style.display=ME.rol==='admin'?'':'none';
-    const btnCompromiso=document.getElementById('agenda-btn-compromiso');if(btnCompromiso)btnCompromiso.style.display=tieneAlgunRol('orientador')?'':'none';
+    const btnCompromiso=document.getElementById('agenda-btn-compromiso');if(btnCompromiso)btnCompromiso.style.display=(tieneAlgunRol('orientador')||['admin','administrativo'].includes(ME.rol))?'':'none';
     const [agenda]=await Promise.all([api('/api/citas/mis-citas'),agendaCargar()]);
     citasRenderAgenda(agenda||[]);
   }catch(e){sa('alert-citas',e.message,'danger');}
@@ -18981,6 +19009,25 @@ async function psAnular(id){
 let ptModo = 'auto';
 let ptResultTimer = null;
 let ptRegistrosDia=[];
+let ptBusquedaTimer=null;
+
+function ptProgramarBusqueda(){
+  clearTimeout(ptBusquedaTimer);
+  ptBusquedaTimer=setTimeout(ptBuscarEstudiante,250);
+}
+async function ptBuscarEstudiante(){
+  const input=document.getElementById('pt-buscar-estudiante'),box=document.getElementById('pt-resultados-busqueda'),q=input?.value.trim()||'';
+  if(q.length<2){box.style.display='none';box.innerHTML='';return}
+  try{
+    const rows=await api(`/api/porteria/buscar?q=${encodeURIComponent(q)}`)||[];
+    box.style.display='block';
+    box.innerHTML=rows.length?rows.map(e=>`<button type="button" data-cedula="${htmlSeguro(e.cedula||'')}" onclick="ptSeleccionarBusqueda(this.dataset.cedula)" style="display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:0;border-bottom:1px solid #edf2f7;background:#fff;text-align:left;cursor:pointer"><span><strong>${htmlSeguro(nombrePersona(e))}</strong><br><small style="color:var(--muted)">${htmlSeguro(e.cedula||'')}</small></span><span class="badge">${htmlSeguro(e.seccion_nombre||'Sin sección')}</span></button>`).join(''):'<div class="empty" style="padding:12px">No se encontraron estudiantes activos.</div>';
+  }catch(e){box.style.display='block';box.innerHTML=`<div class="empty" style="padding:12px">${htmlSeguro(e.message)}</div>`}
+}
+function ptSeleccionarBusqueda(cedula){
+  const scan=document.getElementById('pt-scan-input'),buscar=document.getElementById('pt-buscar-estudiante'),box=document.getElementById('pt-resultados-busqueda');
+  scan.value=cedula||'';buscar.value='';box.style.display='none';box.innerHTML='';ptEscanear();
+}
 
 async function iniciarPorteria(){
   const fecha=document.getElementById('pt-fecha');
@@ -25801,7 +25848,14 @@ async function atGuardarNueva(){
   const contexto=document.getElementById('at-nueva-asig'),ref=contexto.value,esAux=String(ref).startsWith('aux:');const body={asignacion_id:esAux?null:Number(ref),seccion_id:esAux?Number(contexto.selectedOptions[0]?.dataset.sec):null,estudiante_id:Number(document.getElementById("at-nueva-est").value),riesgo_ausentismo:document.getElementById("at-riesgo-aus").checked,categorias:[...document.querySelectorAll('[name="at-codigo"]:checked')].map(x=>Number(x.value)),observacion_inicial:document.getElementById("at-observacion-inicial").value.trim()};
   if((!body.asignacion_id&&!body.seccion_id)||!body.estudiante_id){sa("alert-at-nueva","Seleccione la sección y el estudiante.","warning");return;}
   if(!body.riesgo_ausentismo&&!body.categorias.length){sa("alert-at-nueva","Seleccione al menos una alerta o riesgo por ausentismo.","warning");return;}
-  try{const d=await api("/api/alerta-temprana/alertas","POST",body);cerrarModal("modal-at-nueva");await atCargarAlertas();await atVerDetalle(d.id);if(Number(d.llamadas_vinculadas)>0)sa("alert-at",`✅ Alerta abierta. Se incorporaron ${d.llamadas_vinculadas} llamada(s) registradas previamente.`,"success");}catch(e){sa("alert-at-nueva",e.message,"danger");}
+  try{
+    const d=await api("/api/alerta-temprana/alertas","POST",body);
+    cerrarModal("modal-at-nueva");await atCargarAlertas();await atVerDetalle(d.id);
+    const recuperados=[];
+    if(Number(d.llamadas_vinculadas)>0) recuperados.push(`${d.llamadas_vinculadas} llamada(s)`);
+    if(Number(d.cartas_vinculadas)>0) recuperados.push(`${d.cartas_vinculadas} carta(s) de ausentismo`);
+    if(recuperados.length) sa("alert-at",`✅ Alerta abierta. Se incorporaron ${recuperados.join(' y ')} registradas previamente.`,"success");
+  }catch(e){sa("alert-at-nueva",e.message,"danger");}
 }
 function atCategoriasTexto(d){const elegidas=new Set((d.alerta.categorias||[]).map(Number));const lista=[];d.catalogo.forEach(g=>g.items.forEach(i=>{if(elegidas.has(i.codigo))lista.push(`<li><strong>${i.codigo}.</strong> ${htmlSeguro(i.descripcion)}${g.confidencial?' <span title="Información confidencial">🔒</span>':''}</li>`);}));if(d.alerta.riesgo_ausentismo)lista.unshift('<li><strong>Ausentismo a lecciones por materia</strong></li>');return lista.length?`<ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.55">${lista.join("")}</ul>`:'<span class="empty">Sin categorías registradas.</span>';}
 async function atVerDetalle(id){

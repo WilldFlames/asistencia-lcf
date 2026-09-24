@@ -15,11 +15,11 @@ test('Orientación puede registrar un compromiso propio sin invitados', () => {
   assert.match(html, /Guardar y bloquear horario/);
 });
 
-test('el servidor limita el compromiso propio a Orientación y lo confirma como participante creador', () => {
+test('el servidor permite compromisos propios a Orientación y Administración y los confirma', () => {
   assert.match(agenda, /compromisoPropio=req\.body\.compromiso_propio===true/);
-  assert.match(agenda, /compromisoPropio && !esOrientador\(u\)/);
+  assert.match(agenda, /compromisoPropio && !esOrientador\(u\) && !esAdmin\(u\)/);
   assert.match(agenda, /compromisoPropio && participantes\.length/);
-  assert.match(agenda, /id===u\.id\?'aceptado':'pendiente'/);
+  assert.match(agenda, /confirmado\?'aceptado':'pendiente'/);
 });
 
 test('los eventos propios participan en la detección de choques de horario', () => {

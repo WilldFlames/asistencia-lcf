@@ -149,6 +149,60 @@ async function notificarSupervision(client,mensaje,alertaId,omitido){
     ) AND u.id<>$4::integer`,[String(mensaje||""),alertaNumero,`alerta-temprana:${alertaNumero}`,omitidoNumero]);
 }
 
+// Recupera contactos creados antes de formalizar la alerta. La comparación usa
+// materia_id (no asignacion_id), de modo que funciona aunque la asignación haya
+// cambiado entre períodos, pero nunca mezcla profesores ni materias.
+async function sincronizarContactosAlerta(db,alerta){
+  const llamadas=await db.query(`WITH pendientes AS (
+      SELECT rl.* FROM registro_llamadas rl
+      WHERE rl.anio=$2 AND rl.estudiante_id=$3 AND rl.profesor_id=$4
+        AND rl.materia_id IS NOT DISTINCT FROM $5::int
+        AND NOT EXISTS (SELECT 1 FROM alerta_temprana_contactos c WHERE c.llamada_id=rl.id)
+    ), insertadas AS (
+      INSERT INTO alerta_temprana_contactos
+        (alerta_id,llamada_id,fecha,via_contacto,persona_contactada,comentarios,registrado_por)
+      SELECT $1,id,fecha,medio,
+        CASE WHEN resultado='efectiva' THEN COALESCE(NULLIF(atendio_nombre,''),'Persona encargada') ELSE 'Sin contacto' END,
+        TRIM(CONCAT(
+          CASE resultado
+            WHEN 'efectiva' THEN 'Comunicación efectiva'
+            WHEN 'no_contesta' THEN 'No contestó'
+            WHEN 'equivocado' THEN 'Número equivocado'
+            WHEN 'fuera_servicio' THEN 'Fuera de servicio'
+            WHEN 'buzon' THEN 'Buzón de voz'
+            WHEN 'devolver_llamada' THEN 'Solicitó devolver la llamada'
+            ELSE COALESCE(NULLIF(resultado_otro,''),'Otro resultado') END,
+          '. ',COALESCE(observaciones,'')
+        )),$4
+      FROM pendientes
+      ON CONFLICT DO NOTHING
+      RETURNING llamada_id
+    )
+    UPDATE registro_llamadas rl SET alerta_id=COALESCE(rl.alerta_id,$1)
+    FROM insertadas i WHERE rl.id=i.llamada_id
+    RETURNING rl.id`,[alerta.id,alerta.anio,alerta.estudiante_id,alerta.profesor_id,alerta.materia_id||null]);
+
+  const cartas=await db.query(`INSERT INTO alerta_temprana_contactos
+      (alerta_id,carta_ausentismo_id,fecha,via_contacto,persona_contactada,comentarios,registrado_por)
+    SELECT $1,c.id,c.fecha,'Carta de ausentismo','Persona encargada legal',
+      TRIM(CONCAT('Carta de ausentismo emitida. Materia: ',c.materia,
+        '. Período: ',c.periodo,'. Ausencias: ',c.ausencias,' de ',c.total_lecciones,
+        ' (',c.porcentaje,'%).',CASE WHEN COALESCE(c.observaciones,'')=''
+          THEN '' ELSE CONCAT(' ',c.observaciones) END)),c.emitida_por
+    FROM cartas_ausentismo c
+    LEFT JOIN asignaciones ca ON ca.id=c.asignacion_id
+    LEFT JOIN materias cm ON cm.id=$5
+    WHERE EXTRACT(YEAR FROM c.fecha)::int=$2 AND c.estudiante_id=$3 AND c.emitida_por=$4
+      AND (ca.materia_id IS NOT DISTINCT FROM $5::int
+        OR (ca.id IS NULL AND $5::int IS NOT NULL AND LOWER(c.materia)=LOWER(cm.nombre)))
+      AND NOT EXISTS (SELECT 1 FROM alerta_temprana_contactos ac WHERE ac.carta_ausentismo_id=c.id)
+    ON CONFLICT DO NOTHING
+    RETURNING id`,[alerta.id,alerta.anio,alerta.estudiante_id,alerta.profesor_id,alerta.materia_id||null]);
+  if(llamadas.rowCount||cartas.rowCount)
+    await db.query('UPDATE alertas_tempranas SET updated_at=NOW() WHERE id=$1',[alerta.id]);
+  return {llamadas:llamadas.rowCount,cartas:cartas.rowCount};
+}
+
 router.get("/inicio",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const u=req.session.usuario, anio=await obtenerAnioActivo(), supervisor=await puedeSupervisar(u);
   let asignaciones=esDocente(u)?await pool.query(`
@@ -243,38 +297,10 @@ router.post("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)
     const id=q.rows[0].id;
     await client.query(`INSERT INTO alerta_temprana_seguimientos(alerta_id,estado,observaciones,registrado_por)
       VALUES($1,'activada',$2,$3)`,[id,obs||"Se abre la Alerta Temprana.",u.id]);
-    // Una llamada puede haberse realizado antes de que se formalice la alerta.
-    // Al abrirla recuperamos automáticamente todas las llamadas aún huérfanas
-    // del mismo estudiante, funcionario, materia y año, y las incorporamos al
-    // registro de contactos del expediente.
-    const llamadasPrevias=await client.query(`WITH vinculadas AS (
-        UPDATE registro_llamadas
-        SET alerta_id=$1
-        WHERE anio=$2 AND estudiante_id=$3 AND profesor_id=$4
-          AND materia_id IS NOT DISTINCT FROM $5::int AND alerta_id IS NULL
-        RETURNING id,fecha,medio,resultado,resultado_otro,atendio_nombre,observaciones
-      )
-      INSERT INTO alerta_temprana_contactos
-        (alerta_id,llamada_id,fecha,via_contacto,persona_contactada,comentarios,registrado_por)
-      SELECT $1,id,fecha,medio,
-        CASE WHEN resultado='efectiva' THEN COALESCE(NULLIF(atendio_nombre,''),'Persona encargada') ELSE 'Sin contacto' END,
-        TRIM(CONCAT(
-          CASE resultado
-            WHEN 'efectiva' THEN 'Comunicación efectiva'
-            WHEN 'no_contesta' THEN 'No contestó'
-            WHEN 'equivocado' THEN 'Número equivocado'
-            WHEN 'fuera_servicio' THEN 'Fuera de servicio'
-            WHEN 'buzon' THEN 'Buzón de voz'
-            WHEN 'devolver_llamada' THEN 'Solicitó devolver la llamada'
-            ELSE COALESCE(NULLIF(resultado_otro,''),'Otro resultado') END,
-          '. ',COALESCE(observaciones,'')
-        )),$4
-      FROM vinculadas
-      ON CONFLICT (llamada_id) DO NOTHING
-      RETURNING id`,[id,anio,estudianteId,u.id,a.materia_id||null]);
+    const recuperados=await sincronizarContactosAlerta(client,{id,anio,estudiante_id:estudianteId,profesor_id:u.id});
     const est=await client.query(`SELECT ${nombreCompleto("e")} AS nombre FROM estudiantes e WHERE id=$1`,[estudianteId]);
     await notificarSupervision(client,`🚨 Nueva Alerta Temprana de ${est.rows[0]?.nombre||"un estudiante"} en ${a.materia_nombre}.`,id,u.id);
-    await client.query("COMMIT");res.json({ok:true,id,llamadas_vinculadas:llamadasPrevias.rowCount});
+    await client.query("COMMIT");res.json({ok:true,id,llamadas_vinculadas:recuperados.llamadas,cartas_vinculadas:recuperados.cartas});
   }catch(e){await client.query("ROLLBACK");if(e.code==="23505") return res.status(409).json({error:"Ya existe una alerta abierta para este estudiante en esta materia."});throw e;}
   finally{client.release();}
 }));
@@ -283,6 +309,9 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
   const acceso=await alertaAccesible(req.session.usuario,req.params.id);
   if(acceso.error) return res.status(acceso.status).json({error:acceso.error});
   const id=enteroPositivo(req.params.id);
+  // Además de hacerlo al crear, reconciliamos al consultar para recuperar
+  // registros históricos de instalaciones que ya tenían llamadas o cartas.
+  await sincronizarContactosAlerta(pool,acceso.alerta);
   const [cab,seguimientos,acciones,contactos,cfg]=await Promise.all([
     pool.query(`SELECT at.*,${nombreCompleto("e")} AS estudiante_nombre,${nombreApellidos("e")} AS estudiante_nombre_ordenado,
       e.cedula,e.fecha_nacimiento,EXTRACT(YEAR FROM AGE(at.fecha_activacion,e.fecha_nacimiento))::int AS edad,
@@ -310,6 +339,7 @@ router.get("/alertas/:id/excel",requireAuth,requireParticipante,asyncRoute(async
   const acceso=await alertaAccesible(req.session.usuario,req.params.id);
   if(acceso.error) return res.status(acceso.status).json({error:acceso.error});
   const id=enteroPositivo(req.params.id);
+  await sincronizarContactosAlerta(pool,acceso.alerta);
   const [cab,seguimientos,acciones,contactos,cfg]=await Promise.all([
     pool.query(`SELECT at.*,${nombreCompleto("e")} AS estudiante_nombre,e.cedula,
       EXTRACT(YEAR FROM AGE(at.fecha_activacion,e.fecha_nacimiento))::int AS edad,

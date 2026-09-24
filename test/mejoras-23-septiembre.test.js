@@ -9,10 +9,12 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 test('las llamadas previas se enlazan al abrir la alerta', () => {
   const route = read('routes/alertaTemprana.js');
   const ui = read('public/index.html');
-  assert.match(route, /UPDATE registro_llamadas[\s\S]*alerta_id IS NULL/);
-  assert.match(route, /INSERT INTO alerta_temprana_contactos[\s\S]*FROM vinculadas/);
-  assert.match(route, /llamadas_vinculadas:llamadasPrevias\.rowCount/);
-  assert.match(ui, /Se incorporaron \$\{d\.llamadas_vinculadas\} llamada\(s\) registradas previamente/);
+  assert.match(route, /async function sincronizarContactosAlerta/);
+  assert.match(route, /rl\.anio=\$2 AND rl\.estudiante_id=\$3 AND rl\.profesor_id=\$4/);
+  assert.match(route, /rl\.materia_id IS NOT DISTINCT FROM \$5::int/);
+  assert.doesNotMatch(route, /materia_id IS NOT DISTINCT FROM \$5::int AND alerta_id IS NULL/);
+  assert.match(route, /llamadas_vinculadas:recuperados\.llamadas/);
+  assert.match(ui, /recuperados\.push\(`\$\{d\.llamadas_vinculadas\} llamada\(s\)`\)/);
 });
 
 test('quien inició el debido proceso puede administrar ofendidos', () => {

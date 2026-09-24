@@ -286,15 +286,40 @@ router.post("/", requireDocente, async (req, res) => {
     const ausenciasFinal = calculo?.ausencias ?? (parseInt(ausencias)||0);
     const totalFinal = calculo?.total_lecciones ?? (parseInt(total_lecciones)||0);
     const porcentajeFinal = calculo?.porcentaje ?? (parseFloat(porcentaje)||0);
-    const r = await pool.query(`
+    // El CTE guarda la carta y, si ya existe una Alerta Temprana abierta por
+    // este mismo profesor para el estudiante, registra el contacto en el mismo
+    // acto. Si la alerta se abre después, su sincronización recupera la carta.
+    const r = await pool.query(`WITH nueva AS (
       INSERT INTO cartas_ausentismo
         (estudiante_id, asignacion_id, emitida_por, fecha, periodo, materia,
          ausencias, total_lecciones, porcentaje, observaciones)
       VALUES ($1,$2,$3,CURRENT_DATE,$4,$5,$6,$7,$8,$9)
-      RETURNING id, fecha
+      RETURNING *
+    ), alerta AS (
+      SELECT at.id FROM alertas_tempranas at,nueva n
+      JOIN asignaciones na ON na.id=n.asignacion_id
+      WHERE at.anio=$10 AND at.estudiante_id=n.estudiante_id AND at.profesor_id=n.emitida_por
+        AND at.materia_id IS NOT DISTINCT FROM na.materia_id
+        AND at.estado NOT IN ('cerrada','eliminada')
+      ORDER BY at.updated_at DESC,at.id DESC LIMIT 1
+    ), contacto AS (
+      INSERT INTO alerta_temprana_contactos
+        (alerta_id,carta_ausentismo_id,fecha,via_contacto,persona_contactada,comentarios,registrado_por)
+      SELECT a.id,n.id,n.fecha,'Carta de ausentismo','Persona encargada legal',
+        TRIM(CONCAT('Carta de ausentismo emitida. Materia: ',n.materia,
+          '. Período: ',n.periodo,'. Ausencias: ',n.ausencias,' de ',n.total_lecciones,
+          ' (',n.porcentaje,'%).',CASE WHEN COALESCE(n.observaciones,'')=''
+            THEN '' ELSE CONCAT(' ',n.observaciones) END)),n.emitida_por
+      FROM nueva n JOIN alerta a ON true
+      ON CONFLICT DO NOTHING RETURNING id
+    )
+    SELECT n.id,n.fecha,(SELECT id FROM alerta) AS alerta_id,
+      EXISTS(SELECT 1 FROM contacto) AS enlazada_alerta FROM nueva n
     `, [estudiante_id, asignacion_id || null, u.id, p.nombre, materiaFinal,
-        ausenciasFinal, totalFinal, porcentajeFinal, observaciones || '']);
-    res.json({ ok: true, id: r.rows[0].id, fecha: r.rows[0].fecha });
+        ausenciasFinal, totalFinal, porcentajeFinal, observaciones || '',p.anio]);
+    if(r.rows[0].alerta_id) await pool.query('UPDATE alertas_tempranas SET updated_at=NOW() WHERE id=$1',[r.rows[0].alerta_id]);
+    res.json({ ok: true, id: r.rows[0].id, fecha: r.rows[0].fecha,
+      enlazada_alerta:r.rows[0].enlazada_alerta,alerta_id:r.rows[0].alerta_id });
   } catch (err) {
     console.error('cartas POST error:', err.message);
     res.status(500).json({ error: err.message });

@@ -185,6 +185,24 @@ router.put("/permisos/:id/anular", canPermisos, async (req, res) => {
 //  ESCANEO EN PORTERÍA (rol seguridad / admin)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Búsqueda manual rápida para cuando no se dispone del código de barras.
+// Devuelve únicamente estudiantes activos y nunca expone información sensible.
+router.get("/buscar", canEscanear, async (req,res)=>{
+  const q=String(req.query.q||"").trim();
+  if(q.length<2)return res.json([]);
+  const ced=limpiarCedula(q),texto=`%${q.replace(/[%_]/g,"\\$&")}%`;
+  const r=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
+      s.nombre AS seccion_nombre
+    FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.activo=true AND COALESCE(e.archivado,false)=false AND (
+      UPPER(REGEXP_REPLACE(e.cedula,'[^[:alnum:]]','','g')) LIKE UPPER($1)
+      OR CONCAT_WS(' ',e.nombre,e.primer_apellido,e.segundo_apellido) ILIKE $2 ESCAPE '\\'
+      OR CONCAT_WS(' ',e.primer_apellido,e.segundo_apellido,e.nombre) ILIKE $2 ESCAPE '\\'
+    )
+    ORDER BY e.nombre,e.primer_apellido,e.segundo_apellido LIMIT 20`,[`%${ced}%`,texto]);
+  res.json(r.rows);
+});
+
 // Calcula la hora en que terminan las lecciones del estudiante HOY.
 // Devuelve { horaFin, tieneHorario }. Sin horario configurado → tieneHorario=false.
 async function finLeccionesHoy(seccionId, fecha){

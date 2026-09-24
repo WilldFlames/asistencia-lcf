@@ -2505,6 +2505,25 @@ async function initDB() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_at_seguimientos ON alerta_temprana_seguimientos(alerta_id,created_at DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_llamadas_estudiante ON registro_llamadas(estudiante_id,fecha DESC,hora_inicio DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_llamadas_profesor ON registro_llamadas(profesor_id,fecha DESC)`);
+    // Las cartas de ausentismo forman parte del historial de contactos de la
+    // Alerta Temprana. La columna se agrega también a instalaciones existentes.
+    await client.query(`ALTER TABLE alerta_temprana_contactos
+      ADD COLUMN IF NOT EXISTS carta_ausentismo_id INTEGER REFERENCES cartas_ausentismo(id) ON DELETE SET NULL`);
+    // Cada llamada o carta pertenece a una sola alerta, determinada por
+    // estudiante, año, profesor y materia. La limpieza protege instalaciones
+    // que alcanzaran a ejecutar una versión provisional con duplicados.
+    await client.query(`DELETE FROM alerta_temprana_contactos a USING alerta_temprana_contactos b
+      WHERE a.id>b.id AND a.llamada_id IS NOT NULL AND a.llamada_id=b.llamada_id`);
+    await client.query(`DELETE FROM alerta_temprana_contactos a USING alerta_temprana_contactos b
+      WHERE a.id>b.id AND a.carta_ausentismo_id IS NOT NULL
+        AND a.carta_ausentismo_id=b.carta_ausentismo_id`);
+    await client.query(`DROP INDEX IF EXISTS uq_at_contacto_alerta_llamada`);
+    await client.query(`DROP INDEX IF EXISTS uq_at_contacto_alerta_carta`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_at_contacto_llamada
+      ON alerta_temprana_contactos(llamada_id) WHERE llamada_id IS NOT NULL`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_at_contacto_carta_ausentismo
+      ON alerta_temprana_contactos(carta_ausentismo_id)
+      WHERE carta_ausentismo_id IS NOT NULL`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS alerta_temprana_activa_por_asignacion
       ON alertas_tempranas(anio,estudiante_id,profesor_id,COALESCE(materia_id,0))
       WHERE estado NOT IN ('cerrada','eliminada')`);

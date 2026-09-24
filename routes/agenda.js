@@ -9,6 +9,9 @@ const fechaOk = v => /^\d{4}-\d{2}-\d{2}$/.test(limpio(v));
 const horaOk = v => /^([01]\d|2[0-3]):[0-5]\d$/.test(limpio(v).slice(0,5));
 const esAdmin = u => ["admin","administrativo"].includes(u.rol);
 const esOrientador = u => u.rol === "orientador" || (u.funciones_extra || []).includes("orientador");
+const esSecretaria = u => u.rol === "secretaria" || (u.funciones_extra || []).includes("secretaria");
+const esDocenteAgenda = u => ["profesor","profesor_guia"].includes(u.rol) ||
+  (u.funciones_extra||[]).some(r=>["profesor","profesor_guia"].includes(r));
 function autorizado(req,res,next){
   const u=req.session.usuario;
   if(!u || (!ROLES_AGENDA.has(u.rol) && !(u.funciones_extra||[]).some(r=>ROLES_AGENDA.has(r))))
@@ -80,7 +83,7 @@ router.get("/eventos", async (req,res)=>{
     LEFT JOIN agenda_participantes p ON p.evento_id=e.id LEFT JOIN usuarios u ON u.id=p.usuario_id
     WHERE e.anio=$2 AND e.fecha BETWEEN $3 AND $4 AND e.estado='activo'
       AND (e.creador_id=$1 OR ap.usuario_id=$1 OR (e.institucional=true AND $5::boolean=true))
-    GROUP BY e.id,uc.id,ap.id ORDER BY e.fecha,e.hora_inicio`,[uid,anio,desde,hasta,esAdmin(req.session.usuario)]);
+    GROUP BY e.id,uc.id,ap.id ORDER BY e.fecha,e.hora_inicio`,[uid,anio,desde,hasta,esAdmin(req.session.usuario)||esDocenteAgenda(req.session.usuario)]);
   const citas=await pool.query(`SELECT c.id,c.fecha::text,c.hora::text,c.duracion_min,c.motivo,c.estado,c.pendiente_de,
     cp.estado participante_estado,
     TRIM(CONCAT_WS(' ',e.nombre,e.primer_apellido,e.segundo_apellido)) estudiante,s.nombre seccion
@@ -99,14 +102,26 @@ router.post("/eventos", async (req,res)=>{
   const titulo=limpio(req.body.titulo), tipo=limpio(req.body.tipo)||"reunion", fecha=limpio(req.body.fecha);
   const inicio=limpio(req.body.hora_inicio).slice(0,5), fin=limpio(req.body.hora_fin).slice(0,5);
   const participantes=[...new Set((Array.isArray(req.body.participantes)?req.body.participantes:[]).map(Number).filter(Boolean))];
+  const gestionadoPara=Number(req.body.gestionado_para)||null;
   const institucional=!!req.body.institucional;
   if(titulo.length<3 || !TIPOS.has(tipo) || !fechaOk(fecha) || !horaOk(inicio) || !horaOk(fin) || fin<=inicio)
     return res.status(400).json({error:"Complete correctamente el título, la fecha y el horario."});
-  if(compromisoPropio && !esOrientador(u)) return res.status(403).json({error:"Solo Orientación puede agendar compromisos propios desde esta opción."});
+  if(compromisoPropio && !esOrientador(u) && !esAdmin(u)) return res.status(403).json({error:"Solo Orientación o Administración pueden agendar compromisos propios desde esta opción."});
   if(compromisoPropio && participantes.length) return res.status(400).json({error:"Un compromiso propio no debe incluir invitados."});
-  if(institucional && !esAdmin(u)) return res.status(403).json({error:"Solo Administración puede crear eventos institucionales."});
+  if(compromisoPropio && gestionadoPara) return res.status(400).json({error:"El compromiso propio se registra en la agenda de quien inició sesión."});
+  let personaGestionada=null;
+  if(gestionadoPara){
+    if(!esSecretaria(u)) return res.status(403).json({error:"Solo Secretaría puede gestionar directamente la agenda de otra persona."});
+    const tg=await pool.query(`SELECT id,rol,nombre,primer_apellido,segundo_apellido FROM usuarios
+      WHERE id=$1 AND activo=true AND COALESCE(eliminado,false)=false`,[gestionadoPara]);
+    personaGestionada=tg.rows[0]||null;
+    if(!personaGestionada || !["profesor","profesor_guia","admin"].includes(personaGestionada.rol))
+      return res.status(403).json({error:"Secretaría solamente puede gestionar agendas docentes o la agenda de Dirección."});
+  }
+  if(institucional && !esAdmin(u) && !(esSecretaria(u)&&personaGestionada?.rol==="admin"))
+    return res.status(403).json({error:"El compromiso institucional solo puede crearlo Administración o Secretaría al gestionar la agenda de Dirección."});
   if(participantes.length>100) return res.status(400).json({error:"Hay demasiadas personas invitadas."});
-  const ids=[...new Set([u.id,...participantes])];
+  const ids=[...new Set([gestionadoPara||u.id,...participantes])];
   const valid=await pool.query(`SELECT id,rol,nombre,primer_apellido FROM usuarios WHERE id=ANY($1::int[]) AND activo=true`,[ids]);
   if(valid.rows.length!==ids.length) return res.status(400).json({error:"Una de las personas seleccionadas no está disponible."});
   for(const p of valid.rows){
@@ -123,9 +138,12 @@ router.post("/eventos", async (req,res)=>{
     const r=await client.query(`INSERT INTO agenda_eventos(anio,titulo,tipo,fecha,hora_inicio,hora_fin,lugar,descripcion,creador_id,estudiante_id,institucional)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,[anio,titulo,tipo,fecha,inicio,fin,limpio(req.body.lugar).slice(0,250),limpio(req.body.descripcion).slice(0,2000),u.id,Number(req.body.estudiante_id)||null,institucional]);
     for(const id of ids){
+      const confirmado=id===(gestionadoPara||u.id);
       await client.query(`INSERT INTO agenda_participantes(evento_id,usuario_id,estado,responded_at)
-        VALUES($1,$2,$3,CASE WHEN $3='aceptado' THEN NOW() END)`,[r.rows[0].id,id,id===u.id?'aceptado':'pendiente']);
-      if(id!==u.id) await notificar(client,id,`📅 Invitación pendiente: ${titulo}, ${fechaTexto(fecha)} de ${inicio} a ${fin}.`,r.rows[0].id);
+        VALUES($1,$2,$3,CASE WHEN $3='aceptado' THEN NOW() END)`,[r.rows[0].id,id,confirmado?'aceptado':'pendiente']);
+      if(gestionadoPara&&id===gestionadoPara)
+        await notificar(client,id,`📅 Secretaría agregó a su agenda: ${titulo}, ${fechaTexto(fecha)} de ${inicio} a ${fin}.`,r.rows[0].id);
+      else if(!confirmado) await notificar(client,id,`📅 Invitación pendiente: ${titulo}, ${fechaTexto(fecha)} de ${inicio} a ${fin}.`,r.rows[0].id);
     }
     await client.query("COMMIT"); res.json({ok:true,id:r.rows[0].id});
   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
