@@ -5406,6 +5406,7 @@ tr:hover td{background:#f8fafc;}
       <div style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>
     </div>
     <div class="modal-actions">
+      <button class="btn btn-success" id="btn-imprimir-archivo-retirado" onclick="imprimirArchivoRetirado()" disabled>🖨️ Imprimir expediente</button>
       <button class="btn btn-outline" onclick="cerrarModal('modal-detalle-archivado')">Cerrar</button>
     </div>
   </div>
@@ -12746,7 +12747,7 @@ function renderDPPasos(d){
   // ofendidos aunque estés en la mitad del flujo.
   let ofendidosBtn = '';
   const conciliacionBloqueaParticipantes = ['pendiente','aprobada'].includes(d.conciliacion?.estado);
-  const puedeEditarOfendidos = esGuia && !dp.decision_sesion && !conciliacionBloqueaParticipantes && !['archivado','resuelto','conciliado','desestimado'].includes(dp.estado);
+  const puedeEditarOfendidos = (esGuia || Number(dp.iniciado_por)===Number(ME.id)) && !dp.decision_sesion && !conciliacionBloqueaParticipantes && !['archivado','resuelto','conciliado','desestimado'].includes(dp.estado);
   if(puedeEditarOfendidos || ofendidos.length){
     const listaOfen = ofendidos.length
       ? ofendidos.map((o, i) => {
@@ -19471,6 +19472,7 @@ async function archivarTrasRetiro(){
 //  ARCHIVO DE ESTUDIANTES
 // ════════════════════════════════════
 let archivoData=[];
+let archivoImpresionActual=null;
 
 async function iniciarArchivo(){
   archivoData=ordenarEstudiantes(await api("/api/estudiantes/archivados"));
@@ -19542,6 +19544,9 @@ function filtrarArchivo(){renderArchivo();}
 async function verDetalleArchivado(id){
   const e = archivoData.find(x => x.id === id);
   if(!e) return;
+  archivoImpresionActual=null;
+  const btnImprimir=document.getElementById('btn-imprimir-archivo-retirado');
+  if(btnImprimir)btnImprimir.disabled=true;
   const nombre = nombrePersona(e);
   document.getElementById('darch-titulo').textContent = `📁 ${nombre}`;
   document.getElementById('darch-contenido').innerHTML =
@@ -19719,10 +19724,25 @@ async function verDetalleArchivado(id){
     }
 
     document.getElementById('darch-contenido').innerHTML = html;
+    archivoImpresionActual={estudiante:e,html,soloAcademico:archivoSoloAcademico};
+    if(btnImprimir)btnImprimir.disabled=false;
   } catch(err){
     document.getElementById('darch-contenido').innerHTML =
       `<div style="padding:20px;text-align:center;color:var(--rojo);">Error: ${err.message}</div>`;
   }
+}
+
+async function imprimirArchivoRetirado(){
+  const actual=archivoImpresionActual;
+  if(!actual){sa('alert-archivo','Espere a que termine de cargar el expediente.','danger');return;}
+  const e=actual.estudiante;
+  const nombre=nombrePersona(e);
+  const portada=`<div style="font-size:11px;line-height:1.45;margin-bottom:12px;">
+    <p style="margin:0;"><strong>Estudiante:</strong> ${htmlSeguro(nombre)}<br/>
+    <strong>Cédula:</strong> ${htmlSeguro(e.cedula||'—')} &nbsp; <strong>Sección al retirarse:</strong> ${htmlSeguro(e.seccion_nombre||'—')}<br/>
+    <strong>Fecha de retiro:</strong> ${e.fecha_archivo?fmtF(e.fecha_archivo):(e.fecha_retiro?fmtF(e.fecha_retiro):'—')} &nbsp; <strong>Estado:</strong> Retirado</p>
+  </div>`;
+  await imprimirPDFMEP(actual.soloAcademico?'ARCHIVO ACADÉMICO DE ESTUDIANTE RETIRADO':'EXPEDIENTE DE ESTUDIANTE RETIRADO',portada+actual.html,`expediente_retirado_${String(e.cedula||e.id).replace(/[^0-9A-Za-z_-]/g,'_')}.pdf`);
 }
 
 function abrirArchivarEst(id,nombre){
@@ -21753,9 +21773,49 @@ function renderControlConvocatoriaAusentismo(){
       <td>${htmlSeguro(x.seccion)}</td><td>${htmlSeguro(x.materia)}</td>
       ${ME.rol==='admin'?`<td>${htmlSeguro(nombreDesdeCampos(x.prof_nombre,x.prof_ap1,x.prof_ap2))}</td>`:''}
       <td style="text-align:center;">${x.ausencias} de ${x.total_lecciones}</td><td style="text-align:center;font-weight:bold;color:#b91c1c;">${x.porcentaje}%</td>
-      <td><button class="btn btn-outline btn-xs" onclick="quitarConvocatoriaAusentismo(${x.id})" title="Quitar marca">↩️</button></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-success btn-xs" onclick="imprimirNotificacionAmpliacion(${x.id})">✉️ ${x.notificacion_id?'Reimprimir':'Entregar carta'}</button>
+        <button class="btn btn-outline btn-xs" onclick="quitarConvocatoriaAusentismo(${x.id})" title="Quitar marca">↩️</button>
+        ${x.notificacion_id?`<div style="font-size:10px;color:#15803d;margin-top:3px;">Entregada ${fmtTS(x.entregada_en)}${Number(x.reimpresiones)>0?` · ${x.reimpresiones} reimp.`:''}</div>`:''}
+      </td>
     </tr>`).join('')}</tbody></table></div>`;
   }
+}
+
+async function imprimirNotificacionAmpliacion(id){
+  try{
+    const d=await api(`/api/cartas/convocatoria/${id}/notificar`,'POST',{});
+    const estudiante=nombreDesdeCampos(d.nombre,d.primer_apellido,d.segundo_apellido,{mayusculas:true});
+    const docente=nombreDesdeCampos(d.prof_nombre,d.prof_ap1,d.prof_ap2);
+    const encargado=nombreDesdeCampos(d.enc_nombre,d.enc_ap1,d.enc_ap2,{vacio:'____________________________________________'});
+    const fecha=new Date().toLocaleDateString('es-CR',{day:'numeric',month:'long',year:'numeric'});
+    const contenido=`<div class="pdf-page-block" style="font-family:Arial,sans-serif;font-size:10.6px;line-height:1.34;color:#222;">
+      <p style="text-align:right;margin:0 0 9px;">Desamparados, ${htmlSeguro(fecha)}</p>
+      <p style="margin:0 0 9px;"><strong>Curso lectivo:</strong> ${d.anio}<br/>
+        <strong>Estudiante:</strong> ${htmlSeguro(estudiante)} &nbsp; <strong>Cédula:</strong> ${htmlSeguro(d.cedula||'—')}<br/>
+        <strong>Sección:</strong> ${htmlSeguro(d.seccion||'—')} &nbsp; <strong>Asignatura o figura afín:</strong> ${htmlSeguro(d.materia||'—')}</p>
+      <p>Estimado(a) estudiante y persona encargada legal:</p>
+      <p style="text-align:justify;">Por medio de la presente se comunica formalmente que, una vez revisados los registros oficiales de asistencia correspondientes al curso lectivo ${d.anio}, así como las justificaciones de ausencias presentadas en tiempo y forma cuando corresponde, la persona estudiante registra:</p>
+      <p style="margin:7px 0 9px 22px;"><strong>Total de lecciones impartidas:</strong> ${d.total_lecciones}<br/>
+        <strong>Total de lecciones asistidas:</strong> ${d.lecciones_asistidas}<br/>
+        <strong>Porcentaje de asistencia obtenido:</strong> ${Number(d.porcentaje_asistencia).toFixed(2)} %</p>
+      <p style="text-align:justify;">El artículo 54 del Reglamento de Evaluación de los Aprendizajes y de la Conducta, Decreto Ejecutivo N.° 45509-MEP, establece como requisito para realizar la prueba de ampliación haber asistido regularmente, al menos, al 80 % del total de las lecciones impartidas en la respectiva asignatura, subárea o figura afín durante el curso lectivo, salvo las circunstancias debidamente justificadas previstas en los artículos 36 y 37 del mismo Reglamento.</p>
+      <p style="text-align:justify;">Realizada la revisión correspondiente, se determina que el porcentaje de asistencia registrado en la asignatura indicada es inferior al 80 % requerido reglamentariamente.</p>
+      <p style="text-align:justify;">En consecuencia, y por aplicación de lo dispuesto en el artículo 54 del REAC, la persona estudiante no cumple con el requisito reglamentario de asistencia para realizar las pruebas de ampliación de esta asignatura.</p>
+      <p style="text-align:justify;">La presente comunicación se fundamenta en los registros de asistencia y documentación que constan en el centro educativo y se emite para los efectos académicos y administrativos correspondientes.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:45px;margin-top:24px;text-align:center;font-size:10px;">
+        <div><div style="border-top:1px solid #333;padding-top:4px;"><strong>${htmlSeguro(docente)}</strong><br/>Docente de ${htmlSeguro(d.materia||'—')}</div></div>
+        <div><div style="border-top:1px solid #333;padding-top:4px;"><strong>Laura Cruz Jiménez</strong><br/>Directora · Sello institucional</div></div>
+      </div>
+      <div style="margin-top:18px;border-top:1px solid #94a3b8;padding-top:7px;font-size:9.8px;">
+        <strong>RECIBIDO</strong><br/>Yo, <u>${htmlSeguro(encargado)}</u>, en calidad de persona encargada legal, hago constar que recibí la presente notificación.<br/><br/>
+        <span>Firma: ______________________________</span><span style="float:right;">Fecha: ____ / ____ / ${d.anio}</span>
+      </div>
+    </div>`;
+    await imprimirPDFMEP('NOTIFICACIÓN FORMAL DE INCUMPLIMIENTO DE REQUISITO PARA PRUEBA DE AMPLIACIÓN',contenido,`notificacion_ampliacion_${String(d.cedula||id).replace(/[^0-9A-Za-z_-]/g,'_')}_${d.anio}.pdf`,{bloquesPagina:true});
+    await cargarControlConvocatoriaAusentismo();
+    sa('alert-conv-aus','✅ La entrega quedó registrada y la carta fue generada.','success');
+  }catch(e){sa('alert-conv-aus',e.message,'danger');}
 }
 
 async function marcarConvocatoriaAusentismo(asignacionId,estudianteId){
@@ -25741,7 +25801,7 @@ async function atGuardarNueva(){
   const contexto=document.getElementById('at-nueva-asig'),ref=contexto.value,esAux=String(ref).startsWith('aux:');const body={asignacion_id:esAux?null:Number(ref),seccion_id:esAux?Number(contexto.selectedOptions[0]?.dataset.sec):null,estudiante_id:Number(document.getElementById("at-nueva-est").value),riesgo_ausentismo:document.getElementById("at-riesgo-aus").checked,categorias:[...document.querySelectorAll('[name="at-codigo"]:checked')].map(x=>Number(x.value)),observacion_inicial:document.getElementById("at-observacion-inicial").value.trim()};
   if((!body.asignacion_id&&!body.seccion_id)||!body.estudiante_id){sa("alert-at-nueva","Seleccione la sección y el estudiante.","warning");return;}
   if(!body.riesgo_ausentismo&&!body.categorias.length){sa("alert-at-nueva","Seleccione al menos una alerta o riesgo por ausentismo.","warning");return;}
-  try{const d=await api("/api/alerta-temprana/alertas","POST",body);cerrarModal("modal-at-nueva");await atCargarAlertas();await atVerDetalle(d.id);}catch(e){sa("alert-at-nueva",e.message,"danger");}
+  try{const d=await api("/api/alerta-temprana/alertas","POST",body);cerrarModal("modal-at-nueva");await atCargarAlertas();await atVerDetalle(d.id);if(Number(d.llamadas_vinculadas)>0)sa("alert-at",`✅ Alerta abierta. Se incorporaron ${d.llamadas_vinculadas} llamada(s) registradas previamente.`,"success");}catch(e){sa("alert-at-nueva",e.message,"danger");}
 }
 function atCategoriasTexto(d){const elegidas=new Set((d.alerta.categorias||[]).map(Number));const lista=[];d.catalogo.forEach(g=>g.items.forEach(i=>{if(elegidas.has(i.codigo))lista.push(`<li><strong>${i.codigo}.</strong> ${htmlSeguro(i.descripcion)}${g.confidencial?' <span title="Información confidencial">🔒</span>':''}</li>`);}));if(d.alerta.riesgo_ausentismo)lista.unshift('<li><strong>Ausentismo a lecciones por materia</strong></li>');return lista.length?`<ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.55">${lista.join("")}</ul>`:'<span class="empty">Sin categorías registradas.</span>';}
 async function atVerDetalle(id){

@@ -125,7 +125,7 @@ router.get("/catalogos",asyncRoute(async(req,res)=>{
       WHERE u.activo=true AND COALESCE(u.eliminado,false)=false
         AND (u.rol IN ('admin','auxiliar','administrativo','secretaria','profesor','profesor_guia','orientador')
           OR EXISTS (SELECT 1 FROM asignaciones a WHERE a.profesor_id=u.id AND COALESCE(a.anio,$1)=$1))
-      ORDER BY u.primer_apellido,u.segundo_apellido,u.nombre`,[anio])
+      ORDER BY u.nombre,u.primer_apellido,u.segundo_apellido`,[anio])
   ]);
   res.json({anio,secciones:secciones.rows,estudiantes:estudiantes.rows,responsables:responsables.rows});
 }));

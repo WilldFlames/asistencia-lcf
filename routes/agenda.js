@@ -60,7 +60,7 @@ router.get("/personal", async (req,res)=>{
     LEFT JOIN secciones s ON s.id=so.seccion_id
     WHERE u.activo=true AND COALESCE(u.eliminado,false)=false
       AND u.rol IN ('admin','administrativo','secretaria','auxiliar','profesor','profesor_guia','orientador','bibliotecologa')
-    GROUP BY u.id ORDER BY u.primer_apellido,u.segundo_apellido,u.nombre`,[anio]);
+    GROUP BY u.id ORDER BY u.nombre,u.primer_apellido,u.segundo_apellido`,[anio]);
   res.json(r.rows);
 });
 
@@ -74,7 +74,7 @@ router.get("/eventos", async (req,res)=>{
     ap.estado mi_estado,ap.respuesta,
     COALESCE(json_agg(json_build_object('id',p.usuario_id,'nombre',TRIM(CONCAT_WS(' ',u.nombre,u.primer_apellido,u.segundo_apellido)),
       'estado',p.estado,'respuesta',p.respuesta,'propuesta_fecha',p.propuesta_fecha,'propuesta_inicio',p.propuesta_inicio,'propuesta_fin',p.propuesta_fin)
-      ORDER BY u.primer_apellido,u.nombre) FILTER(WHERE p.id IS NOT NULL),'[]') participantes
+      ORDER BY u.nombre,u.primer_apellido,u.segundo_apellido) FILTER(WHERE p.id IS NOT NULL),'[]') participantes
     FROM agenda_eventos e JOIN usuarios uc ON uc.id=e.creador_id
     LEFT JOIN agenda_participantes ap ON ap.evento_id=e.id AND ap.usuario_id=$1
     LEFT JOIN agenda_participantes p ON p.evento_id=e.id LEFT JOIN usuarios u ON u.id=p.usuario_id

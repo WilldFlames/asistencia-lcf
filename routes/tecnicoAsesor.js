@@ -35,7 +35,7 @@ async function candidatosCuido(client,e,calendarioId,adecuacionId=0){
       )
     GROUP BY u.id,u.nombre,u.primer_apellido,u.segundo_apellido
     HAVING COUNT(DISTINCT h.leccion)=$5
-    ORDER BY total_cuidos ASC,cuidos_dia ASC,u.primer_apellido,u.segundo_apellido,u.nombre
+    ORDER BY total_cuidos ASC,cuidos_dia ASC,u.nombre,u.primer_apellido,u.segundo_apellido
   `,[anio,dia,lecs,calendarioId,lecs.length,fecha,String(e.hora_inicio).slice(0,5),String(e.hora_fin).slice(0,5),e.id||0,adecuacionId||0]);
   return r.rows;
 }
@@ -80,7 +80,7 @@ router.get('/calendarios/:id',async(req,res)=>{
   const ad=await pool.query(`SELECT a.*,concat_ws(' ',u.nombre,u.primer_apellido,u.segundo_apellido) AS profesor_nombre FROM calendario_pruebas_cuidos_adecuacion a JOIN usuarios u ON u.id=a.profesor_id WHERE a.calendario_id=$1 ORDER BY a.fecha,a.hora_inicio`,[req.params.id]);
   res.json({calendario:c.rows[0],eventos:e.rows,adecuaciones:ad.rows});
 });
-router.get('/docentes-cuido',async(req,res)=>{const r=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido FROM usuarios WHERE activo=true AND rol IN ('profesor','profesor_guia') ORDER BY primer_apellido,segundo_apellido,nombre`);res.json(r.rows);});
+router.get('/docentes-cuido',async(req,res)=>{const r=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido FROM usuarios WHERE activo=true AND rol IN ('profesor','profesor_guia') ORDER BY nombre,primer_apellido,segundo_apellido`);res.json(r.rows);});
 router.get('/cronograma-publicado',async(req,res)=>{const r=await pool.query(`SELECT c.id AS calendario_id,c.titulo,c.fecha_inicio::text,c.fecha_fin::text,e.fecha::text,e.hora_inicio::text,e.hora_fin::text,e.materia,e.seccion_id,s.nombre AS seccion_nombre,s.nivel,(SELECT COUNT(*)::int FROM secciones sx JOIN secciones_anio sa ON sa.seccion_id=sx.id AND sa.anio=EXTRACT(YEAR FROM e.fecha)::int AND sa.activa=true WHERE sx.nivel=s.nivel) AS secciones_nivel_total FROM calendarios_pruebas c JOIN calendario_pruebas_eventos e ON e.calendario_id=c.id JOIN secciones s ON s.id=e.seccion_id WHERE c.estado='publicado' AND c.fecha_fin>=CURRENT_DATE ORDER BY c.fecha_inicio,e.fecha,e.hora_inicio,s.nivel,s.nombre`);res.json(r.rows);});
 router.post('/calendarios/:id/eventos',exigirCTA,async(req,res)=>{
   const {fecha,hora_inicio,hora_fin,materia,seccion_id,nivel,niveles,observacion}=req.body;
@@ -118,11 +118,11 @@ router.post('/calendarios/:id/generar-cuidos',exigirCTA,asyncRoute(async(req,res
       JOIN asignaciones a ON a.profesor_id=u.id AND a.anio=ANY($1::int[]) AND COALESCE(a.activa,true)=true
       JOIN horarios h ON h.asignacion_id=a.id AND h.anio=a.anio
       WHERE u.activo=true AND u.rol IN ('profesor','profesor_guia')
-      ORDER BY u.primer_apellido,u.segundo_apellido,u.nombre,u.id
+      ORDER BY u.nombre,u.primer_apellido,u.segundo_apellido,u.id
     `,[anios])).rows;
     const mapa=new Map();
     for(const f of filas){
-      if(!mapa.has(f.id))mapa.set(f.id,{id:f.id,nombre:`${f.primer_apellido||''} ${f.segundo_apellido||''} ${f.nombre||''}`.trim(),horario:new Set(),total:0,porDia:new Map(),ocupado:new Map()});
+      if(!mapa.has(f.id))mapa.set(f.id,{id:f.id,nombre:`${f.nombre||''} ${f.primer_apellido||''} ${f.segundo_apellido||''}`.trim(),horario:new Set(),total:0,porDia:new Map(),ocupado:new Map()});
       mapa.get(f.id).horario.add(`${f.anio}|${f.dia}|${f.leccion}`);
     }
     const docentes=[...mapa.values()];

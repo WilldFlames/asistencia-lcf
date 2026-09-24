@@ -132,7 +132,7 @@ router.get("/mis-asignaciones/:seccion_id", requireAuth, async (req, res) => {
       FROM usuarios
       WHERE activo = true
         AND rol IN ('orientador','auxiliar','administrativo')
-      ORDER BY rol, primer_apellido, nombre
+      ORDER BY rol, nombre, primer_apellido, segundo_apellido
     `);
   } catch (e) {
     // Si la columna 'activo' no existe en algún ambiente antiguo, cae al

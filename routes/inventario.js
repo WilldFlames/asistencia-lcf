@@ -275,7 +275,7 @@ router.get("/usuarios-retiro", requireAuth, async (req, res) => {
       FROM usuarios
       WHERE activo = true
         AND rol IN ('profesor','profesor_guia','orientador','administrativo','secretaria','auxiliar','admin')
-      ORDER BY primer_apellido, nombre
+      ORDER BY nombre, primer_apellido, segundo_apellido
     `);
     res.json(r.rows);
   } catch (e) {

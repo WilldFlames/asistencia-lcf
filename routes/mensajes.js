@@ -78,7 +78,7 @@ router.get("/profesores-seccion/:seccion_id", requireAuth, async (req, res) => {
     JOIN usuarios u ON u.id=a.profesor_id
     JOIN materias m ON m.id=a.materia_id
     WHERE a.seccion_id=$1 AND a.anio=$2 AND u.activo=true
-    ORDER BY u.primer_apellido, u.nombre
+    ORDER BY u.nombre, u.primer_apellido, u.segundo_apellido
   `, [req.params.seccion_id, anioActivo]);
   res.json(r.rows);
 });

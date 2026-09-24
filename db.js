@@ -837,6 +837,30 @@ async function initDB() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_aus_est
       ON convocatoria_ausentismo(anio, estudiante_id, activa)`);
 
+    // Notificación formal entregada cuando la asistencia es inferior al 80 %.
+    // Conserva una fotografía de los datos que se imprimieron y permite
+    // distinguir la primera entrega de sus reimpresiones posteriores.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notificaciones_ampliacion_asistencia (
+        id                  SERIAL PRIMARY KEY,
+        convocatoria_id     INTEGER UNIQUE NOT NULL REFERENCES convocatoria_ausentismo(id) ON DELETE RESTRICT,
+        estudiante_id       INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+        profesor_id         INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+        entregada_por       INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+        anio                INTEGER NOT NULL,
+        materia             TEXT NOT NULL,
+        seccion             TEXT NOT NULL,
+        total_lecciones     INTEGER NOT NULL DEFAULT 0,
+        lecciones_asistidas INTEGER NOT NULL DEFAULT 0,
+        porcentaje_asistencia NUMERIC(5,2) NOT NULL DEFAULT 0,
+        entregada_en        TIMESTAMP NOT NULL DEFAULT NOW(),
+        reimpresiones       INTEGER NOT NULL DEFAULT 0,
+        ultima_reimpresion  TIMESTAMP
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_notif_ampliacion_est
+      ON notificaciones_ampliacion_asistencia(estudiante_id,anio)`);
+
     // 2026 conserva las fechas oficiales que ya utilizaba el sistema. El 2027
     // se crea en preparación y el administrador debe registrar sus fechas.
     await client.query(`

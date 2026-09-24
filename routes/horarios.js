@@ -142,7 +142,7 @@ router.get("/docentes", requireRol("admin","secretaria","bibliotecologa","comite
       u.rol IN ('profesor','profesor_guia','orientador')
       OR EXISTS (SELECT 1 FROM asignaciones a WHERE a.profesor_id=u.id AND a.anio=$1 AND COALESCE(a.activa,true)=true)
     )
-    ORDER BY u.primer_apellido,u.segundo_apellido,u.nombre`,[anio]);
+    ORDER BY u.nombre,u.primer_apellido,u.segundo_apellido`,[anio]);
   res.json(r.rows);
 }));
 
@@ -246,7 +246,7 @@ router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) =>
             AND a2.anio = $2
         )
       )
-    ORDER BY m.nombre, u.primer_apellido
+    ORDER BY m.nombre, u.nombre, u.primer_apellido, u.segundo_apellido
   `, [req.params.seccion_id, anio]);
   res.json(r.rows);
 });

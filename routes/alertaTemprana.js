@@ -243,9 +243,38 @@ router.post("/alertas",requireAuth,requireParticipante,asyncRoute(async(req,res)
     const id=q.rows[0].id;
     await client.query(`INSERT INTO alerta_temprana_seguimientos(alerta_id,estado,observaciones,registrado_por)
       VALUES($1,'activada',$2,$3)`,[id,obs||"Se abre la Alerta Temprana.",u.id]);
+    // Una llamada puede haberse realizado antes de que se formalice la alerta.
+    // Al abrirla recuperamos automáticamente todas las llamadas aún huérfanas
+    // del mismo estudiante, funcionario, materia y año, y las incorporamos al
+    // registro de contactos del expediente.
+    const llamadasPrevias=await client.query(`WITH vinculadas AS (
+        UPDATE registro_llamadas
+        SET alerta_id=$1
+        WHERE anio=$2 AND estudiante_id=$3 AND profesor_id=$4
+          AND materia_id IS NOT DISTINCT FROM $5::int AND alerta_id IS NULL
+        RETURNING id,fecha,medio,resultado,resultado_otro,atendio_nombre,observaciones
+      )
+      INSERT INTO alerta_temprana_contactos
+        (alerta_id,llamada_id,fecha,via_contacto,persona_contactada,comentarios,registrado_por)
+      SELECT $1,id,fecha,medio,
+        CASE WHEN resultado='efectiva' THEN COALESCE(NULLIF(atendio_nombre,''),'Persona encargada') ELSE 'Sin contacto' END,
+        TRIM(CONCAT(
+          CASE resultado
+            WHEN 'efectiva' THEN 'Comunicación efectiva'
+            WHEN 'no_contesta' THEN 'No contestó'
+            WHEN 'equivocado' THEN 'Número equivocado'
+            WHEN 'fuera_servicio' THEN 'Fuera de servicio'
+            WHEN 'buzon' THEN 'Buzón de voz'
+            WHEN 'devolver_llamada' THEN 'Solicitó devolver la llamada'
+            ELSE COALESCE(NULLIF(resultado_otro,''),'Otro resultado') END,
+          '. ',COALESCE(observaciones,'')
+        )),$4
+      FROM vinculadas
+      ON CONFLICT (llamada_id) DO NOTHING
+      RETURNING id`,[id,anio,estudianteId,u.id,a.materia_id||null]);
     const est=await client.query(`SELECT ${nombreCompleto("e")} AS nombre FROM estudiantes e WHERE id=$1`,[estudianteId]);
     await notificarSupervision(client,`🚨 Nueva Alerta Temprana de ${est.rows[0]?.nombre||"un estudiante"} en ${a.materia_nombre}.`,id,u.id);
-    await client.query("COMMIT");res.json({ok:true,id});
+    await client.query("COMMIT");res.json({ok:true,id,llamadas_vinculadas:llamadasPrevias.rowCount});
   }catch(e){await client.query("ROLLBACK");if(e.code==="23505") return res.status(409).json({error:"Ya existe una alerta abierta para este estudiante en esta materia."});throw e;}
   finally{client.release();}
 }));

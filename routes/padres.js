@@ -480,6 +480,11 @@ router.get("/hijo/:id/docentes", requirePadre, hijoDelPadre, async (req,res)=>{
     ORDER BY a.profesor_id,a.materia_id,
       CASE WHEN COALESCE(a.periodo,'I Período')=$4 THEN 0 ELSE 1 END,a.id DESC
   `,[req.hijo.id,req.hijo.seccion_id||0,anio,periodo]);
+  r.rows.sort((a,b)=>
+    `${a.nombre||''} ${a.primer_apellido||''} ${a.segundo_apellido||''}`.localeCompare(
+      `${b.nombre||''} ${b.primer_apellido||''} ${b.segundo_apellido||''}`,'es',{sensitivity:'base'}
+    ) || String(a.materia_nombre||'').localeCompare(String(b.materia_nombre||''),'es',{sensitivity:'base'})
+  );
   res.json(r.rows);
 });
 

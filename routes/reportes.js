@@ -591,7 +591,7 @@ router.get("/cumplimiento", requireAuth, async (req, res) => {
       AND sa.fecha BETWEEN $1 AND $2
     WHERE u.activo = true AND u.rol IN ('profesor','profesor_guia','orientador')
     GROUP BY u.id, u.nombre, u.primer_apellido, u.segundo_apellido, u.rol
-    ORDER BY u.primer_apellido, u.nombre
+    ORDER BY u.nombre, u.primer_apellido, u.segundo_apellido
   `, [d, h, anioActivo]);
 
   // Conducta por sección: boletas registradas por guía

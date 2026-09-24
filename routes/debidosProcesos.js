@@ -753,8 +753,9 @@ router.post("/:id/ofendidos", requireAuth, requireProcesoAccess, async (req, res
   const dp = dpR.rows[0];
 
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-  if (!esStaff && guiaEfectivo(dp) !== u.id) {
-    return res.status(403).json({ error: "Solo el guía del proceso puede agregar ofendidos." });
+  const esIniciador = Number(dp.iniciado_por) === Number(u.id);
+  if (!esStaff && guiaEfectivo(dp) !== u.id && !esIniciador) {
+    return res.status(403).json({ error: "Solo el iniciador, el guía del proceso o Administración pueden agregar ofendidos." });
   }
 
   // No permitir agregar ofendidos si el proceso ya está cerrado
@@ -836,7 +837,8 @@ router.delete("/:id/ofendidos/:ofendido_id", requireAuth, requireProcesoAccess, 
   const dp = dpR.rows[0];
 
   const esStaff = ["admin","administrativo","auxiliar"].includes(u.rol);
-  if (!esStaff && guiaEfectivo(dp) !== u.id) {
+  const esIniciador = Number(dp.iniciado_por) === Number(u.id);
+  if (!esStaff && guiaEfectivo(dp) !== u.id && !esIniciador) {
     return res.status(403).json({ error: "Sin permisos" });
   }
   if (dp.estado !== "en_curso") {

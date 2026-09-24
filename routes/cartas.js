@@ -358,14 +358,57 @@ router.get("/convocatoria/registros", requireDocente, async (req, res) => {
   const admin=u.rol==='admin';
   const r=await pool.query(`
     SELECT ca.*,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
-      u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2
+      u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2,
+      na.id AS notificacion_id,na.entregada_en,na.reimpresiones,
+      TRIM(CONCAT_WS(' ',ue.nombre,ue.primer_apellido,ue.segundo_apellido)) AS entregada_por_nombre
     FROM convocatoria_ausentismo ca
     JOIN estudiantes e ON e.id=ca.estudiante_id
     JOIN usuarios u ON u.id=ca.profesor_id
+    LEFT JOIN notificaciones_ampliacion_asistencia na ON na.convocatoria_id=ca.id
+    LEFT JOIN usuarios ue ON ue.id=na.entregada_por
     WHERE ca.anio=$1 AND ca.activa=true ${admin?'':'AND ca.profesor_id=$2'}
     ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre,ca.materia
   `,admin?[anio]:[anio,u.id]);
   res.json(r.rows);
+});
+
+// Guarda la entrega y devuelve todos los datos autorrellenables para la carta
+// formal de incumplimiento del 80 % de asistencia. Una nueva impresión conserva
+// la fecha de la primera entrega y aumenta el contador de reimpresiones.
+router.post("/convocatoria/:id/notificar", requireDocente, async(req,res)=>{
+  const u=req.session.usuario,admin=u.rol==='admin';
+  const base=await pool.query(`SELECT ca.*,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
+      up.nombre AS prof_nombre,up.primer_apellido AS prof_ap1,up.segundo_apellido AS prof_ap2,
+      enc.nombre AS enc_nombre,enc.primer_apellido AS enc_ap1,enc.segundo_apellido AS enc_ap2,
+      enc.cedula AS enc_cedula,enc.parentesco AS enc_parentesco
+    FROM convocatoria_ausentismo ca
+    JOIN estudiantes e ON e.id=ca.estudiante_id
+    JOIN usuarios up ON up.id=ca.profesor_id
+    LEFT JOIN LATERAL (
+      SELECT nombre,primer_apellido,segundo_apellido,cedula,parentesco
+      FROM encargados WHERE estudiante_id=e.id
+      ORDER BY es_principal DESC NULLS LAST,id LIMIT 1
+    ) enc ON true
+    WHERE ca.id=$1 AND ca.activa=true AND ($2::boolean=true OR ca.profesor_id=$3)`,
+    [req.params.id,admin,u.id]);
+  if(!base.rows.length) return res.status(404).json({error:"La marca no existe o no pertenece al docente."});
+  const x=base.rows[0];
+  const total=Math.max(0,Number(x.total_lecciones)||0);
+  const asistidas=Math.max(0,total-(Number(x.ausencias)||0));
+  const asistencia=Math.max(0,Math.min(100,Math.round((100-(Number(x.porcentaje)||0))*100)/100));
+  const reg=await pool.query(`INSERT INTO notificaciones_ampliacion_asistencia
+      (convocatoria_id,estudiante_id,profesor_id,entregada_por,anio,materia,seccion,
+       total_lecciones,lecciones_asistidas,porcentaje_asistencia)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    ON CONFLICT(convocatoria_id) DO UPDATE SET
+      reimpresiones=notificaciones_ampliacion_asistencia.reimpresiones+1,
+      ultima_reimpresion=NOW()
+    RETURNING id,entregada_en,reimpresiones,ultima_reimpresion,anio,materia,seccion,
+      total_lecciones,lecciones_asistidas,porcentaje_asistencia`,
+    [x.id,x.estudiante_id,x.profesor_id,u.id,x.anio,x.materia,x.seccion,total,asistidas,asistencia]);
+  // Una reimpresión reproduce exactamente el cálculo que quedó registrado en
+  // la primera entrega, aun si posteriormente cambian los datos de asistencia.
+  res.json({...x,...reg.rows[0]});
 });
 
 router.post("/convocatoria/marcar", requireDocente, async (req,res)=>{

@@ -18,7 +18,7 @@ function onlyAdmin000(req,res,next){
 // ── USUARIOS ──────────────────────────────────────────────────
 router.get("/usuarios", onlyAdmin, async (req, res) => {
   const r = await pool.query(
-    "SELECT id,cedula,nombre,primer_apellido,segundo_apellido,email,rol,activo,primer_login FROM usuarios WHERE COALESCE(eliminado,false)=false ORDER BY primer_apellido,segundo_apellido,nombre"
+    "SELECT id,cedula,nombre,primer_apellido,segundo_apellido,email,rol,activo,primer_login FROM usuarios WHERE COALESCE(eliminado,false)=false ORDER BY nombre,primer_apellido,segundo_apellido"
   );
   res.json(r.rows);
 });
@@ -26,7 +26,7 @@ router.get("/usuarios", onlyAdmin, async (req, res) => {
 // Lista de usuarios activos — accesible para secretaria (para consecutivos)
 router.get("/usuarios-activos", requireAuth, async (req, res) => {
   const r = await pool.query(
-    "SELECT id,nombre,primer_apellido,segundo_apellido,rol FROM usuarios WHERE activo=true AND COALESCE(eliminado,false)=false ORDER BY primer_apellido,segundo_apellido,nombre"
+    "SELECT id,nombre,primer_apellido,segundo_apellido,rol FROM usuarios WHERE activo=true AND COALESCE(eliminado,false)=false ORDER BY nombre,primer_apellido,segundo_apellido"
   );
   res.json(r.rows);
 });
@@ -550,7 +550,7 @@ router.get("/buscar-profe/:nombre", onlyAdmin, async (req, res) => {
     FROM usuarios
     WHERE (nombre ILIKE $1 OR primer_apellido ILIKE $1 OR segundo_apellido ILIKE $1)
       AND rol IN ('profesor','profesor_guia')
-    ORDER BY primer_apellido, nombre
+    ORDER BY nombre, primer_apellido, segundo_apellido
     LIMIT 20
   `, [`%${req.params.nombre}%`]);
   res.json(r.rows);
@@ -631,7 +631,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
     JOIN secciones_anio san ON san.seccion_id=a.seccion_id AND san.anio=$2 AND san.activa=true
     JOIN materias m ON m.id=a.materia_id
     WHERE COALESCE(a.anio, $1) = $2
-    ORDER BY u.primer_apellido, s.nombre, m.nombre
+    ORDER BY u.nombre, u.primer_apellido, u.segundo_apellido, s.nombre, m.nombre
   `;
   const sqlPeriodo = `
     SELECT a.*, COALESCE(a.periodo,'I Período') AS periodo,
@@ -658,7 +658,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
         )
       )
     )
-    ORDER BY u.primer_apellido, s.nombre, m.nombre
+    ORDER BY u.nombre, u.primer_apellido, u.segundo_apellido, s.nombre, m.nombre
   `;
   const r = await pool.query(
     todas ? sqlTodas : sqlPeriodo,
@@ -775,7 +775,7 @@ router.put("/asignaciones/:id", onlyAdmin, async (req, res) => {
 });
 
 router.get("/profesores", async (req, res) => {
-  const r = await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido,rol FROM usuarios WHERE rol IN ('profesor','profesor_guia','orientador') AND activo=true ORDER BY primer_apellido,nombre`);
+  const r = await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido,rol FROM usuarios WHERE rol IN ('profesor','profesor_guia','orientador') AND activo=true ORDER BY nombre,primer_apellido,segundo_apellido`);
   res.json(r.rows);
 });
 
@@ -1026,7 +1026,7 @@ router.get("/funciones-institucionales", onlyAdmin, async (req,res)=>{
       u.cedula,u.nombre,u.primer_apellido,u.segundo_apellido,u.rol
     FROM funciones_institucionales fi
     JOIN usuarios u ON u.id=fi.usuario_id
-    ORDER BY fi.tipo,u.primer_apellido,u.segundo_apellido,u.nombre
+    ORDER BY fi.tipo,u.nombre,u.primer_apellido,u.segundo_apellido
   `);
   res.json(r.rows);
 });
