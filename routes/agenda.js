@@ -99,6 +99,7 @@ router.get("/eventos", async (req,res)=>{
 router.post("/eventos", async (req,res)=>{
   const u=req.session.usuario, anio=await obtenerAnioActivo();
   const compromisoPropio=req.body.compromiso_propio===true;
+  const compromisoSecretaria=req.body.compromiso_personal_secretaria===true;
   const titulo=limpio(req.body.titulo), tipo=limpio(req.body.tipo)||"reunion", fecha=limpio(req.body.fecha);
   const inicio=limpio(req.body.hora_inicio).slice(0,5), fin=limpio(req.body.hora_fin).slice(0,5);
   const participantes=[...new Set((Array.isArray(req.body.participantes)?req.body.participantes:[]).map(Number).filter(Boolean))];
@@ -109,6 +110,9 @@ router.post("/eventos", async (req,res)=>{
   if(compromisoPropio && !esOrientador(u) && !esAdmin(u)) return res.status(403).json({error:"Solo Orientación o Administración pueden agendar compromisos propios desde esta opción."});
   if(compromisoPropio && participantes.length) return res.status(400).json({error:"Un compromiso propio no debe incluir invitados."});
   if(compromisoPropio && gestionadoPara) return res.status(400).json({error:"El compromiso propio se registra en la agenda de quien inició sesión."});
+  if(compromisoSecretaria && !esSecretaria(u)) return res.status(403).json({error:"Solo Secretaría puede usar la gestión de compromisos personales."});
+  if(compromisoSecretaria && participantes.length) return res.status(400).json({error:"Un compromiso personal no incluye invitados; utilice Nueva reunión para convocarlos."});
+  if(compromisoSecretaria && institucional) return res.status(400).json({error:"Un compromiso personal no puede publicarse como institucional."});
   let personaGestionada=null;
   if(gestionadoPara){
     if(!esSecretaria(u)) return res.status(403).json({error:"Solo Secretaría puede gestionar directamente la agenda de otra persona."});

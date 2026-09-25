@@ -24,6 +24,18 @@ test('Administración puede registrar compromisos personales en su agenda',()=>{
   assert.match(ui,/agenda-btn-compromiso[\s\S]*Agendar compromiso propio/);
 });
 
+test('Secretaría tiene un flujo separado para compromisos personales propios o gestionados',()=>{
+  const route=read('routes/agenda.js'),ui=read('public/index.html');
+  assert.match(ui,/function agendaAbrirCompromisoPersonal\(\)/);
+  assert.match(ui,/agendaAbrirNuevo\(false,true\)/);
+  assert.match(ui,/compromiso_personal_secretaria:agendaEsCompromisoSecretaria/);
+  assert.match(ui,/Este compromiso quedará confirmado directamente en la agenda seleccionada, sin invitaciones/);
+  assert.match(route,/const compromisoSecretaria=req\.body\.compromiso_personal_secretaria===true/);
+  assert.match(route,/compromisoSecretaria && !esSecretaria\(u\)/);
+  assert.match(route,/compromisoSecretaria && participantes\.length/);
+  assert.match(route,/compromisoSecretaria && institucional/);
+});
+
 test('Secretaría gestiona directamente docentes y Dirección con auditoría',()=>{
   const route=read('routes/agenda.js'),ui=read('public/index.html');
   assert.match(route,/const gestionadoPara=Number\(req\.body\.gestionado_para\)\|\|null/);

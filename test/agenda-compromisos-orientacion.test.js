@@ -10,9 +10,9 @@ const agenda = fs.readFileSync(path.join(raiz, 'routes', 'agenda.js'), 'utf8');
 test('Orientación puede registrar un compromiso propio sin invitados', () => {
   assert.match(html, /id="agenda-btn-compromiso"/);
   assert.match(html, /tieneAlgunRol\('orientador'\)/);
-  assert.match(html, /agendaEsCompromisoPropio\?\[\]:\[\.\.\.agendaSeleccionados\]/);
+  assert.match(html, /const esPersonal=agendaEsCompromisoPropio\|\|agendaEsCompromisoSecretaria,participantes=esPersonal\?\[\]:\[\.\.\.agendaSeleccionados\]/);
   assert.match(html, /compromiso_propio:agendaEsCompromisoPropio/);
-  assert.match(html, /Guardar y bloquear horario/);
+  assert.match(html, /Guardar compromiso/);
 });
 
 test('el servidor permite compromisos propios a Orientación y Administración y los confirma', () => {
