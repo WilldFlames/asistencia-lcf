@@ -1112,8 +1112,10 @@ async function initDB() {
       // Efectos automáticos de una resolución final. Los vínculos permiten
       // que el cierre sea idempotente: nunca duplica rebajos ni suspensiones.
       await client.query(`ALTER TABLE boletas_conducta ADD COLUMN IF NOT EXISTS debido_proceso_id INTEGER REFERENCES debidos_procesos(id) ON DELETE SET NULL`);
+      await client.query(`ALTER TABLE boletas_conducta ADD COLUMN IF NOT EXISTS periodo_conducta TEXT`);
       await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_boleta_debido_proceso ON boletas_conducta(debido_proceso_id) WHERE debido_proceso_id IS NOT NULL`);
       await client.query(`ALTER TABLE medidas_estudiantiles ADD COLUMN IF NOT EXISTS debido_proceso_id INTEGER REFERENCES debidos_procesos(id) ON DELETE SET NULL`);
+      await client.query(`ALTER TABLE medidas_estudiantiles ADD COLUMN IF NOT EXISTS periodo_conducta TEXT`);
       await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_suspension_debido_proceso ON medidas_estudiantiles(debido_proceso_id) WHERE debido_proceso_id IS NOT NULL AND tipo='suspension'`);
 
       console.log("✅ DP: tabla debidos_procesos lista");
@@ -1140,6 +1142,57 @@ async function initDB() {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dpp_asignado ON dp_pasos(asignado_a) WHERE asignado_a IS NOT NULL`);
       await client.query(`ALTER TABLE dp_pasos ADD COLUMN IF NOT EXISTS observacion TEXT DEFAULT ''`);
       console.log("✅ DP: tabla dp_pasos lista");
+
+      // Reparación histórica: algunas resoluciones ya cerradas guardaron el
+      // período dentro del JSON, pero la boleta quedó fechada en el día del
+      // cierre. Eso hacía que el rebajo apareciera en el período actual o solo
+      // en el cálculo anual. Se corrigen exclusivamente boletas creadas por DP.
+      await client.query(`
+        WITH periodos_dp AS (
+          SELECT dp.id AS proceso_id, dp.anio,
+            CASE
+              WHEN lower(COALESCE(
+                NULLIF((SELECT p.contenido->>'periodo_conducta' FROM dp_pasos p WHERE p.proceso_id=dp.id AND p.tipo='resolucion_final' ORDER BY p.id DESC LIMIT 1), ''),
+                NULLIF((SELECT p.contenido->>'semestre' FROM dp_pasos p WHERE p.proceso_id=dp.id AND p.tipo='resolucion_final' ORDER BY p.id DESC LIMIT 1), ''),
+                NULLIF((SELECT p.contenido->>'periodo_conducta' FROM dp_pasos p WHERE p.proceso_id=dp.id AND p.tipo='traslado_cargos' ORDER BY p.id DESC LIMIT 1), ''),
+                NULLIF((SELECT p.contenido->>'semestre' FROM dp_pasos p WHERE p.proceso_id=dp.id AND p.tipo='traslado_cargos' ORDER BY p.id DESC LIMIT 1), '')
+              )) ~ '^(ii|2|segundo)([[:space:]]|$)' THEN 'II Período'
+              WHEN lower(COALESCE(
+                NULLIF((SELECT p.contenido->>'periodo_conducta' FROM dp_pasos p WHERE p.proceso_id=dp.id AND p.tipo='resolucion_final' ORDER BY p.id DESC LIMIT 1), ''),
+                NULLIF((SELECT p.contenido->>'semestre' FROM dp_pasos p WHERE p.proceso_id=dp.id AND p.tipo='resolucion_final' ORDER BY p.id DESC LIMIT 1), ''),
+                NULLIF((SELECT p.contenido->>'periodo_conducta' FROM dp_pasos p WHERE p.proceso_id=dp.id AND p.tipo='traslado_cargos' ORDER BY p.id DESC LIMIT 1), ''),
+                NULLIF((SELECT p.contenido->>'semestre' FROM dp_pasos p WHERE p.proceso_id=dp.id AND p.tipo='traslado_cargos' ORDER BY p.id DESC LIMIT 1), '')
+              )) ~ '^(i|1|primer)([[:space:]]|$)' THEN 'I Período'
+              ELSE NULL
+            END AS periodo
+          FROM debidos_procesos dp
+        )
+        UPDATE boletas_conducta b
+        SET periodo_conducta=pd.periodo,
+            fecha=CASE
+              WHEN pd.periodo='I Período'
+                AND al.periodo_i_inicio IS NOT NULL AND al.periodo_i_fin IS NOT NULL
+                AND (b.fecha<al.periodo_i_inicio OR b.fecha>al.periodo_i_fin)
+                THEN al.periodo_i_fin
+              WHEN pd.periodo='II Período'
+                AND al.periodo_ii_inicio IS NOT NULL AND al.periodo_ii_fin IS NOT NULL
+                AND (b.fecha<al.periodo_ii_inicio OR b.fecha>al.periodo_ii_fin)
+                THEN al.periodo_ii_fin
+              ELSE b.fecha
+            END
+        FROM periodos_dp pd
+        LEFT JOIN anios_lectivos al ON al.anio=pd.anio
+        WHERE b.debido_proceso_id=pd.proceso_id AND pd.periodo IS NOT NULL
+      `);
+
+      await client.query(`
+        UPDATE medidas_estudiantiles m
+        SET periodo_conducta=b.periodo_conducta
+        FROM boletas_conducta b
+        WHERE m.debido_proceso_id=b.debido_proceso_id
+          AND m.debido_proceso_id IS NOT NULL
+          AND b.periodo_conducta IS NOT NULL
+      `);
       await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS finalizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
       await client.query(`ALTER TABLE debidos_procesos ADD COLUMN IF NOT EXISTS finalizado_en TIMESTAMP`);
 

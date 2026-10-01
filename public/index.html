@@ -12940,6 +12940,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
     const valIncR  = c.inc_rebajo ?? dec.inc_rebajo ?? '';
     const valPuntos = c.puntos_rebajados ?? dec.puntos_rebajados ?? '';
     const valArtA  = c.art_accion ?? dec.art_accion ?? '';
+    const valPeriodo = c.periodo_conducta ?? c.semestre ?? dec.periodo_conducta ?? dec.semestre ?? '';
     form.innerHTML = `
       ${f('fecha_notif','Fecha notificación', c.fecha_notif, 'date')}
       ${f('hora_notif','Hora notificación', c.hora_notif, 'time')}
@@ -12984,6 +12985,14 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
           <div class="fg" style="grid-column:1/-1;"><label>Descripción del rebajo</label><textarea id="dpp-desc_rebajo" rows="2" readonly style="background:#f8fafc;font-size:12px;"></textarea></div>
         </div>
       </div>
+      <div class="fg" style="margin-bottom:8px;"><label>Período al que corresponden el rebajo y la sanción *</label>
+        <select id="dpp-periodo_conducta" required>
+          <option value="">— Elegí el período —</option>
+          <option value="I Período" ${valPeriodo==='I Período'?'selected':''}>I Período</option>
+          <option value="II Período" ${valPeriodo==='II Período'?'selected':''}>II Período</option>
+        </select>
+        <small style="color:var(--muted);font-size:11px;">Este período se trasladará automáticamente a la resolución final.</small>
+      </div>
       <div class="fg"><label>Artículo acción correctiva</label>
         <select id="dpp-art_accion">
           <option value="">— Sin especificar —</option>
@@ -13012,6 +13021,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
   } else if(tipo === 'resolucion_final'){
     // Pre-llenamos desde la decisión del paso 8
     const dec = (dpProcesoActual?.pasos || []).find(p => p.tipo === 'acta_sesion')?.contenido || {};
+    const traslado = (dpProcesoActual?.pasos || []).find(p => p.tipo === 'traslado_cargos')?.contenido || {};
     const valArtF = c.art_falta  ?? dec.art_falta  ?? '';
     const valIncF = c.inc_falta  ?? dec.inc_falta  ?? '';
     const valArtR = c.art_rebajo ?? dec.art_rebajo ?? '';
@@ -13020,6 +13030,7 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
     const valArtA = c.art_accion ?? dec.art_accion ?? '';
     const valIncA = c.inc_accion ?? dec.inc_accion ?? '';
     const valDescA = c.desc_accion ?? dec.desc_accion ?? '';
+    const valPeriodo = c.periodo_conducta ?? c.semestre ?? traslado.periodo_conducta ?? traslado.semestre ?? dec.periodo_conducta ?? dec.semestre ?? '';
     form.innerHTML = `
       ${f('fecha_resol','Fecha de resolución', c.fecha_resol, 'date')}
       ${f('hora_resol','Hora', c.hora_resol, 'time')}
@@ -13064,8 +13075,8 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
       <div class="fg" style="margin-bottom:8px;"><label>Período al que se rebajan los puntos *</label>
         <select id="dpp-periodo_conducta">
           <option value="">— Elegí el período —</option>
-          <option value="I Período" ${(c.periodo_conducta||c.semestre)==='I Período'?'selected':''}>I Período</option>
-          <option value="II Período" ${(c.periodo_conducta||c.semestre)==='II Período'?'selected':''}>II Período</option>
+          <option value="I Período" ${valPeriodo==='I Período'?'selected':''}>I Período</option>
+          <option value="II Período" ${valPeriodo==='II Período'?'selected':''}>II Período</option>
         </select>
         <small style="color:var(--muted);font-size:11px;">Al finalizar, el rebajo se registra automáticamente en este período.</small>
       </div>
@@ -13540,13 +13551,14 @@ async function imprimirPasoDPDirecto(tipo, orden, pasoId){
       <p>Orientador(a): ____________________ &nbsp; ${orientador}</p></div>`;
     }
   } else if(tipo === 'traslado_cargos'){
+    const periodoConducta = c.periodo_conducta || c.semestre || '____';
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>El(la) suscrito(a) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, de la sección <strong>${dp.seccion_nombre||'___'}</strong>, siendo las <strong>${c.hora_notif||'____'}</strong> horas del día <strong>${c.fecha_notif ? fmtF(c.fecha_notif) : '____'}</strong>, procede a notificar el presente traslado de cargos.</p>
       <p>De conformidad con el artículo 144, inciso d) del REAC, se concede un plazo de <strong>tres días hábiles</strong> para ejercer el derecho de defensa.</p>
       <p>Se notifica a <strong>${c.encargado_nombre||'____'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, encargado(a) del estudiante <strong>${estudiante}</strong>, cédula <strong>${dp.cedula}</strong>, sección <strong>${dp.seccion_nombre||'___'}</strong>.</p>
       <p><strong>Falta:</strong> artículo ${c.art_falta||'____'}, inciso ${c.inc_falta||'____'}</p>
       ${c.desc_falta ? `<div style="border:1px solid #ddd;padding:8px;background:#fffbeb;font-size:12px;font-style:italic;">${c.desc_falta}</div>` : ''}
-      <p><strong>Rebajo correspondiente:</strong> artículo ${c.art_rebajo||'143'}, inciso ${c.inc_rebajo||'____'}, <strong>${c.puntos_rebajados||'____'} puntos</strong>.</p>
+      <p><strong>Rebajo correspondiente:</strong> artículo ${c.art_rebajo||'143'}, inciso ${c.inc_rebajo||'____'}, <strong>${c.puntos_rebajados||'____'} puntos</strong>, correspondiente al <strong>${periodoConducta}</strong>.</p>
       ${c.desc_rebajo ? `<div style="border:1px solid #ddd;padding:8px;background:#fef2f2;font-size:12px;font-style:italic;">${c.desc_rebajo}</div>` : ''}
       <p><strong>Hecho imputado:</strong></p>
       <div style="border:1px solid #ccc;padding:10px;min-height:100px;white-space:pre-wrap;">${c.hecho_imputado||''}</div>
@@ -13556,6 +13568,7 @@ async function imprimirPasoDPDirecto(tipo, orden, pasoId){
       <p style="margin-top:20px;"><strong>RECIBIDO</strong></p>
       <p>Nombre del encargado: ${c.encargado_nombre||'____'}<br/>Cédula: ${c.encargado_cedula||'____'} &nbsp; Firma: ____________</p></div>`;
   } else if(tipo === 'resolucion_final'){
+    const periodoConducta = c.periodo_conducta || c.semestre || '____';
     body = `<p><strong>Expediente:</strong> ${nro}</p>
       <p>Al ser las <strong>${c.hora_resol||'____'}</strong> horas del día <strong>${c.fecha_resol ? fmtF(c.fecha_resol) : '____'}</strong>, en relación con el proceso aplicado a la persona estudiante <strong>${estudiante}</strong>, expediente <strong>${nro}</strong>, a cargo del(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, se resuelve:</p>
       <p><strong>I. ANTECEDENTES</strong></p>
@@ -13567,7 +13580,7 @@ async function imprimirPasoDPDirecto(tipo, orden, pasoId){
       ${c.desc_falta ? `<div style="border:1px solid #ddd;padding:8px;background:#fffbeb;font-size:12px;font-style:italic;margin-bottom:8px;">"${c.desc_falta}"</div>` : ''}
       <p><strong>IV. POR TANTO</strong></p>
       <ul>
-        <li><strong>Rebajo de nota de conducta:</strong> según artículo ${c.art_rebajo||'____'}, inciso ${c.inc_rebajo||'____'}, rebajo de <strong>${c.puntos_rebajados||'____'} puntos</strong> en el ${c.semestre||'____'} semestre.
+        <li><strong>Rebajo de nota de conducta:</strong> según artículo ${c.art_rebajo||'____'}, inciso ${c.inc_rebajo||'____'}, rebajo de <strong>${c.puntos_rebajados||'____'} puntos</strong> correspondiente al <strong>${periodoConducta}</strong>.
           ${c.desc_rebajo ? `<div style="font-size:11px;font-style:italic;color:#555;margin-top:2px;">${c.desc_rebajo}</div>` : ''}
         </li>
         <li><strong>Acción correctiva:</strong> artículo ${c.art_accion||'____'}, inciso ${c.inc_accion||'____'}.</li>

@@ -77,3 +77,18 @@ test('cerrar resolución aplica rebajo y suspensión natural una sola vez',()=>{
   assert.match(procesos,/await client\.query\("BEGIN"\)/);
   assert.match(html,/Período al que se rebajan los puntos/);
 });
+
+test('traslado y resolución guardan e imprimen el período exacto de la sanción',()=>{
+  assert.match(html,/Período al que corresponden el rebajo y la sanción/);
+  assert.match(html,/traslado\.periodo_conducta/);
+  assert.match(html,/const periodoConducta = c\.periodo_conducta \|\| c\.semestre/);
+  assert.doesNotMatch(html,/en el \$\{c\.semestre\|\|'____'\} semestre/);
+  assert.match(procesos,/Seleccione si el rebajo y la sanción corresponden al I o II Período/);
+  assert.match(procesos,/traslado\.periodo_conducta\|\|traslado\.semestre/);
+  assert.match(procesos,/periodo_conducta=EXCLUDED\.periodo_conducta/);
+  assert.match(procesos,/\^\(ii\|2\|segundo\).*\?['"]II Período['"]/s);
+  assert.match(db,/ALTER TABLE boletas_conducta ADD COLUMN IF NOT EXISTS periodo_conducta TEXT/);
+  assert.match(db,/ALTER TABLE medidas_estudiantiles ADD COLUMN IF NOT EXISTS periodo_conducta TEXT/);
+  assert.match(db,/WITH periodos_dp AS/);
+  assert.match(db,/WHERE b\.debido_proceso_id=pd\.proceso_id AND pd\.periodo IS NOT NULL/);
+});

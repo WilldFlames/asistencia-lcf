@@ -537,6 +537,22 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
   const { tipo, orden, contenido, completar, testigo_id, observacion, paso_id } = req.body;
   if (!tipo) return res.status(400).json({ error: "Falta tipo" });
 
+  // Traslado y resolución deben identificar expresamente el período de la
+  // consecuencia. Nunca se infiere por la fecha de cierre ni se manda al anual.
+  if (["traslado_cargos", "resolucion_final"].includes(tipo) && completar) {
+    const periodoRaw = String(contenido?.periodo_conducta || contenido?.semestre || "").trim();
+    const periodo = /^(ii|2|segundo)(\s|$)/i.test(periodoRaw)
+      ? "II Período"
+      : /^(i|1|primer)(\s|$)/i.test(periodoRaw)
+        ? "I Período"
+        : periodoRaw;
+    if (!["I Período", "II Período"].includes(periodo)) {
+      return res.status(400).json({ error: "Seleccione si el rebajo y la sanción corresponden al I o II Período." });
+    }
+    contenido.periodo_conducta = periodo;
+    delete contenido.semestre;
+  }
+
   // Validar permisos: el guía del proceso, admin o el asignado pueden modificar
   const dpR = await pool.query("SELECT * FROM debidos_procesos WHERE id=$1", [procesoId]);
   if (!dpR.rows.length) return res.status(404).json({ error: "Proceso no encontrado" });
@@ -1284,13 +1300,15 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
   try{
     await client.query("BEGIN");
     if(nuevoEstado==="resuelto"){
-      const resolR=await client.query(`SELECT contenido FROM dp_pasos
-        WHERE proceso_id=$1 AND tipo='resolucion_final' AND completado=true
-        ORDER BY id DESC LIMIT 1 FOR UPDATE`,[dp.id]);
-      const c=resolR.rows[0]?.contenido||{};
-      const puntos=Number(c.puntos_rebajados||0);
-      const periodoRaw=String(c.periodo_conducta||c.semestre||'').trim();
-      const periodo=/^(i|1|primer)/i.test(periodoRaw)?'I Período':/^(ii|2|segundo)/i.test(periodoRaw)?'II Período':periodoRaw;
+      const efectosR=await client.query(`SELECT tipo,contenido FROM dp_pasos
+        WHERE proceso_id=$1 AND tipo IN ('traslado_cargos','resolucion_final') AND completado=true
+        ORDER BY id FOR UPDATE`,[dp.id]);
+      const porTipo=Object.fromEntries(efectosR.rows.map(x=>[x.tipo,x.contenido||{}]));
+      const c=porTipo.resolucion_final||{};
+      const traslado=porTipo.traslado_cargos||{};
+      const puntos=Number(c.puntos_rebajados||traslado.puntos_rebajados||0);
+      const periodoRaw=String(c.periodo_conducta||c.semestre||traslado.periodo_conducta||traslado.semestre||'').trim();
+      const periodo=/^(ii|2|segundo)(\s|$)/i.test(periodoRaw)?'II Período':/^(i|1|primer)(\s|$)/i.test(periodoRaw)?'I Período':periodoRaw;
       if(puntos>0){
         if(!['I Período','II Período'].includes(periodo))
           throw new Error('Indique el período al que corresponde el rebajo de conducta.');
@@ -1298,15 +1316,15 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
         let fecha=String(c.fecha_resol||'');
         if(!fecha || fecha<rango.desde || fecha>rango.hasta) fecha=rango.hasta;
         const tipo=puntos>=50?'gravisima':puntos>=30?'muy_grave':puntos>=20?'grave':puntos>=10?'leve':'muy_leve';
-        const desc=String(c.desc_falta||c.desc_rebajo||`Resolución del debido proceso N°${dp.numero}-${dp.anio}`);
+        const desc=String(c.desc_falta||c.desc_rebajo||traslado.desc_falta||traslado.desc_rebajo||`Resolución del debido proceso N°${dp.numero}-${dp.anio}`);
         let inf=await client.query("SELECT id FROM infracciones WHERE puntos=$1 AND tipo=$2 ORDER BY id LIMIT 1",[puntos,tipo]);
         if(!inf.rows.length) inf=await client.query("INSERT INTO infracciones(tipo,puntos,descripcion) VALUES($1,$2,$3) RETURNING id",[tipo,puntos,desc]);
         const boleta=await client.query(`INSERT INTO boletas_conducta
-          (estudiante_id,infraccion_id,registrado_por,fecha,observacion,debido_proceso_id)
-          VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (debido_proceso_id) WHERE debido_proceso_id IS NOT NULL
+          (estudiante_id,infraccion_id,registrado_por,fecha,observacion,debido_proceso_id,periodo_conducta)
+          VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (debido_proceso_id) WHERE debido_proceso_id IS NOT NULL
           DO UPDATE SET infraccion_id=EXCLUDED.infraccion_id,registrado_por=EXCLUDED.registrado_por,
-            fecha=EXCLUDED.fecha,observacion=EXCLUDED.observacion RETURNING id`,
-          [dp.estudiante_id,inf.rows[0].id,u.id,fecha,`Rebajo automático por resolución del debido proceso N°${dp.numero}-${dp.anio}.`,dp.id]);
+            fecha=EXCLUDED.fecha,observacion=EXCLUDED.observacion,periodo_conducta=EXCLUDED.periodo_conducta RETURNING id`,
+          [dp.estudiante_id,inf.rows[0].id,u.id,fecha,`Rebajo automático por resolución del debido proceso N°${dp.numero}-${dp.anio}.`,dp.id,periodo]);
         efectos.rebajo_creado=!!boleta.rows.length;
       }
 
@@ -1318,12 +1336,13 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
         const inicio=String(c.fecha_inicio_accion||'');
         if(!inicio || !dias) throw new Error('La sanción de inasistencia requiere fecha de inicio y cantidad de días naturales.');
         const medida=await client.query(`INSERT INTO medidas_estudiantiles
-          (estudiante_id,tipo,fecha_inicio,fecha_fin,observacion,creado_por,debido_proceso_id)
-          VALUES($1,'suspension',$2::date,$2::date + ($3::int-1),$4,$5,$6)
+          (estudiante_id,tipo,fecha_inicio,fecha_fin,observacion,creado_por,debido_proceso_id,periodo_conducta)
+          VALUES($1,'suspension',$2::date,$2::date + ($3::int-1),$4,$5,$6,$7)
           ON CONFLICT (debido_proceso_id) WHERE debido_proceso_id IS NOT NULL AND tipo='suspension'
           DO UPDATE SET fecha_inicio=EXCLUDED.fecha_inicio,fecha_fin=EXCLUDED.fecha_fin,
-            observacion=EXCLUDED.observacion,creado_por=EXCLUDED.creado_por,activa=true RETURNING id,fecha_fin`,
-          [dp.estudiante_id,inicio,dias,`Suspensión automática de ${dias} días naturales. ${accion}`,u.id,dp.id]);
+            observacion=EXCLUDED.observacion,creado_por=EXCLUDED.creado_por,
+            periodo_conducta=EXCLUDED.periodo_conducta,activa=true RETURNING id,fecha_fin`,
+          [dp.estudiante_id,inicio,dias,`Suspensión automática de ${dias} días naturales. ${accion}`,u.id,dp.id,periodo]);
         efectos.suspension_creada=!!medida.rows.length;
       }
     }
