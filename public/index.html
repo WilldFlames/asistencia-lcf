@@ -2662,6 +2662,7 @@ tr:hover td{background:#f8fafc;}
         oninput="ptProgramarBusqueda()" style="width:100%;padding:11px 13px;"/>
       <div id="pt-resultados-busqueda" style="display:none;position:absolute;z-index:20;left:0;right:0;top:68px;max-height:310px;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:0 10px 25px #0f172a24;"></div>
     </div>
+    <div id="pt-consulta-estudiante" style="display:none;max-width:720px;margin:0 auto 16px;padding:12px 14px;border:1px solid #93c5fd;border-radius:10px;background:#f8fbff;"></div>
 
     <!-- Input escaneo -->
     <div style="text-align:center;padding:4px 0 8px;">
@@ -11910,6 +11911,7 @@ async function imprimirListadoDP(){
 }
 let dpProcesoActual = null;  // datos completos del proceso abierto en el modal
 let dpPasoEnEdicion = null;  // {tipo, orden, contenido} del paso en el modal de edición
+let dpPersonalDeclaracion = [];
 
 // Catálogo de tipos de paso con su info de presentación
 const DP_TIPOS_PASO = {
@@ -12830,15 +12832,20 @@ function renderDPPasos(d){
 }
 
 // ── ABRIR Y EDITAR UN PASO ────────────────────────────────────────────
-function abrirPasoDP(tipo, orden, testigoId, ofendidoId, pasoId){
+async function abrirPasoDP(tipo, orden, testigoId, ofendidoId, pasoId){
   const reg = (dpProcesoActual?.pasos || []).find(p => pasoId ? Number(p.id)===Number(pasoId) : (p.tipo === tipo && Number(p.orden) === Number(orden)));
   const info = DP_TIPOS_PASO[tipo];
-  dpPasoEnEdicion = { tipo, orden, paso_id:reg?.id||pasoId||null, contenido: reg?.contenido || {}, observacion:reg?.observacion || '', testigo_id: testigoId, ofendido_id: ofendidoId };
+  const esDeclaracion=['decl_ofendido','decl_ofensor','decl_testigo'].includes(tipo);
+  if(esDeclaracion && !dpPersonalDeclaracion.length){
+    try{dpPersonalDeclaracion=await api('/api/debidos-procesos/personal/declaraciones')||[];}catch(_){dpPersonalDeclaracion=[];}
+  }
+  const obsGuardada=reg?.observacion_efectiva ?? reg?.observacion ?? reg?.contenido?._observacion_paso ?? '';
+  dpPasoEnEdicion = { tipo, orden, paso_id:reg?.id||pasoId||null, contenido: reg?.contenido || {}, observacion:obsGuardada, testigo_id: testigoId, ofendido_id: ofendidoId };
   document.getElementById('dpp-titulo').textContent = `${info.icono} ${info.nombre}`;
   document.getElementById('dpp-subtitulo').textContent = reg?.completado_en ? `Última edición: ${new Date(reg.completado_en).toLocaleString('es-CR')}` : 'Sin completar todavía';
   document.getElementById('alert-dpp').className = 'alert';
   document.getElementById('dpp-observacion-wrap').style.display=tipo==='acta_apertura'?'none':'';
-  document.getElementById('dpp-observacion').value=tipo==='acta_apertura'?'':(reg?.observacion||'');
+  document.getElementById('dpp-observacion').value=tipo==='acta_apertura'?'':obsGuardada;
   renderFormularioPaso(tipo, dpPasoEnEdicion.contenido, testigoId, ofendidoId);
   document.getElementById('modal-dp-paso').classList.add('show');
 }
@@ -12870,6 +12877,8 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
     `;
   } else if(tipo === 'decl_ofendido' || tipo === 'decl_ofensor' || tipo === 'decl_testigo'){
     const calidad = tipo === 'decl_ofendido' ? 'ofendido' : (tipo === 'decl_ofensor' ? 'ofensor' : 'testigo');
+    const sustitutoActual=String(c.orientador_sustituto_id||dpPasoEnEdicion?.orientador_sustituto_id||'');
+    const opcionesSustituto=(dpPersonalDeclaracion||[]).map(p=>`<option value="${p.id}" ${String(p.id)===sustitutoActual?'selected':''}>${htmlSeguro(nombrePersona(p))} · ${htmlSeguro(p.rol||'')}</option>`).join('');
     form.innerHTML = `
       <div class="fg" style="margin-bottom:8px;"><label>Calidad</label><input type="text" id="dpp-calidad" value="${c.calidad||calidad}" readonly style="background:#f1f5f9;"/></div>
       ${f('fecha_decl','Fecha de la declaración', c.fecha_decl, 'date')}
@@ -12878,6 +12887,10 @@ function renderFormularioPaso(tipo, c, testigoId, ofendidoId){
       ${f('encargado_cedula','Cédula del encargado', c.encargado_cedula)}
       ${f('encargado_parentesco','Parentesco', c.encargado_parentesco)}
       ${f('encargado_direccion','Domicilio', c.encargado_direccion)}
+      <div class="fg" style="margin-bottom:8px;"><label>Persona que sustituye a Orientación en esta declaración (opcional)</label>
+        <select id="dpp-orientador_sustituto_id"><option value="">— Asiste la orientadora titular —</option>${opcionesSustituto}</select>
+        <small style="color:var(--muted);font-size:11px;">Solo cambia esta declaración y su espacio de firma; no modifica el resto del proceso.</small>
+      </div>
       ${t('declaracion','Declaración (manifiesto lo siguiente)', c.declaracion, 10)}
     `;
   } else if(tipo === 'conciliacion_autorizacion'){
@@ -13143,7 +13156,7 @@ async function guardarPasoDP(){
   const tipoGuardado=dpPasoEnEdicion.tipo;
   const contenido = leerContenidoPaso(dpPasoEnEdicion.tipo);
   try {
-    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
+    const guardado=await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
       tipo: dpPasoEnEdicion.tipo,
       orden: dpPasoEnEdicion.orden,
       paso_id: dpPasoEnEdicion.paso_id,
@@ -13151,6 +13164,7 @@ async function guardarPasoDP(){
       observacion: document.getElementById('dpp-observacion')?.value.trim()||'',
       completar: true
     });
+    dpPasoEnEdicion.observacion=guardado?.observacion||'';
     cerrarModal('modal-dp-paso');
     sa('alert-dpd','✅ Paso guardado.','success');
     await abrirDPDetalle(dpProcesoActual.proceso.id);
@@ -13175,7 +13189,7 @@ async function imprimirPasoDP(){
   const ordenCopy = dpPasoEnEdicion.orden;
   const pasoIdCopy = dpPasoEnEdicion.paso_id;
   try {
-    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
+    const guardado=await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/pasos`,'POST', {
       tipo: tipoCopy,
       orden: ordenCopy,
       paso_id: pasoIdCopy,
@@ -13183,6 +13197,7 @@ async function imprimirPasoDP(){
       observacion: document.getElementById('dpp-observacion')?.value.trim()||'',
       completar: true
     });
+    dpPasoEnEdicion.observacion=guardado?.observacion||'';
     cerrarModal('modal-dp-paso');
     sa('alert-dpd','✅ Paso guardado.','success');
     // Recargar detalle ANTES de imprimir, para que la impresión use datos frescos
@@ -13197,6 +13212,7 @@ async function imprimirObservacionesDP(){
   if(!dpProcesoActual) return;
   const dp=dpProcesoActual.proceso;
   const filas=(dpProcesoActual.pasos||[])
+    .map(p=>({...p,observacion:p.observacion_efectiva??p.observacion??p.contenido?._observacion_paso??''}))
     .filter(p=>p.tipo!=='acta_apertura' && String(p.observacion||'').trim())
     .sort((a,b)=>Number(a.orden)-Number(b.orden)||Number(a.id)-Number(b.id));
   const estudiante=nombreDesdeCampos(dp.est_nombre,dp.est_ap1,dp.est_ap2);
@@ -13306,6 +13322,12 @@ async function imprimirPasoDPDirecto(tipo, orden, pasoId){
     : hayGuiaSustituto ? (dp.sust_cedula || '____') : (dp.guia_cedula || '____');
   const cargoProfesor = (hayProfesorDePaso || hayGuiaSustituto) ? 'Profesor(a) asignado(a)' : 'Profesor(a) guía';
   const orientador = nombreDesdeCampos(dp.orient_nombre,dp.orient_ap1,dp.orient_ap2);
+  const haySustitutoOrientacion=!!reg?.orient_sust_nombre;
+  const orientadorDeclaracion=haySustitutoOrientacion
+    ? nombreDesdeCampos(reg.orient_sust_nombre,reg.orient_sust_ap1,reg.orient_sust_ap2)
+    : orientador;
+  const cedulaOrientacionDeclaracion=haySustitutoOrientacion?(reg.orient_sust_cedula||'____'):(dp.orient_cedula||'____');
+  const cargoOrientacionDeclaracion=haySustitutoOrientacion?'persona sustituta de Orientación':'persona orientadora';
   let body = '';
 
   // Buscar testigo si aplica. Si el paso aún no se guardó (reg=null) pero
@@ -13448,7 +13470,7 @@ async function imprimirPasoDPDirecto(tipo, orden, pasoId){
     if (esOfendidoDocente){
       // Plantilla específica para docente ofendido (mayor de edad, sin sección)
       body = `<div class="pdf-page-block"><p><strong>Expediente:</strong> ${nro}</p>
-        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece el docente <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
+        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y la <strong>${cargoOrientacionDeclaracion}</strong> <strong>${orientadorDeclaracion}</strong>, cédula <strong>${cedulaOrientacionDeclaracion}</strong>, comparece el docente <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
         <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del Reglamento de Evaluación de los Aprendizajes. La persona declarante manifiesta que sus dichos corresponden fielmente a lo que recuerda y observó, y se advierte que falsear la información puede tener consecuencias en la valoración pedagógica del caso.</p>
         <p>Esta declaración no se realiza bajo juramento en sentido judicial, por no tratarse de un proceso penal, sino de un procedimiento correctivo con fines educativos. No obstante, declaro bajo la fe de juramento que lo aquí manifestado lo hago de manera libre, espontánea, voluntaria, en pleno uso de mis facultades, y sin que medie presión, coacción, violencia, intimidación ni error alguno.</p>
         <p>Yo, <strong>${nombreDeclarante}</strong>, portador de la cédula de identidad <strong>${cedulaDeclarante}</strong>, docente del centro educativo, manifiesto lo siguiente:</p>
@@ -13456,12 +13478,12 @@ async function imprimirPasoDPDirecto(tipo, orden, pasoId){
         </div>${crearPaginaFirmas([
           firmaDeclaracion('Firma de la persona docente declarante',nombreDeclarante,cedulaDeclarante),
           firmaDeclaracion(`Firma del(la) ${cargoProfesor.toLowerCase()}`,guia,guiaCedula),
-          firmaDeclaracion('Firma del(la) orientador(a)',orientador,dp.orient_cedula||'____')
+          firmaDeclaracion(`Firma de la ${cargoOrientacionDeclaracion}`,orientadorDeclaracion,cedulaOrientacionDeclaracion)
         ])}`;
     } else {
       // Plantilla original para estudiante (ofensor, testigo u ofendido estudiante)
       body = `<div class="pdf-page-block"><p><strong>Expediente:</strong> ${nro}</p>
-        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y el orientador(a) <strong>${orientador}</strong>, cédula <strong>${dp.orient_cedula||'____'}</strong>, comparece la persona estudiante <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, en calidad de <strong>${calidadDeclaracion}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
+        <p>Al ser las <strong>${c.hora_decl||'____'}</strong> horas, del día <strong>${c.fecha_decl ? fmtF(c.fecha_decl) : '____'}</strong>. Ante el(la) <strong>${cargoProfesor.toLowerCase()}</strong> <strong>${guia}</strong>, cédula <strong>${guiaCedula}</strong>, y la <strong>${cargoOrientacionDeclaracion}</strong> <strong>${orientadorDeclaracion}</strong>, cédula <strong>${cedulaOrientacionDeclaracion}</strong>, comparece la persona estudiante <strong>${nombreDeclarante}</strong>, cédula <strong>${cedulaDeclarante}</strong>, en calidad de <strong>${calidadDeclaracion}</strong>, a rendir libremente y sin coacción alguna su declaración en la causa disciplinaria que está siendo investigada.</p>
         <p>Al ser menor de edad, será representado por <strong>${c.encargado_nombre||'__________'}</strong>, cédula <strong>${c.encargado_cedula||'____'}</strong>, parentesco: <strong>${c.encargado_parentesco||'____'}</strong>, vecino de <strong>${c.encargado_direccion||'____'}</strong>.</p>
         <p>Se hace constar que la presente declaración se recibe bajo el principio de veracidad y buena fe, conforme al artículo 143 del REAC...</p>
         <p>Yo, <strong>${nombreDeclarante}</strong>, manifiesto lo siguiente:</p>
@@ -13470,7 +13492,7 @@ async function imprimirPasoDPDirecto(tipo, orden, pasoId){
           firmaDeclaracion('Firma de la persona estudiante',nombreDeclarante,cedulaDeclarante),
           firmaDeclaracion('Firma del padre, madre o encargado(a)',c.encargado_nombre||'',c.encargado_cedula||'____'),
           firmaDeclaracion(`Firma del(la) ${cargoProfesor.toLowerCase()}`,guia,guiaCedula),
-          firmaDeclaracion('Firma del(la) orientador(a)',orientador,dp.orient_cedula||'____')
+          firmaDeclaracion(`Firma de la ${cargoOrientacionDeclaracion}`,orientadorDeclaracion,cedulaOrientacionDeclaracion)
         ])}`;
     }
   } else if(tipo === 'conciliacion_autorizacion'){
@@ -19039,12 +19061,19 @@ async function ptBuscarEstudiante(){
   try{
     const rows=await api(`/api/porteria/buscar?q=${encodeURIComponent(q)}`)||[];
     box.style.display='block';
-    box.innerHTML=rows.length?rows.map(e=>`<button type="button" data-cedula="${htmlSeguro(e.cedula||'')}" onclick="ptSeleccionarBusqueda(this.dataset.cedula)" style="display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:0;border-bottom:1px solid #edf2f7;background:#fff;text-align:left;cursor:pointer"><span><strong>${htmlSeguro(nombrePersona(e))}</strong><br><small style="color:var(--muted)">${htmlSeguro(e.cedula||'')}</small></span><span class="badge">${htmlSeguro(e.seccion_nombre||'Sin sección')}</span></button>`).join(''):'<div class="empty" style="padding:12px">No se encontraron estudiantes activos.</div>';
+    box.innerHTML=rows.length?rows.map(e=>`<button type="button" data-id="${e.id}" onclick="ptConsultarMovimientos(this.dataset.id)" style="display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:0;border-bottom:1px solid #edf2f7;background:#fff;text-align:left;cursor:pointer"><span><strong>${htmlSeguro(nombrePersona(e))}</strong><br><small style="color:var(--muted)">${htmlSeguro(e.cedula||'')}</small></span><span class="badge">${htmlSeguro(e.seccion_nombre||'Sin sección')}</span></button>`).join(''):'<div class="empty" style="padding:12px">No se encontraron estudiantes activos.</div>';
   }catch(e){box.style.display='block';box.innerHTML=`<div class="empty" style="padding:12px">${htmlSeguro(e.message)}</div>`}
 }
-function ptSeleccionarBusqueda(cedula){
-  const scan=document.getElementById('pt-scan-input'),buscar=document.getElementById('pt-buscar-estudiante'),box=document.getElementById('pt-resultados-busqueda');
-  scan.value=cedula||'';buscar.value='';box.style.display='none';box.innerHTML='';ptEscanear();
+async function ptConsultarMovimientos(estudianteId){
+  const buscar=document.getElementById('pt-buscar-estudiante'),box=document.getElementById('pt-resultados-busqueda'),panel=document.getElementById('pt-consulta-estudiante');
+  const fecha=document.getElementById('pt-fecha')?.value||fechaHoyCR();
+  buscar.value='';box.style.display='none';box.innerHTML='';panel.style.display='';panel.innerHTML='<div class="empty">Consultando movimientos…</div>';
+  try{
+    const r=await api(`/api/porteria/estudiante/${estudianteId}/movimientos?fecha=${encodeURIComponent(fecha)}`);
+    const e=r.estudiante||{},mov=r.movimientos||[];
+    panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:8px;"><div><strong>🕒 ${htmlSeguro(nombrePersona(e))}</strong><br><small>${htmlSeguro(e.cedula||'')} · ${htmlSeguro(e.seccion_nombre||'Sin sección')} · ${fmtF(r.fecha)}</small></div><button class="btn btn-outline btn-xs" onclick="document.getElementById('pt-consulta-estudiante').style.display='none'">Cerrar</button></div>
+      ${mov.length?`<div class="table-wrap"><table style="font-size:12px"><thead><tr><th>Hora</th><th>Movimiento</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody>${mov.map(m=>`<tr><td><strong>${String(m.hora||'').slice(0,5)}</strong></td><td>${m.tipo==='entrada'?'🟢 Entrada':'🟠 Salida'}</td><td>${m.resultado==='permitido'?'Permitido':'Denegado'}</td><td>${htmlSeguro(m.detalle||'')}${m.permiso_numero?` · Permiso ${m.permiso_numero}-${m.permiso_anio}`:''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty" style="padding:12px">No tiene entradas ni salidas registradas en esta fecha.</div>'}`;
+  }catch(e){panel.innerHTML=`<div class="empty">${htmlSeguro(e.message)}</div>`;}
 }
 
 async function iniciarPorteria(){
@@ -19057,6 +19086,7 @@ async function iniciarPorteria(){
 }
 
 async function ptCambiarFecha(){
+  const consulta=document.getElementById('pt-consulta-estudiante');if(consulta)consulta.style.display='none';
   await Promise.all([ptCargarStats(),ptCargarRegistros(),ptCargarPermisosHoy()]);
 }
 
@@ -19275,9 +19305,10 @@ function ctaImprimirCuidos(){imprimirPDFMEP('HORARIO DE CUIDO POR FECHA Y RONDA'
 // ════════════════════════════════════
 let bibItems=[];
 async function iniciarBiblioteca(){const [secs,items]=await Promise.all([api('/api/biblioteca/secciones'),api('/api/biblioteca/items')]);bibItems=items||[];document.getElementById('bib-seccion').innerHTML='<option value="">— Sección —</option>'+secs.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join('');bibRenderItems();bibCargarPrestamos();}
-function bibRenderItems(){document.getElementById('bib-item').innerHTML='<option value="">— Artículo —</option>'+bibItems.filter(i=>i.disponibles>0).map(i=>`<option value="${i.id}">${htmlSeguro(i.nombre)} (${i.disponibles} disponibles)</option>`).join('');document.getElementById('bib-items').innerHTML=`<table><thead><tr><th>Código</th><th>Artículo</th><th>Categoría</th><th>Total</th><th>Disponible</th></tr></thead><tbody>${bibItems.map(i=>`<tr><td>${htmlSeguro(i.codigo||'—')}</td><td><strong>${htmlSeguro(i.nombre)}</strong></td><td>${htmlSeguro(i.categoria)}</td><td>${i.stock_total}</td><td>${i.disponibles}</td></tr>`).join('')}</tbody></table>`;}
+function bibRenderItems(){document.getElementById('bib-item').innerHTML='<option value="">— Artículo —</option>'+bibItems.filter(i=>i.disponibles>0).map(i=>`<option value="${i.id}">${htmlSeguro(i.nombre)} (${i.disponibles} disponibles)</option>`).join('');document.getElementById('bib-items').innerHTML=`<table><thead><tr><th>Código</th><th>Artículo</th><th>Categoría</th><th>Total</th><th>Disponible</th><th></th></tr></thead><tbody>${bibItems.map(i=>`<tr><td>${htmlSeguro(i.codigo||'—')}</td><td><strong>${htmlSeguro(i.nombre)}</strong></td><td>${htmlSeguro(i.categoria)}</td><td>${i.stock_total}</td><td>${i.disponibles}</td><td><button class="btn btn-danger btn-xs" onclick="bibEliminarItem(${i.id})">🗑️ Eliminar</button></td></tr>`).join('')}</tbody></table>`;}
 async function bibCargarEstudiantes(){const id=document.getElementById('bib-seccion').value;document.getElementById('bib-estudiante').innerHTML='<option value="">— Estudiante —</option>';if(!id)return;const rows=await api(`/api/biblioteca/estudiantes/${id}`);document.getElementById('bib-estudiante').innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))}${e.subgrupo?' · '+e.subgrupo:''}</option>`).join('');}
 async function bibCrearItem(){try{await api('/api/biblioteca/items','POST',{codigo:document.getElementById('bib-codigo').value,nombre:document.getElementById('bib-nombre').value,categoria:document.getElementById('bib-categoria').value,stock_total:+document.getElementById('bib-stock').value});bibItems=await api('/api/biblioteca/items');bibRenderItems();sa('alert-bib','Artículo agregado.','success');}catch(e){sa('alert-bib',e.message,'danger');}}
+async function bibEliminarItem(id){const item=bibItems.find(i=>Number(i.id)===Number(id));const nombre=item?.nombre||'este artículo';if(!confirm(`¿Eliminar "${nombre}" del catálogo?\n\nLos préstamos anteriores se conservarán.`))return;try{await api(`/api/biblioteca/items/${id}`,'DELETE');bibItems=await api('/api/biblioteca/items');bibRenderItems();sa('alert-bib','Libro o artículo eliminado del catálogo.','success');}catch(e){sa('alert-bib',e.message,'danger');}}
 async function bibPrestar(){try{await api('/api/biblioteca/prestamos','POST',{item_id:+document.getElementById('bib-item').value,estudiante_id:+document.getElementById('bib-estudiante').value,cantidad:+document.getElementById('bib-cantidad').value,vence_el:document.getElementById('bib-vence').value||null});sa('alert-bib','Préstamo registrado.','success');bibItems=await api('/api/biblioteca/items');bibRenderItems();bibCargarPrestamos();}catch(e){sa('alert-bib',e.message,'danger');}}
 async function bibCargarPrestamos(){const estado=document.getElementById('bib-estado').value;const rows=await api(`/api/biblioteca/prestamos?estado=${estado}`)||[];document.getElementById('bib-prestamos').innerHTML=`<table><thead><tr><th>Estudiante</th><th>Sección</th><th>Artículo</th><th>Cantidad</th><th>Préstamo</th><th>Vence</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(p=>`<tr><td><strong>${htmlSeguro(nombreEstudianteLista(p))}</strong></td><td>${htmlSeguro(p.seccion_nombre||'—')}</td><td>${htmlSeguro(p.item_nombre)}</td><td>${p.cantidad}</td><td>${fmtTS(p.prestado_en)}</td><td>${p.vence_el?fmtF(p.vence_el):'—'}</td><td>${p.estado==='prestado'?'🟠 Pendiente':'✅ Devuelto'}</td><td>${p.estado==='prestado'?`<button class="btn btn-success btn-xs" onclick="bibDevolver(${p.id})">Devolver</button>`:''}</td></tr>`).join('')}</tbody></table>`;}
 async function bibDevolver(id){await api(`/api/biblioteca/prestamos/${id}/devolver`,'PUT',{});bibItems=await api('/api/biblioteca/items');bibRenderItems();bibCargarPrestamos();}

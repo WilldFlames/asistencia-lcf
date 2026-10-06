@@ -5,7 +5,7 @@ const path=require('node:path');
 const root=path.join(__dirname,'..');
 const read=f=>fs.readFileSync(path.join(root,f),'utf8');
 
-test('Portería busca estudiantes activos por nombre o cédula y permite seleccionarlos',()=>{
+test('Portería busca estudiantes activos y la selección consulta movimientos sin registrar entradas ni salidas',()=>{
   const route=read('routes/porteria.js'),ui=read('public/index.html');
   assert.match(route,/router\.get\("\/buscar", canEscanear/);
   assert.match(route,/REGEXP_REPLACE\(e\.cedula/);
@@ -14,7 +14,10 @@ test('Portería busca estudiantes activos por nombre o cédula y permite selecci
   assert.match(ui,/id="pt-buscar-estudiante"/);
   assert.match(ui,/function ptProgramarBusqueda\(\)/);
   assert.match(ui,/api\(`\/api\/porteria\/buscar\?q=/);
-  assert.match(ui,/function ptSeleccionarBusqueda\(cedula\)/);
+  assert.match(route,/router\.get\("\/estudiante\/:id\/movimientos", canEscanear/);
+  assert.match(ui,/function ptConsultarMovimientos\(estudianteId\)/);
+  assert.match(ui,/api\(`\/api\/porteria\/estudiante\/\$\{estudianteId\}\/movimientos\?fecha=/);
+  assert.doesNotMatch(ui,/function ptSeleccionarBusqueda\(cedula\)/);
 });
 
 test('Administración puede registrar compromisos personales en su agenda',()=>{

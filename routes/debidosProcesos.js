@@ -105,7 +105,7 @@ async function requireProcesoAccess(req, res, next) {
 
     if (!permitido) {
       const asignado = await pool.query(
-        "SELECT 1 FROM dp_pasos WHERE proceso_id=$1 AND asignado_a=$2 LIMIT 1",
+        "SELECT 1 FROM dp_pasos WHERE proceso_id=$1 AND (asignado_a=$2 OR orientador_sustituto_id=$2) LIMIT 1",
         [dp.id, u.id]
       );
       permitido = asignado.rows.length > 0;
@@ -161,6 +161,23 @@ router.get("/catalogo/reac", requireAuth, async (req, res) => {
   }
 });
 
+// Personal que puede acompañar una declaración cuando Orientación no está.
+// La elección se guarda en el paso concreto y nunca sustituye al orientador
+// titular del expediente completo.
+router.get("/personal/declaraciones", requireAuth, async (req,res)=>{
+  if(!['orientador','profesor','profesor_guia','admin','administrativo','auxiliar','secretaria'].includes(req.session.usuario.rol)){
+    return res.status(403).json({error:'Sin permisos para consultar el personal de declaraciones.'});
+  }
+  const r=await pool.query(`
+    SELECT id,nombre,primer_apellido,segundo_apellido,cedula,rol
+    FROM usuarios
+    WHERE activo=true AND COALESCE(eliminado,false)=false
+      AND rol IN ('orientador','profesor','profesor_guia','admin','administrativo','auxiliar','secretaria')
+    ORDER BY nombre,primer_apellido,segundo_apellido
+  `);
+  res.json(r.rows);
+});
+
 // ── LISTAR PROCESOS ───────────────────────────────────────────────────
 // Devuelve los procesos filtrados según rol:
 // - admin/auxiliar/administrativo: todos
@@ -190,7 +207,7 @@ router.get("/", requireAuth, async (req, res) => {
         OR dp.guia_a_cargo = $${iU}
         OR dp.guia_sustituto_id = $${iU}
         OR dp.orientador_id = $${iU}
-        OR EXISTS (SELECT 1 FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND pp.asignado_a = $${iU})
+        OR EXISTS (SELECT 1 FROM dp_pasos pp WHERE pp.proceso_id=dp.id AND (pp.asignado_a = $${iU} OR pp.orientador_sustituto_id = $${iU}))
       )`);
     }
 
@@ -247,7 +264,7 @@ router.get("/pendientes/mios", requireAuth, async (req, res) => {
     JOIN debidos_procesos dp ON dp.id = pp.proceso_id
     JOIN estudiantes e ON e.id = dp.estudiante_id
     LEFT JOIN secciones s ON s.id = e.seccion_id
-    WHERE pp.asignado_a = $1 AND dp.estado = 'en_curso' AND pp.completado = false
+    WHERE (pp.asignado_a = $1 OR pp.orientador_sustituto_id=$1) AND dp.estado = 'en_curso' AND pp.completado = false
     ORDER BY dp.created_at DESC
   `, [u.id]);
   res.json(r.rows);
@@ -311,14 +328,18 @@ router.get("/:id", requireAuth, requireProcesoAccess, async (req, res) => {
 
   // Pasos
   const pasosR = await pool.query(`
-    SELECT pp.*, u1.primer_apellido AS comp_ap1, u1.segundo_apellido AS comp_ap2, u1.nombre AS comp_nombre,
+    SELECT pp.*,COALESCE(NULLIF(pp.observacion,''),pp.contenido->>'_observacion_paso','') AS observacion_efectiva,
+           u1.primer_apellido AS comp_ap1, u1.segundo_apellido AS comp_ap2, u1.nombre AS comp_nombre,
            u2.primer_apellido AS verif_ap1, u2.segundo_apellido AS verif_ap2, u2.nombre AS verif_nombre,
            u3.primer_apellido AS asig_ap1, u3.segundo_apellido AS asig_ap2, u3.nombre AS asig_nombre,
-           u3.cedula AS asig_cedula, u3.id AS asig_id
+           u3.cedula AS asig_cedula, u3.id AS asig_id,
+           u4.nombre AS orient_sust_nombre,u4.primer_apellido AS orient_sust_ap1,
+           u4.segundo_apellido AS orient_sust_ap2,u4.cedula AS orient_sust_cedula
     FROM dp_pasos pp
     LEFT JOIN usuarios u1 ON u1.id = pp.completado_por
     LEFT JOIN usuarios u2 ON u2.id = pp.verificado_por
     LEFT JOIN usuarios u3 ON u3.id = pp.asignado_a
+    LEFT JOIN usuarios u4 ON u4.id = pp.orientador_sustituto_id
     WHERE pp.proceso_id = $1
     ORDER BY pp.orden, pp.id
   `, [req.params.id]);
@@ -536,6 +557,15 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
   const procesoId = req.params.id;
   const { tipo, orden, contenido, completar, testigo_id, observacion, paso_id } = req.body;
   if (!tipo) return res.status(400).json({ error: "Falta tipo" });
+  const esDeclaracion=["decl_ofendido","decl_ofensor","decl_testigo"].includes(tipo);
+  const observacionLimpia=String(observacion||"").trim();
+  const contenidoFinal={...(contenido||{}),_observacion_paso:observacionLimpia};
+  let orientadorSustitutoId=null;
+  if(esDeclaracion && contenidoFinal.orientador_sustituto_id){
+    orientadorSustitutoId=Number(contenidoFinal.orientador_sustituto_id);
+    const sustR=await pool.query(`SELECT id FROM usuarios WHERE id=$1 AND activo=true AND COALESCE(eliminado,false)=false`,[orientadorSustitutoId]);
+    if(!sustR.rows.length) return res.status(400).json({error:"La persona sustituta seleccionada ya no está disponible."});
+  }
 
   // Traslado y resolución deben identificar expresamente el período de la
   // consecuencia. Nunca se infiere por la fecha de cierre ni se manda al anual.
@@ -549,8 +579,8 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
     if (!["I Período", "II Período"].includes(periodo)) {
       return res.status(400).json({ error: "Seleccione si el rebajo y la sanción corresponden al I o II Período." });
     }
-    contenido.periodo_conducta = periodo;
-    delete contenido.semestre;
+    contenidoFinal.periodo_conducta = periodo;
+    delete contenidoFinal.semestre;
   }
 
   // Validar permisos: el guía del proceso, admin o el asignado pueden modificar
@@ -571,13 +601,13 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
   let esAsignado = false;
   if (paso_id || orden) {
     const pR = await pool.query(
-      `SELECT asignado_a FROM dp_pasos
+      `SELECT asignado_a,orientador_sustituto_id FROM dp_pasos
        WHERE proceso_id=$1 AND tipo=$2
          AND (($3::int IS NOT NULL AND id=$3) OR ($3::int IS NULL AND orden=$4))
        ORDER BY CASE WHEN id=$3 THEN 0 ELSE 1 END LIMIT 1`,
       [procesoId, tipo, paso_id || null, orden || 1]
     );
-    if (pR.rows.length && pR.rows[0].asignado_a === u.id) esAsignado = true;
+    if (pR.rows.length && (pR.rows[0].asignado_a === u.id || pR.rows[0].orientador_sustituto_id === u.id)) esAsignado = true;
   }
 
   if (!esStaff && !esGuiaProceso && !esIniciador && !esAsignado) {
@@ -621,26 +651,27 @@ router.post("/:id/pasos", requireAuth, requireProcesoAccess, async (req, res) =>
       ? ", completado=true, completado_por=$4, completado_en=NOW()"
       : "";
     const params = completar
-      ? [JSON.stringify(contenido || {}), procesoId, pasoId, u.id, String(observacion || '').trim()]
-      : [JSON.stringify(contenido || {}), procesoId, pasoId, String(observacion || '').trim()];
+      ? [JSON.stringify(contenidoFinal), procesoId, pasoId, u.id, observacionLimpia, orientadorSustitutoId]
+      : [JSON.stringify(contenidoFinal), procesoId, pasoId, observacionLimpia, orientadorSustitutoId];
     await pool.query(
-      `UPDATE dp_pasos SET contenido=$1::jsonb, observacion=$${completar ? 5 : 4}, updated_at=NOW()${setComp}
+      `UPDATE dp_pasos SET contenido=$1::jsonb, observacion=$${completar ? 5 : 4},
+       orientador_sustituto_id=$${completar ? 6 : 5}, updated_at=NOW()${setComp}
        WHERE proceso_id=$2 AND id=$3`,
       params
     );
   } else {
     const ins = await pool.query(`
-      INSERT INTO dp_pasos (proceso_id, tipo, orden, completado, completado_por, completado_en, contenido, observacion)
-      VALUES ($1, $2, $3, $4, $5, ${completar ? "NOW()" : "NULL"}, $6::jsonb, $7)
+      INSERT INTO dp_pasos (proceso_id, tipo, orden, completado, completado_por, completado_en, contenido, observacion,orientador_sustituto_id)
+      VALUES ($1, $2, $3, $4, $5, ${completar ? "NOW()" : "NULL"}, $6::jsonb, $7,$8)
       RETURNING id
-    `, [procesoId, tipo, ordenFinal, !!completar, completar ? u.id : null, JSON.stringify(contenido || {}), String(observacion || '').trim()]);
+    `, [procesoId, tipo, ordenFinal, !!completar, completar ? u.id : null, JSON.stringify(contenidoFinal), observacionLimpia,orientadorSustitutoId]);
     pasoId = ins.rows[0].id;
   }
 
   // Actualizar marca de tiempo del proceso
   await pool.query("UPDATE debidos_procesos SET updated_at=NOW() WHERE id=$1", [procesoId]);
 
-  res.json({ ok: true, paso_id: pasoId });
+  res.json({ ok: true, paso_id: pasoId, observacion:observacionLimpia });
 });
 
 // ── AGREGAR TESTIGO ───────────────────────────────────────────────────

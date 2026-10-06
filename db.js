@@ -1141,6 +1141,9 @@ async function initDB() {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dpp_proceso ON dp_pasos(proceso_id, orden)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_dpp_asignado ON dp_pasos(asignado_a) WHERE asignado_a IS NOT NULL`);
       await client.query(`ALTER TABLE dp_pasos ADD COLUMN IF NOT EXISTS observacion TEXT DEFAULT ''`);
+      // La sustitución de Orientación pertenece únicamente a la declaración
+      // donde ocurrió; no modifica al orientador titular de todo el proceso.
+      await client.query(`ALTER TABLE dp_pasos ADD COLUMN IF NOT EXISTS orientador_sustituto_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
       console.log("✅ DP: tabla dp_pasos lista");
 
       // Reparación histórica: algunas resoluciones ya cerradas guardaron el
@@ -2414,6 +2417,8 @@ async function initDB() {
       id SERIAL PRIMARY KEY,codigo TEXT UNIQUE,nombre TEXT NOT NULL,categoria TEXT NOT NULL,
       stock_total INTEGER NOT NULL DEFAULT 1 CHECK(stock_total>=0),activo BOOLEAN DEFAULT true,
       creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,created_at TIMESTAMP DEFAULT NOW())`);
+    await client.query(`ALTER TABLE biblioteca_items ADD COLUMN IF NOT EXISTS desactivado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE biblioteca_items ADD COLUMN IF NOT EXISTS desactivado_en TIMESTAMP`);
     await client.query(`CREATE TABLE IF NOT EXISTS biblioteca_prestamos (
       id SERIAL PRIMARY KEY,item_id INTEGER NOT NULL REFERENCES biblioteca_items(id),estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id),
       cantidad INTEGER NOT NULL DEFAULT 1 CHECK(cantidad>0),prestado_en TIMESTAMP DEFAULT NOW(),vence_el DATE,

@@ -203,6 +203,22 @@ router.get("/buscar", canEscanear, async (req,res)=>{
   res.json(r.rows);
 });
 
+// Consulta exclusivamente informativa. Elegir un estudiante desde el buscador
+// jamás registra una entrada o salida; solo devuelve sus movimientos del día.
+router.get("/estudiante/:id/movimientos", canEscanear, async(req,res)=>{
+  const fecha=String(req.query.fecha||fechaCR()).slice(0,10);
+  const est=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
+      COALESCE(s.nombre,e.seccion_archivo) AS seccion_nombre
+    FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`,[req.params.id]);
+  if(!est.rows.length)return res.status(404).json({error:"Estudiante no encontrado"});
+  const mov=await pool.query(`SELECT r.id,r.fecha::text,r.hora::text,r.tipo,r.resultado,r.detalle,
+      p.numero AS permiso_numero,p.anio AS permiso_anio
+    FROM porteria_registros r LEFT JOIN permisos_salida p ON p.id=r.permiso_id
+    WHERE r.estudiante_id=$1 AND r.fecha=$2
+    ORDER BY r.hora,r.id`,[req.params.id,fecha]);
+  res.json({estudiante:est.rows[0],fecha,movimientos:mov.rows});
+});
+
 // Calcula la hora en que terminan las lecciones del estudiante HOY.
 // Devuelve { horaFin, tieneHorario }. Sin horario configurado → tieneHorario=false.
 async function finLeccionesHoy(seccionId, fecha){
