@@ -1,7 +1,8 @@
 const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
-const { obtenerAnioActivo } = require("../utils/lectivo");
+const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
+const { calcularPromediosInstitucional } = require("./calificaciones");
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const informeSelect = (whereClause) => `
@@ -183,15 +184,74 @@ router.post("/masivo", requireRol("profesor_guia","orientador","auxiliar"), asyn
 
 // ── RESPONDER INFORME (con campos estructurados) ──────────────────────────────
 async function resumenAcademico(informeId,usuarioId){
-  const r=await pool.query(`WITH inf AS(SELECT i.estudiante_id,i.destinatario_id,e.seccion_id,e.subgrupo FROM informes i JOIN estudiantes e ON e.id=i.estudiante_id WHERE i.id=$1 AND i.destinatario_id=$2), ev AS(
-    SELECT v.id,v.tipo,v.puntaje_total,
-      CASE WHEN v.tipo='examen' THEN nx.puntos_obtenidos ELSE (SELECT SUM(ni.puntaje) FROM notas_indicador ni WHERE ni.evaluacion_id=v.id AND ni.estudiante_id=inf.estudiante_id) END obtenido,
-      CASE WHEN v.tipo='examen' THEN v.puntaje_total ELSE (SELECT SUM(ind.puntaje_maximo) FROM indicadores ind WHERE ind.evaluacion_id=v.id) END maximo
-    FROM inf JOIN evaluaciones v ON v.profesor_id=inf.destinatario_id AND v.seccion_id=inf.seccion_id AND (COALESCE(v.subgrupo,'')='' OR v.subgrupo=COALESCE(inf.subgrupo,''))
-    LEFT JOIN notas_examen nx ON nx.evaluacion_id=v.id AND nx.estudiante_id=inf.estudiante_id)
-    SELECT tipo,COUNT(*)::int AS total,COUNT(obtenido)::int AS realizados,(COUNT(*)-COUNT(obtenido))::int AS no_realizados,
-      ROUND(100*SUM(obtenido) FILTER(WHERE obtenido IS NOT NULL)/NULLIF(SUM(maximo) FILTER(WHERE obtenido IS NOT NULL),0),1) AS porcentaje
-    FROM ev GROUP BY tipo ORDER BY CASE tipo WHEN 'cotidiano' THEN 1 WHEN 'tarea' THEN 2 WHEN 'examen' THEN 3 ELSE 4 END`,[informeId,usuarioId]);return r.rows;
+  const infR=await pool.query(`
+    SELECT i.estudiante_id,i.destinatario_id,e.seccion_id,e.subgrupo
+    FROM informes i JOIN estudiantes e ON e.id=i.estudiante_id
+    WHERE i.id=$1 AND i.destinatario_id=$2
+  `,[informeId,usuarioId]);
+  if(!infR.rows.length) return [];
+  const inf=infR.rows[0];
+  const anio=await obtenerAnioActivo();
+  const periodo=(await obtenerPeriodoActual(pool)).nombre;
+
+  // La misma persona puede impartir más de una materia. Se calcula cada una
+  // por separado usando exactamente el motor oficial de Promedios, incluida
+  // la ponderación REAC y el valor individual de cada examen.
+  const asigsR=await pool.query(`
+    SELECT DISTINCT ON (a.materia_id)
+      a.materia_id,a.subgrupo,m.nombre AS materia_nombre
+    FROM asignaciones a
+    JOIN materias m ON m.id=a.materia_id
+    WHERE a.profesor_id=$1 AND a.seccion_id=$2 AND a.anio=$3
+      AND (COALESCE(a.subgrupo,'')='' OR a.subgrupo=COALESCE($4::text,''))
+      AND (
+        COALESCE(a.periodo,'I Período')=$5
+        OR (
+          COALESCE(a.periodo,'I Período')='I Período'
+          AND NOT EXISTS (
+            SELECT 1 FROM asignaciones a2
+            WHERE a2.profesor_id=a.profesor_id AND a2.seccion_id=a.seccion_id
+              AND a2.materia_id=a.materia_id
+              AND COALESCE(a2.subgrupo,'')=COALESCE(a.subgrupo,'')
+              AND a2.anio=a.anio AND COALESCE(a2.periodo,'I Período')=$5
+          )
+        )
+      )
+      AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
+    ORDER BY a.materia_id,
+      CASE WHEN COALESCE(a.periodo,'I Período')=$5 THEN 0 ELSE 1 END,
+      CASE WHEN a.subgrupo=COALESCE($4::text,'') THEN 0 ELSE 1 END,
+      a.id DESC
+  `,[usuarioId,inf.seccion_id,anio,inf.subgrupo||null,periodo]);
+
+  const salida=[];
+  const orden={cotidiano:1,tarea:2,examen:3,proyecto:4};
+  for(const asig of asigsR.rows){
+    try{
+      const calculo=await calcularPromediosInstitucional(
+        Number(usuarioId),Number(inf.seccion_id),Number(asig.materia_id),
+        asig.subgrupo||null,periodo,Number(inf.estudiante_id)
+      );
+      const est=calculo?.estudiantes?.find(x=>Number(x.estudiante_id)===Number(inf.estudiante_id));
+      if(!est) continue;
+      for(const tipo of ['cotidiano','tarea','examen','proyecto']){
+        const rubro=est.rubros?.[tipo];
+        if(!rubro) continue;
+        const realizados=Number(rubro.cant_con_nota ?? (rubro.nota_100==null?0:1));
+        const total=Number(rubro.cant_evals ?? (rubro.nota_100==null?0:1));
+        if(total===0 && rubro.nota_100==null) continue;
+        salida.push({
+          materia:asig.materia_nombre,periodo,tipo,orden:orden[tipo],
+          porcentaje:Number(Number(rubro.pct||0).toFixed(1)),
+          peso:Number(Number(rubro.peso||0).toFixed(1)),
+          realizados,no_realizados:Math.max(0,total-realizados)
+        });
+      }
+    }catch(e){
+      console.error(`Resumen informe ${informeId}, materia ${asig.materia_id}:`,e.message);
+    }
+  }
+  return salida.sort((a,b)=>String(a.materia).localeCompare(String(b.materia),'es')||a.orden-b.orden);
 }
 router.get('/:id/resumen-academico',requireAuth,async(req,res)=>{const rows=await resumenAcademico(req.params.id,req.session.usuario.id);res.json(rows);});
 
@@ -214,24 +274,33 @@ router.put("/:id/responder", requireAuth, async (req, res) => {
     resp_observaciones ? `Observaciones: ${resp_observaciones}` : "",
   ].filter(Boolean).join("\n");
 
-  const resumen=await resumenAcademico(req.params.id,uid);
-  await pool.query(`
-    UPDATE informes SET
-      resp_asistencia=$1, resp_trabajo_cotidiano=$2, resp_tareas=$3,
-      resp_examenes=$4, resp_comportamiento=$5, resp_observaciones=$6,
-      respuesta=$7, resumen_academico=$8::jsonb, respondido=true, fecha_respuesta=NOW()
-    WHERE id=$9
-  `, [resp_asistencia||"", resp_trabajo_cotidiano||"", resp_tareas||"",
-      resp_examenes||"", resp_comportamiento||"", resp_observaciones||"",
-      respTexto, JSON.stringify(resumen), req.params.id]);
+  try{
+    let resumen=[];
+    try{ resumen=await resumenAcademico(req.params.id,uid); }
+    catch(e){ console.error("Resumen al responder informe:",e); }
+    await pool.query(`
+      UPDATE informes SET
+        resp_asistencia=$1, resp_trabajo_cotidiano=$2, resp_tareas=$3,
+        resp_examenes=$4, resp_comportamiento=$5, resp_observaciones=$6,
+        respuesta=$7, resumen_academico=$8::jsonb, respondido=true, fecha_respuesta=NOW()
+      WHERE id=$9
+    `, [resp_asistencia||"", resp_trabajo_cotidiano||"", resp_tareas||"",
+        resp_examenes||"", resp_comportamiento||"", resp_observaciones||"",
+        respTexto, JSON.stringify(resumen), req.params.id]);
 
-  // Notificar al remitente
-  await pool.query(
-    "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'informe_respondido',$2)",
-    [inf.rows[0].remitente_id, `✉️ El profesor respondió un informe de rendimiento.`]
-  );
-
-  res.json({ ok:true });
+    // La respuesta ya quedó guardada. Una falla al crear el aviso nunca debe
+    // hacer que el docente pierda el informe ni reciba "Failed to fetch".
+    try{
+      await pool.query(
+        "INSERT INTO notificaciones (usuario_id, tipo, mensaje) VALUES ($1,'informe_respondido',$2)",
+        [inf.rows[0].remitente_id, `✉️ El profesor respondió un informe de rendimiento.`]
+      );
+    }catch(e){ console.error("Notificación de informe respondido:",e.message); }
+    res.json({ ok:true });
+  }catch(e){
+    console.error("Responder informe:",e);
+    res.status(500).json({error:"No se pudo guardar la respuesta. Intentá nuevamente."});
+  }
 });
 
 // ── MARCAR LEÍDO ──────────────────────────────────────────────────────────────

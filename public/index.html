@@ -9737,7 +9737,7 @@ async function abrirResponder(id,nombre,soloVer,inf=null){
   const cont=document.getElementById('mr-resumen-academico');
   let resumen=[];try{resumen=soloVer?(Array.isArray(inf?.resumen_academico)?inf.resumen_academico:JSON.parse(inf?.resumen_academico||'[]')):await api(`/api/mensajes/${id}/resumen-academico`);}catch{}
   const lbl={cotidiano:'Trabajo cotidiano',tarea:'Tareas',examen:'Exámenes',proyecto:'Proyectos'};
-  cont.innerHTML=resumen.length?`<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:10px"><strong>📊 Datos calculados del sistema</strong><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin-top:7px">${resumen.map(r=>`<div style="background:#fff;border-radius:6px;padding:7px"><strong>${lbl[r.tipo]||r.tipo}: ${r.porcentaje==null?'Sin nota':r.porcentaje+'%'}</strong><br><small>${r.realizados} realizados · ${r.no_realizados} no realizados</small></div>`).join('')}</div></div>`:'';
+  cont.innerHTML=resumen.length?`<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:10px"><strong>📊 Aporte real al promedio · ${htmlSeguro(resumen[0]?.periodo||'')}</strong><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin-top:7px">${resumen.map(r=>`<div style="background:#fff;border-radius:6px;padding:7px"><small style="color:var(--muted)">${htmlSeguro(r.materia||'')}</small><br><strong>${lbl[r.tipo]||r.tipo}: ${r.porcentaje==null?'Sin nota':(r.peso==null?r.porcentaje+'% · registro anterior':r.porcentaje+'% de '+r.peso+'%')}</strong><br><small>${r.realizados} realizados · ${r.no_realizados} no realizados</small></div>`).join('')}</div></div>`:'';
 }
 
 async function enviarRespuesta(){
@@ -9751,6 +9751,9 @@ async function enviarRespuesta(){
     sa("alert-mr","Completá al menos un campo de la respuesta.","danger");return;
   }
   try{
+    const btn=document.getElementById('btn-resp');
+    if(btn?.disabled) return;
+    if(btn){btn.disabled=true;btn.textContent='Enviando…';}
     await api(`/api/mensajes/${informeRespId}/responder`,"PUT",{
       resp_asistencia:asistencia,
       resp_trabajo_cotidiano:trabajo,
@@ -9762,6 +9765,7 @@ async function enviarRespuesta(){
     cerrarModal("modal-responder");cargarMensajes("inbox");verificarNotif();
     sa("alert-rep","✅ Respuesta enviada.","success");
   }catch(e){sa("alert-mr",e.message,"danger");}
+  finally{const btn=document.getElementById('btn-resp');if(btn){btn.disabled=false;btn.textContent='✔ Enviar Respuesta';}}
 }
 
 async function enviarInformeTodos(){
