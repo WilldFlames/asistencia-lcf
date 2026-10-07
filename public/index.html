@@ -21263,13 +21263,24 @@ function ectCampo(id,label,valor="",tipo="textarea"){
   return `<div class="fg" style="margin-bottom:8px;"><label>${label}</label>${tipo==="date"?`<input type="date" id="${id}" value="${htmlSeguro(toDateInput(valor))}">`:`<textarea id="${id}" rows="3">${htmlSeguro(valor||"")}</textarea>`}</div>`;
 }
 
+function ectSelectorEncargado(c={}){
+  const encargados=ectActual?.encargados||[];
+  if(!encargados.length) return `<div class="alert show alert-warning" style="margin-bottom:8px;">⚠️ Este estudiante no tiene personas encargadas registradas. Administración debe agregarlas en el expediente del estudiante antes de completar la notificación.</div>`;
+  const normalizar=s=>String(s||'').trim().toLocaleLowerCase('es-CR').replace(/\s+/g,' ');
+  const coincidenciaAnterior=c.recibe?encargados.find(x=>normalizar(nombrePersona(x))===normalizar(c.recibe)):null;
+  const seleccionado=Number(c.encargado_id)||Number(coincidenciaAnterior?.id)||Number(encargados.find(x=>x.es_principal)?.id||encargados[0].id);
+  return `<div class="fg" style="margin-bottom:8px;"><label>Persona encargada que recibe</label><select id="ect-1-encargado">
+    ${encargados.map(x=>`<option value="${x.id}" ${Number(x.id)===seleccionado?'selected':''}>${htmlSeguro(nombrePersona(x))} · ${htmlSeguro(x.parentesco||'Encargado(a)')}${x.es_principal?' (principal)':''}</option>`).join('')}
+  </select><small style="color:var(--muted);">Datos tomados del expediente institucional del estudiante.</small></div>`;
+}
+
 function ectRenderPasos(){
   const d=ectActual,e=d.expediente,cerrado=e.estado!=="en_curso";
   const aprobados=d.aprobaciones.length,comiteCompleto=aprobados>=1;
   document.getElementById("ect-pasos").innerHTML=d.pasos.map(p=>{
     const c=p.contenido||{},n=Number(p.paso),bloqueado=n>=4&&!comiteCompleto;
     let cuerpo="";
-    if(n===1) cuerpo=`${ectCampo(`ect-1-fecha`,"Fecha de entrega al encargado",c.fecha_entrega,"date")}${ectCampo(`ect-1-recibe`,"Persona encargada que recibe",c.recibe)}${ectCampo(`ect-1-obs`,"Observaciones",c.observaciones)}`;
+    if(n===1) cuerpo=`${ectCampo(`ect-1-fecha`,"Fecha de entrega al encargado",c.fecha_entrega,"date")}${ectSelectorEncargado(c)}${ectCampo(`ect-1-obs`,"Observaciones",c.observaciones)}`;
     if(n===2){
       const acciones=d.acciones_correctivas||[];
       cuerpo=acciones.length?`<p style="font-size:12.5px;">El sistema encontró estas acciones correctivas en debidos procesos cerrados:</p>${acciones.map((a,i)=>`<label style="display:flex;gap:8px;padding:7px;border:1px solid var(--border);border-radius:6px;margin:5px 0;"><input id="ect-2-acc-${i}" type="checkbox" ${c.cumplidas?.[i]?'checked':''}> <span><strong>DP N°${a.numero}-${a.anio}</strong> · ${htmlSeguro(a.accion)}</span></label>`).join('')}`:`<div style="padding:9px;background:#ecfdf5;border-radius:6px;">✅ No se encontraron acciones correctivas impuestas. Se usará la constancia sin acciones correctivas.</div>`;
@@ -21287,7 +21298,14 @@ function ectRenderPasos(){
 
 function ectContenidoPaso(n){
   const val=id=>document.getElementById(id)?.value||"";
-  if(n===1)return{fecha_entrega:val("ect-1-fecha"),recibe:val("ect-1-recibe"),observaciones:val("ect-1-obs")};
+  if(n===1){
+    const encargadoId=Number(val("ect-1-encargado"))||null;
+    const anterior=ectActual.pasos.find(x=>Number(x.paso)===1)?.contenido||{};
+    const encargado=(ectActual.encargados||[]).find(x=>Number(x.id)===encargadoId);
+    return{fecha_entrega:val("ect-1-fecha"),encargado_id:encargadoId,
+      recibe:encargado?nombrePersona(encargado):(anterior.recibe||""),
+      parentesco:encargado?.parentesco||(anterior.parentesco||""),observaciones:val("ect-1-obs")};
+  }
   if(n===2)return{cumplidas:(ectActual.acciones_correctivas||[]).map((_,i)=>!!document.getElementById(`ect-2-acc-${i}`)?.checked),observaciones:val("ect-2-obs")};
   if(n===3)return{proyecto:val("ect-3-proyecto"),justificacion:val("ect-3-just")};
   if(n===4)return{objetivos:val("ect-4-obj"),actividades:val("ect-4-act"),apoyos:val("ect-4-apo"),indicadores:val("ect-4-ind")};
@@ -21326,14 +21344,14 @@ async function ectImprimirPaso(n){
     <p style="text-align:justify;text-indent:2em;">De conformidad con el Reglamento de Evaluación de los Aprendizajes y de la Conducta, Decreto Ejecutivo N.° 45509-MEP, el artículo 144 establece como nota mínima para la promoción <strong>${Number(e.nivel)<=9?65:70} puntos</strong> en el nivel que cursa la persona estudiante.</p>
     <p style="text-align:justify;text-indent:2em;">Al haber obtenido una calificación inferior al mínimo establecido, y conforme al artículo 145, se comunica que la persona estudiante se encuentra en condición de <strong>aplazada en conducta</strong>.</p>
     <p style="text-align:justify;text-indent:2em;">De acuerdo con el artículo 146, deberá realizar por una única vez un trabajo con enfoque socioeducativo y de promoción de la conducta, conforme a los lineamientos del Ministerio de Educación Pública y bajo la supervisión del Comité de Evaluación. Su cumplimiento satisfactorio permitirá adquirir la condición de aprobada en conducta. En caso de incumplimiento, se procederá según las disposiciones del mismo artículo.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:82px;text-align:center;page-break-inside:avoid;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:64px;text-align:center;page-break-inside:avoid;">
       <div style="border-top:1px solid #111;padding-top:7px;"><strong>${htmlSeguro(guia||'Docente guía')}</strong><br>Docente guía · Sección ${htmlSeguro(e.seccion_nombre)}</div>
       <div style="border-top:1px solid #111;padding-top:7px;"><strong>Laura Cruz Jiménez</strong><br>Directora</div>
     </div>
-    <div style="margin-top:66px;border-top:1px solid #777;padding-top:12px;page-break-inside:avoid;">
+    <div style="margin-top:46px;border-top:1px solid #777;padding-top:10px;page-break-inside:avoid;">
       <strong>RECIBIDO</strong><br><br>
       Yo, <strong>${htmlSeguro(c.recibe||'____________________________________________')}</strong>, en calidad de ☐ estudiante mayor de edad &nbsp; ☐ padre, madre o persona encargada legal, hago constar que recibí esta notificación.
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:65px;margin-top:52px;"><div style="border-top:1px solid #111;padding-top:6px;text-align:center;">Firma</div><div style="border-top:1px solid #111;padding-top:6px;text-align:center;">Fecha y hora</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:65px;margin-top:40px;"><div style="border-top:1px solid #111;padding-top:6px;text-align:center;">Firma</div><div style="border-top:1px solid #111;padding-top:6px;text-align:center;">Fecha y hora</div></div>
     </div>`;
   if(n===2){const ac=ectActual.acciones_correctivas||[];h+=ac.length?`<p>Se verificaron las siguientes acciones correctivas:</p><table style="width:100%;border-collapse:collapse;"><tr><th style="border:1px solid #555;padding:6px;">Expediente</th><th style="border:1px solid #555;padding:6px;">Acción</th><th style="border:1px solid #555;padding:6px;">Cumplió</th></tr>${ac.map((a,i)=>`<tr><td style="border:1px solid #555;padding:6px;">DP ${a.numero}-${a.anio}</td><td style="border:1px solid #555;padding:6px;">${htmlSeguro(a.accion)}</td><td style="border:1px solid #555;padding:6px;text-align:center;">${c.cumplidas?.[i]?'Sí':'No'}</td></tr>`).join('')}</table>`:`<p>Revisados los registros institucionales, se hace constar que no existen acciones correctivas impuestas pendientes de verificación. Los procedimientos abiertos sin una acción firme no se contabilizan como acciones correctivas.</p>`;h+=`<p><strong>Observaciones:</strong> ${htmlSeguro(c.observaciones||'Ninguna')}</p>`;}
   if(n===3)h+=`<p><strong>Trabajo seleccionado:</strong> ${htmlSeguro(ECT_PROYECTOS[c.proyecto]||e.proyecto||'—')}</p><p style="text-align:justify;"><strong>Justificación:</strong> ${htmlSeguro(c.justificacion||'—')}</p><h3 style="margin-top:28px;">Aprobación de miembro del Comité de Evaluación</h3><p style="text-align:justify;">Para continuar con el diseño del TES se requiere la aprobación de al menos una de las personas integrantes designadas.</p><div style="margin-top:34px;">${ectActual.miembros.map(m=>`<div style="display:grid;grid-template-columns:22px 1fr 220px;gap:8px;align-items:end;margin:26px 0;page-break-inside:avoid;"><span>${m.aprobado?'☑':'☐'}</span><span>${htmlSeguro(nombrePersona(m))}</span><span style="border-bottom:1px solid #111;height:20px;text-align:center;font-size:10px;">Firma</span></div>`).join('')}</div>`;
@@ -21341,7 +21359,7 @@ async function ectImprimirPaso(n){
   if(n===5)h+=`<p style="text-align:justify;">Se entrega al estudiante y su encargado el diseño del TES <strong>${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'')}</strong>.</p><p><strong>Fecha:</strong> ${c.fecha_entrega?fmtF(c.fecha_entrega):'—'}</p><p><strong>Lugar, horario y responsable:</strong> ${htmlSeguro(c.lugar_horario||'—')}</p><p style="text-align:justify;"><strong>Constancia:</strong> ${htmlSeguro(c.constancia||'—')}</p><div style="display:flex;gap:75px;margin-top:90px;page-break-inside:avoid;"><div style="border-top:1px solid;width:270px;text-align:center;padding-top:7px;">Firma estudiante</div><div style="border-top:1px solid;width:270px;text-align:center;padding-top:7px;">Firma encargado</div></div>`;
   if(n===6)h+=`<p><strong>Fecha de ejecución/verificación:</strong> ${c.fecha?fmtF(c.fecha):'—'}</p><p><strong>Evidencias verificadas:</strong></p><p style="white-space:pre-wrap;">${htmlSeguro(c.evidencias||'—')}</p><p><strong>Valoración y puntaje:</strong></p><p style="white-space:pre-wrap;">${htmlSeguro(c.valoracion||'—')}</p>`;
   if(n===7)h+=`<p>El Comité de Evaluación comunica el resultado final del Trabajo Educativo Sustitutivo.</p><p><strong>Proyecto:</strong> ${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'—')}</p><p><strong>Resultado:</strong> ${c.resultado==='aprobado'?'APROBÓ':c.resultado==='no_aprobado'?'NO APROBÓ':'—'} &nbsp; <strong>Calificación:</strong> ${c.calificacion||'—'} / 30</p><p><strong>Nota final de conducta:</strong> ${e.nota_final_conducta??'—'}</p><p style="text-align:justify;"><strong>Observaciones:</strong> ${htmlSeguro(c.observaciones||'—')}</p><h3>Comité de Evaluación</h3><div style="margin-top:36px;">${ectActual.miembros.map(m=>`<div style="display:grid;grid-template-columns:1fr 260px;gap:18px;margin:30px 0;page-break-inside:avoid;"><span>${htmlSeguro(nombrePersona(m))}</span><span style="border-bottom:1px solid #111;height:18px;text-align:center;font-size:10px;">Firma</span></div>`).join('')}</div>`;
-  if(n!==1)h+=ectFirmaGuia(guia);await imprimirPDFMEP(titulo.toLocaleUpperCase('es-CR'),`<div style="font-family:Arial;font-size:12px;line-height:1.75;text-align:justify;"><style>.ect-doc p{text-align:justify;margin:0 0 14px;}.ect-doc h3{margin:22px 0 12px;}</style><div class="ect-doc">${h}</div></div>`,`${folio}_Paso_${n}.pdf`);
+  if(n!==1)h+=ectFirmaGuia(guia);await imprimirPDFMEP(titulo.toLocaleUpperCase('es-CR'),`<div class="pdf-page-block" style="font-family:Arial;font-size:12px;line-height:${n===1?'1.58':'1.75'};text-align:justify;"><style>.ect-doc p{text-align:justify;margin:0 0 ${n===1?'11px':'14px'};}.ect-doc h3{margin:22px 0 12px;}</style><div class="ect-doc">${h}</div></div>`,`${folio}_Paso_${n}.pdf`,{bloquesPagina:n===1});
 }
 
 async function ectImprimirCausal(causal,detalle){

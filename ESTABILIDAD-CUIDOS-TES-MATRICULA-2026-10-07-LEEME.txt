@@ -18,7 +18,11 @@ ENTREGA DEL 7 DE OCTUBRE DE 2026
 - Se restauró la notificación formal y completa de condición de aplazado en
   conducta, con fundamento reglamentario, firma de docente guía, Dirección y
   recibido.
+- La persona encargada que recibe se selecciona entre los encargados reales del
+  estudiante; el principal aparece primero y el servidor valida la relación.
 - Los párrafos se justifican y se ampliaron los espacios para firmas.
+- La notificación de condición aplazada se ajusta como una sola hoja; firmas,
+  recibido y fecha/hora ya no se cortan ni pasan solas a una segunda página.
 - Una aprobación de cualquier miembro del Comité de Evaluación permite continuar;
   no es obligatorio esperar las tres.
 

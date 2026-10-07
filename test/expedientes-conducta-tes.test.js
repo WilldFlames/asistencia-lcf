@@ -41,6 +41,19 @@ test("el flujo guarda e imprime todos los pasos en formato institucional",()=>{
   assert.match(front,/folio:`TES-/);
   assert.match(front,/artículo 146/);
   assert.match(front,/await imprimirPDFMEP\(titulo\.toLocaleUpperCase/);
+  assert.match(front,/\{bloquesPagina:n===1\}/);
+  assert.match(front,/class="pdf-page-block"/);
+});
+
+test("la notificación selecciona un encargado real del estudiante y conserva su identidad",()=>{
+  assert.match(routes,/FROM encargados WHERE estudiante_id=\$1/);
+  assert.match(routes,/WHERE id=\$1 AND estudiante_id=\$2/);
+  assert.match(routes,/contenido\.encargado_id=Number\(x\.id\)/);
+  assert.match(routes,/contenido\.recibe=\[x\.nombre,x\.primer_apellido,x\.segundo_apellido\]/);
+  assert.match(front,/function ectSelectorEncargado/);
+  assert.match(front,/Datos tomados del expediente institucional del estudiante/);
+  assert.match(front,/encargado_id:encargadoId/);
+  assert.doesNotMatch(front,/ectCampo\(`ect-1-recibe`,"Persona encargada que recibe"/);
 });
 
 test("inasistencia y condición académica se remiten sin reprobar automáticamente",()=>{

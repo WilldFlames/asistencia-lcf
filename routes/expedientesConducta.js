@@ -133,8 +133,13 @@ router.get("/:id", requireAuth, async (req,res)=>{
       FROM debidos_procesos dp JOIN dp_pasos p ON p.proceso_id=dp.id AND p.tipo='resolucion_final'
       WHERE dp.estudiante_id=$1 AND dp.anio=$2 AND dp.estado IN ('resuelto','archivado')
         AND COALESCE(p.contenido->>'desc_accion','')<>'' ORDER BY dp.numero`,[ec.estudiante_id,ec.anio]);
+    const encargados=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido,parentesco,
+        cedula,telefono,celular,es_principal
+      FROM encargados WHERE estudiante_id=$1
+      ORDER BY es_principal DESC,primer_apellido,segundo_apellido,nombre,id`,[ec.estudiante_id]);
     res.json({expediente:ec,pasos:pasos.rows,aprobaciones:aprobaciones.rows,miembros:miembros.rows,
-      acciones_correctivas:acciones.rows,es_admin:esAdmin(req.session.usuario),es_comite:await esComite(req.session.usuario.id)});
+      acciones_correctivas:acciones.rows,encargados:encargados.rows,
+      es_admin:esAdmin(req.session.usuario),es_comite:await esComite(req.session.usuario.id)});
   }catch(e){console.error("detalle expediente conducta",e);res.status(500).json({error:e.message});}
 });
 
@@ -156,8 +161,19 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
         WHERE a.expediente_id=$1`,[ec.id,tipoComite]);
       if(a.rows[0].n<1) return res.status(409).json({error:"El paso 3 requiere la aprobación de al menos un miembro del Comité de Evaluación."});
     }
-    const contenido=req.body.contenido&&typeof req.body.contenido==='object'?req.body.contenido:{};
+    const contenido=req.body.contenido&&typeof req.body.contenido==='object'?{...req.body.contenido}:{};
     const completado=!!req.body.completado;
+    if(paso===1 && contenido.encargado_id){
+      const enc=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido,parentesco
+        FROM encargados WHERE id=$1 AND estudiante_id=$2`,[Number(contenido.encargado_id),ec.estudiante_id]);
+      if(!enc.rows.length) return res.status(400).json({error:"Seleccione una persona encargada registrada para este estudiante."});
+      const x=enc.rows[0];
+      contenido.encargado_id=Number(x.id);
+      contenido.recibe=[x.nombre,x.primer_apellido,x.segundo_apellido].filter(Boolean).join(" ").trim();
+      contenido.parentesco=x.parentesco||"";
+    }else if(paso===1 && completado && !String(contenido.recibe||"").trim()){
+      return res.status(400).json({error:"El estudiante no tiene una persona encargada seleccionada."});
+    }
     if(paso===2 && completado && Array.isArray(contenido.cumplidas) && contenido.cumplidas.some(x=>!x))
       return res.status(409).json({error:"Hay una acción correctiva pendiente. Use el botón de cierre con su carta de constancia."});
     if(paso===3 && !PROYECTOS.includes(contenido.proyecto)) return res.status(400).json({error:"Seleccione el tipo de trabajo TES."});
