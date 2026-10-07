@@ -1,0 +1,35 @@
+ENTREGA DEL 7 DE OCTUBRE DE 2026
+
+1. ESTABILIDAD DEL CALENDARIO DE PRUEBAS Y LOS CUIDOS
+- Se corrigió la conversión de fechas que enviaba el valor NaN a PostgreSQL y
+  provocaba la caída y el reinicio de Node al generar cuidos automáticos.
+- Las rutas de cambio manual de cuido ahora capturan sus errores y responden al
+  usuario sin cerrar el servidor.
+- Se validan calendario, evento, adecuación, docente y año antes de consultar la
+  base de datos.
+- El botón de generación queda deshabilitado mientras procesa para evitar envíos
+  dobles.
+- Se retiraron mensajes de diagnóstico repetitivos del guardado de asistencia.
+
+2. EXPEDIENTES DE CONDUCTA / TES
+- El consecutivo y los documentos usan el prefijo TES.
+- La portada indica "Trabajo con enfoque socioeducativo y promoción de la
+  conducta (TES)".
+- Se restauró la notificación formal y completa de condición de aplazado en
+  conducta, con fundamento reglamentario, firma de docente guía, Dirección y
+  recibido.
+- Los párrafos se justifican y se ampliaron los espacios para firmas.
+- Una aprobación de cualquier miembro del Comité de Evaluación permite continuar;
+  no es obligatorio esperar las tres.
+
+3. MATRÍCULA 2027
+- La carta final y los documentos de matrícula indican en negrita y subrayado que
+  no se admiten cambios de sección para el período lectivo 2027.
+- La ficha identifica por nombre y cargo a la persona funcionaria que realiza la
+  matrícula, usando la misma lógica de autorización de prematrícula.
+
+VERIFICACIÓN
+- 261 pruebas generales aprobadas.
+- Validación de sintaxis de las rutas modificadas y del JavaScript del sistema.
+- No se borran ni modifican matrículas, notas, calendarios ni cuidos ya guardados.
+

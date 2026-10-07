@@ -30,6 +30,9 @@ test('ausencias trasladadas se reúnen por estudiante, mismo docente, materia y 
   assert.match(cartas,/ax\.anio=\$4 AND ax\.profesor_id=\$5 AND ax\.materia_id=\$6/);
 });
 
-test('el compromiso 2027 advierte que no habrá cambios de sección',()=>{
-  assert.match(read('public/index.html'),/NO HABRÁ CAMBIOS DE SECCIÓN PARA EL CURSO LECTIVO 2027/);
+test('los documentos de matrícula 2027 advierten que no se admiten cambios de sección',()=>{
+  const ui=read('public/index.html');
+  assert.match(ui,/NO SE ADMITEN CAMBIOS DE SECCIÓN PARA EL PERÍODO LECTIVO 2027/);
+  assert.match(ui,/Persona funcionaria que realiza la matrícula/);
+  assert.match(ui,/Funcionario autorizado/);
 });

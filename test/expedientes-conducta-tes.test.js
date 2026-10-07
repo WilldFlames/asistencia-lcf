@@ -16,14 +16,17 @@ test("expedientes de conducta conserva consecutivo, siete pasos y cierre auditab
   assert.match(routes,/Solo administración puede reabrir un expediente cerrado/);
 });
 
-test("el profesor guía ve aplazados de sus secciones y el comité aprueba individualmente",()=>{
+test("el profesor guía ve aplazados y una aprobación del comité habilita el TES",()=>{
   assert.match(routes,/seccion_guia_anio/);
   assert.match(routes,/ROUND\(\(n\.nota_i\+n\.nota_ii\)\/2\.0,1\)/);
   assert.match(routes,/tipoComiteActivo/);
   assert.match(routes,/"comite_evaluacion" : "comite_tecnico_asesor"/);
   assert.match(db,/UNIQUE\(expediente_id,usuario_id\)/);
-  assert.match(routes,/requiere la aprobación individual de los tres miembros/);
+  assert.match(routes,/aprobación de al menos un miembro/);
+  assert.match(routes,/a\.rows\[0\]\.n<1/);
+  assert.match(routes,/ap\.rows\[0\]\.n<1/);
   assert.match(front,/Asignar Comité de Evaluación \(3\)/);
+  assert.match(front,/se requiere 1/);
 });
 
 test("el flujo guarda e imprime todos los pasos en formato institucional",()=>{
@@ -34,6 +37,9 @@ test("el flujo guarda e imprime todos los pasos en formato institucional",()=>{
   assert.match(front,/Anexo 3 · Resultado final/);
   assert.match(front,/Portada Expediente de Conducta/);
   assert.doesNotMatch(front,/EXPEDIENTE DE MATRÍCULA/);
+  assert.match(front,/Trabajo con enfoque socioeducativo/);
+  assert.match(front,/folio:`TES-/);
+  assert.match(front,/artículo 146/);
   assert.match(front,/await imprimirPDFMEP\(titulo\.toLocaleUpperCase/);
 });
 

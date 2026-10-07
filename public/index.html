@@ -2144,7 +2144,7 @@ tr:hover td{background:#f8fafc;}
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
         <h2 style="margin:0">📋 Conducta Estudiantil — REAC</h2>
-        <button class="btn btn-outline btn-sm" id="btn-imprimir-seccion-cond" onclick="abrirMenuInformeSeccion(this)" style="display:none">📋 Imprimir Informe de Sección ▾</button>
+        <button class="btn btn-outline btn-sm" id="btn-imprimir-seccion-cond" onclick="abrirMenuInformeSeccion(this)" style="display:none">📋 Imprimir Acta SEA ▾</button>
       </div>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
         <div class="fg"><label>Grupo / sección</label><select id="cond-seccion" onchange="cargarEstConducta()"><option value="">— Seleccionar grupo —</option></select></div>
@@ -2167,7 +2167,7 @@ tr:hover td{background:#f8fafc;}
         </select>
         <button class="btn btn-success no-print" onclick="imprimirConducta()">🖨️ Imprimir Informe</button>
         <button class="btn btn-outline no-print" onclick="imprimirCartaConductaAplazada()">✉️ Carta de conducta aplazada</button>
-        <button class="btn btn-outline no-print" onclick="abrirMenuInformeSeccion(this)">📋 Imprimir Informe de Sección ▾</button>
+        <button class="btn btn-outline no-print" onclick="abrirMenuInformeSeccion(this)">📋 Imprimir Acta SEA ▾</button>
       </div>
       <div id="alert-cond" class="alert"></div>
 
@@ -19373,8 +19373,8 @@ async function ctaAbrir(id){
   ctaFiltrarFecha();
 }
 function ctaFiltrarFecha(){const sel=document.getElementById('cta-filtro-fecha');ctaFiltroFecha=sel?.value||'';document.querySelectorAll('#cta-eventos tr[data-cta-fecha]').forEach(f=>{f.style.display=!ctaFiltroFecha||f.dataset.ctaFecha===ctaFiltroFecha?'':'none';});}
-async function ctaCambiarCuido(eventoId,profesorId){if(!profesorId)return;try{await api(`/api/tecnico-asesor/eventos/${eventoId}/cuido`,'POST',{profesor_id:+profesorId});sa('alert-cta','Horario de cuido actualizado.','success');await ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');await ctaAbrir(ctaActual);}}
-async function ctaCambiarCuidoAdecuacion(id,profesorId){if(!profesorId)return;try{await api(`/api/tecnico-asesor/adecuaciones/${id}/cuido`,'POST',{profesor_id:+profesorId});sa('alert-cta','Cuido de Adecuación actualizado.','success');await ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');await ctaAbrir(ctaActual);}}
+async function ctaCambiarCuido(eventoId,profesorId){eventoId=Number(eventoId);profesorId=Number(profesorId);if(!Number.isInteger(eventoId)||eventoId<=0||!Number.isInteger(profesorId)||profesorId<=0){sa('alert-cta','Seleccione una prueba y un docente válidos.','danger');return;}try{await api(`/api/tecnico-asesor/eventos/${eventoId}/cuido`,'POST',{profesor_id:profesorId});sa('alert-cta','Horario de cuido actualizado.','success');await ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');await ctaAbrir(ctaActual);}}
+async function ctaCambiarCuidoAdecuacion(id,profesorId){id=Number(id);profesorId=Number(profesorId);if(!Number.isInteger(id)||id<=0||!Number.isInteger(profesorId)||profesorId<=0){sa('alert-cta','Seleccione un cuido y un docente válidos.','danger');return;}try{await api(`/api/tecnico-asesor/adecuaciones/${id}/cuido`,'POST',{profesor_id:profesorId});sa('alert-cta','Cuido de Adecuación actualizado.','success');await ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');await ctaAbrir(ctaActual);}}
 function ctaActualizarFin(){const mapa={'07:00':'08:20','09:15':'10:35','12:00':'13:20','14:10':'15:30'},inicio=document.getElementById('cta-hora-ini')?.value||'';document.getElementById('cta-hora-fin').value=mapa[inicio]||'';}
 function ctaCambiarAlcance(){const alcance=document.getElementById('cta-alcance')?.value||'nivel',destino=document.getElementById('cta-destino'),nivelesBox=document.getElementById('cta-niveles'),label=document.getElementById('cta-destino-label');if(!destino||!nivelesBox)return;if(alcance==='nivel'){label.textContent='Niveles (puede marcar varios)';destino.style.display='none';nivelesBox.style.display='flex';const niveles=[...new Set(ctaSecciones.map(s=>Number(s.nivel)).filter(Boolean))].sort((a,b)=>a-b);nivelesBox.innerHTML=niveles.map(n=>`<label style="display:flex;align-items:center;gap:5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:#f8fafc"><input type="checkbox" class="cta-nivel-check" value="${n}" style="width:auto"> <strong>${n}°</strong></label>`).join('');}else{label.textContent='Sección';nivelesBox.style.display='none';destino.style.display='';destino.innerHTML='<option value="">— Seleccione la sección —</option>'+ctaSecciones.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join('');}}
 function ctaDatosEvento(){const alcance=document.getElementById('cta-alcance').value,destino=document.getElementById('cta-destino').value,niveles=[...document.querySelectorAll('.cta-nivel-check:checked')].map(x=>+x.value);return{fecha:document.getElementById('cta-fecha').value,hora_inicio:document.getElementById('cta-hora-ini').value,hora_fin:document.getElementById('cta-hora-fin').value,materia:document.getElementById('cta-materia').value.trim(),seccion_id:alcance==='seccion'?+destino:null,niveles:alcance==='nivel'?niveles:[]};}
@@ -19383,7 +19383,7 @@ function ctaEditarEvento(id){const e=ctaDetalleData?.eventos?.find(x=>String(x.i
 function ctaCancelarEdicionEvento(){ctaEventoEditando=null;['cta-fecha','cta-hora-ini','cta-hora-fin','cta-materia'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const a=document.getElementById('cta-alcance');if(a){a.disabled=false;a.value='nivel';}ctaCambiarAlcance();const b=document.getElementById('cta-evento-guardar');if(b)b.textContent='Agregar prueba';const c=document.getElementById('cta-evento-cancelar');if(c)c.style.display='none';}
 async function ctaEliminarEvento(id){if(!confirm('¿Eliminar esta prueba?'))return;await api(`/api/tecnico-asesor/eventos/${id}`,'DELETE');ctaAbrir(ctaActual);}
 async function ctaEliminarCalendario(){if(!ctaActual||!confirm('¿Borrar este calendario completo y todas sus pruebas? Esta acción no se puede deshacer.'))return;try{await api(`/api/tecnico-asesor/calendarios/${ctaActual}`,'DELETE',{});ctaActual=null;ctaDetalleData=null;document.getElementById('cta-detalle').style.display='none';await iniciarTecnicoAsesor();sa('alert-cta','Calendario eliminado.','success');}catch(e){sa('alert-cta',e.message,'danger');}}
-async function ctaGenerarCuidos(){try{const r=await api(`/api/tecnico-asesor/calendarios/${ctaActual}/generar-cuidos`,'POST',{});sa('alert-cta',`Se generaron ${r.generados} cuidos de examen y ${r.adecuaciones_generadas} cuidos de Adecuación.${r.sin_horario.length?' Algunas asignaciones no encontraron un docente con jornada suficiente.':''}`,r.sin_horario.length?'warning':'success');ctaAbrir(ctaActual);}catch(e){sa('alert-cta',e.message,'danger');}}
+async function ctaGenerarCuidos(){const calendarioId=Number(ctaActual),btn=document.getElementById('cta-generar-cuidos');if(!Number.isInteger(calendarioId)||calendarioId<=0){sa('alert-cta','Vuelva a abrir el calendario antes de generar los cuidos.','danger');return;}if(btn?.disabled)return;try{if(btn){btn.disabled=true;btn.textContent='⏳ Generando cuidos…';}const r=await api(`/api/tecnico-asesor/calendarios/${calendarioId}/generar-cuidos`,'POST',{});sa('alert-cta',`Se generaron ${r.generados} cuidos de examen y ${r.adecuaciones_generadas} cuidos de Adecuación.${r.sin_horario.length?' Algunas asignaciones no encontraron un docente con jornada suficiente.':''}`,r.sin_horario.length?'warning':'success');await ctaAbrir(calendarioId);}catch(e){sa('alert-cta',e.message,'danger');}finally{if(btn){btn.disabled=false;btn.textContent='⚙️ Generar cuidos equitativos + Adecuación (120 min)';}}}
 async function ctaPublicar(){if(!confirm('Al publicar lo verán docentes y familias. ¿Continuar?'))return;await api(`/api/tecnico-asesor/calendarios/${ctaActual}/publicar`,'PUT',{});await ctaAbrir(ctaActual);await iniciarTecnicoAsesor();}
 function ctaImprimirPruebas(){const c=ctaDetalleData?.calendario,e=ctaDetalleData?.eventos||[];const rows=e.map(x=>({...x,calendario_id:c.id,titulo:c.titulo}));imprimirPDFMEP('CRONOGRAMA DE PRUEBAS',renderCronogramaPruebas(rows),'cronograma_pruebas.pdf');}
 function ctaImprimirCuidos(){imprimirPDFMEP('HORARIO DE CUIDO POR FECHA Y RONDA',renderHorarioCuidosImpresion(ctaDetalleData),'horario_cuidos.pdf',{bloquesPagina:true});}
@@ -20111,6 +20111,7 @@ async function imprimirCartaHorarioMatricula(estudianteId, anio=matAnio){
 
       <p style="margin:5px 0 2px;text-align:justify;">Agradecemos su apoyo y acompañamiento permanente en el proceso educativo. Esperamos que este nuevo año esté lleno de aprendizajes, crecimiento y experiencias positivas para nuestros estudiantes.</p>
       <div style="background:#fff7ed;border-left:3px solid #f59e0b;padding:3px 6px;margin:3px 0;text-align:justify;"><strong>Nota aclaratoria:</strong> Durante las primeras semanas del curso lectivo, el horario podría estar sujeto a ajustes. Cualquier modificación será informada oportunamente a las familias y personas encargadas.</div>
+      ${Number(anio)===2027?`<div style="margin:6px 0;text-align:center;font-size:10.5px;"><strong><u>NO SE ADMITEN CAMBIOS DE SECCIÓN PARA EL PERÍODO LECTIVO 2027.</u></strong></div>`:''}
       <div style="margin:5px auto 7px;padding:6px 12px;max-width:420px;text-align:center;border:1px solid #93c5fd;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#ecfdf5);color:#12395b;box-shadow:0 2px 7px rgba(18,57,91,.10);">
         <div style="font-size:13px;font-weight:bold;letter-spacing:.2px;">✨ ¡Bienvenidos al Curso Lectivo ${anio}! ✨</div>
         <div style="font-size:8.5px;margin-top:1px;color:#475569;">Un nuevo año para aprender, crecer y compartir.</div>
@@ -20393,6 +20394,12 @@ async function imprimirFichaMatricula(datos){
   let auxNom=nombrePersona(ME);
   let auxCed=ME.cedula||"";
   if(!auxCed){try{const m=await api("/api/auth/me");auxCed=m?.usuario?.cedula||"";}catch{}}
+  let cargoFuncionario="Auxiliar Administrativo";
+  try{
+    const comite=await api("/api/prematricula/comite/lista")||[];
+    if(comite.some(c=>Number(c.usuario_id)===Number(ME.id))) cargoFuncionario="Funcionario autorizado";
+    else if(ME.rol==='admin') cargoFuncionario="Administración";
+  }catch{}
   const hoy=new Date();
   const tipoLabel={regular:"Estudiante regular",prematricula:"Estudiante de primer ingreso",nuevo:"Estudiante de primer ingreso"}[datos.tipo_ingreso]||"";
   const contenidoHTML=`
@@ -20415,6 +20422,7 @@ async function imprimirFichaMatricula(datos){
     </table>
     <div style="padding:6px;background:#f8fafc;border-radius:4px;margin-bottom:14px;">
       <strong>Nivel 2027:</strong> ${pdfTexto(nivelNom)} — ${pdfTexto(ciclo)} &nbsp;|&nbsp; <strong>Tipo:</strong> ${pdfTexto(tipoLabel)}
+      <br/><strong>Persona funcionaria que realiza la matrícula:</strong> ${pdfTexto(auxNom)} · ${pdfTexto(cargoFuncionario)}
     </div>
     ${encs.map((e,i)=>`
     <div class="reporte-materia">
@@ -20437,10 +20445,11 @@ async function imprimirFichaMatricula(datos){
         <div>Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
       </div>
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;">
-        <div>${pdfTexto(auxNom)}</div><div>Auxiliar Administrativo / Funcionario autorizado</div>
+        <div><strong>${pdfTexto(auxNom)}</strong></div><div>${pdfTexto(cargoFuncionario)}</div>
         <div>Cédula: ${pdfTexto(auxCed)} &nbsp; Fecha: ${hoy.getDate()}/${hoy.getMonth()+1}/${hoy.getFullYear()}</div>
       </div>
     </div>
+    <p style="text-align:center;margin:20px 0 0;"><strong><u>NO SE ADMITEN CAMBIOS DE SECCIÓN PARA EL PERÍODO LECTIVO 2027.</u></strong></p>
   </div>`;
   await imprimirPDFMEP("FICHA DE MATRÍCULA 2027", contenidoHTML, `ficha_matricula_${datos.cedula||"estudiante"}.pdf`);
 }
@@ -20456,6 +20465,12 @@ async function imprimirCompromiso(){
   const encCed=pdfTexto(enc1.cedula);
   const encTel=pdfTexto(enc1.telefono||enc1.celular);
   const auxNom=pdfTexto(nombrePersona(ME));
+  let cargoFuncionario="Auxiliar Administrativo";
+  try{
+    const comite=await api("/api/prematricula/comite/lista")||[];
+    if(comite.some(c=>Number(c.usuario_id)===Number(ME.id))) cargoFuncionario="Funcionario autorizado";
+    else if(ME.rol==='admin') cargoFuncionario="Administración";
+  }catch{}
 
   const contenidoHTML=`
   <div style="font-size:12px;line-height:1.75;text-align:justify;">
@@ -20481,7 +20496,7 @@ async function imprimirCompromiso(){
 
     <p>Declaro que he leído tanto el REAC como Normativa y asumo las responsabilidades que indica tanto compromiso de matrícula como las leyes que se citan en este documento, por lo tanto, no puedo alegar desconocimiento de esta ley.</p>
 
-    <p style="text-align:center;margin:18px 0;"><strong><u>NO HABRÁ CAMBIOS DE SECCIÓN PARA EL CURSO LECTIVO 2027.</u></strong></p>
+    <p style="text-align:center;margin:18px 0;"><strong><u>NO SE ADMITEN CAMBIOS DE SECCIÓN PARA EL PERÍODO LECTIVO 2027.</u></strong></p>
 
     <p>Firmo conforme en el Liceo de Calle Fallas &nbsp;&nbsp;&nbsp; día _______ mes _________________ 2027</p>
 
@@ -20498,6 +20513,7 @@ async function imprimirCompromiso(){
         <div>Nombre del funcionario que tramita la matrícula:</div>
         <div style="margin-top:20px;border-bottom:1px solid #374151;width:100%;"></div>
         <div style="margin-top:4px;font-weight:bold;">${auxNom}</div>
+        <div>${pdfTexto(cargoFuncionario)}</div>
       </div>
     </div>
   </div>`;
@@ -20810,8 +20826,8 @@ async function cargarCumplimiento(){
 // ════════════════════════════════════
 //  INFORME DE SECCIÓN — CONDUCTA
 // ════════════════════════════════════
-// Muestra un mini menú al hacer clic en "Imprimir Informe de Sección"
-// para que el usuario elija I Período, II Período o Anual (promedio).
+// Muestra un mini menú al hacer clic en "Imprimir Acta SEA"
+// para que el usuario elija I Período, II Período o Anual.
 function abrirMenuInformeSeccion(btn){
   // Si ya hay un menú abierto, cerrarlo
   const existente = document.getElementById('menu-informe-seccion');
@@ -20823,7 +20839,7 @@ function abrirMenuInformeSeccion(btn){
   menu.innerHTML = `
     <button onclick="cerrarMenuInformeSeccion();imprimirInformeSeccionConducta('I Período')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">🖨️ I Período</button>
     <button onclick="cerrarMenuInformeSeccion();imprimirInformeSeccionConducta('II Período')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">🖨️ II Período</button>
-    <button onclick="cerrarMenuInformeSeccion();imprimirInformeSeccionConducta('anual')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">🖨️ Anual (promedio 50/50)</button>
+    <button onclick="cerrarMenuInformeSeccion();imprimirInformeSeccionConducta('anual')" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">🖨️ Acta anual</button>
   `;
   document.body.appendChild(menu);
 
@@ -20872,7 +20888,7 @@ async function imprimirInformeSeccionConducta(periodoOpt){
 
   // Período elegido por el usuario ('I Período', 'II Período' o 'anual')
   const per = periodoOpt || 'anual';
-  let periodoLabel = per === 'anual' ? 'Anual' : per;
+  const periodoLabel = per === 'anual' ? 'Anual' : per;
 
   // Obtener todos los estudiantes de la sección con sus notas de conducta
   const qs=condSubgrupoActual?`?subgrupo=${encodeURIComponent(condSubgrupoActual)}`:'';
@@ -20888,13 +20904,15 @@ async function imprimirInformeSeccionConducta(periodoOpt){
   for(const e of ests){
     let notaFinal, boletasCount, extra = '';
     if(per === 'anual'){
-      const [dI, dII] = await Promise.all([
+      const [dI, dII, tes] = await Promise.all([
         api(`${base(e.id)}${queryRangoFrontend('I Período')}`),
         api(`${base(e.id)}${queryRangoFrontend('II Período')}`),
+        api(`${base(e.id)}/resultado-tes?anio=${ANIO_LECTIVO_ACTIVO}`),
       ]);
       const notaI = dI?.notaConducta ?? 100;
       const notaII = dII?.notaConducta ?? 100;
       notaFinal = Math.round((notaI * 0.5) + (notaII * 0.5));
+      if(tes?.nota_final_conducta != null) notaFinal = Number(tes.nota_final_conducta);
       boletasCount = (dI?.boletas?.length ?? 0) + (dII?.boletas?.length ?? 0);
       extra = `I:${notaI} · II:${notaII}`;
     } else {
@@ -20922,65 +20940,151 @@ async function imprimirInformeSeccionConducta(periodoOpt){
       if(adminSec){ sec = { ...sec, ...adminSec }; }
     } catch(_){}  // si falla (es orientador), seguir sin info del guía
   }
+  // Esta ficha entrega el docente guía también a Orientación, que no puede
+  // consultar el catálogo administrativo de secciones.
+  let ficha = null;
+  try { ficha = await api(`${base(ests[0].id)}/carta-aplazado`); } catch(_){}
+  sec = { ...(sec||{}), ...(ficha||{}) };
+
   const nombreSec = condGrupoLabelActual || sec?.nombre || "";
-  const guia = sec ? nombreDesdeCampos(sec.guia_nombre,sec.guia_ap1,sec.guia_ap2,{vacio:''}) : "";
-  const periodo = periodoLabel;
-  const fechaGen = new Date().toLocaleDateString("es-CR",{day:"2-digit",month:"long",year:"numeric"});
+  const nombreSeccion = ficha?.seccion_nombre || sec?.nombre || String(nombreSec).split(' · ')[0];
+  const nivel = Number(ficha?.nivel ?? sec?.nivel ?? String(nombreSeccion).split('-')[0]) || 0;
+  const guiaSEA = [ficha?.guia_ap1 ?? sec?.guia_ap1, ficha?.guia_ap2 ?? sec?.guia_ap2, ficha?.guia_nombre ?? sec?.guia_nombre]
+    .filter(Boolean).join(' ').trim().toLocaleUpperCase('es-CR') || '—';
 
-  let printArea = document.getElementById("print-boleta-area");
-  if(!printArea){ printArea=document.createElement("div"); printArea.id="print-boleta-area"; document.body.appendChild(printArea); }
-  printArea.style.cssText="position:fixed;left:-9999px;top:0;width:800px;background:#fff;";
+  await imprimirPDFActaSEAConducta({
+    datos,
+    docente: guiaSEA,
+    nivel,
+    seccion: nombreSeccion,
+    periodo: periodoLabel,
+    anio: ANIO_LECTIVO_ACTIVO,
+  });
+}
 
-  // FIX 1 hoja: reducir tamaños, padding y márgenes. Tabla más compacta.
-  // FIX período: agregar período en el header.
-  printArea.innerHTML = `
-    <div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto;padding:8px 14px;">
-${encabezadoMEP("INFORME DE CONDUCTA — SECCIÓN "+nombreSec)}
-      <div style="font-size:11px;margin:6px 0 8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">
-        <div><strong>Profesor Guía:</strong> ${guia||'—'}</div>
-        <div><strong>Período:</strong> ${periodo}</div>
-        <div><strong>Generado:</strong> ${fechaGen}</div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:10.5px;page-break-inside:avoid;">
-        <thead>
-          <tr style="background:#1a3a5c;color:#fff;">
-            <th style="padding:4px 6px;text-align:left;width:26px;">#</th>
-            <th style="padding:4px 6px;text-align:left;">Nombre completo</th>
-            <th style="padding:4px 6px;text-align:center;width:60px;">Boletas</th>
-            ${per === 'anual' ? '<th style="padding:4px 6px;text-align:center;width:80px;">I / II</th>' : ''}
-            <th style="padding:4px 6px;text-align:center;width:90px;">Nota de Conducta</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${datos.map((e,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'};page-break-inside:avoid;">
-            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${i+1}</td>
-            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;">${nombreEstudianteLista(e)}</td>
-            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;">${e.boletas}</td>
-            ${per === 'anual' ? `<td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:9.5px;color:#555;">${e.extra||''}</td>` : ''}
-            <td style="padding:3px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:bold;color:${e.nota>=80?'#166534':e.nota>=60?'#92400e':'#991b1b'};">${e.nota}</td>
-          </tr>`).join("")}
-        </tbody>
-      </table>
-      <div style="margin-top:18px;max-width:280px;margin-left:auto;margin-right:auto;page-break-inside:avoid;">
-        <div style="border-top:1px solid #94a3b8;padding-top:4px;text-align:center;font-size:10.5px;color:#555;">
-          Firma del Profesor Guía<br/><strong>${guia||'—'}</strong>${sec&&sec.guia_cedula?`<br/>Cédula: ${sec.guia_cedula}`:""}
-        </div>
-      </div>
-      ${piePaginaMEP()}
-    </div>`;
+function nivelTextoSEAConducta(nivel){
+  return ({7:'SÉTIMO AÑO',8:'OCTAVO AÑO',9:'NOVENO AÑO',10:'DÉCIMO AÑO',11:'UNDÉCIMO AÑO',12:'DUODÉCIMO AÑO'})[Number(nivel)] || `${nivel || ''}° AÑO`;
+}
 
-  const style = document.createElement("style");
-  style.id="print-style-seccion";
-  // FIX 1 hoja: forzar A4 portrait con márgenes mínimos y prevenir saltos
-  style.innerHTML=`@media print {
-    @page { size: A4 portrait; margin: 10mm; }
-    body > *:not(#print-boleta-area) { display:none!important; }
-    #print-boleta-area { }
-    #print-boleta-area table { page-break-inside: avoid; }
-    #print-boleta-area tr { page-break-inside: avoid; }
-  }`;
-  document.head.appendChild(style);
-  await imprimirConEncabezado(printArea, document.getElementById("print-style-seccion"));
+function nombreEstudianteSEAConducta(e){
+  return [e.primer_apellido,e.segundo_apellido,e.nombre].filter(Boolean).join(' ').trim().toLocaleUpperCase('es-CR');
+}
+
+// Generador exclusivo para Conducta. Replica la hoja oficial del SEA y, a
+// diferencia de imprimirPDFMEP, no agrega el encabezado ni el pie institucional.
+async function imprimirPDFActaSEAConducta({datos,docente,nivel,seccion,periodo,anio}){
+  const JsPDF = window.jspdf && window.jspdf.jsPDF;
+  if(!JsPDF){ alert('No se pudo cargar el generador PDF.'); return; }
+
+  const pdf = new JsPDF({unit:'mm',format:'letter',orientation:'portrait'});
+  const anchoPagina = pdf.internal.pageSize.getWidth();
+  const altoPagina = pdf.internal.pageSize.getHeight();
+  const x = 12, ancho = anchoPagina - 24;
+  const nivelTexto = nivelTextoSEAConducta(nivel);
+  const numeroSeccion = String(seccion||'').includes('-') ? String(seccion).split('-').slice(1).join('-') : String(seccion||'');
+  const seccionSEA = `${nivelTexto}${numeroSeccion ? `-${numeroSeccion}` : ''}`;
+  const periodoSEA = periodo === 'I Período' ? '1° período' : periodo === 'II Período' ? '2° período' : 'Anual';
+  const filasMeta = [
+    ['Dirección Regional de Educación:','DIRECCIÓN REGIONAL DESAMPARADOS'],
+    ['Circuito escolar:','CIRCUITO 07'],
+    ['Centro educativo:','LICEO DE CALLE FALLAS'],
+    ['Curso lectivo:',String(anio)],
+    ['Docente:',docente],
+    ['Asignatura:','Conducta'],
+    ['Nivel:',nivelTexto],
+    ['Sección:',seccionSEA],
+    ['Período:',periodoSEA],
+  ];
+
+  const borde = [218,218,218];
+  const sombra = [244,244,244];
+  const altoMeta = 10.6;
+  let y = 11;
+  pdf.setFont('helvetica','normal');
+  filasMeta.forEach(([etiqueta,valor])=>{
+    pdf.setFillColor(...sombra);
+    pdf.roundedRect(x+.7,y+.7,ancho,altoMeta,1.2,1.2,'F');
+    pdf.setFillColor(255,255,255);
+    pdf.setDrawColor(...borde);
+    pdf.setLineWidth(.22);
+    pdf.roundedRect(x,y,ancho,altoMeta,1.2,1.2,'FD');
+    pdf.setFont('helvetica','bold');
+    pdf.setFontSize(9.2);
+    pdf.setTextColor(30,30,30);
+    pdf.text(etiqueta,x+3,y+6.7);
+    pdf.setFont('helvetica','normal');
+    pdf.text(String(valor||'—'),x+91,y+6.7,{maxWidth:ancho-94});
+    y += altoMeta + .55;
+  });
+
+  y += 12;
+  pdf.setFont('times','bold');
+  pdf.setFontSize(34);
+  pdf.setTextColor(0,0,0);
+  pdf.text('Acta',anchoPagina/2,y,{align:'center'});
+  y += 11;
+
+  const colId = 48, colNota = 34, colNombre = ancho-colId-colNota;
+  const altoCab = 10.5, altoFila = 8.4;
+  function dibujarCabeceraTabla(){
+    pdf.setFillColor(247,247,247);
+    pdf.setDrawColor(...borde);
+    pdf.setLineWidth(.22);
+    pdf.rect(x,y,colId,altoCab,'FD');
+    pdf.rect(x+colId,y,colNombre,altoCab,'FD');
+    pdf.rect(x+colId+colNombre,y,colNota,altoCab,'FD');
+    pdf.setFont('helvetica','bold');
+    pdf.setFontSize(9.2);
+    pdf.text('Identificación',x+colId/2,y+6.7,{align:'center'});
+    pdf.text('Estudiante',x+colId+colNombre/2,y+6.7,{align:'center'});
+    pdf.text('Nota obtenida',x+colId+colNombre+colNota/2,y+6.7,{align:'center'});
+    y += altoCab;
+  }
+  dibujarCabeceraTabla();
+
+  datos.forEach(e=>{
+    if(y + altoFila > altoPagina - 14){
+      pdf.addPage('letter','portrait');
+      y = 14;
+      dibujarCabeceraTabla();
+    }
+    pdf.setFillColor(255,255,255);
+    pdf.setDrawColor(...borde);
+    pdf.rect(x,y,colId,altoFila,'FD');
+    pdf.rect(x+colId,y,colNombre,altoFila,'FD');
+    pdf.rect(x+colId+colNombre,y,colNota,altoFila,'FD');
+    pdf.setFont('helvetica','normal');
+    pdf.setFontSize(8.8);
+    pdf.text(String(e.cedula||'').replace(/[\s-]/g,''),x+3,y+5.6,{maxWidth:colId-6});
+    pdf.text(nombreEstudianteSEAConducta(e),x+colId+3,y+5.6,{maxWidth:colNombre-6});
+    pdf.text(String(Math.round(Number(e.nota)||0)),x+colId+colNombre+colNota/2,y+5.6,{align:'center'});
+    y += altoFila;
+  });
+
+  // El SEA coloca la constancia de firma después del listado; si no cabe
+  // completa, pasa íntegra a la siguiente hoja como en el documento oficial.
+  y += 12;
+  if(y + 12 > altoPagina - 14){ pdf.addPage('letter','portrait'); y = 18; }
+  pdf.setFillColor(...sombra);
+  pdf.roundedRect(x+.7,y+.7,ancho,11.5,1.2,1.2,'F');
+  pdf.setFillColor(255,255,255);
+  pdf.setDrawColor(...borde);
+  pdf.roundedRect(x,y,ancho,11.5,1.2,1.2,'FD');
+  pdf.setFont('helvetica','normal');
+  pdf.setFontSize(9.2);
+  pdf.text('Nombre y firma de docente',anchoPagina/2,y+7.2,{align:'center'});
+
+  const nombreArchivo = `acta_SEA_conducta_${String(seccion||'seccion').replace(/[^0-9A-Za-z_-]/g,'_')}_${periodoSEA.replace(/[^0-9A-Za-z]+/g,'_')}_${anio}.pdf`;
+  const pdfBlob = pdf.output('blob');
+  const blobUrl = URL.createObjectURL(pdfBlob);
+  const printWindow = window.open(blobUrl,'_blank');
+  if(printWindow){
+    printWindow.addEventListener('load',()=>setTimeout(()=>{ try{ printWindow.print(); }catch(e){ console.warn(e); } },500));
+  }else{
+    pdf.save(nombreArchivo);
+    alert('El navegador bloqueó la ventana emergente. Se descargó el acta en su lugar.');
+  }
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
 }
 
 // ════════════════════════════════════
@@ -21130,7 +21234,7 @@ async function ectCargarListado(){
   const cont=document.getElementById("ect-listado");cont.innerHTML='<div class="empty">Calculando notas anuales de conducta...</div>';
   try{
     const d=await api(`/api/expedientes-conducta/listado?anio=${anio}`);ectListadoActual=d;
-    document.getElementById("ect-aviso-comite").innerHTML=d.miembros_comite===3?"":`<div class="alert show alert-warning" style="margin-bottom:12px;">⚠️ Administración debe asignar exactamente tres miembros al Comité de Evaluación. Actualmente hay ${d.miembros_comite}.</div>`;
+    document.getElementById("ect-aviso-comite").innerHTML=d.miembros_comite>=1?"":`<div class="alert show alert-warning" style="margin-bottom:12px;">⚠️ Administración debe asignar al menos un miembro al Comité de Evaluación para aprobar el proyecto TES.</div>`;
     if(!d.estudiantes.length){cont.innerHTML='<div class="empty">No hay estudiantes aplazados en conducta dentro de las secciones autorizadas.</div>';return;}
     const grupos={};d.estudiantes.forEach(e=>(grupos[e.seccion_nombre]??=[]).push(e));
     cont.innerHTML=Object.entries(grupos).map(([sec,lista])=>`<section style="margin-bottom:16px;"><h3 style="color:var(--azul);margin:0 0 8px;">Sección ${htmlSeguro(sec)}</h3><div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>I</th><th>II</th><th>Anual</th><th>Mínimo</th><th>Expediente</th><th></th></tr></thead><tbody>${lista.map(e=>`<tr><td><strong>${htmlSeguro(nombreEstudianteLista(e))}</strong><br><small>${htmlSeguro(e.cedula)}${e.activo?'':' · Retirado'}</small></td><td>${Number(e.nota_i).toFixed(1)}</td><td>${Number(e.nota_ii).toFixed(1)}</td><td style="font-weight:bold;color:var(--rojo);">${Number(e.nota_anual).toFixed(1)}</td><td>${e.minimo}</td><td>${e.expediente_id?`N°${e.numero}-${anio}<br><small>${htmlSeguro(ectEstado(e.estado))}</small>`:'—'}</td><td>${e.expediente_id?`<button class="btn btn-primary btn-xs" onclick="ectAbrirDetalle(${e.expediente_id})">Ver expediente</button>`:(d.puede_abrir?`<button class="btn btn-success btn-xs" onclick="ectAbrirExpediente(${e.estudiante_id},${Number(e.nota_anual)})">Abrir expediente</button>`:'')}</td></tr>`).join('')}</tbody></table></div></section>`).join('');
@@ -21161,7 +21265,7 @@ function ectCampo(id,label,valor="",tipo="textarea"){
 
 function ectRenderPasos(){
   const d=ectActual,e=d.expediente,cerrado=e.estado!=="en_curso";
-  const aprobados=d.aprobaciones.length,comiteCompleto=d.miembros.length===3&&aprobados===3;
+  const aprobados=d.aprobaciones.length,comiteCompleto=aprobados>=1;
   document.getElementById("ect-pasos").innerHTML=d.pasos.map(p=>{
     const c=p.contenido||{},n=Number(p.paso),bloqueado=n>=4&&!comiteCompleto;
     let cuerpo="";
@@ -21172,12 +21276,12 @@ function ectRenderPasos(){
       cuerpo+=ectCampo("ect-2-obs","Evidencias y observaciones",c.observaciones);
       if(acciones.length) cuerpo+=`<button class="btn btn-danger btn-sm" onclick="ectCerrarCausal('accion_pendiente')">Cerrar por acción correctiva pendiente e imprimir carta</button>`;
     }
-    if(n===3) cuerpo=`<div class="fg"><label>Trabajo Educativo Sustitutivo *</label><select id="ect-3-proyecto"><option value="">— Seleccionar —</option>${Object.entries(ECT_PROYECTOS).map(([v,l])=>`<option value="${v}" ${c.proyecto===v?'selected':''}>${l}</option>`).join('')}</select></div>${ectCampo("ect-3-just","Justificación y observaciones del diseño",c.justificacion)}<div style="margin-top:10px;background:#f8fafc;padding:10px;border-radius:7px;"><strong>Aprobación individual del Comité (${aprobados}/3)</strong>${d.miembros.length?d.miembros.map(m=>`<div style="padding:5px 0;">${m.aprobado?'✅':'⏳'} ${htmlSeguro(nombrePersona(m))}</div>`).join(''):'<div class="empty">Administración aún no ha asignado los tres miembros.</div>'}${d.es_comite&&!d.aprobaciones.some(a=>Number(a.usuario_id)===Number(ME.id))?`<button class="btn btn-success btn-sm" onclick="ectAprobarProyecto()">✅ Dar mi aprobación</button>`:''}</div>`;
+    if(n===3) cuerpo=`<div class="fg"><label>Trabajo Educativo Sustitutivo *</label><select id="ect-3-proyecto"><option value="">— Seleccionar —</option>${Object.entries(ECT_PROYECTOS).map(([v,l])=>`<option value="${v}" ${c.proyecto===v?'selected':''}>${l}</option>`).join('')}</select></div>${ectCampo("ect-3-just","Justificación y observaciones del diseño",c.justificacion)}<div style="margin-top:10px;background:#f8fafc;padding:10px;border-radius:7px;"><strong>Aprobación del Comité: ${aprobados} registrada(s) · se requiere 1</strong>${d.miembros.length?d.miembros.map(m=>`<div style="padding:5px 0;">${m.aprobado?'✅':'⏳'} ${htmlSeguro(nombrePersona(m))}</div>`).join(''):'<div class="empty">Administración aún no ha asignado miembros.</div>'}${d.es_comite&&!d.aprobaciones.some(a=>Number(a.usuario_id)===Number(ME.id))?`<button class="btn btn-success btn-sm" onclick="ectAprobarProyecto()">✅ Dar mi aprobación</button>`:''}</div>`;
     if(n===4){const pl=ECT_PLANTILLAS[e.proyecto]||{};cuerpo=`<p style="font-size:12.5px;color:var(--muted);">La plantilla oficial del proyecto seleccionado ya viene precargada; puede ajustarse al caso concreto sin cambiar su enfoque educativo ni sus medidas de seguridad.</p>${ectCampo("ect-4-obj","Objetivos del trabajo",c.objetivos||pl.objetivos)}${ectCampo("ect-4-act","Actividades y cronograma",c.actividades||pl.actividades)}${ectCampo("ect-4-apo","Apoyos, responsables y medidas de seguridad",c.apoyos||pl.apoyos)}${ectCampo("ect-4-ind","Indicadores de evaluación",c.indicadores||ECT_INDICADORES)}`;}
     if(n===5) cuerpo=`${ectCampo("ect-5-fecha","Fecha de entrega del diseño",c.fecha_entrega,"date")}${ectCampo("ect-5-lugar","Lugar, horario y persona responsable",c.lugar_horario)}${ectCampo("ect-5-firmas","Constancia de entrega y observaciones",c.constancia)}`;
     if(n===6) cuerpo=`${ectCampo("ect-6-fecha","Fecha de ejecución/verificación",c.fecha,"date")}${ectCampo("ect-6-evid","Evidencias verificadas",c.evidencias)}${ectCampo("ect-6-val","Valoración por indicador y puntaje obtenido",c.valoracion)}`;
     if(n===7) cuerpo=`<div class="form-grid"><div class="fg"><label>Resultado final</label><select id="ect-7-resultado"><option value="">— Seleccionar —</option><option value="aprobado" ${c.resultado==='aprobado'?'selected':''}>Aprobó el TES</option><option value="no_aprobado" ${c.resultado==='no_aprobado'?'selected':''}>No aprobó el TES</option></select></div><div class="fg"><label>Calificación TES (0-30)</label><input id="ect-7-nota" type="number" min="0" max="30" step="0.1" value="${htmlSeguro(c.calificacion??'')}"></div></div>${ectCampo("ect-7-obs","Conclusiones y comunicación al docente guía",c.observaciones)}<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" onclick="ectCerrarCausal('inasistencia')">Registrar inasistencia y remitir al Comité</button><button class="btn btn-outline btn-sm" onclick="ectCerrarCausal('condicion_academica')">Registrar condición académica y remitir al Comité</button></div>`;
-    return `<section style="border:1px solid ${p.completado?'#86efac':'var(--border)'};border-radius:9px;margin:9px 0;overflow:hidden;opacity:${bloqueado?.72:1};"><div style="background:${p.completado?'#ecfdf5':'#f8fafc'};padding:10px 12px;display:flex;justify-content:space-between;gap:8px;align-items:center;"><strong>Paso ${n}. ${ECT_PASOS[n-1]}</strong><span>${p.completado?'✅ Guardado':'⏳ Pendiente'}</span></div><div style="padding:12px;">${bloqueado?'<div class="alert show alert-warning">🔒 Se habilita cuando los tres miembros del Comité aprueben el paso 3.</div>':cuerpo}<div style="display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px;"><button class="btn btn-outline btn-sm" onclick="ectImprimirPaso(${n})" ${n>=4&&bloqueado?'disabled':''}>🖨️ Imprimir</button>${!cerrado&&!bloqueado?`<button class="btn btn-primary btn-sm" onclick="ectGuardarPaso(${n},false)">💾 Guardar borrador</button>${n===7?`<button class="btn btn-success btn-sm" onclick="ectConcluir()">✅ Concluir expediente</button>`:`<button class="btn btn-success btn-sm" onclick="ectGuardarPaso(${n},true)">✓ Marcar completo</button>`}`:''}</div></div></section>`;
+    return `<section style="border:1px solid ${p.completado?'#86efac':'var(--border)'};border-radius:9px;margin:9px 0;overflow:hidden;opacity:${bloqueado?.72:1};"><div style="background:${p.completado?'#ecfdf5':'#f8fafc'};padding:10px 12px;display:flex;justify-content:space-between;gap:8px;align-items:center;"><strong>Paso ${n}. ${ECT_PASOS[n-1]}</strong><span>${p.completado?'✅ Guardado':'⏳ Pendiente'}</span></div><div style="padding:12px;">${bloqueado?'<div class="alert show alert-warning">🔒 Se habilita cuando al menos un miembro del Comité apruebe el paso 3.</div>':cuerpo}<div style="display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px;"><button class="btn btn-outline btn-sm" onclick="ectImprimirPaso(${n})" ${n>=4&&bloqueado?'disabled':''}>🖨️ Imprimir</button>${!cerrado&&!bloqueado?`<button class="btn btn-primary btn-sm" onclick="ectGuardarPaso(${n},false)">💾 Guardar borrador</button>${n===7?`<button class="btn btn-success btn-sm" onclick="ectConcluir()">✅ Concluir expediente</button>`:`<button class="btn btn-success btn-sm" onclick="ectGuardarPaso(${n},true)">✓ Marcar completo</button>`}`:''}</div></div></section>`;
   }).join("");
 }
 
@@ -21206,22 +21310,38 @@ async function ectCerrarCausal(causal){
 }
 async function ectReabrir(){const motivo=prompt("Motivo de la reapertura administrativa:","");if(!motivo)return;try{await api(`/api/expedientes-conducta/${ectActual.expediente.id}/reabrir`,"POST",{motivo});await ectAbrirDetalle(ectActual.expediente.id);}catch(e){sa("alert-ect-detalle",e.message,"danger");}}
 
-function ectDatosDoc(){const e=ectActual.expediente;return{e,nombre:nombreDesdeCampos(e.nombre,e.primer_apellido,e.segundo_apellido,{mayusculas:true}),guia:nombreDesdeCampos(e.guia_nombre,e.guia_ap1,e.guia_ap2),folio:`ECT-${String(e.numero).padStart(3,'0')}-${e.anio}`};}
-function ectFirmaGuia(nombre){return `<div style="margin-top:45px;width:310px;text-align:center;"><div style="border-top:1px solid #111;padding-top:5px;"><strong>${htmlSeguro(nombre||'Docente guía')}</strong><br>Docente guía</div></div>`;}
-async function ectImprimirPortada(){const {e,nombre,guia,folio}=ectDatosDoc();const h=`<div style="font-family:Arial;text-align:center;padding-top:80px;"><h1 style="color:#1f3864;letter-spacing:1px;">EXPEDIENTE DE CONDUCTA</h1><h2 style="margin-top:60px;">Trabajo Educativo Sustitutivo de Conducta</h2><div style="margin:60px auto 0;max-width:560px;border:2px solid #1f3864;padding:28px;text-align:left;font-size:14px;line-height:2;"><strong>Consecutivo:</strong> ${folio}<br><strong>Estudiante:</strong> ${htmlSeguro(nombre)}<br><strong>Cédula:</strong> ${htmlSeguro(e.cedula)}<br><strong>Sección:</strong> ${htmlSeguro(e.seccion_nombre)}<br><strong>Curso lectivo:</strong> ${e.anio}<br><strong>Docente guía:</strong> ${htmlSeguro(guia)}</div></div>`;await imprimirPDFMEP("EXPEDIENTE DE CONDUCTA",h,`Portada_Expediente_Conducta_${folio}.pdf`);}
+function ectDatosDoc(){const e=ectActual.expediente;return{e,nombre:nombreDesdeCampos(e.nombre,e.primer_apellido,e.segundo_apellido,{mayusculas:true}),guia:nombreDesdeCampos(e.guia_nombre,e.guia_ap1,e.guia_ap2),folio:`TES-${String(e.numero).padStart(3,'0')}-${e.anio}`};}
+function ectFirmaGuia(nombre){return `<div style="margin-top:78px;width:330px;text-align:center;page-break-inside:avoid;"><div style="border-top:1px solid #111;padding-top:7px;"><strong>${htmlSeguro(nombre||'Docente guía')}</strong><br>Docente guía</div></div>`;}
+async function ectImprimirPortada(){const {e,nombre,guia,folio}=ectDatosDoc();const h=`<div style="font-family:Arial;text-align:center;padding-top:68px;"><h1 style="color:#1f3864;letter-spacing:1px;">EXPEDIENTE DE CONDUCTA</h1><h2 style="margin-top:52px;line-height:1.5;">Trabajo con enfoque socioeducativo<br>y promoción de la conducta (TES)</h2><div style="margin:58px auto 0;max-width:560px;border:2px solid #1f3864;padding:32px;text-align:left;font-size:14px;line-height:2.25;"><strong>Consecutivo:</strong> ${folio}<br><strong>Estudiante:</strong> ${htmlSeguro(nombre)}<br><strong>Cédula:</strong> ${htmlSeguro(e.cedula)}<br><strong>Sección:</strong> ${htmlSeguro(e.seccion_nombre)}<br><strong>Curso lectivo:</strong> ${e.anio}<br><strong>Docente guía:</strong> ${htmlSeguro(guia)}</div></div>`;await imprimirPDFMEP("EXPEDIENTE DE CONDUCTA",h,`Portada_Expediente_Conducta_${folio}.pdf`);}
 
 async function ectImprimirPaso(n){
   const p=ectActual.pasos.find(x=>Number(x.paso)===Number(n)),c=(document.getElementById(`ect-${n}-obs`)||document.getElementById(`ect-${n}-just`))?ectContenidoPaso(n):(p?.contenido||{});
   const {e,nombre,guia,folio}=ectDatosDoc();const base=`<p><strong>Expediente:</strong> ${folio} &nbsp; <strong>Curso lectivo:</strong> ${e.anio}</p><p><strong>Estudiante:</strong> ${htmlSeguro(nombre)} &nbsp; <strong>Cédula:</strong> ${htmlSeguro(e.cedula)} &nbsp; <strong>Sección:</strong> ${htmlSeguro(e.seccion_nombre)}</p>`;
   let titulo=ECT_PASOS[n-1],h=base;
-  if(n===1)h+=`<p>Se comunica que el estudiante no alcanzó la nota mínima anual de conducta y debe realizar el procedimiento institucional correspondiente al Trabajo Educativo Sustitutivo.</p><p><strong>Nota anual:</strong> ${e.nota_anual??'—'} &nbsp; <strong>Mínimo:</strong> ${Number(e.nivel)<=9?65:70}</p><p><strong>Recibido por:</strong> ${htmlSeguro(c.recibe||'________________________')} &nbsp; <strong>Fecha:</strong> ${c.fecha_entrega?fmtF(c.fecha_entrega):'____/____/________'}</p>`;
+  if(n===1)h+=`
+    <p style="text-align:right;margin:16px 0 28px;">Desamparados, ${c.fecha_entrega?fmtF(c.fecha_entrega):'____ de __________________ de '+e.anio}</p>
+    <p><strong>Nota anual de conducta:</strong> ${e.nota_anual??'—'}</p>
+    <p>Estimado(a) estudiante y persona encargada legal:</p>
+    <p style="text-align:justify;text-indent:2em;">Por medio de la presente se comunica formalmente que la persona estudiante <strong>${htmlSeguro(nombre)}</strong>, de la sección <strong>${htmlSeguro(e.seccion_nombre)}</strong>, obtuvo una nota anual ponderada de conducta de <strong>${e.nota_anual??'—'} puntos</strong>.</p>
+    <p style="text-align:justify;text-indent:2em;">De conformidad con el Reglamento de Evaluación de los Aprendizajes y de la Conducta, Decreto Ejecutivo N.° 45509-MEP, el artículo 144 establece como nota mínima para la promoción <strong>${Number(e.nivel)<=9?65:70} puntos</strong> en el nivel que cursa la persona estudiante.</p>
+    <p style="text-align:justify;text-indent:2em;">Al haber obtenido una calificación inferior al mínimo establecido, y conforme al artículo 145, se comunica que la persona estudiante se encuentra en condición de <strong>aplazada en conducta</strong>.</p>
+    <p style="text-align:justify;text-indent:2em;">De acuerdo con el artículo 146, deberá realizar por una única vez un trabajo con enfoque socioeducativo y de promoción de la conducta, conforme a los lineamientos del Ministerio de Educación Pública y bajo la supervisión del Comité de Evaluación. Su cumplimiento satisfactorio permitirá adquirir la condición de aprobada en conducta. En caso de incumplimiento, se procederá según las disposiciones del mismo artículo.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:82px;text-align:center;page-break-inside:avoid;">
+      <div style="border-top:1px solid #111;padding-top:7px;"><strong>${htmlSeguro(guia||'Docente guía')}</strong><br>Docente guía · Sección ${htmlSeguro(e.seccion_nombre)}</div>
+      <div style="border-top:1px solid #111;padding-top:7px;"><strong>Laura Cruz Jiménez</strong><br>Directora</div>
+    </div>
+    <div style="margin-top:66px;border-top:1px solid #777;padding-top:12px;page-break-inside:avoid;">
+      <strong>RECIBIDO</strong><br><br>
+      Yo, <strong>${htmlSeguro(c.recibe||'____________________________________________')}</strong>, en calidad de ☐ estudiante mayor de edad &nbsp; ☐ padre, madre o persona encargada legal, hago constar que recibí esta notificación.
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:65px;margin-top:52px;"><div style="border-top:1px solid #111;padding-top:6px;text-align:center;">Firma</div><div style="border-top:1px solid #111;padding-top:6px;text-align:center;">Fecha y hora</div></div>
+    </div>`;
   if(n===2){const ac=ectActual.acciones_correctivas||[];h+=ac.length?`<p>Se verificaron las siguientes acciones correctivas:</p><table style="width:100%;border-collapse:collapse;"><tr><th style="border:1px solid #555;padding:6px;">Expediente</th><th style="border:1px solid #555;padding:6px;">Acción</th><th style="border:1px solid #555;padding:6px;">Cumplió</th></tr>${ac.map((a,i)=>`<tr><td style="border:1px solid #555;padding:6px;">DP ${a.numero}-${a.anio}</td><td style="border:1px solid #555;padding:6px;">${htmlSeguro(a.accion)}</td><td style="border:1px solid #555;padding:6px;text-align:center;">${c.cumplidas?.[i]?'Sí':'No'}</td></tr>`).join('')}</table>`:`<p>Revisados los registros institucionales, se hace constar que no existen acciones correctivas impuestas pendientes de verificación. Los procedimientos abiertos sin una acción firme no se contabilizan como acciones correctivas.</p>`;h+=`<p><strong>Observaciones:</strong> ${htmlSeguro(c.observaciones||'Ninguna')}</p>`;}
-  if(n===3)h+=`<p><strong>Trabajo seleccionado:</strong> ${htmlSeguro(ECT_PROYECTOS[c.proyecto]||e.proyecto||'—')}</p><p><strong>Justificación:</strong> ${htmlSeguro(c.justificacion||'—')}</p><h3>Aprobación del Comité de Evaluación</h3>${ectActual.miembros.map(m=>`<p>${m.aprobado?'☑':'☐'} ${htmlSeguro(nombrePersona(m))} __________________ Firma</p>`).join('')}`;
+  if(n===3)h+=`<p><strong>Trabajo seleccionado:</strong> ${htmlSeguro(ECT_PROYECTOS[c.proyecto]||e.proyecto||'—')}</p><p style="text-align:justify;"><strong>Justificación:</strong> ${htmlSeguro(c.justificacion||'—')}</p><h3 style="margin-top:28px;">Aprobación de miembro del Comité de Evaluación</h3><p style="text-align:justify;">Para continuar con el diseño del TES se requiere la aprobación de al menos una de las personas integrantes designadas.</p><div style="margin-top:34px;">${ectActual.miembros.map(m=>`<div style="display:grid;grid-template-columns:22px 1fr 220px;gap:8px;align-items:end;margin:26px 0;page-break-inside:avoid;"><span>${m.aprobado?'☑':'☐'}</span><span>${htmlSeguro(nombrePersona(m))}</span><span style="border-bottom:1px solid #111;height:20px;text-align:center;font-size:10px;">Firma</span></div>`).join('')}</div>`;
   if(n===4)h+=`<p><strong>Proyecto:</strong> ${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'—')}</p><h3>Objetivos</h3><p>${htmlSeguro(c.objetivos||'—')}</p><h3>Actividades y cronograma</h3><p style="white-space:pre-wrap;">${htmlSeguro(c.actividades||'—')}</p><h3>Apoyos y seguridad</h3><p>${htmlSeguro(c.apoyos||'—')}</p><h3>Instrumento de evaluación (30 puntos)</h3><p style="white-space:pre-wrap;">${htmlSeguro(c.indicadores||'Seis indicadores de desempeño, valorados de 1 a 5 puntos cada uno.')}</p>`;
-  if(n===5)h+=`<p>Se entrega al estudiante y su encargado el diseño del TES <strong>${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'')}</strong>.</p><p><strong>Fecha:</strong> ${c.fecha_entrega?fmtF(c.fecha_entrega):'—'}</p><p><strong>Lugar, horario y responsable:</strong> ${htmlSeguro(c.lugar_horario||'—')}</p><p><strong>Constancia:</strong> ${htmlSeguro(c.constancia||'—')}</p><div style="display:flex;gap:60px;margin-top:55px;"><div style="border-top:1px solid;width:260px;text-align:center;">Firma estudiante</div><div style="border-top:1px solid;width:260px;text-align:center;">Firma encargado</div></div>`;
+  if(n===5)h+=`<p style="text-align:justify;">Se entrega al estudiante y su encargado el diseño del TES <strong>${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'')}</strong>.</p><p><strong>Fecha:</strong> ${c.fecha_entrega?fmtF(c.fecha_entrega):'—'}</p><p><strong>Lugar, horario y responsable:</strong> ${htmlSeguro(c.lugar_horario||'—')}</p><p style="text-align:justify;"><strong>Constancia:</strong> ${htmlSeguro(c.constancia||'—')}</p><div style="display:flex;gap:75px;margin-top:90px;page-break-inside:avoid;"><div style="border-top:1px solid;width:270px;text-align:center;padding-top:7px;">Firma estudiante</div><div style="border-top:1px solid;width:270px;text-align:center;padding-top:7px;">Firma encargado</div></div>`;
   if(n===6)h+=`<p><strong>Fecha de ejecución/verificación:</strong> ${c.fecha?fmtF(c.fecha):'—'}</p><p><strong>Evidencias verificadas:</strong></p><p style="white-space:pre-wrap;">${htmlSeguro(c.evidencias||'—')}</p><p><strong>Valoración y puntaje:</strong></p><p style="white-space:pre-wrap;">${htmlSeguro(c.valoracion||'—')}</p>`;
-  if(n===7)h+=`<p>El Comité de Evaluación comunica el resultado final del Trabajo Educativo Sustitutivo.</p><p><strong>Proyecto:</strong> ${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'—')}</p><p><strong>Resultado:</strong> ${c.resultado==='aprobado'?'APROBÓ':c.resultado==='no_aprobado'?'NO APROBÓ':'—'} &nbsp; <strong>Calificación:</strong> ${c.calificacion||'—'} / 30</p><p><strong>Nota final de conducta:</strong> ${e.nota_final_conducta??'—'}</p><p><strong>Observaciones:</strong> ${htmlSeguro(c.observaciones||'—')}</p><h3>Comité de Evaluación</h3>${ectActual.miembros.map(m=>`<p>${htmlSeguro(nombrePersona(m))} __________________________________</p>`).join('')}`;
-  h+=ectFirmaGuia(guia);await imprimirPDFMEP(titulo.toLocaleUpperCase('es-CR'),`<div style="font-family:Arial;font-size:12px;line-height:1.6;">${h}</div>`,`ECT_${folio}_Paso_${n}.pdf`);
+  if(n===7)h+=`<p>El Comité de Evaluación comunica el resultado final del Trabajo Educativo Sustitutivo.</p><p><strong>Proyecto:</strong> ${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'—')}</p><p><strong>Resultado:</strong> ${c.resultado==='aprobado'?'APROBÓ':c.resultado==='no_aprobado'?'NO APROBÓ':'—'} &nbsp; <strong>Calificación:</strong> ${c.calificacion||'—'} / 30</p><p><strong>Nota final de conducta:</strong> ${e.nota_final_conducta??'—'}</p><p style="text-align:justify;"><strong>Observaciones:</strong> ${htmlSeguro(c.observaciones||'—')}</p><h3>Comité de Evaluación</h3><div style="margin-top:36px;">${ectActual.miembros.map(m=>`<div style="display:grid;grid-template-columns:1fr 260px;gap:18px;margin:30px 0;page-break-inside:avoid;"><span>${htmlSeguro(nombrePersona(m))}</span><span style="border-bottom:1px solid #111;height:18px;text-align:center;font-size:10px;">Firma</span></div>`).join('')}</div>`;
+  if(n!==1)h+=ectFirmaGuia(guia);await imprimirPDFMEP(titulo.toLocaleUpperCase('es-CR'),`<div style="font-family:Arial;font-size:12px;line-height:1.75;text-align:justify;"><style>.ect-doc p{text-align:justify;margin:0 0 14px;}.ect-doc h3{margin:22px 0 12px;}</style><div class="ect-doc">${h}</div></div>`,`${folio}_Paso_${n}.pdf`);
 }
 
 async function ectImprimirCausal(causal,detalle){
@@ -21239,7 +21359,7 @@ async function abrirFuncionInstitucional(tipo){
     comite_apoyo:{titulo:"🧩 Comité de Apoyo",ayuda:"Administra adecuaciones, observaciones y solicitudes docentes de toda la institución."},
     lcf_familias:{titulo:"📱 LCF Familias",ayuda:"Administra el servicio, las contraseñas y el acceso de padres y encargados. Este permiso no se obtiene por pertenecer a Matrícula ni por ser auxiliar."},
     comite_tecnico_asesor:{titulo:"📝 Comité Técnico Asesor",ayuda:"Consulta horarios docentes y administra calendarios de pruebas y horarios de cuido."},
-    comite_evaluacion:{titulo:"📘 Comité de Evaluación",ayuda:"Asigne exactamente tres miembros. Cada uno debe aprobar individualmente el proyecto TES antes de habilitar los anexos."}
+    comite_evaluacion:{titulo:"📘 Comité de Evaluación",ayuda:"Puede mantener tres miembros asignados; basta con que uno apruebe el proyecto TES para habilitar los anexos."}
   }[tipo];
   if(!cfg) return;
   document.getElementById("fi-tipo").value=tipo;

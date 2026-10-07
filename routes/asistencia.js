@@ -379,7 +379,6 @@ router.post("/", requireDocente, permitirAsignacion, async (req, res) => {
         WHERE a.id=$1
       `, [asignacion_id]);
 
-      console.log("auto-boleta: materia=", asigInfoR.rows[0]?.materia, "es_guia_ori=", asigInfoR.rows[0]?.es_guia_ori);
       if (asigInfoR.rows[0]?.es_guia_ori) {
         // Get "Ausencias injustificadas" infraccion
         const infR = await pool.query(
@@ -387,7 +386,6 @@ router.post("/", requireDocente, permitirAsignacion, async (req, res) => {
         );
         const infraccionId = infR.rows[0]?.id;
 
-        console.log("auto-boleta: infraccionId=", infraccionId);
         if (infraccionId) {
           for (const reg of registros) {
             // Buscar por sesion_id + estudiante_id (reg.id no existe en el body)

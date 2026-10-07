@@ -154,8 +154,7 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
       const a=await pool.query(`SELECT COUNT(*)::int AS n FROM expedientes_conducta_aprobaciones a
         JOIN funciones_institucionales fi ON fi.usuario_id=a.usuario_id AND fi.tipo=$2
         WHERE a.expediente_id=$1`,[ec.id,tipoComite]);
-      const m=await pool.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo=$1",[tipoComite]);
-      if(m.rows[0].n!==3 || a.rows[0].n!==3) return res.status(409).json({error:"El paso 3 requiere la aprobación individual de los tres miembros del Comité de Evaluación."});
+      if(a.rows[0].n<1) return res.status(409).json({error:"El paso 3 requiere la aprobación de al menos un miembro del Comité de Evaluación."});
     }
     const contenido=req.body.contenido&&typeof req.body.contenido==='object'?req.body.contenido:{};
     const completado=!!req.body.completado;
@@ -224,7 +223,7 @@ router.post("/:id/concluir", requireAuth, async (req,res)=>{
     const ap=await client.query(`SELECT COUNT(*)::int AS n FROM expedientes_conducta_aprobaciones a
       JOIN funciones_institucionales fi ON fi.usuario_id=a.usuario_id AND fi.tipo=$2
       WHERE a.expediente_id=$1`,[ec.id,tipoComite]);
-    if(ap.rows[0].n!==3) throw new Error("Faltan aprobaciones del Comité de Evaluación.");
+    if(ap.rows[0].n<1) throw new Error("Falta la aprobación de al menos un miembro del Comité de Evaluación.");
     const resultado=String(req.body.resultado||"");
     if(!["aprobado","no_aprobado"].includes(resultado)) throw new Error("Indique el resultado final del TES.");
     const minimo=Number(ec.nivel)<=9?65:70;
