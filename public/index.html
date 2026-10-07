@@ -2247,7 +2247,7 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
         <button class="btn btn-outline btn-sm" onclick="ectVolver()">← Volver</button>
         <h2 id="ect-titulo" style="margin:0;flex:1;"></h2>
-        <button class="btn btn-outline btn-sm" onclick="ectImprimirPortada()">🖨️ Portada Expediente de Matrícula</button>
+        <button class="btn btn-outline btn-sm" onclick="ectImprimirPortada()">🖨️ Portada Expediente de Conducta</button>
         <button class="btn btn-danger btn-sm" id="ect-reabrir" style="display:none" onclick="ectReabrir()">🔓 Reabrir</button>
       </div>
       <div id="alert-ect-detalle" class="alert"></div>
@@ -6185,7 +6185,7 @@ async function iniciarApp(){
   const esComiteApoyo = fx.includes("comite_apoyo");
   const esLCFFamilias = esAdmin || fx.includes("lcf_familias");
   const esComiteTecnico = fx.includes("comite_tecnico_asesor");
-  const esComiteEvaluacion = fx.includes("comite_evaluacion");
+  const esComiteEvaluacion = fx.includes("comite_evaluacion") || fx.includes("comite_tecnico_asesor");
   const esBibliotecologa = ME.rol === "bibliotecologa";
 
   // ── DOCENTE ──────────────────────────────────────────────────
@@ -21208,7 +21208,7 @@ async function ectReabrir(){const motivo=prompt("Motivo de la reapertura adminis
 
 function ectDatosDoc(){const e=ectActual.expediente;return{e,nombre:nombreDesdeCampos(e.nombre,e.primer_apellido,e.segundo_apellido,{mayusculas:true}),guia:nombreDesdeCampos(e.guia_nombre,e.guia_ap1,e.guia_ap2),folio:`ECT-${String(e.numero).padStart(3,'0')}-${e.anio}`};}
 function ectFirmaGuia(nombre){return `<div style="margin-top:45px;width:310px;text-align:center;"><div style="border-top:1px solid #111;padding-top:5px;"><strong>${htmlSeguro(nombre||'Docente guía')}</strong><br>Docente guía</div></div>`;}
-async function ectImprimirPortada(){const {e,nombre,guia,folio}=ectDatosDoc();const h=`<div style="font-family:Arial;text-align:center;padding-top:80px;"><h1 style="color:#1f3864;letter-spacing:1px;">EXPEDIENTE DE MATRÍCULA</h1><h2 style="margin-top:60px;">Trabajo Educativo Sustitutivo de Conducta</h2><div style="margin:60px auto 0;max-width:560px;border:2px solid #1f3864;padding:28px;text-align:left;font-size:14px;line-height:2;"><strong>Consecutivo:</strong> ${folio}<br><strong>Estudiante:</strong> ${htmlSeguro(nombre)}<br><strong>Cédula:</strong> ${htmlSeguro(e.cedula)}<br><strong>Sección:</strong> ${htmlSeguro(e.seccion_nombre)}<br><strong>Curso lectivo:</strong> ${e.anio}<br><strong>Docente guía:</strong> ${htmlSeguro(guia)}</div></div>`;await imprimirPDFMEP("EXPEDIENTE DE CONDUCTA",h,`Portada_${folio}.pdf`);}
+async function ectImprimirPortada(){const {e,nombre,guia,folio}=ectDatosDoc();const h=`<div style="font-family:Arial;text-align:center;padding-top:80px;"><h1 style="color:#1f3864;letter-spacing:1px;">EXPEDIENTE DE CONDUCTA</h1><h2 style="margin-top:60px;">Trabajo Educativo Sustitutivo de Conducta</h2><div style="margin:60px auto 0;max-width:560px;border:2px solid #1f3864;padding:28px;text-align:left;font-size:14px;line-height:2;"><strong>Consecutivo:</strong> ${folio}<br><strong>Estudiante:</strong> ${htmlSeguro(nombre)}<br><strong>Cédula:</strong> ${htmlSeguro(e.cedula)}<br><strong>Sección:</strong> ${htmlSeguro(e.seccion_nombre)}<br><strong>Curso lectivo:</strong> ${e.anio}<br><strong>Docente guía:</strong> ${htmlSeguro(guia)}</div></div>`;await imprimirPDFMEP("EXPEDIENTE DE CONDUCTA",h,`Portada_Expediente_Conducta_${folio}.pdf`);}
 
 async function ectImprimirPaso(n){
   const p=ectActual.pasos.find(x=>Number(x.paso)===Number(n)),c=(document.getElementById(`ect-${n}-obs`)||document.getElementById(`ect-${n}-just`))?ectContenidoPaso(n):(p?.contenido||{});

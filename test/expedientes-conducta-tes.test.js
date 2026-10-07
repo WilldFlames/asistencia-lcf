@@ -19,7 +19,8 @@ test("expedientes de conducta conserva consecutivo, siete pasos y cierre auditab
 test("el profesor guía ve aplazados de sus secciones y el comité aprueba individualmente",()=>{
   assert.match(routes,/seccion_guia_anio/);
   assert.match(routes,/ROUND\(\(n\.nota_i\+n\.nota_ii\)\/2\.0,1\)/);
-  assert.match(routes,/tipo='comite_evaluacion'/);
+  assert.match(routes,/tipoComiteActivo/);
+  assert.match(routes,/"comite_evaluacion" : "comite_tecnico_asesor"/);
   assert.match(db,/UNIQUE\(expediente_id,usuario_id\)/);
   assert.match(routes,/requiere la aprobación individual de los tres miembros/);
   assert.match(front,/Asignar Comité de Evaluación \(3\)/);
@@ -31,7 +32,8 @@ test("el flujo guarda e imprime todos los pasos en formato institucional",()=>{
   assert.match(front,/Verificación de acciones correctivas/);
   assert.match(front,/Anexo 1 · Diseño e instrumento de evaluación/);
   assert.match(front,/Anexo 3 · Resultado final/);
-  assert.match(front,/Portada Expediente de Matrícula/);
+  assert.match(front,/Portada Expediente de Conducta/);
+  assert.doesNotMatch(front,/EXPEDIENTE DE MATRÍCULA/);
   assert.match(front,/await imprimirPDFMEP\(titulo\.toLocaleUpperCase/);
 });
 

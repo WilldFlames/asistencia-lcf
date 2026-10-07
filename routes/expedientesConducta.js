@@ -6,8 +6,19 @@ const { obtenerAnioActivo, obtenerCalendario } = require("../utils/lectivo");
 const PROYECTOS = ["reparacion_comunitaria","aseo_comunitario","aprendizaje_servicio"];
 const esAdmin = u => u?.rol === "admin";
 
+// Compatibilidad institucional: antes de existir este módulo, las tres
+// personas que cumplen la función evaluadora ya estaban registradas como
+// Comité Técnico Asesor. Si Dirección crea luego un Comité de Evaluación
+// separado, ese grupo explícito tiene prioridad; de lo contrario reutilizamos
+// los tres integrantes actuales sin duplicar asignaciones.
+async function tipoComiteActivo(db=pool){
+  const r=await db.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo='comite_evaluacion'");
+  return r.rows[0].n>0 ? "comite_evaluacion" : "comite_tecnico_asesor";
+}
+
 async function esComite(usuarioId, db=pool){
-  const r=await db.query("SELECT 1 FROM funciones_institucionales WHERE usuario_id=$1 AND tipo='comite_evaluacion'",[usuarioId]);
+  const tipo=await tipoComiteActivo(db);
+  const r=await db.query("SELECT 1 FROM funciones_institucionales WHERE usuario_id=$1 AND tipo=$2",[usuarioId,tipo]);
   return !!r.rows.length;
 }
 
@@ -68,8 +79,9 @@ router.get("/listado", requireAuth, async (req,res)=>{
       WHERE (e.activo=true OR ec.id IS NOT NULL) ${filtro}
         AND (ROUND((n.nota_i+n.nota_ii)/2.0,1) < CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END OR ec.id IS NOT NULL)
       ORDER BY s.nivel,s.nombre,e.primer_apellido,e.segundo_apellido,e.nombre`,params);
-    const mc=await pool.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo='comite_evaluacion'");
-    res.json({anio,puede_abrir:esAdmin(u)||ids.length>0,comite,miembros_comite:mc.rows[0].n,estudiantes:r.rows});
+    const tipoComite=await tipoComiteActivo();
+    const mc=await pool.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo=$1",[tipoComite]);
+    res.json({anio,puede_abrir:esAdmin(u)||ids.length>0,comite,miembros_comite:mc.rows[0].n,tipo_comite:tipoComite,estudiantes:r.rows});
   }catch(e){console.error("GET expedientes conducta listado",e);res.status(500).json({error:e.message});}
 });
 
@@ -108,13 +120,14 @@ router.get("/:id", requireAuth, async (req,res)=>{
     if(!await puedeVer(req.session.usuario,ec)) return res.status(403).json({error:"No tiene acceso a este expediente."});
     const pasos=await pool.query(`SELECT p.*,u.nombre AS completado_nombre,u.primer_apellido AS completado_ap1,u.segundo_apellido AS completado_ap2
       FROM expedientes_conducta_pasos p LEFT JOIN usuarios u ON u.id=p.completado_por WHERE p.expediente_id=$1 ORDER BY paso`,[ec.id]);
+    const tipoComite=await tipoComiteActivo();
     const aprobaciones=await pool.query(`SELECT a.*,u.nombre,u.primer_apellido,u.segundo_apellido
       FROM expedientes_conducta_aprobaciones a JOIN usuarios u ON u.id=a.usuario_id
-      JOIN funciones_institucionales fi ON fi.usuario_id=a.usuario_id AND fi.tipo='comite_evaluacion'
-      WHERE a.expediente_id=$1 ORDER BY a.aprobado_en`,[ec.id]);
+      JOIN funciones_institucionales fi ON fi.usuario_id=a.usuario_id AND fi.tipo=$2
+      WHERE a.expediente_id=$1 ORDER BY a.aprobado_en`,[ec.id,tipoComite]);
     const miembros=await pool.query(`SELECT u.id,u.nombre,u.primer_apellido,u.segundo_apellido,
       EXISTS(SELECT 1 FROM expedientes_conducta_aprobaciones a WHERE a.expediente_id=$1 AND a.usuario_id=u.id) AS aprobado
-      FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id WHERE fi.tipo='comite_evaluacion' ORDER BY u.nombre,u.primer_apellido`,[ec.id]);
+      FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id WHERE fi.tipo=$2 ORDER BY u.nombre,u.primer_apellido`,[ec.id,tipoComite]);
     const acciones=await pool.query(`SELECT dp.numero,dp.anio,p.contenido->>'desc_accion' AS accion,
       COALESCE(p.contenido->>'fecha_limite',p.contenido->>'fecha_resol','') AS fecha
       FROM debidos_procesos dp JOIN dp_pasos p ON p.proceso_id=dp.id AND p.tipo='resolucion_final'
@@ -137,10 +150,11 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
       if(!anterior.rows[0]?.completado) return res.status(409).json({error:`Complete el paso ${paso-1} antes de avanzar.`});
     }
     if(paso>=4){
+      const tipoComite=await tipoComiteActivo();
       const a=await pool.query(`SELECT COUNT(*)::int AS n FROM expedientes_conducta_aprobaciones a
-        JOIN funciones_institucionales fi ON fi.usuario_id=a.usuario_id AND fi.tipo='comite_evaluacion'
-        WHERE a.expediente_id=$1`,[ec.id]);
-      const m=await pool.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo='comite_evaluacion'");
+        JOIN funciones_institucionales fi ON fi.usuario_id=a.usuario_id AND fi.tipo=$2
+        WHERE a.expediente_id=$1`,[ec.id,tipoComite]);
+      const m=await pool.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo=$1",[tipoComite]);
       if(m.rows[0].n!==3 || a.rows[0].n!==3) return res.status(409).json({error:"El paso 3 requiere la aprobación individual de los tres miembros del Comité de Evaluación."});
     }
     const contenido=req.body.contenido&&typeof req.body.contenido==='object'?req.body.contenido:{};
@@ -156,11 +170,12 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
       await pool.query("DELETE FROM expedientes_conducta_aprobaciones WHERE expediente_id=$1",[ec.id]);
     }
     if(paso===3 && completado){
+      const tipoComite=await tipoComiteActivo();
       await pool.query(`INSERT INTO notificaciones(usuario_id,tipo,mensaje)
         SELECT fi.usuario_id,'tes_aprobacion',$1 FROM funciones_institucionales fi
-        WHERE fi.tipo='comite_evaluacion' AND NOT EXISTS(
+        WHERE fi.tipo=$3 AND NOT EXISTS(
           SELECT 1 FROM expedientes_conducta_aprobaciones a WHERE a.expediente_id=$2 AND a.usuario_id=fi.usuario_id)`,
-        [`📘 El expediente de conducta N°${ec.numero}-${ec.anio} requiere su aprobación del proyecto TES.`,ec.id]);
+        [`📘 El expediente de conducta N°${ec.numero}-${ec.anio} requiere su aprobación del proyecto TES.`,ec.id,tipoComite]);
     }
     res.json({ok:true});
   }catch(e){console.error("guardar paso TES",e);res.status(500).json({error:e.message});}
@@ -205,9 +220,10 @@ router.post("/:id/concluir", requireAuth, async (req,res)=>{
     if(!await puedeVer(req.session.usuario,ec,client)) throw Object.assign(new Error("Sin acceso."),{status:403});
     const ok=await client.query("SELECT paso,completado FROM expedientes_conducta_pasos WHERE expediente_id=$1 AND paso BETWEEN 1 AND 6",[ec.id]);
     if(ok.rows.length!==6||ok.rows.some(x=>!x.completado)) throw new Error("Complete en orden los pasos 1 al 6 antes de concluir.");
+    const tipoComite=await tipoComiteActivo(client);
     const ap=await client.query(`SELECT COUNT(*)::int AS n FROM expedientes_conducta_aprobaciones a
-      JOIN funciones_institucionales fi ON fi.usuario_id=a.usuario_id AND fi.tipo='comite_evaluacion'
-      WHERE a.expediente_id=$1`,[ec.id]);
+      JOIN funciones_institucionales fi ON fi.usuario_id=a.usuario_id AND fi.tipo=$2
+      WHERE a.expediente_id=$1`,[ec.id,tipoComite]);
     if(ap.rows[0].n!==3) throw new Error("Faltan aprobaciones del Comité de Evaluación.");
     const resultado=String(req.body.resultado||"");
     if(!["aprobado","no_aprobado"].includes(resultado)) throw new Error("Indique el resultado final del TES.");
