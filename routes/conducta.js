@@ -70,6 +70,17 @@ router.get("/estudiante/:id/carta-aplazado", requireAuth, exigirAccesoEstudiante
   res.json(r.rows[0]);
 });
 
+// Resultado anual definitivo después del Trabajo Educativo Sustitutivo. No
+// altera ni borra boletas de ningún período; únicamente permite que Conducta
+// muestre la nota final oficial cuando el expediente ya fue concluido.
+router.get("/estudiante/:id/resultado-tes", requireAuth, exigirAccesoEstudiante(req=>req.params.id), async (req,res)=>{
+  const anio=Number(req.query.anio)||await obtenerAnioActivo();
+  const r=await pool.query(`SELECT numero,anio,estado,resultado_tes,calificacion_tes,nota_final_conducta
+    FROM expedientes_conducta_tes WHERE estudiante_id=$1 AND anio=$2
+      AND estado IN ('cerrado_aprobado','cerrado_no_aprobado') LIMIT 1`,[req.params.id,anio]);
+  res.json(r.rows[0]||null);
+});
+
 // ── REGISTRAR BOLETA ──────────────────────────────────────────────────────────
 // Una boleta puede atribuirse a:
 //   - Una asignación (materia + profesor)  → asignacion_id

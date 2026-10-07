@@ -1221,6 +1221,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="calificaciones" id="nav-calificaciones" onclick="goTo('calificaciones')" style="display:none"><span class="icon">📊</span><span>Calificaciones</span></button>
   <button class="nav-btn" data-page="promedio" id="nav-promedio" onclick="goTo('promedio')" style="display:none"><span class="icon">📈</span><span>Promedio</span></button>
   <button class="nav-btn" data-page="conducta" id="nav-conducta" onclick="goTo('conducta')" style="display:none"><span class="icon">📋</span><span>Conducta</span></button>
+  <button class="nav-btn" data-page="expedientes-conducta" id="nav-expedientes-conducta" onclick="goTo('expedientes-conducta')" style="display:none"><span class="icon">📘</span><span>Expedientes de Conducta</span></button>
   <button class="nav-btn" data-page="consulta" id="nav-consulta" onclick="goTo('consulta')" style="display:none"><span class="icon">🔍</span><span>Consulta</span></button>
   <button class="nav-btn" data-page="horario" id="nav-horario" onclick="goTo('horario')" style="display:none"><span class="icon">🕐</span><span>Horario</span></button>
   <button class="nav-btn" data-page="citas" id="nav-citas" onclick="goTo('citas')" style="display:none"><span class="icon">📅</span><span>Agenda institucional</span></button>
@@ -1410,6 +1411,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" onclick="abrirComiteMatricula()">🎓 Asignar Comité Matrícula</button>
         <button class="btn btn-success btn-sm" onclick="abrirFuncionInstitucional('lcf_familias')">📱 Asignar LCF Familias</button>
         <button class="btn btn-outline btn-sm" onclick="abrirFuncionInstitucional('comite_tecnico_asesor')">📝 Asignar Comité Técnico Asesor</button>
+        <button class="btn btn-outline btn-sm" onclick="abrirFuncionInstitucional('comite_evaluacion')">📘 Asignar Comité de Evaluación (3)</button>
       </div>
     </div>
   </div>
@@ -2223,6 +2225,34 @@ tr:hover td{background:#f8fafc;}
       <!-- Lista de boletas -->
       <h2>📄 Boletas Registradas</h2>
       <div id="cond-boletas-lista"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EXPEDIENTES DE CONDUCTA / TES -->
+<div class="page" id="page-expedientes-conducta">
+  <div id="ect-lista-vista">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <div><h2 style="margin:0 0 4px;">📘 Expedientes de Conducta</h2><p style="margin:0;color:var(--muted);font-size:12.5px;">Estudiantes que no alcanzaron la nota anual de conducta y seguimiento del Trabajo Educativo Sustitutivo.</p></div>
+        <div class="fg" style="margin:0;min-width:130px;"><label>Curso lectivo</label><input id="ect-anio" type="number" min="2020" max="2100" onchange="ectCargarListado()"/></div>
+      </div>
+      <div id="alert-ect" class="alert"></div>
+      <div id="ect-aviso-comite"></div>
+      <div id="ect-listado"><div class="empty">Cargando...</div></div>
+    </div>
+  </div>
+  <div id="ect-detalle-vista" style="display:none;">
+    <div class="card">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <button class="btn btn-outline btn-sm" onclick="ectVolver()">← Volver</button>
+        <h2 id="ect-titulo" style="margin:0;flex:1;"></h2>
+        <button class="btn btn-outline btn-sm" onclick="ectImprimirPortada()">🖨️ Portada Expediente de Matrícula</button>
+        <button class="btn btn-danger btn-sm" id="ect-reabrir" style="display:none" onclick="ectReabrir()">🔓 Reabrir</button>
+      </div>
+      <div id="alert-ect-detalle" class="alert"></div>
+      <div id="ect-resumen"></div>
+      <div id="ect-pasos"></div>
     </div>
   </div>
 </div>
@@ -5938,7 +5968,7 @@ function periodoActualODefault(fechaStr) {
 const MATERIAS_SUBGRUPO_7_9 = ["Artes Industriales","Educación para el Hogar"];
 const MATERIAS_SUBGRUPO_10_11 = ["Inglés Conversacional","Diseño Publicitario","Matem/AMPROSA"];
 const fmtTS=d=>{if(!d)return"—";return new Date(d).toLocaleString("es-CR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});};
-const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa",seguridad:"Seguridad",bibliotecologa:"Bibliotecóloga",coordinador:"Coordinador",comite_apoyo:"Comité de Apoyo",lcf_familias:"LCF Familias",comite_tecnico_asesor:"Comité Técnico Asesor"};
+const RLBL={admin:"Administrador",auxiliar:"Auxiliar",orientador:"Orientador",profesor_guia:"Prof. Guía",profesor:"Profesor",cocinera:"Cocinera",secretaria:"Secretaria",administrativo:"Administrativo",junta:"Junta Administrativa",seguridad:"Seguridad",bibliotecologa:"Bibliotecóloga",coordinador:"Coordinador",comite_apoyo:"Comité de Apoyo",lcf_familias:"LCF Familias",comite_tecnico_asesor:"Comité Técnico Asesor",comite_evaluacion:"Comité de Evaluación"};
 function tieneAccesoLCFFamilias(){
   return ME?.rol==="admin" || (ME?.funciones_extra||[]).includes("lcf_familias");
 }
@@ -6096,6 +6126,7 @@ function goTo(page){
     cargarCumplimiento();
   }
   if(page==="conducta")    initConducta();
+  if(page==="expedientes-conducta") iniciarExpedientesConducta();
   if(page==="consulta")    document.getElementById("consulta-cedula").focus();
   if(page==="expediente")  document.getElementById("exp-cedula").focus();
   if(page==="comedor")     iniciarComedor();
@@ -6154,6 +6185,7 @@ async function iniciarApp(){
   const esComiteApoyo = fx.includes("comite_apoyo");
   const esLCFFamilias = esAdmin || fx.includes("lcf_familias");
   const esComiteTecnico = fx.includes("comite_tecnico_asesor");
+  const esComiteEvaluacion = fx.includes("comite_evaluacion");
   const esBibliotecologa = ME.rol === "bibliotecologa";
 
   // ── DOCENTE ──────────────────────────────────────────────────
@@ -6199,6 +6231,10 @@ async function iniciarApp(){
   if(esAdmin||esGuia||esOrientador||esAuxiliar){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-conducta").style.display="";
+  }
+  if(esAdmin||esGuia||esComiteEvaluacion){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-expedientes-conducta").style.display="";
   }
   // Consulta: todos menos cocinera
   if(!esCocinera){
@@ -6367,7 +6403,7 @@ async function iniciarApp(){
      'nav-consulta','nav-mensajes','nav-estudiantes','nav-reportes','nav-cartas',
      'nav-expediente','nav-comedor','nav-consecutivos','nav-extramuros','nav-constancia',
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
-     'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
+     'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas','nav-expedientes-conducta',
      'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios','nav-config-anio',
      'nav-horario','nav-citas','nav-permisos','nav-porteria'
     ].forEach(id => {
@@ -9978,15 +10014,19 @@ async function cargarBoletasLista(){
   let d, notaFinal, totalRebajadoLbl;
   if(per === 'anual'){
     // Traemos ambos períodos por separado para calcular la nota ponderada.
-    const [dI, dII] = await Promise.all([
+    const [dI, dII, tes] = await Promise.all([
       api(`${base}${queryRangoFrontend('I Período')}`),
       api(`${base}${queryRangoFrontend('II Período')}`),
+      api(`${base}/resultado-tes?anio=${ANIO_LECTIVO_ACTIVO}`),
     ]);
     if(!dI || !dII) return;
     const notaI = dI.notaConducta;
     const notaII = dII.notaConducta;
     // Promedio 50/50 (redondeado como el resto del sistema)
     notaFinal = Math.round((notaI * 0.5) + (notaII * 0.5));
+    if(tes?.nota_final_conducta!=null) notaFinal=Number(tes.nota_final_conducta);
+    // Si el TES ya concluyó, la resolución final prevalece únicamente en la
+    // vista anual. Las notas de I y II Período y todas sus boletas se conservan.
     // Para la vista, unificamos todas las boletas de ambos períodos
     d = {
       boletas: [...dI.boletas, ...dII.boletas].sort((a,b) =>
@@ -9998,7 +10038,9 @@ async function cargarBoletasLista(){
       // Guardamos las notas por período para poder mostrar el desglose
       notaI, notaII,
     };
-    totalRebajadoLbl = `Nota I: ${notaI} · Nota II: ${notaII} · Anual = (${notaI} × 0.5) + (${notaII} × 0.5)`;
+    totalRebajadoLbl = tes?.nota_final_conducta!=null
+      ? `Resultado definitivo por TES N°${tes.numero}-${tes.anio}: ${tes.resultado_tes==='aprobado'?'aprobó':'no aprobó'} · Nota anual original: ${Math.round((notaI*.5)+(notaII*.5))}`
+      : `Nota I: ${notaI} · Nota II: ${notaII} · Anual = (${notaI} × 0.5) + (${notaII} × 0.5)`;
   } else {
     let url = base;
     if(per === 'I Período')      url += queryRangoFrontend('I Período');
@@ -10124,21 +10166,25 @@ async function imprimirConducta(){
   let d, periodoLabel, notaFinal, extraInfo = '';
 
   if(per === 'anual'){
-    const [dI, dII] = await Promise.all([
+    const [dI, dII, tes] = await Promise.all([
       api(`${base}${queryRangoFrontend('I Período')}`),
       api(`${base}${queryRangoFrontend('II Período')}`),
+      api(`${base}/resultado-tes?anio=${ANIO_LECTIVO_ACTIVO}`),
     ]);
     if(!dI || !dII) return;
     const notaI = dI.notaConducta;
     const notaII = dII.notaConducta;
     notaFinal = Math.round((notaI * 0.5) + (notaII * 0.5));
+    if(tes?.nota_final_conducta!=null) notaFinal=Number(tes.nota_final_conducta);
     d = {
       boletas: [...dI.boletas, ...dII.boletas].sort((a,b) =>
         new Date(b.fecha) - new Date(a.fecha)),
       totalRebajado: dI.totalRebajado + dII.totalRebajado,
     };
     periodoLabel = 'Anual';
-    extraInfo = `Nota I Período: <strong>${notaI}</strong> · Nota II Período: <strong>${notaII}</strong> · Anual = (${notaI} × 0.5) + (${notaII} × 0.5) = <strong>${notaFinal}</strong>`;
+    extraInfo = tes?.nota_final_conducta!=null
+      ? `Nota I Período: <strong>${notaI}</strong> · Nota II Período: <strong>${notaII}</strong> · Resultado definitivo por TES N°${tes.numero}-${tes.anio}: <strong>${tes.resultado_tes==='aprobado'?'APROBÓ':'NO APROBÓ'} · ${notaFinal}</strong>`
+      : `Nota I Período: <strong>${notaI}</strong> · Nota II Período: <strong>${notaII}</strong> · Anual = (${notaI} × 0.5) + (${notaII} × 0.5) = <strong>${notaFinal}</strong>`;
   } else {
     let urlBoletas = base;
     if(per === 'I Período'){
@@ -12824,9 +12870,10 @@ function renderDPPasos(d){
   );
   const btnCerrar = (dp.estado === 'en_curso' && dp.decision_sesion && esGuia && actaAprobada && finalesListos)
     ? `<div style="margin-top:14px;text-align:center;">
-        <button class="btn btn-success" onclick="cerrarProcesoDP()">🔒 Cerrar Proceso ${dp.decision_sesion === 'desestimar' ? '(Desestimado)' : '(Resuelto)'}</button>
+        <button class="btn btn-success" onclick="${dp.decision_sesion === 'desestimar'?'cerrarEImprimirDesestimaDP()':'cerrarProcesoDP()'}">${dp.decision_sesion === 'desestimar' ? '📄 Cerrar e imprimir carta de desestima' : '🔒 Cerrar Proceso (Resuelto)'}</button>
       </div>`
-    : '';
+    : (dp.decision_sesion==='desestimar'&&['desestimado','archivado'].includes(dp.estado)
+      ? `<div style="margin-top:14px;text-align:center;"><button class="btn btn-outline" onclick="imprimirCartaDesestimaDP()">🖨️ Reimprimir carta de desestima</button></div>`:'');
 
   wrap.innerHTML = items.join('') + ofendidosBtn + testigosBtn + btnCerrar;
 }
@@ -13978,6 +14025,35 @@ async function cerrarProcesoDP(){
   } catch(e){ alert(e.message); }
 }
 
+async function cerrarEImprimirDesestimaDP(){
+  if(!confirm('¿Cerrar el debido proceso como desestimado y generar la carta?')) return;
+  try{
+    await api(`/api/debidos-procesos/${dpProcesoActual.proceso.id}/cerrar`,'POST');
+    await imprimirCartaDesestimaDP();
+    cerrarModal('modal-dp-detalle');
+    sa('alert-dp','✅ Proceso desestimado. La carta quedó disponible para reimpresión.','success');
+    await cargarDPLista(dpEstadoActual);
+  }catch(e){alert(e.message);}
+}
+
+async function imprimirCartaDesestimaDP(){
+  const d=dpProcesoActual,dp=d?.proceso;if(!dp)return;
+  const acta=(d.pasos||[]).find(p=>p.tipo==='acta_sesion'),c=acta?.contenido||{};
+  const estudiante=nombreDesdeCampos(dp.nombre,dp.primer_apellido,dp.segundo_apellido,{mayusculas:true});
+  const guia=nombreDesdeCampos(dp.guia_nombre,dp.guia_ap1,dp.guia_ap2);
+  const nro=`DP-${String(dp.numero).padStart(3,'0')}-${dp.anio}`;
+  const h=`<div style="font-family:Arial;font-size:12px;line-height:1.65;">
+    <p style="text-align:right;"><strong>Desamparados, ${fmtF(fechaHoyCR())}</strong></p>
+    <p><strong>Expediente:</strong> ${nro}</p>
+    <p><strong>Persona estudiante:</strong> ${htmlSeguro(estudiante)} &nbsp; <strong>Cédula:</strong> ${htmlSeguro(dp.cedula||'—')} &nbsp; <strong>Sección:</strong> ${htmlSeguro(dp.seccion_nombre||'—')}</p>
+    <p>Analizados los antecedentes, declaraciones y elementos incorporados al expediente, se determina que no existen elementos suficientes para continuar con el procedimiento y se dispone su <strong>DESESTIMACIÓN</strong>, liberando a la persona estudiante de responsabilidad en este proceso.</p>
+    <p><strong>Fundamento y antecedentes:</strong></p><div style="border:1px solid #64748b;padding:12px;min-height:150px;white-space:pre-wrap;">${htmlSeguro(c.justificacion||c.observaciones||c.decision_justificacion||'')}</div>
+    <p>En consecuencia, se ordena el cierre y archivo del expediente, sin rebajo de puntos ni acción correctiva derivada de este procedimiento.</p>
+    <div style="margin-top:60px;width:320px;text-align:center;"><div style="border-top:1px solid #111;padding-top:5px;"><strong>${htmlSeguro(guia||'Docente guía')}</strong><br>Docente guía</div></div>
+  </div>`;
+  await imprimirPDFMEP('DESESTIMA DEL PROCESO',h,`Carta_Desestima_${nro}.pdf`);
+}
+
 // ── ELIMINAR proceso (solo admin/administrativo) ─────────────────────
 // Doble confirmación porque es irreversible. Borra todo y libera consecutivo.
 async function eliminarDP(id, numero, anio){
@@ -14218,10 +14294,17 @@ async function abrirMinutaDetalle(id){
 async function guardarTemasAcuerdos(){
   if(!minActual) return;
   try {
+    const temas_tratados=document.getElementById('mind-temas').value;
+    const acuerdos=document.getElementById('mind-acuerdos').value;
     await api(`/api/minutas/${minActual.minuta.id}`, 'PUT', {
-      temas_tratados: document.getElementById('mind-temas').value,
-      acuerdos:       document.getElementById('mind-acuerdos').value,
+      temas_tratados,
+      acuerdos,
     });
+    // Mantener la instantánea usada por Imprimir sincronizada. Antes el PUT
+    // sí guardaba, pero minActual conservaba el contenido anterior hasta que
+    // el usuario cerraba y volvía a abrir la minuta.
+    minActual.minuta.temas_tratados=temas_tratados;
+    minActual.minuta.acuerdos=acuerdos;
     sa('alert-mind','✅ Contenido guardado.','success');
   } catch(e){
     sa('alert-mind', e.message, 'danger');
@@ -14443,6 +14526,11 @@ function minElaboradaImpresion(m){
 
 async function imprimirMinuta(){
   if(!minActual) return;
+  // Refrescar desde la base evita imprimir una copia obsoleta si otra acción
+  // acaba de guardar asistentes o contenido en el mismo modal.
+  try{minActual=await api(`/api/minutas/${minActual.minuta.id}`);}catch(e){
+    sa("alert-mind",e.message||"No se pudo actualizar la minuta antes de imprimir.","danger");return;
+  }
   const m=minActual.minuta,a=minActual.asistentes||[];
   const presentes=a.filter(x=>x.tipo==="presente"),ausentes=a.filter(x=>x.tipo==="ausente");
   const numFmt=`MIN-${String(m.numero).padStart(3,"0")}-${m.anio}`;
@@ -20992,13 +21080,166 @@ function piePaginaMEP(){
 //    - contenidoHTML: HTML del contenido central (sin encabezado ni pie)
 //    - nombreArchivo: nombre del PDF descargado (ej: "constancia_estudiante.pdf")
 // ────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// EXPEDIENTES DE CONDUCTA / TRABAJO EDUCATIVO SUSTITUTIVO (TES)
+// ═══════════════════════════════════════════════════════════════════════
+let ectActual=null,ectListadoActual=null;
+const ECT_PROYECTOS={
+  reparacion_comunitaria:"Reparación comunitaria",
+  aseo_comunitario:"Aseo comunitario",
+  aprendizaje_servicio:"Aprendizaje-servicio"
+};
+const ECT_PLANTILLAS={
+  reparacion_comunitaria:{
+    objetivos:"Promover la reflexión, la responsabilidad y la reparación simbólica del vínculo comunitario mediante acciones educativas seguras y respetuosas.",
+    actividades:"1. Analizar normas de convivencia y resolución pacífica de conflictos.\n2. Elaborar una guía visual de acuerdos de convivencia.\n3. Proponer acciones preventivas y reparadoras de carácter educativo.\n4. Preparar el producto documental o visual acordado.\n5. Presentar una reflexión final sobre el aprendizaje obtenido.",
+    apoyos:"Acompañamiento del equipo designado. No implica pago material, confesión, disculpa pública, contacto con una persona ofendida ni exposición del caso.",
+  },
+  aseo_comunitario:{
+    objetivos:"Fortalecer responsabilidad, cuidado de los espacios comunes y trabajo colaborativo mediante una actividad segura de aseo y organización institucional.",
+    actividades:"1. Reconocer el espacio y definir tareas permitidas.\n2. Preparar un plan seguro de limpieza u organización.\n3. Revisar materiales, protección y supervisión.\n4. Ejecutar únicamente las labores autorizadas.\n5. Documentar evidencias y elaborar una reflexión final.",
+    apoyos:"Supervisión adulta permanente, implementos de protección y exclusión de químicos, alturas, electricidad, herramientas peligrosas o mantenimiento reservado a personas adultas.",
+  },
+  aprendizaje_servicio:{
+    objetivos:"Integrar aprendizaje y servicio a la comunidad educativa mediante un producto útil, planificado, seguro y verificable.",
+    actividades:"1. Identificar una necesidad institucional concreta.\n2. Diseñar el servicio, producto o recurso educativo.\n3. Distribuir funciones, materiales y cronograma.\n4. Ejecutar y documentar el servicio bajo supervisión.\n5. Presentar evidencias y reflexión sobre su aporte a la comunidad.",
+    apoyos:"Acompañamiento del equipo designado; las labores técnicas o riesgosas quedan reservadas a personas adultas. El producto debe ser educativo, verificable y respetuoso de la dignidad estudiantil.",
+  }
+};
+const ECT_INDICADORES="1. Comprensión del propósito y de las normas (1 a 5 puntos).\n2. Planificación y organización (1 a 5 puntos).\n3. Responsabilidad y puntualidad (1 a 5 puntos).\n4. Ejecución segura y calidad del producto (1 a 5 puntos).\n5. Convivencia, colaboración y respeto (1 a 5 puntos).\n6. Evidencias y reflexión final (1 a 5 puntos).\nTotal: 30 puntos.";
+const ECT_PASOS=[
+  "Notificación de condición aplazada",
+  "Verificación de acciones correctivas",
+  "Selección y aprobación del trabajo TES",
+  "Anexo 1 · Diseño e instrumento de evaluación",
+  "Anexo 2 · Entrega del diseño",
+  "Anexo 3 · Resultado final",
+  "Conclusión y comunicación del resultado"
+];
+
+function iniciarExpedientesConducta(){
+  document.getElementById("ect-lista-vista").style.display="";
+  document.getElementById("ect-detalle-vista").style.display="none";
+  const anio=document.getElementById("ect-anio");
+  if(!anio.value) anio.value=ANIO_LECTIVO_ACTIVO;
+  ectCargarListado();
+}
+
+async function ectCargarListado(){
+  const anio=Number(document.getElementById("ect-anio").value)||ANIO_LECTIVO_ACTIVO;
+  const cont=document.getElementById("ect-listado");cont.innerHTML='<div class="empty">Calculando notas anuales de conducta...</div>';
+  try{
+    const d=await api(`/api/expedientes-conducta/listado?anio=${anio}`);ectListadoActual=d;
+    document.getElementById("ect-aviso-comite").innerHTML=d.miembros_comite===3?"":`<div class="alert show alert-warning" style="margin-bottom:12px;">⚠️ Administración debe asignar exactamente tres miembros al Comité de Evaluación. Actualmente hay ${d.miembros_comite}.</div>`;
+    if(!d.estudiantes.length){cont.innerHTML='<div class="empty">No hay estudiantes aplazados en conducta dentro de las secciones autorizadas.</div>';return;}
+    const grupos={};d.estudiantes.forEach(e=>(grupos[e.seccion_nombre]??=[]).push(e));
+    cont.innerHTML=Object.entries(grupos).map(([sec,lista])=>`<section style="margin-bottom:16px;"><h3 style="color:var(--azul);margin:0 0 8px;">Sección ${htmlSeguro(sec)}</h3><div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>I</th><th>II</th><th>Anual</th><th>Mínimo</th><th>Expediente</th><th></th></tr></thead><tbody>${lista.map(e=>`<tr><td><strong>${htmlSeguro(nombreEstudianteLista(e))}</strong><br><small>${htmlSeguro(e.cedula)}${e.activo?'':' · Retirado'}</small></td><td>${Number(e.nota_i).toFixed(1)}</td><td>${Number(e.nota_ii).toFixed(1)}</td><td style="font-weight:bold;color:var(--rojo);">${Number(e.nota_anual).toFixed(1)}</td><td>${e.minimo}</td><td>${e.expediente_id?`N°${e.numero}-${anio}<br><small>${htmlSeguro(ectEstado(e.estado))}</small>`:'—'}</td><td>${e.expediente_id?`<button class="btn btn-primary btn-xs" onclick="ectAbrirDetalle(${e.expediente_id})">Ver expediente</button>`:(d.puede_abrir?`<button class="btn btn-success btn-xs" onclick="ectAbrirExpediente(${e.estudiante_id},${Number(e.nota_anual)})">Abrir expediente</button>`:'')}</td></tr>`).join('')}</tbody></table></div></section>`).join('');
+  }catch(e){cont.innerHTML=`<div class="alert show alert-danger">${htmlSeguro(e.message)}</div>`;}
+}
+
+function ectEstado(e){return ({en_curso:"En curso",cerrado_aprobado:"Cerrado · aprobó",cerrado_no_aprobado:"Cerrado · no aprobó",cerrado_accion_pendiente:"Cerrado · acción pendiente"})[e]||e||"—";}
+async function ectAbrirExpediente(estudiante_id,nota_anual){
+  if(!confirm("¿Abrir el expediente y asignar su consecutivo?"))return;
+  try{const r=await api("/api/expedientes-conducta/abrir","POST",{estudiante_id,anio:Number(document.getElementById("ect-anio").value),nota_anual});await ectAbrirDetalle(r.id);}catch(e){sa("alert-ect",e.message,"danger");}
+}
+function ectVolver(){ectActual=null;document.getElementById("ect-detalle-vista").style.display="none";document.getElementById("ect-lista-vista").style.display="";ectCargarListado();}
+
+async function ectAbrirDetalle(id){
+  try{
+    ectActual=await api(`/api/expedientes-conducta/${id}`);const e=ectActual.expediente;
+    document.getElementById("ect-lista-vista").style.display="none";document.getElementById("ect-detalle-vista").style.display="";
+    document.getElementById("ect-titulo").textContent=`Expediente N°${e.numero}-${e.anio} — ${nombreDesdeCampos(e.nombre,e.primer_apellido,e.segundo_apellido,{mayusculas:true})}`;
+    document.getElementById("ect-reabrir").style.display=ectActual.es_admin&&e.estado!=="en_curso"?"":"none";
+    document.getElementById("ect-resumen").innerHTML=`<div style="background:#eef5ff;border-left:4px solid var(--azul);padding:10px 12px;border-radius:7px;margin-bottom:12px;font-size:13px;"><strong>${htmlSeguro(e.seccion_nombre)}</strong> · Nota anual inicial: <strong>${e.nota_anual??'—'}</strong> · Estado: <strong>${htmlSeguro(ectEstado(e.estado))}</strong>${e.proyecto?` · TES: <strong>${htmlSeguro(ECT_PROYECTOS[e.proyecto])}</strong>`:''}${e.nota_final_conducta!=null?` · Nota final: <strong>${e.nota_final_conducta}</strong>`:''}</div>`;
+    ectRenderPasos();
+  }catch(e){sa("alert-ect",e.message,"danger");}
+}
+
+function ectCampo(id,label,valor="",tipo="textarea"){
+  return `<div class="fg" style="margin-bottom:8px;"><label>${label}</label>${tipo==="date"?`<input type="date" id="${id}" value="${htmlSeguro(toDateInput(valor))}">`:`<textarea id="${id}" rows="3">${htmlSeguro(valor||"")}</textarea>`}</div>`;
+}
+
+function ectRenderPasos(){
+  const d=ectActual,e=d.expediente,cerrado=e.estado!=="en_curso";
+  const aprobados=d.aprobaciones.length,comiteCompleto=d.miembros.length===3&&aprobados===3;
+  document.getElementById("ect-pasos").innerHTML=d.pasos.map(p=>{
+    const c=p.contenido||{},n=Number(p.paso),bloqueado=n>=4&&!comiteCompleto;
+    let cuerpo="";
+    if(n===1) cuerpo=`${ectCampo(`ect-1-fecha`,"Fecha de entrega al encargado",c.fecha_entrega,"date")}${ectCampo(`ect-1-recibe`,"Persona encargada que recibe",c.recibe)}${ectCampo(`ect-1-obs`,"Observaciones",c.observaciones)}`;
+    if(n===2){
+      const acciones=d.acciones_correctivas||[];
+      cuerpo=acciones.length?`<p style="font-size:12.5px;">El sistema encontró estas acciones correctivas en debidos procesos cerrados:</p>${acciones.map((a,i)=>`<label style="display:flex;gap:8px;padding:7px;border:1px solid var(--border);border-radius:6px;margin:5px 0;"><input id="ect-2-acc-${i}" type="checkbox" ${c.cumplidas?.[i]?'checked':''}> <span><strong>DP N°${a.numero}-${a.anio}</strong> · ${htmlSeguro(a.accion)}</span></label>`).join('')}`:`<div style="padding:9px;background:#ecfdf5;border-radius:6px;">✅ No se encontraron acciones correctivas impuestas. Se usará la constancia sin acciones correctivas.</div>`;
+      cuerpo+=ectCampo("ect-2-obs","Evidencias y observaciones",c.observaciones);
+      if(acciones.length) cuerpo+=`<button class="btn btn-danger btn-sm" onclick="ectCerrarCausal('accion_pendiente')">Cerrar por acción correctiva pendiente e imprimir carta</button>`;
+    }
+    if(n===3) cuerpo=`<div class="fg"><label>Trabajo Educativo Sustitutivo *</label><select id="ect-3-proyecto"><option value="">— Seleccionar —</option>${Object.entries(ECT_PROYECTOS).map(([v,l])=>`<option value="${v}" ${c.proyecto===v?'selected':''}>${l}</option>`).join('')}</select></div>${ectCampo("ect-3-just","Justificación y observaciones del diseño",c.justificacion)}<div style="margin-top:10px;background:#f8fafc;padding:10px;border-radius:7px;"><strong>Aprobación individual del Comité (${aprobados}/3)</strong>${d.miembros.length?d.miembros.map(m=>`<div style="padding:5px 0;">${m.aprobado?'✅':'⏳'} ${htmlSeguro(nombrePersona(m))}</div>`).join(''):'<div class="empty">Administración aún no ha asignado los tres miembros.</div>'}${d.es_comite&&!d.aprobaciones.some(a=>Number(a.usuario_id)===Number(ME.id))?`<button class="btn btn-success btn-sm" onclick="ectAprobarProyecto()">✅ Dar mi aprobación</button>`:''}</div>`;
+    if(n===4){const pl=ECT_PLANTILLAS[e.proyecto]||{};cuerpo=`<p style="font-size:12.5px;color:var(--muted);">La plantilla oficial del proyecto seleccionado ya viene precargada; puede ajustarse al caso concreto sin cambiar su enfoque educativo ni sus medidas de seguridad.</p>${ectCampo("ect-4-obj","Objetivos del trabajo",c.objetivos||pl.objetivos)}${ectCampo("ect-4-act","Actividades y cronograma",c.actividades||pl.actividades)}${ectCampo("ect-4-apo","Apoyos, responsables y medidas de seguridad",c.apoyos||pl.apoyos)}${ectCampo("ect-4-ind","Indicadores de evaluación",c.indicadores||ECT_INDICADORES)}`;}
+    if(n===5) cuerpo=`${ectCampo("ect-5-fecha","Fecha de entrega del diseño",c.fecha_entrega,"date")}${ectCampo("ect-5-lugar","Lugar, horario y persona responsable",c.lugar_horario)}${ectCampo("ect-5-firmas","Constancia de entrega y observaciones",c.constancia)}`;
+    if(n===6) cuerpo=`${ectCampo("ect-6-fecha","Fecha de ejecución/verificación",c.fecha,"date")}${ectCampo("ect-6-evid","Evidencias verificadas",c.evidencias)}${ectCampo("ect-6-val","Valoración por indicador y puntaje obtenido",c.valoracion)}`;
+    if(n===7) cuerpo=`<div class="form-grid"><div class="fg"><label>Resultado final</label><select id="ect-7-resultado"><option value="">— Seleccionar —</option><option value="aprobado" ${c.resultado==='aprobado'?'selected':''}>Aprobó el TES</option><option value="no_aprobado" ${c.resultado==='no_aprobado'?'selected':''}>No aprobó el TES</option></select></div><div class="fg"><label>Calificación TES (0-30)</label><input id="ect-7-nota" type="number" min="0" max="30" step="0.1" value="${htmlSeguro(c.calificacion??'')}"></div></div>${ectCampo("ect-7-obs","Conclusiones y comunicación al docente guía",c.observaciones)}<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" onclick="ectCerrarCausal('inasistencia')">Registrar inasistencia y remitir al Comité</button><button class="btn btn-outline btn-sm" onclick="ectCerrarCausal('condicion_academica')">Registrar condición académica y remitir al Comité</button></div>`;
+    return `<section style="border:1px solid ${p.completado?'#86efac':'var(--border)'};border-radius:9px;margin:9px 0;overflow:hidden;opacity:${bloqueado?.72:1};"><div style="background:${p.completado?'#ecfdf5':'#f8fafc'};padding:10px 12px;display:flex;justify-content:space-between;gap:8px;align-items:center;"><strong>Paso ${n}. ${ECT_PASOS[n-1]}</strong><span>${p.completado?'✅ Guardado':'⏳ Pendiente'}</span></div><div style="padding:12px;">${bloqueado?'<div class="alert show alert-warning">🔒 Se habilita cuando los tres miembros del Comité aprueben el paso 3.</div>':cuerpo}<div style="display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px;"><button class="btn btn-outline btn-sm" onclick="ectImprimirPaso(${n})" ${n>=4&&bloqueado?'disabled':''}>🖨️ Imprimir</button>${!cerrado&&!bloqueado?`<button class="btn btn-primary btn-sm" onclick="ectGuardarPaso(${n},false)">💾 Guardar borrador</button>${n===7?`<button class="btn btn-success btn-sm" onclick="ectConcluir()">✅ Concluir expediente</button>`:`<button class="btn btn-success btn-sm" onclick="ectGuardarPaso(${n},true)">✓ Marcar completo</button>`}`:''}</div></div></section>`;
+  }).join("");
+}
+
+function ectContenidoPaso(n){
+  const val=id=>document.getElementById(id)?.value||"";
+  if(n===1)return{fecha_entrega:val("ect-1-fecha"),recibe:val("ect-1-recibe"),observaciones:val("ect-1-obs")};
+  if(n===2)return{cumplidas:(ectActual.acciones_correctivas||[]).map((_,i)=>!!document.getElementById(`ect-2-acc-${i}`)?.checked),observaciones:val("ect-2-obs")};
+  if(n===3)return{proyecto:val("ect-3-proyecto"),justificacion:val("ect-3-just")};
+  if(n===4)return{objetivos:val("ect-4-obj"),actividades:val("ect-4-act"),apoyos:val("ect-4-apo"),indicadores:val("ect-4-ind")};
+  if(n===5)return{fecha_entrega:val("ect-5-fecha"),lugar_horario:val("ect-5-lugar"),constancia:val("ect-5-firmas")};
+  if(n===6)return{fecha:val("ect-6-fecha"),evidencias:val("ect-6-evid"),valoracion:val("ect-6-val")};
+  return{resultado:val("ect-7-resultado"),calificacion:val("ect-7-nota"),observaciones:val("ect-7-obs")};
+}
+async function ectGuardarPaso(n,completado){
+  try{await api(`/api/expedientes-conducta/${ectActual.expediente.id}/pasos/${n}`,"PUT",{contenido:ectContenidoPaso(n),completado});await ectAbrirDetalle(ectActual.expediente.id);sa("alert-ect-detalle","Contenido guardado.","success");}catch(e){sa("alert-ect-detalle",e.message,"danger");}
+}
+async function ectAprobarProyecto(){try{await api(`/api/expedientes-conducta/${ectActual.expediente.id}/aprobar-proyecto`,"POST",{});await ectAbrirDetalle(ectActual.expediente.id);sa("alert-ect-detalle","Su aprobación quedó registrada.","success");}catch(e){sa("alert-ect-detalle",e.message,"danger");}}
+async function ectConcluir(){
+  const c=ectContenidoPaso(7);if(!c.resultado)return sa("alert-ect-detalle","Seleccione el resultado final.","warning");
+  if(!confirm("¿Concluir y cerrar este expediente?"))return;
+  try{await api(`/api/expedientes-conducta/${ectActual.expediente.id}/concluir`,"POST",{resultado:c.resultado,calificacion:c.calificacion,contenido:c});await ectAbrirDetalle(ectActual.expediente.id);await ectImprimirPaso(7);}catch(e){sa("alert-ect-detalle",e.message,"danger");}
+}
+async function ectCerrarCausal(causal){
+  const detalle=prompt(causal==='accion_pendiente'?'Indique cuál acción correctiva quedó pendiente:':'Detalle para el informe que se remitirá al Comité:','');if(detalle===null)return;
+  try{const r=await api(`/api/expedientes-conducta/${ectActual.expediente.id}/cerrar-causal`,"POST",{causal,detalle});await ectAbrirDetalle(ectActual.expediente.id);await ectImprimirCausal(causal,detalle);sa("alert-ect-detalle",r.mensaje||(r.cerrado?'Expediente cerrado.':'Informe registrado.'),r.cerrado?'success':'warning');}catch(e){sa("alert-ect-detalle",e.message,"danger");}
+}
+async function ectReabrir(){const motivo=prompt("Motivo de la reapertura administrativa:","");if(!motivo)return;try{await api(`/api/expedientes-conducta/${ectActual.expediente.id}/reabrir`,"POST",{motivo});await ectAbrirDetalle(ectActual.expediente.id);}catch(e){sa("alert-ect-detalle",e.message,"danger");}}
+
+function ectDatosDoc(){const e=ectActual.expediente;return{e,nombre:nombreDesdeCampos(e.nombre,e.primer_apellido,e.segundo_apellido,{mayusculas:true}),guia:nombreDesdeCampos(e.guia_nombre,e.guia_ap1,e.guia_ap2),folio:`ECT-${String(e.numero).padStart(3,'0')}-${e.anio}`};}
+function ectFirmaGuia(nombre){return `<div style="margin-top:45px;width:310px;text-align:center;"><div style="border-top:1px solid #111;padding-top:5px;"><strong>${htmlSeguro(nombre||'Docente guía')}</strong><br>Docente guía</div></div>`;}
+async function ectImprimirPortada(){const {e,nombre,guia,folio}=ectDatosDoc();const h=`<div style="font-family:Arial;text-align:center;padding-top:80px;"><h1 style="color:#1f3864;letter-spacing:1px;">EXPEDIENTE DE MATRÍCULA</h1><h2 style="margin-top:60px;">Trabajo Educativo Sustitutivo de Conducta</h2><div style="margin:60px auto 0;max-width:560px;border:2px solid #1f3864;padding:28px;text-align:left;font-size:14px;line-height:2;"><strong>Consecutivo:</strong> ${folio}<br><strong>Estudiante:</strong> ${htmlSeguro(nombre)}<br><strong>Cédula:</strong> ${htmlSeguro(e.cedula)}<br><strong>Sección:</strong> ${htmlSeguro(e.seccion_nombre)}<br><strong>Curso lectivo:</strong> ${e.anio}<br><strong>Docente guía:</strong> ${htmlSeguro(guia)}</div></div>`;await imprimirPDFMEP("EXPEDIENTE DE CONDUCTA",h,`Portada_${folio}.pdf`);}
+
+async function ectImprimirPaso(n){
+  const p=ectActual.pasos.find(x=>Number(x.paso)===Number(n)),c=(document.getElementById(`ect-${n}-obs`)||document.getElementById(`ect-${n}-just`))?ectContenidoPaso(n):(p?.contenido||{});
+  const {e,nombre,guia,folio}=ectDatosDoc();const base=`<p><strong>Expediente:</strong> ${folio} &nbsp; <strong>Curso lectivo:</strong> ${e.anio}</p><p><strong>Estudiante:</strong> ${htmlSeguro(nombre)} &nbsp; <strong>Cédula:</strong> ${htmlSeguro(e.cedula)} &nbsp; <strong>Sección:</strong> ${htmlSeguro(e.seccion_nombre)}</p>`;
+  let titulo=ECT_PASOS[n-1],h=base;
+  if(n===1)h+=`<p>Se comunica que el estudiante no alcanzó la nota mínima anual de conducta y debe realizar el procedimiento institucional correspondiente al Trabajo Educativo Sustitutivo.</p><p><strong>Nota anual:</strong> ${e.nota_anual??'—'} &nbsp; <strong>Mínimo:</strong> ${Number(e.nivel)<=9?65:70}</p><p><strong>Recibido por:</strong> ${htmlSeguro(c.recibe||'________________________')} &nbsp; <strong>Fecha:</strong> ${c.fecha_entrega?fmtF(c.fecha_entrega):'____/____/________'}</p>`;
+  if(n===2){const ac=ectActual.acciones_correctivas||[];h+=ac.length?`<p>Se verificaron las siguientes acciones correctivas:</p><table style="width:100%;border-collapse:collapse;"><tr><th style="border:1px solid #555;padding:6px;">Expediente</th><th style="border:1px solid #555;padding:6px;">Acción</th><th style="border:1px solid #555;padding:6px;">Cumplió</th></tr>${ac.map((a,i)=>`<tr><td style="border:1px solid #555;padding:6px;">DP ${a.numero}-${a.anio}</td><td style="border:1px solid #555;padding:6px;">${htmlSeguro(a.accion)}</td><td style="border:1px solid #555;padding:6px;text-align:center;">${c.cumplidas?.[i]?'Sí':'No'}</td></tr>`).join('')}</table>`:`<p>Revisados los registros institucionales, se hace constar que no existen acciones correctivas impuestas pendientes de verificación. Los procedimientos abiertos sin una acción firme no se contabilizan como acciones correctivas.</p>`;h+=`<p><strong>Observaciones:</strong> ${htmlSeguro(c.observaciones||'Ninguna')}</p>`;}
+  if(n===3)h+=`<p><strong>Trabajo seleccionado:</strong> ${htmlSeguro(ECT_PROYECTOS[c.proyecto]||e.proyecto||'—')}</p><p><strong>Justificación:</strong> ${htmlSeguro(c.justificacion||'—')}</p><h3>Aprobación del Comité de Evaluación</h3>${ectActual.miembros.map(m=>`<p>${m.aprobado?'☑':'☐'} ${htmlSeguro(nombrePersona(m))} __________________ Firma</p>`).join('')}`;
+  if(n===4)h+=`<p><strong>Proyecto:</strong> ${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'—')}</p><h3>Objetivos</h3><p>${htmlSeguro(c.objetivos||'—')}</p><h3>Actividades y cronograma</h3><p style="white-space:pre-wrap;">${htmlSeguro(c.actividades||'—')}</p><h3>Apoyos y seguridad</h3><p>${htmlSeguro(c.apoyos||'—')}</p><h3>Instrumento de evaluación (30 puntos)</h3><p style="white-space:pre-wrap;">${htmlSeguro(c.indicadores||'Seis indicadores de desempeño, valorados de 1 a 5 puntos cada uno.')}</p>`;
+  if(n===5)h+=`<p>Se entrega al estudiante y su encargado el diseño del TES <strong>${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'')}</strong>.</p><p><strong>Fecha:</strong> ${c.fecha_entrega?fmtF(c.fecha_entrega):'—'}</p><p><strong>Lugar, horario y responsable:</strong> ${htmlSeguro(c.lugar_horario||'—')}</p><p><strong>Constancia:</strong> ${htmlSeguro(c.constancia||'—')}</p><div style="display:flex;gap:60px;margin-top:55px;"><div style="border-top:1px solid;width:260px;text-align:center;">Firma estudiante</div><div style="border-top:1px solid;width:260px;text-align:center;">Firma encargado</div></div>`;
+  if(n===6)h+=`<p><strong>Fecha de ejecución/verificación:</strong> ${c.fecha?fmtF(c.fecha):'—'}</p><p><strong>Evidencias verificadas:</strong></p><p style="white-space:pre-wrap;">${htmlSeguro(c.evidencias||'—')}</p><p><strong>Valoración y puntaje:</strong></p><p style="white-space:pre-wrap;">${htmlSeguro(c.valoracion||'—')}</p>`;
+  if(n===7)h+=`<p>El Comité de Evaluación comunica el resultado final del Trabajo Educativo Sustitutivo.</p><p><strong>Proyecto:</strong> ${htmlSeguro(ECT_PROYECTOS[e.proyecto]||'—')}</p><p><strong>Resultado:</strong> ${c.resultado==='aprobado'?'APROBÓ':c.resultado==='no_aprobado'?'NO APROBÓ':'—'} &nbsp; <strong>Calificación:</strong> ${c.calificacion||'—'} / 30</p><p><strong>Nota final de conducta:</strong> ${e.nota_final_conducta??'—'}</p><p><strong>Observaciones:</strong> ${htmlSeguro(c.observaciones||'—')}</p><h3>Comité de Evaluación</h3>${ectActual.miembros.map(m=>`<p>${htmlSeguro(nombrePersona(m))} __________________________________</p>`).join('')}`;
+  h+=ectFirmaGuia(guia);await imprimirPDFMEP(titulo.toLocaleUpperCase('es-CR'),`<div style="font-family:Arial;font-size:12px;line-height:1.6;">${h}</div>`,`ECT_${folio}_Paso_${n}.pdf`);
+}
+
+async function ectImprimirCausal(causal,detalle){
+  const {e,nombre,guia,folio}=ectDatosDoc();let titulo,texto;
+  if(causal==='accion_pendiente'){titulo="CARTA DE ACCIÓN CORRECTIVA PENDIENTE";texto=`Se hace constar que permanece pendiente la siguiente acción correctiva: <strong>${htmlSeguro(detalle)}</strong>. Conforme al lineamiento, el requisito previo para continuar con el TES no se encuentra cumplido y se cierra el expediente ${folio}.`;}
+  else if(causal==='inasistencia'){titulo="INFORME DOCENTE GUÍA POR INASISTENCIA AL TES";texto=`Se informa la inasistencia registrada: <strong>${htmlSeguro(detalle)}</strong>. Este informe se remite al Comité de Evaluación para valorar la justificación y determinar la reprogramación o el resultado correspondiente; no constituye por sí solo una decisión final.`;}
+  else{titulo="CARTA DE CONDICIÓN ACADÉMICA Y AMPLIACIÓN";texto=`Se registra la siguiente condición académica: <strong>${htmlSeguro(detalle)}</strong>. Esta condición se comunica al Comité de Evaluación y no impide por sí sola la continuidad del TES.`;}
+  const h=`<div style="font-family:Arial;font-size:12px;line-height:1.65;"><p><strong>Expediente:</strong> ${folio}</p><p><strong>Estudiante:</strong> ${htmlSeguro(nombre)} · <strong>Sección:</strong> ${htmlSeguro(e.seccion_nombre)}</p><p>${texto}</p>${ectFirmaGuia(guia)}<div style="margin-top:50px;border-top:1px solid;padding-top:6px;width:320px;">Recibido por encargado(a) · Fecha y hora</div></div>`;await imprimirPDFMEP(titulo,h,`${titulo.replace(/\s+/g,'_')}_${folio}.pdf`);
+}
+
 // ── Funciones institucionales ──────────────────────────────────────────────
 async function abrirFuncionInstitucional(tipo){
   const cfg={
     coordinador:{titulo:"🎯 Coordinador de Rendimiento",ayuda:"Puede consultar Rendimiento institucional y editar únicamente Educación Híbrida."},
     comite_apoyo:{titulo:"🧩 Comité de Apoyo",ayuda:"Administra adecuaciones, observaciones y solicitudes docentes de toda la institución."},
     lcf_familias:{titulo:"📱 LCF Familias",ayuda:"Administra el servicio, las contraseñas y el acceso de padres y encargados. Este permiso no se obtiene por pertenecer a Matrícula ni por ser auxiliar."},
-    comite_tecnico_asesor:{titulo:"📝 Comité Técnico Asesor",ayuda:"Consulta horarios docentes y administra calendarios de pruebas y horarios de cuido."}
+    comite_tecnico_asesor:{titulo:"📝 Comité Técnico Asesor",ayuda:"Consulta horarios docentes y administra calendarios de pruebas y horarios de cuido."},
+    comite_evaluacion:{titulo:"📘 Comité de Evaluación",ayuda:"Asigne exactamente tres miembros. Cada uno debe aprobar individualmente el proyecto TES antes de habilitar los anexos."}
   }[tipo];
   if(!cfg) return;
   document.getElementById("fi-tipo").value=tipo;

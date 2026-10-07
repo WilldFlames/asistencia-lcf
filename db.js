@@ -2360,7 +2360,7 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS funciones_institucionales (
         id          SERIAL PRIMARY KEY,
         usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-        tipo        TEXT NOT NULL CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor')),
+        tipo        TEXT NOT NULL CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor','comite_evaluacion')),
         asignado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
         created_at  TIMESTAMP DEFAULT NOW(),
         UNIQUE(usuario_id,tipo)
@@ -2382,14 +2382,63 @@ async function initDB() {
             DROP CONSTRAINT IF EXISTS funciones_institucionales_tipo_check;
           ALTER TABLE funciones_institucionales
             ADD CONSTRAINT funciones_institucionales_tipo_check
-            CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor'));
+            CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor','comite_evaluacion'));
         END IF;
       END $$
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_funciones_institucionales_tipo
       ON funciones_institucionales(tipo,usuario_id)`);
     await client.query(`ALTER TABLE funciones_institucionales DROP CONSTRAINT IF EXISTS funciones_institucionales_tipo_check`);
-    await client.query(`ALTER TABLE funciones_institucionales ADD CONSTRAINT funciones_institucionales_tipo_check CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor'))`);
+    await client.query(`ALTER TABLE funciones_institucionales ADD CONSTRAINT funciones_institucionales_tipo_check CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor','comite_evaluacion'))`);
+
+    // ── EXPEDIENTES DE CONDUCTA / TRABAJO EDUCATIVO SUSTITUTIVO ─────
+    // El consecutivo es propio del módulo y se asigna transaccionalmente por
+    // año. Los pasos almacenan una instantánea JSON para conservar exactamente
+    // lo firmado e impreso aunque después cambien datos del estudiante.
+    await client.query(`CREATE TABLE IF NOT EXISTS expedientes_conducta_tes (
+      id SERIAL PRIMARY KEY,
+      numero INTEGER NOT NULL,
+      anio INTEGER NOT NULL,
+      estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+      seccion_id INTEGER NOT NULL REFERENCES secciones(id) ON DELETE RESTRICT,
+      guia_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      estado TEXT NOT NULL DEFAULT 'en_curso',
+      estado_revision TEXT,
+      proyecto TEXT,
+      nota_anual NUMERIC(5,2),
+      resultado_tes TEXT,
+      calificacion_tes NUMERIC(5,2),
+      nota_final_conducta NUMERIC(5,2),
+      motivo_cierre TEXT DEFAULT '',
+      cerrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      cerrado_en TIMESTAMP,
+      reabierto_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      reabierto_en TIMESTAMP,
+      motivo_reapertura TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(anio,numero), UNIQUE(anio,estudiante_id)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_conducta_guia ON expedientes_conducta_tes(guia_id,anio)`);
+    await client.query(`CREATE TABLE IF NOT EXISTS expedientes_conducta_pasos (
+      id SERIAL PRIMARY KEY,
+      expediente_id INTEGER NOT NULL REFERENCES expedientes_conducta_tes(id) ON DELETE CASCADE,
+      paso INTEGER NOT NULL CHECK(paso BETWEEN 1 AND 7),
+      contenido JSONB NOT NULL DEFAULT '{}'::jsonb,
+      completado BOOLEAN NOT NULL DEFAULT false,
+      completado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      completado_en TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW(),updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(expediente_id,paso)
+    )`);
+    await client.query(`CREATE TABLE IF NOT EXISTS expedientes_conducta_aprobaciones (
+      id SERIAL PRIMARY KEY,
+      expediente_id INTEGER NOT NULL REFERENCES expedientes_conducta_tes(id) ON DELETE CASCADE,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+      aprobado_en TIMESTAMP DEFAULT NOW(),
+      UNIQUE(expediente_id,usuario_id)
+    )`);
 
     // Comité Técnico Asesor: calendarios de pruebas y cuidos docentes.
     await client.query(`CREATE TABLE IF NOT EXISTS calendarios_pruebas (

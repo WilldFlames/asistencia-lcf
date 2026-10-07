@@ -1034,8 +1034,14 @@ router.get("/funciones-institucionales", onlyAdmin, async (req,res)=>{
 router.post("/funciones-institucionales", onlyAdmin, async (req,res)=>{
   const usuarioId=Number(req.body?.usuario_id);
   const tipo=String(req.body?.tipo||"");
-  if(!usuarioId || !["coordinador","comite_apoyo","lcf_familias","comite_tecnico_asesor"].includes(tipo))
+  if(!usuarioId || !["coordinador","comite_apoyo","lcf_familias","comite_tecnico_asesor","comite_evaluacion"].includes(tipo))
     return res.status(400).json({error:"Datos de asignación inválidos."});
+  if(tipo==="comite_evaluacion"){
+    const total=await pool.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo='comite_evaluacion'");
+    const ya=await pool.query("SELECT 1 FROM funciones_institucionales WHERE tipo='comite_evaluacion' AND usuario_id=$1",[usuarioId]);
+    if(!ya.rows.length && total.rows[0].n>=3)
+      return res.status(409).json({error:"El Comité de Evaluación debe tener exactamente tres miembros. Quite uno antes de asignar otro."});
+  }
   const usu=await pool.query("SELECT 1 FROM usuarios WHERE id=$1 AND activo=true",[usuarioId]);
   if(!usu.rows.length) return res.status(404).json({error:"Usuario activo no encontrado."});
   const r=await pool.query(`
