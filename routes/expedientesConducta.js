@@ -37,7 +37,8 @@ async function puedeVer(u, expediente, db=pool){
 
 async function cargarExpediente(id, db=pool){
   const r=await db.query(`SELECT ec.*,
-      e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.activo AS estudiante_activo,
+      e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.fecha_nacimiento,e.activo AS estudiante_activo,
+      (e.fecha_nacimiento IS NOT NULL AND e.fecha_nacimiento <= CURRENT_DATE - INTERVAL '18 years') AS es_mayor_edad,
       s.nombre AS seccion_nombre,s.nivel,
       ug.nombre AS guia_nombre,ug.primer_apellido AS guia_ap1,ug.segundo_apellido AS guia_ap2,
       uc.nombre AS creador_nombre,uc.primer_apellido AS creador_ap1,uc.segundo_apellido AS creador_ap2
@@ -175,7 +176,12 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
     }
     const contenido=req.body.contenido&&typeof req.body.contenido==='object'?{...req.body.contenido}:{};
     const completado=!!req.body.completado;
-    if([1,5,6].includes(paso) && contenido.encargado_id){
+    if([1,5,6].includes(paso) && ec.es_mayor_edad){
+      contenido.encargado_id=null;
+      contenido.recibe=[ec.nombre,ec.primer_apellido,ec.segundo_apellido].filter(Boolean).join(" ").trim();
+      contenido.parentesco="Estudiante mayor de edad";
+      contenido.encargado_cedula=ec.cedula||"";
+    }else if([1,5,6].includes(paso) && contenido.encargado_id){
       const enc=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido,parentesco,cedula
         FROM encargados WHERE id=$1 AND estudiante_id=$2`,[Number(contenido.encargado_id),ec.estudiante_id]);
       if(!enc.rows.length) return res.status(400).json({error:"Seleccione una persona encargada registrada para este estudiante."});

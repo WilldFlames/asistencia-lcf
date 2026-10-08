@@ -81,6 +81,16 @@ test("la notificación selecciona un encargado real del estudiante y conserva su
   assert.doesNotMatch(front,/ectCampo\(`ect-1-recibe`,"Persona encargada que recibe"/);
 });
 
+test("la persona estudiante mayor de edad recibe y firma directamente todos los anexos",()=>{
+  assert.match(routes,/e\.fecha_nacimiento <= CURRENT_DATE - INTERVAL '18 years'/);
+  assert.match(routes,/if\(\[1,5,6\]\.includes\(paso\) && ec\.es_mayor_edad\)/);
+  assert.match(routes,/contenido\.parentesco="Estudiante mayor de edad"/);
+  assert.match(front,/function ectEsMayorEdad/);
+  assert.match(front,/Las comunicaciones, constancias de recibido y firmas del TES corresponden directamente a la persona estudiante/);
+  assert.match(front,/☑ estudiante mayor de edad/);
+  assert.match(front,/Persona estudiante mayor de edad/);
+});
+
 test("inasistencia y condición académica se remiten sin reprobar automáticamente",()=>{
   assert.match(routes,/No se cierra automáticamente/);
   assert.match(routes,/\["inasistencia","condicion_academica"\]/);
