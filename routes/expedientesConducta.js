@@ -128,17 +128,29 @@ router.get("/:id", requireAuth, async (req,res)=>{
     const miembros=await pool.query(`SELECT u.id,u.nombre,u.primer_apellido,u.segundo_apellido,
       EXISTS(SELECT 1 FROM expedientes_conducta_aprobaciones a WHERE a.expediente_id=$1 AND a.usuario_id=u.id) AS aprobado
       FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id WHERE fi.tipo=$2 ORDER BY u.nombre,u.primer_apellido`,[ec.id,tipoComite]);
-    const acciones=await pool.query(`SELECT dp.numero,dp.anio,p.contenido->>'desc_accion' AS accion,
-      COALESCE(p.contenido->>'fecha_limite',p.contenido->>'fecha_resol','') AS fecha
-      FROM debidos_procesos dp JOIN dp_pasos p ON p.proceso_id=dp.id AND p.tipo='resolucion_final'
-      WHERE dp.estudiante_id=$1 AND dp.anio=$2 AND dp.estado IN ('resuelto','archivado')
-        AND COALESCE(p.contenido->>'desc_accion','')<>'' ORDER BY dp.numero`,[ec.estudiante_id,ec.anio]);
+    // La accion correctiva puede haberse consignado en el acta, el traslado o la
+    // resolucion final.  No se limita la consulta a procesos cerrados: la constancia
+    // oficial tambien debe mencionar procedimientos abiertos, aunque aun no tengan
+    // una accion firme (estos no se consideran incumplimiento).
+    const procedimientos=await pool.query(`SELECT dp.id,dp.numero,dp.anio,dp.estado,
+      COALESCE(NULLIF(r.contenido->>'desc_accion',''),NULLIF(t.contenido->>'desc_accion',''),
+        NULLIF(a.contenido->>'desc_accion',''),'') AS accion,
+      COALESCE(NULLIF(r.contenido->>'fecha_limite',''),NULLIF(r.contenido->>'fecha_inicio_accion',''),
+        NULLIF(r.contenido->>'fecha_resol',''),NULLIF(t.contenido->>'fecha_traslado',''),'') AS fecha,
+      COALESCE(NULLIF(r.contenido->>'fecha_resol',''),NULLIF(t.contenido->>'fecha_traslado',''),'') AS fecha_resolucion
+      FROM debidos_procesos dp
+      LEFT JOIN dp_pasos r ON r.proceso_id=dp.id AND r.tipo='resolucion_final'
+      LEFT JOIN dp_pasos t ON t.proceso_id=dp.id AND t.tipo='traslado_cargos'
+      LEFT JOIN dp_pasos a ON a.proceso_id=dp.id AND a.tipo='acta_sesion'
+      WHERE dp.estudiante_id=$1 AND dp.anio=$2
+      ORDER BY dp.numero`,[ec.estudiante_id,ec.anio]);
+    const acciones=procedimientos.rows.filter(x=>String(x.accion||"").trim());
     const encargados=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido,parentesco,
         cedula,telefono,celular,es_principal
       FROM encargados WHERE estudiante_id=$1
       ORDER BY es_principal DESC,primer_apellido,segundo_apellido,nombre,id`,[ec.estudiante_id]);
     res.json({expediente:ec,pasos:pasos.rows,aprobaciones:aprobaciones.rows,miembros:miembros.rows,
-      acciones_correctivas:acciones.rows,encargados:encargados.rows,
+      procedimientos_debidos:procedimientos.rows,acciones_correctivas:acciones,encargados:encargados.rows,
       es_admin:esAdmin(req.session.usuario),es_comite:await esComite(req.session.usuario.id)});
   }catch(e){console.error("detalle expediente conducta",e);res.status(500).json({error:e.message});}
 });
@@ -163,20 +175,23 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
     }
     const contenido=req.body.contenido&&typeof req.body.contenido==='object'?{...req.body.contenido}:{};
     const completado=!!req.body.completado;
-    if(paso===1 && contenido.encargado_id){
-      const enc=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido,parentesco
+    if([1,5,6].includes(paso) && contenido.encargado_id){
+      const enc=await pool.query(`SELECT id,nombre,primer_apellido,segundo_apellido,parentesco,cedula
         FROM encargados WHERE id=$1 AND estudiante_id=$2`,[Number(contenido.encargado_id),ec.estudiante_id]);
       if(!enc.rows.length) return res.status(400).json({error:"Seleccione una persona encargada registrada para este estudiante."});
       const x=enc.rows[0];
       contenido.encargado_id=Number(x.id);
       contenido.recibe=[x.nombre,x.primer_apellido,x.segundo_apellido].filter(Boolean).join(" ").trim();
       contenido.parentesco=x.parentesco||"";
-    }else if(paso===1 && completado && !String(contenido.recibe||"").trim()){
+      if([5,6].includes(paso)) contenido.encargado_cedula=x.cedula||contenido.encargado_cedula||"";
+    }else if([1,5,6].includes(paso) && completado && !String(contenido.recibe||"").trim()){
       return res.status(400).json({error:"El estudiante no tiene una persona encargada seleccionada."});
     }
     if(paso===2 && completado && Array.isArray(contenido.cumplidas) && contenido.cumplidas.some(x=>!x))
       return res.status(409).json({error:"Hay una acción correctiva pendiente. Use el botón de cierre con su carta de constancia."});
     if(paso===3 && !PROYECTOS.includes(contenido.proyecto)) return res.status(400).json({error:"Seleccione el tipo de trabajo TES."});
+    if(paso===6 && completado && !["aprobado","no_aprobado"].includes(String(contenido.resultado||"")))
+      return res.status(400).json({error:"Indique el resultado del TES para emitir el Anexo 3."});
     await pool.query(`UPDATE expedientes_conducta_pasos SET contenido=$1,completado=$2,
       completado_por=CASE WHEN $2 THEN $3 ELSE completado_por END,completado_en=CASE WHEN $2 THEN NOW() ELSE NULL END,updated_at=NOW()
       WHERE expediente_id=$4 AND paso=$5`,[contenido,completado,req.session.usuario.id,ec.id,paso]);

@@ -31,18 +31,43 @@ test("el profesor guía ve aplazados y una aprobación del comité habilita el T
 
 test("el flujo guarda e imprime todos los pasos en formato institucional",()=>{
   assert.match(front,/const ECT_PASOS=\[/);
-  assert.match(front,/Notificación de condición aplazada/);
-  assert.match(front,/Verificación de acciones correctivas/);
-  assert.match(front,/Anexo 1 · Diseño e instrumento de evaluación/);
-  assert.match(front,/Anexo 3 · Resultado final/);
+  assert.match(front,/Notificación de condición aplazada en conducta/);
+  assert.match(front,/Constancia de verificación para acceso al TES/);
+  assert.match(front,/Anexo 1 · Proyecto e instrumento de evaluación/);
+  assert.match(front,/Anexo 3 · Comunicación de finalización y resultado del TES/);
+  assert.match(front,/Anexo 4 · Acta de comunicación de la condición final en conducta/);
   assert.match(front,/Portada Expediente de Conducta/);
   assert.doesNotMatch(front,/EXPEDIENTE DE MATRÍCULA/);
   assert.match(front,/Trabajo con enfoque socioeducativo/);
   assert.match(front,/folio:`TES-/);
   assert.match(front,/artículo 146/);
   assert.match(front,/await imprimirPDFMEP\(titulo\.toLocaleUpperCase/);
-  assert.match(front,/\{bloquesPagina:n===1\}/);
+  assert.match(front,/\{bloquesPagina:true\}/);
   assert.match(front,/class="pdf-page-block"/);
+});
+
+test("cada modalidad TES conserva actividades, seguridad e indicadores propios",()=>{
+  assert.match(front,/Proyecto de reparación comunitaria/);
+  assert.match(front,/Diagnóstico de convivencia/);
+  assert.match(front,/Plan de reparación simbólica/);
+  assert.match(front,/Proyecto de aseo comunitario/);
+  assert.match(front,/Observación guiada/);
+  assert.match(front,/Plan de cuidado seguro/);
+  assert.match(front,/Proyecto de aprendizaje servicio/);
+  assert.match(front,/Diagnóstico visual de bienes comunes/);
+  assert.match(front,/Distribución segura de roles/);
+  assert.match(front,/Puntuación obtenida/);
+  assert.match(front,/Calificación TES/);
+});
+
+test("la constancia identifica debidos procesos y acciones aunque estén en pasos distintos",()=>{
+  assert.match(routes,/procedimientos_debidos/);
+  assert.match(routes,/NULLIF\(r\.contenido->>'desc_accion'/);
+  assert.match(routes,/NULLIF\(t\.contenido->>'desc_accion'/);
+  assert.match(routes,/NULLIF\(a\.contenido->>'desc_accion'/);
+  assert.doesNotMatch(routes,/dp\.estado IN \('resuelto','archivado'\)/);
+  assert.match(front,/N\.° \$\{a\.numero\}-\$\{a\.anio\}/);
+  assert.match(front,/Constancia sin acciones correctivas/);
 });
 
 test("la notificación selecciona un encargado real del estudiante y conserva su identidad",()=>{
