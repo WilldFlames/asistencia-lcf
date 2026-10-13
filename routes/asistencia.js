@@ -4,6 +4,10 @@ const { requireDocente } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerPeriodoActual } = require("../utils/lectivo");
 const { notificarEstudiante } = require("../utils/push-familias");
 
+// La nueva regla institucional rige desde esta fecha. No debe crear boletas
+// retroactivas al volver a guardar asistencias de días anteriores.
+const INICIO_BOLETA_FORTALECIMIENTO_MATEMATICO = "2026-10-12";
+
 async function permitirAsignacion(req, res, next) {
   try {
     const id = Number(req.params.asignacion_id || req.body?.asignacion_id);
@@ -360,8 +364,9 @@ router.post("/", requireDocente, permitirAsignacion, async (req, res) => {
 
     await client.query("COMMIT");
 
-    // ── BOLETAS AUTOMÁTICAS para Guía y Orientación ──────────────────────────
-    // Si la materia es de guía u orientación, generar boleta por ausencia injustificada
+    // ── BOLETAS AUTOMÁTICAS por ausencia injustificada ───────────────────────
+    // Guía/Orientación conservan su comportamiento histórico. Fortalecimiento
+    // Matemático aplica únicamente a partir del 12 de octubre de 2026.
     try {
       const asigInfoR = await pool.query(`
         SELECT a.id, m.nombre AS materia, a.profesor_id AS prof_id,
@@ -373,13 +378,26 @@ router.post("/", requireDocente, permitirAsignacion, async (req, res) => {
             -- O si el nombre de la materia contiene "guía" u "orientación"
             m.nombre ILIKE '%guía%' OR m.nombre ILIKE '%guia%' OR
             m.nombre ILIKE '%orientaci%'
-          ) AS es_guia_ori
+          ) AS es_guia_ori,
+          (
+            m.nombre ILIKE '%fortalecimiento%matem%'
+          ) AS es_fortalecimiento_matematico
         FROM asignaciones a
         JOIN materias m ON m.id=a.materia_id
         WHERE a.id=$1
       `, [asignacion_id]);
 
-      if (asigInfoR.rows[0]?.es_guia_ori) {
+      const asignacionBoleta = asigInfoR.rows[0];
+      const aplicaFortalecimiento = Boolean(
+        asignacionBoleta?.es_fortalecimiento_matematico &&
+        String(fecha) >= INICIO_BOLETA_FORTALECIMIENTO_MATEMATICO
+      );
+      const aplicaBoletaAutomatica = Boolean(asignacionBoleta?.es_guia_ori || aplicaFortalecimiento);
+
+      if (aplicaBoletaAutomatica) {
+        const materiaBoleta = aplicaFortalecimiento
+          ? "Fortalecimiento Matemático"
+          : "Guía/Orientación";
         // Get "Ausencias injustificadas" infraccion
         const infR = await pool.query(
           "SELECT id FROM infracciones WHERE tipo='leve' AND descripcion ILIKE '%Ausencias injustificadas%' LIMIT 1"
@@ -405,7 +423,7 @@ router.post("/", requireDocente, permitirAsignacion, async (req, res) => {
                 VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
               `, [reg.estudiante_id, infraccionId, asignacion_id,
                   req.session.usuario.id, fecha,
-                  'Boleta generada automáticamente por ausencia injustificada en Guía/Orientación.']);
+                  `Boleta generada automáticamente por ausencia injustificada en ${materiaBoleta}.`]);
               const boletaId = boletaR.rows[0].id;
               await pool.query(
                 "UPDATE asistencia SET boleta_ausencia_id=$1 WHERE id=$2",
@@ -436,7 +454,7 @@ router.post("/", requireDocente, permitirAsignacion, async (req, res) => {
                     VALUES ($1, 'conducta', $2)
                   `, [
                     g.id,
-                    `⚠️ Boleta automática — ${g.nombre} ${g.primer_apellido} ${g.segundo_apellido} (${g.seccion_nombre||'sin sección'}): Ausencia injustificada en Guía/Orientación.`
+                    `⚠️ Boleta automática — ${g.nombre} ${g.primer_apellido} ${g.segundo_apellido} (${g.seccion_nombre||'sin sección'}): Ausencia injustificada en ${materiaBoleta}.`
                   ]);
                 }
               } catch(notifErr){ console.error('notif auto-boleta:', notifErr.message); }

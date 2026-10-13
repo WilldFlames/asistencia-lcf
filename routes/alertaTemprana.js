@@ -328,7 +328,32 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
     pool.query(`SELECT c.*,${nombreCompleto("u")} AS registrado_nombre FROM alerta_temprana_contactos c JOIN usuarios u ON u.id=c.registrado_por WHERE c.alerta_id=$1 ORDER BY c.fecha,c.created_at`,[id]),
     pool.query("SELECT COALESCE(nombre_centro,'Liceo de Calle Fallas') AS nombre_centro FROM config_centro ORDER BY id LIMIT 1")
   ]);
-  res.json({alerta:cab.rows[0],seguimientos:seguimientos.rows,acciones:acciones.rows,contactos:contactos.rows,
+  const alerta=cab.rows[0];
+  if(!alerta) return res.status(404).json({error:"Alerta no encontrada."});
+  // El expediente impreso es estudiantil, no una hoja aislada. Supervisión
+  // puede consolidar todas las materias; el docente conserva únicamente las
+  // alertas que le pertenecen.
+  const parametros=[alerta.estudiante_id,alerta.anio];
+  const filtroPropietario=acceso.supervisor?"":`AND at.profesor_id=$3`;
+  if(!acceso.supervisor) parametros.push(req.session.usuario.id);
+  const materias=await pool.query(`SELECT at.id,at.estado,at.fecha_activacion,at.fecha_cierre,
+      at.riesgo_ausentismo,at.categorias,at.observacion_inicial,
+      COALESCE(m.nombre,'Actuación institucional') AS materia_nombre,${nombreCompleto("u")} AS profesor_nombre,
+      COALESCE((SELECT json_agg(json_build_object('fecha',sg.fecha,'estado',sg.estado,
+        'observaciones',sg.observaciones,'registrado_nombre',${nombreCompleto("us")}) ORDER BY sg.fecha,sg.created_at,sg.id)
+        FROM alerta_temprana_seguimientos sg JOIN usuarios us ON us.id=sg.registrado_por WHERE sg.alerta_id=at.id),'[]'::json) AS seguimientos,
+      COALESCE((SELECT json_agg(json_build_object('accion',ac.accion,'fecha_inicio',ac.fecha_inicio,
+        'fecha_final',ac.fecha_final,'responsable',ac.responsable,'observaciones',ac.observaciones,
+        'institucion_referida',ac.institucion_referida) ORDER BY ac.fecha_inicio NULLS LAST,ac.created_at,ac.id)
+        FROM alerta_temprana_acciones ac WHERE ac.alerta_id=at.id),'[]'::json) AS acciones,
+      COALESCE((SELECT json_agg(json_build_object('fecha',ct.fecha,'via_contacto',ct.via_contacto,
+        'persona_contactada',ct.persona_contactada,'comentarios',ct.comentarios) ORDER BY ct.fecha,ct.created_at,ct.id)
+        FROM alerta_temprana_contactos ct WHERE ct.alerta_id=at.id),'[]'::json) AS contactos
+    FROM alertas_tempranas at LEFT JOIN materias m ON m.id=at.materia_id JOIN usuarios u ON u.id=at.profesor_id
+    WHERE at.estudiante_id=$1 AND at.anio=$2 AND at.estado<>'eliminada' ${filtroPropietario}
+    ORDER BY COALESCE(m.nombre,'Actuación institucional'),at.fecha_activacion,at.id`,parametros);
+  res.json({alerta,seguimientos:seguimientos.rows,acciones:acciones.rows,contactos:contactos.rows,
+    expediente_materias:materias.rows,
     catalogo:CATALOGO,centro:cfg.rows[0]?.nombre_centro||"Liceo de Calle Fallas",
     // Una persona coordinadora que también imparte clases conserva edición
     // únicamente sobre las alertas que ella misma abrió; las ajenas son lectura.

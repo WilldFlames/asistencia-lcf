@@ -1,0 +1,22 @@
+ACTUALIZACIÓN DEL 12 DE OCTUBRE DE 2026
+
+1. EXPEDIENTE DE ALERTA TEMPRANA
+- La primera página del PDF es una portada independiente.
+- Desde la segunda página se presenta la información separada por materia.
+- Los seguimientos, planes de atención y contactos se muestran en tablas.
+- Los textos descriptivos se imprimen justificados.
+- Se corrigió la llamada invertida al generador institucional de PDF que
+  comprimía todo el contenido dentro del título.
+
+2. FORTALECIMIENTO MATEMÁTICO
+- Desde el 12 de octubre de 2026, una ausencia injustificada en
+  Fortalecimiento Matemático genera automáticamente una boleta de conducta.
+- Se notifica a la familia y al profesor guía.
+- Si la asistencia se corrige a presente o justificada, se elimina la boleta
+  automática enlazada a ese registro.
+- No se generan boletas retroactivas por fechas anteriores al 12 de octubre.
+
+VERIFICACIÓN
+- Sintaxis del servidor y del JavaScript del navegador validada.
+- 267 pruebas automáticas aprobadas.
+- Paginación y legibilidad revisadas visualmente en tamaño Carta.
