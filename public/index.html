@@ -1511,7 +1511,7 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
         <div class="fg"><label>Fecha</label><input type="date" id="asis-fecha" onchange="cargarListaDia()"/></div>
         <div class="fg"><label>Lecciones hoy</label>
-          <select id="asis-lecciones">
+          <select id="asis-lecciones" onchange="marcarAsistenciaModificada()">
             <option value="1">1</option><option value="2">2</option><option value="3">3</option>
             <option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
           </select>
@@ -8619,6 +8619,7 @@ function volverAsignaciones(){
 async function cargarListaDia(){
   const fecha=document.getElementById("asis-fecha").value;
   if(!fecha||!asigActiva)return;
+  reiniciarCambiosAsistencia();
   // ⚠️ Limpiar estado ANTES del fetch para evitar que datos del día anterior queden visibles
   // si el fetch falla, se demora, o el navegador cachea.
   registrosAsist=[];
@@ -8631,8 +8632,12 @@ async function cargarListaDia(){
     info.style.display="";
     info.innerHTML=`📅 Sesión guardada: <strong>${d.sesion.lecciones} lección${d.sesion.lecciones>1?"es":""}</strong>`;
     document.getElementById("asis-lecciones").value=d.sesion.lecciones;
-  }else{info.style.display="none";}
+  }else{
+    info.style.display="";
+    info.textContent="👁️ Modo consulta: la lista no se guardará hasta que realicés un cambio o presionés Guardar.";
+  }
   registrosAsist=ordenarEstudiantes(d.estudiantes).map(e=>({...e}));
+  reiniciarCambiosAsistencia();
   renderTablaAsist();
   // Si el backend devolvió un diagnóstico (lista vacía + razón), mostrarlo al profe.
   if(d._diagnostico && registrosAsist.length === 0){
@@ -9032,25 +9037,47 @@ async function guardarAsistencia(){
     // Recargar lista para obtener asistencia_id y poder justificar
     const d = await api(`/api/asistencia/${asigActiva}/${fecha}?_=${Date.now()}`);
     if(d && d.estudiantes) registrosAsist = d.estudiantes;
+    reiniciarCambiosAsistencia();
     renderTablaAsist();
     await cargarHistSesiones();
     try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
   }catch(err){sa("alert-asis","Error: "+err.message,"danger");}
 }
 
-// Respaldo automático discreto: evita perder la lista si el docente olvida Guardar.
+// Respaldo automático discreto: solo se activa después de una modificación
+// real. Abrir, cargar o consultar una lista nunca crea una sesión por sí solo.
 let asistenciaAutosaveEnCurso=false;
+let asistenciaCambiosVersion=0;
+let asistenciaVersionGuardada=0;
+let asistenciaContextoVersion=0;
+function reiniciarCambiosAsistencia(){
+  asistenciaContextoVersion++;
+  asistenciaCambiosVersion=0;
+  asistenciaVersionGuardada=0;
+}
+function marcarAsistenciaModificada(){
+  asistenciaCambiosVersion++;
+  const info=document.getElementById('asis-sesion-info');
+  if(info){
+    info.style.display='';
+    info.textContent='✏️ Cambios pendientes de guardado automático…';
+  }
+}
 setInterval(async()=>{
   const pagina=document.getElementById('page-asistencia');
   const fecha=document.getElementById('asis-fecha')?.value;
-  if(asistenciaAutosaveEnCurso || !pagina?.classList.contains('active') || !asigActiva || !fecha || !registrosAsist.length) return;
+  if(asistenciaAutosaveEnCurso || asistenciaCambiosVersion<=asistenciaVersionGuardada || !pagina?.classList.contains('active') || !asigActiva || !fecha || !registrosAsist.length) return;
   asistenciaAutosaveEnCurso=true;
+  const versionEnviada=asistenciaCambiosVersion;
+  const contextoEnviado=asistenciaContextoVersion;
   try{
     const lecc=parseInt(document.getElementById('asis-lecciones')?.value)||4;
     await api('/api/asistencia','POST',{
       asignacion_id:asigActiva,fecha,lecciones:lecc,
       registros:registrosAsist.map(e=>({estudiante_id:e.id,estado:e.estado||'P',lecciones_ausentes:e.lecciones_ausentes||lecc,lecciones_tardias:e.lecciones_tardias||1,justificada:e.justificada||false,motivo:e.motivo||'',escapado:e.escapado||false}))
     });
+    if(contextoEnviado!==asistenciaContextoVersion) return;
+    asistenciaVersionGuardada=Math.max(asistenciaVersionGuardada,versionEnviada);
     const info=document.getElementById('asis-sesion-info');
     if(info){ info.style.display=''; info.textContent=`☁️ Guardado automático ${new Date().toLocaleTimeString('es-CR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
   }catch(e){ console.warn('Autoguardado de asistencia:',e.message); }
@@ -9062,6 +9089,7 @@ setInterval(async()=>{
 // ────────────────────────────────────
 async function verSesion(fecha, lecc){
   if(!asigActiva) return;
+  reiniciarCambiosAsistencia();
   registrosAsist=[];
   const tbody=document.getElementById("asis-body");
   if(tbody) tbody.innerHTML=`<tr><td colspan="7" class="empty" style="color:var(--muted);font-size:13px;">⏳ Cargando sesión del ${fmtF(fecha)}...</td></tr>`;
@@ -9081,6 +9109,7 @@ async function verSesion(fecha, lecc){
     info.innerHTML=`📅 Mostrando lista del <strong>${fmtF(fecha)}</strong> — sin sesión guardada`;
   }
   registrosAsist=ordenarEstudiantes(d.estudiantes).map(e=>({...e}));
+  reiniciarCambiosAsistencia();
   renderTablaAsist();
   const tablaEl=document.getElementById("asis-body");
   if(tablaEl) tablaEl.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"});
@@ -9094,11 +9123,13 @@ async function verSesion(fecha, lecc){
 function setE(id, estado){
   const r=registrosAsist.find(e=>e.id===id);
   if(r){
+    if(r.estado===estado) return;
     r.estado=estado;
     // Inicializar el contador correspondiente al estado nuevo (si no lo tenía)
     const totalLecc = parseInt(document.getElementById("asis-lecciones")?.value) || 4;
     if(estado === 'T' && !r.lecciones_tardias)  r.lecciones_tardias  = 1;
     if(estado === 'A' && !r.lecciones_ausentes) r.lecciones_ausentes = totalLecc;
+    marcarAsistenciaModificada();
     renderTablaAsist();
   }
 }
@@ -9111,20 +9142,25 @@ function marcarTodos(estado){
   if(!['P','A','T'].includes(estado)) return;
   if(!confirm(`¿Marcar a TODOS los estudiantes como ${estado==='P'?'Presentes':estado==='A'?'Ausentes':'Tardíos'}?`)) return;
   const totalLecc = parseInt(document.getElementById("asis-lecciones")?.value) || 4;
+  let huboCambio=false;
   registrosAsist.forEach(r => {
+    if(r.estado!==estado) huboCambio=true;
     r.estado = estado;
     if(estado === 'T' && !r.lecciones_tardias)  r.lecciones_tardias  = 1;
     if(estado === 'A' && !r.lecciones_ausentes) r.lecciones_ausentes = totalLecc;
   });
+  if(huboCambio) marcarAsistenciaModificada();
   renderTablaAsist();
 }
 function setLeccAus(id, val){
   const r=registrosAsist.find(e=>e.id===id);
-  if(r) r.lecciones_ausentes=parseInt(val);
+  const nuevo=parseInt(val);
+  if(r && r.lecciones_ausentes!==nuevo){r.lecciones_ausentes=nuevo;marcarAsistenciaModificada();}
 }
 function setLeccTar(id, val){
   const r=registrosAsist.find(e=>e.id===id);
-  if(r) r.lecciones_tardias=parseInt(val);
+  const nuevo=parseInt(val);
+  if(r && r.lecciones_tardias!==nuevo){r.lecciones_tardias=nuevo;marcarAsistenciaModificada();}
 }
 
 // ────────────────────────────────────

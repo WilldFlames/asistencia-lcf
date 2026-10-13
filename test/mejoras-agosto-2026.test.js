@@ -16,4 +16,11 @@ test('biblioteca controla catálogo, disponibilidad, préstamos y devoluciones',
 test('biblioteca obtiene únicamente secciones activas del año lectivo',()=>{assert.match(bib,/JOIN secciones_anio sa/);assert.match(bib,/sa\.activa=true/);assert.doesNotMatch(bib,/FROM secciones WHERE activa/);});
 test('informes usan el aporte oficial por período y conteos por rubro',()=>{assert.match(db,/resumen_academico JSONB/);assert.match(mens,/calcularPromediosInstitucional/);assert.match(mens,/obtenerPeriodoActual/);assert.match(mens,/porcentaje:Number\(Number\(rubro\.pct\|\|0\)/);assert.match(mens,/no_realizados/);assert.match(front,/Aporte real al promedio/);assert.match(front,/r\.porcentaje\+'% de '\+r\.peso\+'%'/);});
 test('responder un informe guarda aunque falle la notificación secundaria',()=>{assert.match(mens,/La respuesta ya quedó guardada/);assert.match(mens,/Notificación de informe respondido/);assert.match(mens,/res\.status\(500\)\.json/);assert.match(front,/btn\.disabled=true;btn\.textContent='Enviando…'/);});
-test('asistencia se respalda cada diez segundos y matrícula no limita el comité',()=>{assert.match(front,/asistenciaAutosaveEnCurso/);assert.match(front,/},10000\);/);assert.doesNotMatch(leer('routes/prematricula.js'),/Máximo 6/);});
+test('asistencia se respalda cada diez segundos solo después de una modificación real',()=>{
+  assert.match(front,/asistenciaAutosaveEnCurso/);
+  assert.match(front,/asistenciaCambiosVersion<=asistenciaVersionGuardada/);
+  assert.match(front,/function marcarAsistenciaModificada\(\)/);
+  assert.match(front,/Modo consulta: la lista no se guardará/);
+  assert.match(front,/},10000\);/);
+  assert.doesNotMatch(leer('routes/prematricula.js'),/Máximo 6/);
+});

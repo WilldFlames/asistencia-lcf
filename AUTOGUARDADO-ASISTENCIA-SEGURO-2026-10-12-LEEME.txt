@@ -1,0 +1,15 @@
+CORRECCIÓN DEL AUTOGUARDADO DE ASISTENCIA
+12 DE OCTUBRE DE 2026
+
+- Abrir o cargar una lista queda en modo consulta y no crea una sesión.
+- El autoguardado se activa únicamente después de una modificación real:
+  cambio de P/A/T, cantidad de lecciones o acción Todos P/Todos A.
+- El botón Guardar continúa permitiendo guardar expresamente la lista.
+- Cambiar de fecha, grupo o sesión reinicia correctamente el seguimiento de
+  cambios para evitar que un guardado pendiente se aplique a otra lista.
+- La pantalla informa si está en modo consulta, si existen cambios pendientes
+  o si el guardado automático ya terminó.
+
+VERIFICACIÓN
+- 267 pruebas automáticas aprobadas.
+- Sintaxis completa del JavaScript del navegador validada.
