@@ -2635,6 +2635,36 @@ async function initDB() {
       ON alertas_tempranas(anio,estudiante_id,profesor_id,COALESCE(materia_id,0))
       WHERE estado NOT IN ('cerrada','eliminada')`);
 
+    // ── CARACTERIZACIÓN DE LA POBLACIÓN ────────────────────────────────
+    // Matriz anual vinculada al estudiante. El código corresponde al orden
+    // de la segunda columna del catálogo oficial suministrado por Orientación.
+    // Se conserva una auditoría incluso cuando una casilla se desmarca.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS caracterizaciones_poblacion (
+        anio             INTEGER NOT NULL,
+        estudiante_id    INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+        codigo           INTEGER NOT NULL CHECK(codigo BETWEEN 1 AND 87),
+        activo           BOOLEAN NOT NULL DEFAULT true,
+        actualizado_por  INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY(anio,estudiante_id,codigo)
+      );
+      CREATE TABLE IF NOT EXISTS caracterizaciones_poblacion_auditoria (
+        id               BIGSERIAL PRIMARY KEY,
+        anio             INTEGER NOT NULL,
+        estudiante_id    INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+        codigo           INTEGER NOT NULL CHECK(codigo BETWEEN 1 AND 87),
+        activo           BOOLEAN NOT NULL,
+        registrado_por   INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_caracterizacion_estudiante
+        ON caracterizaciones_poblacion(estudiante_id,anio,codigo) WHERE activo=true;
+      CREATE INDEX IF NOT EXISTS idx_caracterizacion_auditoria
+        ON caracterizaciones_poblacion_auditoria(estudiante_id,anio,created_at DESC);
+    `);
+
     // Permite que la campana abra directamente la pantalla y el registro.
     await client.query(`ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS destino TEXT DEFAULT NULL`);
 

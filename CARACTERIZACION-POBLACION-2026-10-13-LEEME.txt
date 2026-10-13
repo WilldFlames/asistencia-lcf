@@ -1,0 +1,25 @@
+CARACTERIZACIÓN DE LA POBLACIÓN — 13/10/2026
+
+Se agregó un apartado exclusivo para Administración y Orientación, vinculado
+con el módulo de Alerta Temprana.
+
+Incluye:
+- Catálogo de 87 características tomado únicamente de la segunda columna del
+  archivo CatalogoAlertasTempranas2024.xlsx.
+- Consulta y edición individual por estudiante.
+- Matriz grupal por sección: estudiantes en filas y características en columnas.
+- Búsqueda por nombre o cédula en la matriz y búsqueda de características en la
+  vista individual.
+- Selección múltiple mediante casillas.
+- Acceso de Administración a todas las secciones.
+- Acceso de cada orientadora solamente a las secciones que tenga asignadas para
+  el curso lectivo activo.
+- Visualización de la caracterización desde el detalle de Alerta Temprana.
+- Historial de auditoría al marcar o desmarcar una característica.
+- Conservación anual de la información vinculada al expediente del estudiante.
+
+INSTALACIÓN
+
+No requiere ejecutar SQL manual. Las tablas e índices se crean automáticamente
+al iniciar la versión actualizada del servidor.
+

@@ -3,6 +3,7 @@ const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 const { llenarPlantillaAlerta } = require("../utils/excelAlertaTemprana");
+const { CARACTERIZACION_CATALOGO, CARACTERIZACION_CODIGOS } = require("../utils/catalogoCaracterizacion");
 
 const ESTADOS = ["activada","en_proceso","en_espera","cerrada","eliminada"];
 const RESULTADOS = ["efectiva","no_contesta","equivocado","fuera_servicio","buzon","devolver_llamada","otro"];
@@ -100,6 +101,48 @@ async function requireParticipante(req,res,next){
     if(esDocente(req.session.usuario) || await puedeSupervisar(req.session.usuario)) return next();
     return res.status(403).json({error:"Sin permiso para Alerta Temprana."});
   }catch(e){next(e);}
+}
+function esOrientacionAdmin(u){
+  return u?.rol==="admin" || u?.rol==="orientador" || (u?.funciones_extra||[]).includes("orientador");
+}
+function requireCaracterizacion(req,res,next){
+  if(esOrientacionAdmin(req.session.usuario)) return next();
+  return res.status(403).json({error:"La caracterización de la población es exclusiva de Orientación y Administración."});
+}
+async function puedeAccederSeccionCaracterizacion(u,seccionId,anio){
+  if(u?.rol==="admin") return true;
+  const q=await pool.query(`SELECT 1 FROM seccion_orientador_anio
+    WHERE seccion_id=$1 AND anio=$2 AND orientador_id=$3 LIMIT 1`,[seccionId,anio,u?.id||0]);
+  return q.rows.length>0;
+}
+function codigosCaracterizacion(valor){
+  if(!Array.isArray(valor)) return null;
+  const codigos=[...new Set(valor.map(Number))];
+  return codigos.every(c=>Number.isSafeInteger(c)&&CARACTERIZACION_CODIGOS.has(c))?codigos.sort((a,b)=>a-b):null;
+}
+async function aplicarCaracterizacion(client,{anio,estudianteId,codigos,usuarioId}){
+  const actuales=await client.query(`SELECT codigo FROM caracterizaciones_poblacion
+    WHERE anio=$1 AND estudiante_id=$2 AND activo=true FOR UPDATE`,[anio,estudianteId]);
+  const antes=new Set(actuales.rows.map(r=>Number(r.codigo))),despues=new Set(codigos);
+  const agregadas=codigos.filter(c=>!antes.has(c));
+  const retiradas=[...antes].filter(c=>!despues.has(c));
+  if(agregadas.length){
+    await client.query(`INSERT INTO caracterizaciones_poblacion
+      (anio,estudiante_id,codigo,activo,actualizado_por) SELECT $1,$2,x,true,$4 FROM unnest($3::int[]) x
+      ON CONFLICT(anio,estudiante_id,codigo) DO UPDATE SET activo=true,actualizado_por=EXCLUDED.actualizado_por,updated_at=NOW()`,
+      [anio,estudianteId,agregadas,usuarioId]);
+    await client.query(`INSERT INTO caracterizaciones_poblacion_auditoria
+      (anio,estudiante_id,codigo,activo,registrado_por) SELECT $1,$2,x,true,$4 FROM unnest($3::int[]) x`,
+      [anio,estudianteId,agregadas,usuarioId]);
+  }
+  if(retiradas.length){
+    await client.query(`UPDATE caracterizaciones_poblacion SET activo=false,actualizado_por=$4,updated_at=NOW()
+      WHERE anio=$1 AND estudiante_id=$2 AND codigo=ANY($3::int[])`,[anio,estudianteId,retiradas,usuarioId]);
+    await client.query(`INSERT INTO caracterizaciones_poblacion_auditoria
+      (anio,estudiante_id,codigo,activo,registrado_por) SELECT $1,$2,x,false,$4 FROM unnest($3::int[]) x`,
+      [anio,estudianteId,retiradas,usuarioId]);
+  }
+  return {agregadas:agregadas.length,retiradas:retiradas.length};
 }
 async function asignacionPropia(usuarioId,asignacionId,estudianteId=null){
   const asignacionNumero=enteroPositivo(asignacionId),usuarioNumero=enteroPositivo(usuarioId);
@@ -202,6 +245,83 @@ async function sincronizarContactosAlerta(db,alerta){
     await db.query('UPDATE alertas_tempranas SET updated_at=NOW() WHERE id=$1',[alerta.id]);
   return {llamadas:llamadas.rowCount,cartas:cartas.rowCount};
 }
+
+router.get("/caracterizacion/inicio",requireAuth,requireCaracterizacion,asyncRoute(async(req,res)=>{
+  const u=req.session.usuario,anio=await obtenerAnioActivo();
+  const params=[anio];
+  let filtro="";
+  if(u.rol!=="admin"){
+    params.push(u.id);
+    filtro=`AND EXISTS (SELECT 1 FROM seccion_orientador_anio so
+      WHERE so.seccion_id=s.id AND so.anio=$1 AND so.orientador_id=$2)`;
+  }
+  const secciones=await pool.query(`SELECT s.id,s.nombre,s.nivel
+    FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$1 AND sa.activa=true
+    WHERE COALESCE(s.activa,true)=true ${filtro}
+    ORDER BY s.nivel,s.nombre`,params);
+  res.json({anio,catalogo:CARACTERIZACION_CATALOGO,secciones:secciones.rows,puede_editar:true});
+}));
+
+router.get("/caracterizacion/secciones/:id",requireAuth,requireCaracterizacion,asyncRoute(async(req,res)=>{
+  const seccionId=enteroPositivo(req.params.id),anio=await obtenerAnioActivo(),u=req.session.usuario;
+  if(!seccionId) return res.status(400).json({error:"Sección inválida."});
+  if(!await puedeAccederSeccionCaracterizacion(u,seccionId,anio)) return res.status(403).json({error:"Esta sección no corresponde a su nivel de Orientación."});
+  const q=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,s.nombre AS seccion_nombre,
+      COALESCE((SELECT json_agg(cp.codigo ORDER BY cp.codigo) FROM caracterizaciones_poblacion cp
+        WHERE cp.anio=$2 AND cp.estudiante_id=e.id AND cp.activo=true),'[]'::json) AS codigos,
+      COALESCE((SELECT COUNT(*)::int FROM alertas_tempranas at
+        WHERE at.anio=$2 AND at.estudiante_id=e.id AND at.estado<>'eliminada'),0) AS total_alertas
+    FROM estudiantes e JOIN secciones s ON s.id=e.seccion_id
+    WHERE e.seccion_id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false
+    ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre,e.id`,[seccionId,anio]);
+  res.json({anio,catalogo:CARACTERIZACION_CATALOGO,estudiantes:q.rows});
+}));
+
+router.get("/caracterizacion/estudiantes/:id",requireAuth,requireCaracterizacion,asyncRoute(async(req,res)=>{
+  const estudianteId=enteroPositivo(req.params.id),anio=await obtenerAnioActivo(),u=req.session.usuario;
+  if(!estudianteId) return res.status(400).json({error:"Estudiante inválido."});
+  const estudiante=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.seccion_id,
+      s.nombre AS seccion_nombre FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`,[estudianteId]);
+  if(!estudiante.rows.length) return res.status(404).json({error:"Estudiante no encontrado."});
+  if(!await puedeAccederSeccionCaracterizacion(u,estudiante.rows[0].seccion_id,anio)) return res.status(403).json({error:"Este estudiante no corresponde a su nivel de Orientación."});
+  const [seleccion,auditoria,alertas]=await Promise.all([
+    pool.query(`SELECT codigo,updated_at,actualizado_por FROM caracterizaciones_poblacion
+      WHERE anio=$1 AND estudiante_id=$2 AND activo=true ORDER BY codigo`,[anio,estudianteId]),
+    pool.query(`SELECT MAX(cp.updated_at) AS actualizado_at,TRIM(CONCAT_WS(' ',u.nombre,u.primer_apellido,u.segundo_apellido)) AS actualizado_por
+      FROM caracterizaciones_poblacion cp LEFT JOIN usuarios u ON u.id=cp.actualizado_por
+      WHERE cp.anio=$1 AND cp.estudiante_id=$2 GROUP BY u.nombre,u.primer_apellido,u.segundo_apellido ORDER BY MAX(cp.updated_at) DESC LIMIT 1`,[anio,estudianteId]),
+    pool.query(`SELECT at.id,at.profesor_id,at.estado,at.fecha_activacion,at.fecha_cierre,COALESCE(m.nombre,'Actuación institucional') AS materia_nombre
+      FROM alertas_tempranas at LEFT JOIN materias m ON m.id=at.materia_id
+      WHERE at.anio=$1 AND at.estudiante_id=$2 AND at.estado<>'eliminada' ORDER BY at.fecha_activacion DESC,at.id DESC`,[anio,estudianteId])
+  ]);
+  res.json({anio,estudiante:estudiante.rows[0],catalogo:CARACTERIZACION_CATALOGO,
+    codigos:seleccion.rows.map(r=>Number(r.codigo)),ultima_actualizacion:auditoria.rows[0]||null,alertas:alertas.rows});
+}));
+
+router.put("/caracterizacion/estudiantes/:id",requireAuth,requireCaracterizacion,asyncRoute(async(req,res)=>{
+  const estudianteId=enteroPositivo(req.params.id),codigos=codigosCaracterizacion(req.body?.codigos),anio=await obtenerAnioActivo(),u=req.session.usuario;
+  if(!estudianteId||codigos===null) return res.status(400).json({error:"Estudiante o caracterizaciones inválidas."});
+  const estudiante=await pool.query("SELECT seccion_id FROM estudiantes WHERE id=$1",[estudianteId]);
+  if(!estudiante.rows.length) return res.status(404).json({error:"Estudiante no encontrado."});
+  if(!await puedeAccederSeccionCaracterizacion(u,estudiante.rows[0].seccion_id,anio)) return res.status(403).json({error:"Este estudiante no corresponde a su nivel de Orientación."});
+  const client=await pool.connect();
+  try{await client.query("BEGIN");const cambios=await aplicarCaracterizacion(client,{anio,estudianteId,codigos,usuarioId:u.id});await client.query("COMMIT");res.json({ok:true,...cambios});}
+  catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
+
+router.put("/caracterizacion/secciones/:id",requireAuth,requireCaracterizacion,asyncRoute(async(req,res)=>{
+  const seccionId=enteroPositivo(req.params.id),filas=Array.isArray(req.body?.estudiantes)?req.body.estudiantes:null,anio=await obtenerAnioActivo(),u=req.session.usuario;
+  if(!seccionId||!filas||filas.length>500) return res.status(400).json({error:"Matriz de caracterización inválida."});
+  if(!await puedeAccederSeccionCaracterizacion(u,seccionId,anio)) return res.status(403).json({error:"Esta sección no corresponde a su nivel de Orientación."});
+  const normalizadas=[];
+  for(const fila of filas){const estudianteId=enteroPositivo(fila?.estudiante_id),codigos=codigosCaracterizacion(fila?.codigos);if(!estudianteId||codigos===null)return res.status(400).json({error:"La matriz contiene una fila inválida."});normalizadas.push({estudianteId,codigos});}
+  if(new Set(normalizadas.map(x=>x.estudianteId)).size!==normalizadas.length) return res.status(400).json({error:"La matriz contiene estudiantes repetidos."});
+  const ids=normalizadas.map(x=>x.estudianteId);
+  if(ids.length){const validos=await pool.query(`SELECT id FROM estudiantes WHERE seccion_id=$1 AND activo=true AND COALESCE(archivado,false)=false AND id=ANY($2::int[])`,[seccionId,ids]);if(validos.rows.length!==ids.length)return res.status(400).json({error:"Uno de los estudiantes ya no pertenece a la sección."});}
+  const client=await pool.connect();let agregadas=0,retiradas=0;
+  try{await client.query("BEGIN");for(const fila of normalizadas){const c=await aplicarCaracterizacion(client,{anio,estudianteId:fila.estudianteId,codigos:fila.codigos,usuarioId:u.id});agregadas+=c.agregadas;retiradas+=c.retiradas;}await client.query("COMMIT");res.json({ok:true,agregadas,retiradas});}
+  catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}));
 
 router.get("/inicio",requireAuth,requireParticipante,asyncRoute(async(req,res)=>{
   const u=req.session.usuario, anio=await obtenerAnioActivo(), supervisor=await puedeSupervisar(u);
@@ -352,8 +472,16 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
     FROM alertas_tempranas at LEFT JOIN materias m ON m.id=at.materia_id JOIN usuarios u ON u.id=at.profesor_id
     WHERE at.estudiante_id=$1 AND at.anio=$2 AND at.estado<>'eliminada' ${filtroPropietario}
     ORDER BY COALESCE(m.nombre,'Actuación institucional'),at.fecha_activacion,at.id`,parametros);
+  let caracterizacion=null;
+  if(esOrientacionAdmin(req.session.usuario) && await puedeAccederSeccionCaracterizacion(req.session.usuario,alerta.seccion_id,alerta.anio)){
+    const seleccion=await pool.query(`SELECT codigo FROM caracterizaciones_poblacion
+      WHERE anio=$1 AND estudiante_id=$2 AND activo=true ORDER BY codigo`,[alerta.anio,alerta.estudiante_id]);
+    const activos=new Set(seleccion.rows.map(r=>Number(r.codigo)));
+    caracterizacion=CARACTERIZACION_CATALOGO.filter(item=>activos.has(item.codigo));
+  }
   res.json({alerta,seguimientos:seguimientos.rows,acciones:acciones.rows,contactos:contactos.rows,
     expediente_materias:materias.rows,
+    caracterizacion,puede_ver_caracterizacion:caracterizacion!==null,
     catalogo:CATALOGO,centro:cfg.rows[0]?.nombre_centro||"Liceo de Calle Fallas",
     // Una persona coordinadora que también imparte clases conserva edición
     // únicamente sobre las alertas que ella misma abrió; las ajenas son lectura.

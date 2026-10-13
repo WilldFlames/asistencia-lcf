@@ -892,9 +892,10 @@ tr:hover td{background:#f8fafc;}
 .at-card{border:1px solid #dce7f1;border-left:5px solid #f59e0b;border-radius:13px;padding:14px;margin-bottom:10px;background:#fff;box-shadow:0 4px 14px rgba(31,56,100,.05);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}.at-card.en_proceso{border-left-color:#2563eb}.at-card.en_espera{border-left-color:#8b5cf6}.at-card.cerrada{border-left-color:#16a34a}.at-card.eliminada{border-left-color:#94a3b8;background:#f8fafc}.at-card h3{font-size:14px;margin:0 0 5px;color:#173f62}.at-card-meta{display:flex;gap:8px 14px;flex-wrap:wrap;font-size:11.5px;color:#64748b}.at-card-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .at-status{display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:850;text-transform:capitalize;background:#fff0cf;color:#9a5b00}.at-status.en_proceso{background:#dbeafe;color:#1d4ed8}.at-status.en_espera{background:#ede9fe;color:#6d28d9}.at-status.cerrada{background:#dcfce7;color:#15803d}.at-status.eliminada{background:#e2e8f0;color:#475569}
 .at-catalogo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}.at-categoria{border:1px solid #dce7f1;border-radius:12px;overflow:hidden;background:#fff}.at-categoria.confidencial{border-color:#f0b5b5}.at-categoria-titulo{padding:9px 11px;background:#eef5fb;color:#173f62;font-size:12px;font-weight:850}.at-categoria.confidencial .at-categoria-titulo{background:#fff1f2;color:#9f1239}.at-opcion{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;border-top:1px solid #edf2f7;font-size:11.5px;line-height:1.35;cursor:pointer}.at-opcion input{width:17px;height:17px;flex:0 0 17px;accent-color:#d97706}.at-opcion b{color:#1f5f98}
+.car-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.car-check{display:flex;align-items:flex-start;gap:9px;border:1px solid #dbe5ef;border-radius:9px;padding:9px;background:#fff;font-size:12px;line-height:1.35;cursor:pointer}.car-check:hover{border-color:#79a9d2;background:#f8fbff}.car-check input,.car-matrix input{width:17px;height:17px;accent-color:#1f6eaa}.car-matrix-wrap{overflow:auto;max-height:66vh;border:1px solid var(--border);border-radius:10px}.car-matrix{border-collapse:separate;border-spacing:0;font-size:11px}.car-matrix th,.car-matrix td{border-right:1px solid #dbe5ef;border-bottom:1px solid #dbe5ef;padding:7px;background:#fff;vertical-align:middle}.car-matrix thead th{position:sticky;top:0;z-index:3;background:#eaf2f9;color:#173f62;min-width:175px;max-width:175px;white-space:normal}.car-matrix th:first-child,.car-matrix td:first-child{position:sticky;left:0;z-index:2;min-width:235px;max-width:235px;background:#f8fafc}.car-matrix thead th:first-child{z-index:4;background:#dfeaf4}.car-matrix td:not(:first-child){text-align:center}.car-empty{color:var(--muted);font-size:12px;text-align:center;padding:18px}
 .at-detail-head{border-radius:14px;padding:15px;background:linear-gradient(135deg,#123f65,#176b72);color:#fff;margin-bottom:12px}.at-detail-head h2{margin:0 0 5px;font-size:18px}.at-detail-head p{margin:0;color:#d8e9f4;font-size:12px}.at-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.at-panel{border:1px solid #dce7f1;border-radius:13px;padding:13px;background:#fff}.at-panel.full{grid-column:1/-1}.at-panel h3{font-size:14px;color:#173f62;margin:0 0 10px}.at-timeline{position:relative;padding-left:18px}.at-timeline:before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:#dbe7f3}.at-event{position:relative;padding:0 0 13px 9px}.at-event:before{content:"";position:absolute;left:-17px;top:4px;width:10px;height:10px;border-radius:50%;background:#2c7cb7;border:2px solid #fff;box-shadow:0 0 0 2px #bfd7ea}.at-event strong{font-size:12px}.at-event div{font-size:11.5px;color:#64748b;margin-top:2px;white-space:pre-wrap}.at-inline-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:11px;background:#f8fafc;border-radius:10px;margin-top:9px}.at-inline-form .full{grid-column:1/-1}.at-inline-form input,.at-inline-form select,.at-inline-form textarea{width:100%}
 .at-call-effective{display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:12px}.at-call-effective.show{display:block}.at-call-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.at-call-motivos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.at-call-motivos label{display:flex;gap:7px;align-items:flex-start;border:1px solid #e3eaf1;border-radius:8px;padding:8px;font-size:11.5px;background:#fff}.at-call-motivos input{width:16px;height:16px;flex:0 0 16px}
-@media(max-width:760px){.at-hero,.at-hero-actions,.at-hero-actions .btn,.at-toolbar,.at-toolbar .fg,.at-toolbar .btn{width:100%}.at-summary{grid-template-columns:1fr 1fr}.at-card{grid-template-columns:1fr}.at-card-actions{justify-content:flex-start}.at-catalogo,.at-detail-grid,.at-inline-form,.at-call-row,.at-call-motivos{grid-template-columns:1fr}.at-panel.full,.at-inline-form .full{grid-column:auto}.at-tabs{overflow-x:auto}.at-tab{white-space:nowrap}}
+@media(max-width:760px){.at-hero,.at-hero-actions,.at-hero-actions .btn,.at-toolbar,.at-toolbar .fg,.at-toolbar .btn{width:100%}.at-summary{grid-template-columns:1fr 1fr}.at-card{grid-template-columns:1fr}.at-card-actions{justify-content:flex-start}.at-catalogo,.at-detail-grid,.at-inline-form,.at-call-row,.at-call-motivos,.car-checks{grid-template-columns:1fr}.at-panel.full,.at-inline-form .full{grid-column:auto}.at-tabs{overflow-x:auto}.at-tab{white-space:nowrap}}
   .agenda-hero{margin-bottom:14px;background:linear-gradient(145deg,#fff 72%,#eff6ff)}
   .agenda-head,.agenda-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.agenda-head h2{margin:0 0 4px}.agenda-head p{margin:0;color:var(--muted);font-size:12.5px}.agenda-actions,.agenda-toolbar>div{display:flex;gap:6px;flex-wrap:wrap}
   .agenda-toolbar{padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-top:14px}.agenda-layout{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;margin-top:14px}.agenda-layout aside{border-left:1px solid var(--border);padding-left:14px}.agenda-layout aside h3{font-size:13px;color:var(--azul);margin:0 0 8px}
@@ -1228,6 +1229,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="rendimiento" id="nav-rendimiento" onclick="goTo('rendimiento')" style="display:none"><span class="icon">🎯</span><span>Rendimiento</span></button>
   <button class="nav-btn" data-page="adecuaciones" id="nav-adecuaciones" onclick="goTo('adecuaciones')" style="display:none"><span class="icon">🧩</span><span>Adecuaciones</span></button>
   <button class="nav-btn" data-page="alerta-temprana" id="nav-alerta-temprana" onclick="goTo('alerta-temprana')" style="display:none"><span class="icon">🚨</span><span>Alerta Temprana</span></button>
+  <button class="nav-btn" data-page="caracterizacion" id="nav-caracterizacion" onclick="goTo('caracterizacion')" style="display:none"><span class="icon">🧭</span><span>Caracterización</span></button>
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
   <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
   <button class="nav-btn" data-page="reportes" id="nav-reportes" onclick="goTo('reportes')" style="display:none"><span class="icon">📊</span><span>Reportes</span></button>
@@ -1946,6 +1948,26 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-outline" onclick="atRecargar()">↻ Actualizar</button>
     </div>
     <div id="alert-at" class="alert"></div><div id="at-resumen" class="at-summary"></div><div id="at-lista"><div class="empty">Cargando…</div></div>
+  </div>
+</div>
+
+<!-- CARACTERIZACIÓN DE LA POBLACIÓN -->
+<div class="page" id="page-caracterizacion">
+  <div class="card at-hero">
+    <div><h2>🧭 Caracterización de la población</h2><p>Registro anual de las características identificadas en las reuniones de nivel. Acceso exclusivo para Orientación y Administración.</p></div>
+    <div style="font-weight:800;color:#173f62" id="car-anio"></div>
+  </div>
+  <div class="card">
+    <div class="at-tabs"><button class="at-tab active" id="car-tab-individual" onclick="carCambiarVista('individual')">👤 Vista individual</button><button class="at-tab" id="car-tab-grupal" onclick="carCambiarVista('grupal')">👥 Matriz grupal</button></div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:13px">
+      <div class="fg" style="min-width:220px"><label>Sección</label><select id="car-seccion" onchange="carCargarSeccion()"><option value="">— Seleccione —</option></select></div>
+      <div class="fg" id="car-estudiante-wrap" style="min-width:310px"><label>Estudiante</label><select id="car-estudiante" onchange="carCargarIndividual()" disabled><option value="">— Primero seleccione la sección —</option></select></div>
+      <div class="fg" id="car-busqueda-wrap" style="display:none;min-width:260px"><label>Buscar estudiante en la matriz</label><input id="car-buscar" type="search" placeholder="Nombre o cédula…" oninput="carFiltrarMatriz()"/></div>
+      <button class="btn btn-outline" onclick="carRecargar()">↻ Actualizar</button>
+    </div>
+    <div id="alert-car" class="alert"></div>
+    <section id="car-panel-individual"><div class="empty">Seleccione una sección y un estudiante.</div></section>
+    <section id="car-panel-grupal" style="display:none"><div class="empty">Seleccione una sección.</div></section>
   </div>
 </div>
 
@@ -6116,6 +6138,7 @@ function goTo(page){
   if(page==="rendimiento")  iniciarRendimiento();
   if(page==="adecuaciones") iniciarAdecuaciones();
   if(page==="alerta-temprana") iniciarAlertaTemprana();
+  if(page==="caracterizacion") iniciarCaracterizacion();
   if(page==="extramuros") iniciarExtramuros();
   if(page==="calificar")    iniciarCalificar();
   if(page==="cumplimiento") {
@@ -6226,6 +6249,10 @@ async function iniciarApp(){
   if(esAdmin||esAuxiliar||esAdminIst||esCoordinador||esProfesor||esGuia||esOrientador){
     document.getElementById("sec-docente").style.display="";
     document.getElementById("nav-alerta-temprana").style.display="";
+  }
+  if(esAdmin||esOrientador){
+    document.getElementById("sec-docente").style.display="";
+    document.getElementById("nav-caracterizacion").style.display="";
   }
   // Conducta: admin, guía, orientador, auxiliar
   if(esAdmin||esGuia||esOrientador||esAuxiliar){
@@ -26278,6 +26305,76 @@ async function pdfZoom(delta){
 // ═══════════════════════════════════════════════════════════════════════════
 //  ALERTA TEMPRANA Y REGISTRO DE LLAMADAS
 // ═══════════════════════════════════════════════════════════════════════════
+let carInicio=null,carSeccionData=null,carIndividualData=null,carVista="individual",carSeleccionPendiente=null;
+async function iniciarCaracterizacion(){
+  try{
+    carInicio=await api('/api/alerta-temprana/caracterizacion/inicio');
+    document.getElementById('car-anio').textContent=`Curso lectivo ${carInicio.anio}`;
+    const sel=document.getElementById('car-seccion'),anterior=String(carSeleccionPendiente?.seccion_id||sel.value||'');
+    sel.innerHTML='<option value="">— Seleccione —</option>'+carInicio.secciones.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join('');
+    if(carInicio.secciones.some(s=>String(s.id)===anterior)){sel.value=anterior;await carCargarSeccion();}
+    if(carSeleccionPendiente?.estudiante_id){
+      const est=String(carSeleccionPendiente.estudiante_id),estSel=document.getElementById('car-estudiante');
+      if([...estSel.options].some(o=>o.value===est)){estSel.value=est;await carCargarIndividual();}
+    }
+    carSeleccionPendiente=null;
+  }catch(e){sa('alert-car',e.message,'danger');}
+}
+function carCambiarVista(vista){
+  carVista=vista;
+  document.getElementById('car-tab-individual').classList.toggle('active',vista==='individual');
+  document.getElementById('car-tab-grupal').classList.toggle('active',vista==='grupal');
+  document.getElementById('car-panel-individual').style.display=vista==='individual'?'':'none';
+  document.getElementById('car-panel-grupal').style.display=vista==='grupal'?'':'none';
+  document.getElementById('car-estudiante-wrap').style.display=vista==='individual'?'':'none';
+  document.getElementById('car-busqueda-wrap').style.display=vista==='grupal'?'':'none';
+  if(vista==='grupal'&&!document.querySelector('#car-panel-grupal .car-matrix'))carRenderMatriz();
+  else if(document.getElementById('car-estudiante').value)carCargarIndividual();
+}
+async function carCargarSeccion(){
+  const seccionId=document.getElementById('car-seccion').value,estSel=document.getElementById('car-estudiante');
+  carSeccionData=null;carIndividualData=null;
+  if(!seccionId){estSel.disabled=true;estSel.innerHTML='<option value="">— Primero seleccione la sección —</option>';document.getElementById('car-panel-individual').innerHTML='<div class="empty">Seleccione una sección y un estudiante.</div>';document.getElementById('car-panel-grupal').innerHTML='<div class="empty">Seleccione una sección.</div>';return;}
+  try{
+    carSeccionData=await api(`/api/alerta-temprana/caracterizacion/secciones/${seccionId}`);
+    estSel.disabled=false;estSel.innerHTML='<option value="">— Seleccione —</option>'+carSeccionData.estudiantes.map(e=>`<option value="${e.id}">${htmlSeguro(`${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/\s+/g,' ').trim())} · ${htmlSeguro(e.cedula)}</option>`).join('');
+    document.getElementById('car-panel-individual').innerHTML='<div class="empty">Seleccione un estudiante.</div>';
+    carRenderMatriz();
+  }catch(e){sa('alert-car',e.message,'danger');}
+}
+async function carCargarIndividual(){
+  const id=document.getElementById('car-estudiante').value;
+  if(!id){carIndividualData=null;document.getElementById('car-panel-individual').innerHTML='<div class="empty">Seleccione un estudiante.</div>';return;}
+  try{carIndividualData=await api(`/api/alerta-temprana/caracterizacion/estudiantes/${id}`);carRenderIndividual();}catch(e){sa('alert-car',e.message,'danger');}
+}
+function carRenderIndividual(){
+  const d=carIndividualData;if(!d)return;
+  const e=d.estudiante,nombre=`${e.nombre||''} ${e.primer_apellido||''} ${e.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
+  const alertas=d.alertas?.length?d.alertas.map(a=>{const puedeAbrir=ME?.rol==='admin'||Number(a.profesor_id)===Number(ME?.id);const texto=`${htmlSeguro(a.materia_nombre)} · ${htmlSeguro(AT_ESTADO[a.estado]||a.estado)}`;return puedeAbrir?`<button class="btn btn-outline btn-xs" onclick="atVerDetalle(${a.id})">${texto}</button>`:`<span class="badge b-prof">${texto}</span>`;}).join(' '):'<span style="color:var(--muted);font-size:12px">Sin alertas tempranas registradas este año.</span>';
+  const seleccion=new Set((d.codigos||[]).map(Number));
+  document.getElementById('car-panel-individual').innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px"><div><h3 style="margin:0 0 4px;color:#173f62">${htmlSeguro(nombre)}</h3><div style="font-size:12px;color:var(--muted)">${htmlSeguro(e.cedula)} · Sección ${htmlSeguro(e.seccion_nombre||'—')}</div>${d.ultima_actualizacion?.actualizado_at?`<div style="font-size:11px;color:var(--muted);margin-top:4px">Última actualización: ${new Date(d.ultima_actualizacion.actualizado_at).toLocaleString('es-CR')} · ${htmlSeguro(d.ultima_actualizacion.actualizado_por||'')}</div>`:''}</div><button class="btn btn-success" onclick="carGuardarIndividual()">💾 Guardar caracterización</button></div><div style="padding:10px 12px;background:#f8fafc;border:1px solid #dbe5ef;border-radius:9px;margin-bottom:12px"><strong style="font-size:12px">Alertas tempranas vinculadas</strong><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">${alertas}</div></div><div class="fg" style="margin-bottom:10px"><label>Buscar característica</label><input id="car-filtro-caracteristica" type="search" placeholder="Escriba una palabra…" oninput="carFiltrarChecks()"/></div><div class="car-checks" id="car-checks">${d.catalogo.map(item=>`<label class="car-check" data-texto="${htmlSeguro(item.descripcion.toLocaleLowerCase('es'))}"><input type="checkbox" name="car-ind-codigo" value="${item.codigo}" ${seleccion.has(item.codigo)?'checked':''}/><span><strong>${String(item.codigo).padStart(2,'0')}.</strong> ${htmlSeguro(item.descripcion)}</span></label>`).join('')}</div>`;
+}
+function carFiltrarChecks(){const q=document.getElementById('car-filtro-caracteristica')?.value.trim().toLocaleLowerCase('es')||'';document.querySelectorAll('#car-checks .car-check').forEach(x=>x.style.display=!q||x.dataset.texto.includes(q)?'':'none');}
+async function carGuardarIndividual(){
+  const id=document.getElementById('car-estudiante').value;if(!id)return;
+  const codigos=[...document.querySelectorAll('[name="car-ind-codigo"]:checked')].map(x=>Number(x.value));
+  try{await api(`/api/alerta-temprana/caracterizacion/estudiantes/${id}`,'PUT',{codigos});sa('alert-car','Caracterización guardada.','success');await carCargarSeccion();document.getElementById('car-estudiante').value=id;await carCargarIndividual();}catch(e){sa('alert-car',e.message,'danger');}
+}
+function carRenderMatriz(){
+  const panel=document.getElementById('car-panel-grupal');if(!carSeccionData){panel.innerHTML='<div class="empty">Seleccione una sección.</div>';return;}
+  const q=document.getElementById('car-buscar')?.value.trim().toLocaleLowerCase('es')||'',catalogo=carSeccionData.catalogo||carInicio?.catalogo||[];
+  const filas=carSeccionData.estudiantes.map(e=>{const nombre=`${e.primer_apellido||''} ${e.segundo_apellido||''}, ${e.nombre||''}`.replace(/\s+/g,' ').trim(),texto=`${nombre} ${e.cedula}`.toLocaleLowerCase('es'),visible=!q||texto.includes(q),activos=new Set((e.codigos||[]).map(Number));return `<tr data-estudiante="${e.id}" data-texto="${htmlSeguro(texto)}" style="${visible?'':'display:none'}"><td><strong>${htmlSeguro(nombre)}</strong><br/><small>${htmlSeguro(e.cedula)} · ${Number(e.total_alertas)||0} alerta(s)</small></td>${catalogo.map(item=>`<td><input type="checkbox" data-car-est="${e.id}" data-car-codigo="${item.codigo}" ${activos.has(item.codigo)?'checked':''} aria-label="${htmlSeguro(item.descripcion)}"/></td>`).join('')}</tr>`;}).join('');
+  panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><div style="font-size:12px;color:var(--muted)">${carSeccionData.estudiantes.length} estudiante(s) · ${catalogo.length} características. Desplácese horizontalmente para consultar toda la matriz.</div><button class="btn btn-success" onclick="carGuardarMatriz()">💾 Guardar matriz</button></div><div class="car-matrix-wrap"><table class="car-matrix"><thead><tr><th>Estudiante</th>${catalogo.map(item=>`<th><strong>${String(item.codigo).padStart(2,'0')}.</strong> ${htmlSeguro(item.descripcion)}</th>`).join('')}</tr></thead><tbody>${filas||`<tr><td colspan="${catalogo.length+1}" class="car-empty">No hay estudiantes activos en esta sección.</td></tr>`}</tbody></table></div>`;
+}
+function carFiltrarMatriz(){const q=document.getElementById('car-buscar')?.value.trim().toLocaleLowerCase('es')||'';document.querySelectorAll('#car-panel-grupal tbody tr[data-estudiante]').forEach(x=>x.style.display=!q||String(x.dataset.texto||'').includes(q)?'':'none');}
+async function carGuardarMatriz(){
+  const seccionId=document.getElementById('car-seccion').value;if(!seccionId||!carSeccionData)return;
+  const estudiantes=carSeccionData.estudiantes.map(e=>({estudiante_id:e.id,codigos:[...document.querySelectorAll(`[data-car-est="${e.id}"]:checked`)].map(x=>Number(x.dataset.carCodigo))}));
+  try{await api(`/api/alerta-temprana/caracterizacion/secciones/${seccionId}`,'PUT',{estudiantes});sa('alert-car','Matriz de caracterización guardada.','success');await carCargarSeccion();}catch(e){sa('alert-car',e.message,'danger');}
+}
+function carRecargar(){return carCargarSeccion();}
+function carAbrirDesdeAlerta(estudianteId,seccionId){carSeleccionPendiente={estudiante_id:estudianteId,seccion_id:seccionId};cerrarModal('modal-at-detalle');goTo('caracterizacion');}
+
 let atInicio=null,atAlertas=[],atLlamadas=[],atVista="alertas",atDetalleActual=null;
 const AT_ESTADO={activada:"Activada",en_proceso:"En proceso",en_espera:"En espera",cerrada:"Cerrada",eliminada:"Eliminada"};
 const AT_RESULTADO={efectiva:"Comunicación efectiva",no_contesta:"No contestó",equivocado:"Número equivocado",fuera_servicio:"Fuera de servicio",buzon:"Buzón de voz",devolver_llamada:"Devolverá la llamada",otro:"Otro"};
@@ -26436,9 +26533,10 @@ function atRenderDetalle(d){const a=d.alerta;
   const seguimiento=d.seguimientos.map(s=>`<div class="at-event"><strong>${fmtF(s.fecha)} · <span class="at-status ${s.estado}">${AT_ESTADO[s.estado]}</span></strong><div>${htmlSeguro(s.observaciones)}</div><div>${htmlSeguro(s.registrado_nombre)}</div></div>`).join("");
   const acciones=d.acciones.length?`<div class="table-wrap"><table><thead><tr><th>Acción</th><th>Inicio</th><th>Final</th><th>Responsable</th><th>Observación</th></tr></thead><tbody>${d.acciones.map(x=>`<tr><td>${htmlSeguro(x.accion)}</td><td>${fmtF(x.fecha_inicio)}</td><td>${fmtF(x.fecha_final)}</td><td>${htmlSeguro(x.responsable||'—')}</td><td>${htmlSeguro(x.observaciones||'—')}${x.institucion_referida?`<br/><small>Referido a: ${htmlSeguro(x.institucion_referida)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aún no hay acciones registradas.</div>';
   const contactos=d.contactos.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Vía</th><th>Persona</th><th>Comentarios</th></tr></thead><tbody>${d.contactos.map(x=>`<tr><td>${fmtF(x.fecha)}</td><td>${htmlSeguro(x.via_contacto)}</td><td>${htmlSeguro(x.persona_contactada||'—')}</td><td>${htmlSeguro(x.comentarios||'—')}${x.llamada_id?' <span title="Registro de llamada">📞</span>':''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aún no hay contactos registrados.</div>';
+  const caracterizacion=d.puede_ver_caracterizacion?`<section class="at-panel full"><h3>🧭 Caracterización de la población</h3>${d.caracterizacion?.length?`<ul style="columns:2;column-gap:28px;font-size:12px;line-height:1.5">${d.caracterizacion.map(x=>`<li><strong>${String(x.codigo).padStart(2,'0')}.</strong> ${htmlSeguro(x.descripcion)}</li>`).join('')}</ul>`:'<div class="empty">Este estudiante aún no tiene características asignadas para el curso lectivo.</div>'}<button class="btn btn-outline btn-sm" onclick="carAbrirDesdeAlerta(${a.estudiante_id},${a.seccion_id})">Abrir caracterización individual</button></section>`:'';
   document.getElementById("at-detalle-contenido").innerHTML=`<div class="at-detail-head"><h2>${htmlSeguro(a.estudiante_nombre)} ${a.estudiante_retirado?'<span class="badge b-admin">RETIRADO</span>':''}</h2><p>${htmlSeguro(a.cedula)} · Sección ${htmlSeguro(a.seccion_nombre||'—')} · ${htmlSeguro(a.materia_nombre||'Actuación de Auxiliar')} · Responsable: ${htmlSeguro(a.profesor_nombre)}</p></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><span class="at-status ${a.estado}">${AT_ESTADO[a.estado]}</span><button class="btn btn-outline btn-sm" onclick="atImprimirExpediente()">🖨️ Imprimir expediente</button><button class="btn btn-success btn-sm" onclick="atDescargarExcel()">📥 Descargar Excel MEP</button></div>
-  <div class="at-detail-grid"><section class="at-panel"><h3>👤 Datos automáticos</h3><div style="font-size:12px;line-height:1.7"><strong>Edad:</strong> ${a.edad??'—'}<br/><strong>Encargado:</strong> ${htmlSeguro(a.encargado_nombre||'—')}<br/><strong>Teléfono:</strong> ${htmlSeguro(a.encargado_telefono||'—')}<br/><strong>Centro:</strong> ${htmlSeguro(d.centro)}<br/><strong>Activación:</strong> ${fmtF(a.fecha_activacion)}</div></section><section class="at-panel"><h3>🚩 Alertas identificadas</h3>${atCategoriasTexto(d)}${a.observacion_inicial?`<p style="font-size:12px;background:#fff8e8;padding:9px;border-radius:8px;margin:9px 0 0"><strong>Observación:</strong> ${htmlSeguro(a.observacion_inicial)}</p>`:''}</section>
+  <div class="at-detail-grid"><section class="at-panel"><h3>👤 Datos automáticos</h3><div style="font-size:12px;line-height:1.7"><strong>Edad:</strong> ${a.edad??'—'}<br/><strong>Encargado:</strong> ${htmlSeguro(a.encargado_nombre||'—')}<br/><strong>Teléfono:</strong> ${htmlSeguro(a.encargado_telefono||'—')}<br/><strong>Centro:</strong> ${htmlSeguro(d.centro)}<br/><strong>Activación:</strong> ${fmtF(a.fecha_activacion)}</div></section><section class="at-panel"><h3>🚩 Alertas identificadas</h3>${atCategoriasTexto(d)}${a.observacion_inicial?`<p style="font-size:12px;background:#fff8e8;padding:9px;border-radius:8px;margin:9px 0 0"><strong>Observación:</strong> ${htmlSeguro(a.observacion_inicial)}</p>`:''}</section>${caracterizacion}
   <section class="at-panel"><h3>📝 Seguimientos</h3><div class="at-timeline">${seguimiento}</div>${d.editable?`<div class="at-inline-form"><div class="fg"><label>Nuevo estado</label><select id="at-seg-estado"><option value="en_proceso">En proceso</option><option value="en_espera">En espera</option><option value="cerrada">Cerrada</option><option value="eliminada">Eliminada</option></select></div><div class="fg"><label>Fecha</label><input id="at-seg-fecha" type="date" value="${fechaHoyCR()}"/></div><div class="fg full"><label>Seguimiento / justificación</label><textarea id="at-seg-obs" rows="3"></textarea></div><button class="btn btn-primary full" onclick="atAgregarSeguimiento()">＋ Guardar seguimiento</button></div>`:''}</section>
   <section class="at-panel"><h3>🎯 Plan de Atención</h3>${acciones}${d.editable?`<div class="at-inline-form"><div class="fg full"><label>Acción</label><textarea id="at-acc-accion" rows="2"></textarea></div><div class="fg"><label>Inicio</label><input id="at-acc-inicio" type="date"/></div><div class="fg"><label>Final</label><input id="at-acc-final" type="date"/></div><div class="fg"><label>Responsable</label><input id="at-acc-resp"/></div><div class="fg"><label>Institución referida</label><input id="at-acc-inst"/></div><div class="fg full"><label>Observaciones</label><textarea id="at-acc-obs" rows="2"></textarea></div><button class="btn btn-primary full" onclick="atAgregarAccion()">＋ Agregar acción</button></div>`:''}</section>
   <section class="at-panel full"><h3>☎️ Registro de contactos</h3>${contactos}${d.editable?`<div class="at-inline-form"><div class="fg"><label>Fecha</label><input id="at-con-fecha" type="date" value="${fechaHoyCR()}"/></div><div class="fg"><label>Vía de contacto</label><input id="at-con-via" placeholder="Llamada, reunión, correo…"/></div><div class="fg"><label>Persona contactada</label><input id="at-con-persona"/></div><div class="fg"><label>Comentarios</label><textarea id="at-con-coment" rows="2"></textarea></div><button class="btn btn-primary full" onclick="atAgregarContacto()">＋ Agregar contacto manual</button></div>`:''}</section></div>`;
