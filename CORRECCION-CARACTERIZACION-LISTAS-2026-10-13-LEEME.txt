@@ -1,0 +1,18 @@
+CORRECCIÓN DE LISTAS — CARACTERIZACIÓN DE LA POBLACIÓN
+13/10/2026
+
+Se corrigió la carga de estudiantes del módulo de Caracterización.
+
+- Los estudiantes se toman directamente del padrón activo que ya existe en el
+  sistema. No se crea, importa ni mantiene una lista paralela.
+- Se incluyen únicamente estudiantes activos y no archivados de la sección.
+- Se conserva el orden institucional: primer apellido, segundo apellido y
+  nombre.
+- Orientación reconoce tanto la asignación anual vigente como la asignación
+  operativa existente, evitando secciones vacías después de un cambio de año.
+- Administración continúa viendo todas las secciones activas del curso lectivo.
+- La vista individual y la matriz grupal utilizan exactamente la misma lista.
+
+No requiere ejecutar SQL manual. Basta desplegar esta versión y reiniciar el
+servidor.
+

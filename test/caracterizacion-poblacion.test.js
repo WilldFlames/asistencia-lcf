@@ -29,9 +29,17 @@ test("la caracterización es anual, auditable y permanece ligada al estudiante",
 test("solo Orientación y Administración acceden y la orientadora se limita a sus secciones", () => {
   assert.match(rutas, /u\?\.rol==="admin" \|\| u\?\.rol==="orientador"/);
   assert.match(rutas, /requireCaracterizacion/);
-  assert.match(rutas, /seccion_orientador_anio[\s\S]*orientador_id=\$3/);
+  assert.match(rutas, /seccion_orientador_anio[\s\S]*seccion_orientador[\s\S]*orientador_id=\$3/);
   assert.match(frontend, /if\(esAdmin\|\|esOrientador\)[\s\S]*nav-caracterizacion/);
   assert.doesNotMatch(frontend, /if\(esAdmin\|\|esAuxiliar\)[^{]*\{[\s\S]{0,180}nav-caracterizacion/);
+});
+
+test("las listas reutilizan el padrón activo institucional y su orden establecido", () => {
+  assert.match(rutas, /no se importa ni[\s\S]*duplica ninguna lista/);
+  assert.match(rutas, /e\.seccion_id=\$1 AND e\.activo=true AND \(e\.archivado=false OR e\.archivado IS NULL\)/);
+  assert.match(rutas, /ORDER BY e\.primer_apellido,e\.segundo_apellido,e\.nombre,e\.id/);
+  assert.match(rutas, /EXISTS \(SELECT 1 FROM seccion_orientador_anio/);
+  assert.match(rutas, /OR EXISTS \(SELECT 1 FROM seccion_orientador/);
 });
 
 test("la interfaz ofrece consulta individual, matriz grupal y vínculo con Alerta Temprana", () => {

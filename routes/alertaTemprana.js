@@ -111,8 +111,15 @@ function requireCaracterizacion(req,res,next){
 }
 async function puedeAccederSeccionCaracterizacion(u,seccionId,anio){
   if(u?.rol==="admin") return true;
-  const q=await pool.query(`SELECT 1 FROM seccion_orientador_anio
-    WHERE seccion_id=$1 AND anio=$2 AND orientador_id=$3 LIMIT 1`,[seccionId,anio,u?.id||0]);
+  // La lista institucional vigente puede conservar la asignación tanto en la
+  // tabla anual como en la tabla operativa histórica. Se consultan ambas para
+  // no dejar a Orientación sin estudiantes después de un cambio de año.
+  const q=await pool.query(`SELECT 1
+    WHERE EXISTS (SELECT 1 FROM seccion_orientador_anio
+      WHERE seccion_id=$1 AND anio=$2 AND orientador_id=$3)
+       OR EXISTS (SELECT 1 FROM seccion_orientador
+      WHERE seccion_id=$1 AND orientador_id=$3)
+    LIMIT 1`,[seccionId,anio,u?.id||0]);
   return q.rows.length>0;
 }
 function codigosCaracterizacion(valor){
@@ -252,8 +259,12 @@ router.get("/caracterizacion/inicio",requireAuth,requireCaracterizacion,asyncRou
   let filtro="";
   if(u.rol!=="admin"){
     params.push(u.id);
-    filtro=`AND EXISTS (SELECT 1 FROM seccion_orientador_anio so
-      WHERE so.seccion_id=s.id AND so.anio=$1 AND so.orientador_id=$2)`;
+    filtro=`AND (
+      EXISTS (SELECT 1 FROM seccion_orientador_anio so
+        WHERE so.seccion_id=s.id AND so.anio=$1 AND so.orientador_id=$2)
+      OR EXISTS (SELECT 1 FROM seccion_orientador so
+        WHERE so.seccion_id=s.id AND so.orientador_id=$2)
+    )`;
   }
   const secciones=await pool.query(`SELECT s.id,s.nombre,s.nivel
     FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$1 AND sa.activa=true
@@ -266,13 +277,15 @@ router.get("/caracterizacion/secciones/:id",requireAuth,requireCaracterizacion,a
   const seccionId=enteroPositivo(req.params.id),anio=await obtenerAnioActivo(),u=req.session.usuario;
   if(!seccionId) return res.status(400).json({error:"Sección inválida."});
   if(!await puedeAccederSeccionCaracterizacion(u,seccionId,anio)) return res.status(403).json({error:"Esta sección no corresponde a su nivel de Orientación."});
-  const q=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,s.nombre AS seccion_nombre,
+  // Usa el mismo padrón institucional de /api/estudiantes: no se importa ni
+  // duplica ninguna lista. El orden también es el establecido en el sistema.
+  const q=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,s.nombre AS seccion_nombre,
       COALESCE((SELECT json_agg(cp.codigo ORDER BY cp.codigo) FROM caracterizaciones_poblacion cp
         WHERE cp.anio=$2 AND cp.estudiante_id=e.id AND cp.activo=true),'[]'::json) AS codigos,
       COALESCE((SELECT COUNT(*)::int FROM alertas_tempranas at
         WHERE at.anio=$2 AND at.estudiante_id=e.id AND at.estado<>'eliminada'),0) AS total_alertas
     FROM estudiantes e JOIN secciones s ON s.id=e.seccion_id
-    WHERE e.seccion_id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false
+    WHERE e.seccion_id=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
     ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre,e.id`,[seccionId,anio]);
   res.json({anio,catalogo:CARACTERIZACION_CATALOGO,estudiantes:q.rows});
 }));
