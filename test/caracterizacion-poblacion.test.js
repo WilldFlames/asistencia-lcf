@@ -40,6 +40,7 @@ test("las listas reutilizan el padrón activo institucional y su orden estableci
   assert.match(rutas, /ORDER BY e\.primer_apellido,e\.segundo_apellido,e\.nombre,e\.id/);
   assert.match(rutas, /EXISTS \(SELECT 1 FROM seccion_orientador_anio/);
   assert.match(rutas, /OR EXISTS \(SELECT 1 FROM seccion_orientador/);
+  assert.doesNotMatch(rutas, /COALESCE\(s\.activa,true\)=true/);
 });
 
 test("la interfaz ofrece consulta individual, matriz grupal y vínculo con Alerta Temprana", () => {

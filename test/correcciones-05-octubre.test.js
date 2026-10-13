@@ -37,6 +37,14 @@ test('Biblioteca permite retirar un artículo sin borrar préstamos históricos'
   assert.match(ui,/Los préstamos anteriores se conservarán/);
 });
 
+test('Biblioteca informa códigos repetidos sin derribar el servidor',()=>{
+  const route=leer('routes/biblioteca.js');
+  assert.match(route,/const asyncRoute=fn=>\(req,res,next\)=>Promise\.resolve/);
+  assert.match(route,/biblioteca_items_codigo_key/);
+  assert.match(route,/Ya existe un libro o artículo con ese código/);
+  assert.match(route,/res\.status\(409\)/);
+});
+
 test('cada declaración puede sustituir solamente a Orientación en ese documento',()=>{
   const db=leer('db.js'),route=leer('routes/debidosProcesos.js'),ui=leer('public/index.html');
   assert.match(db,/dp_pasos ADD COLUMN IF NOT EXISTS orientador_sustituto_id/);

@@ -1,0 +1,16 @@
+CORRECCIÓN SEGÚN LOGS — 13/10/2026
+
+CARACTERIZACIÓN
+- Se eliminó la consulta a secciones.activa, columna que no existe.
+- La vigencia de secciones se obtiene correctamente desde secciones_anio.
+- Las listas vuelven a utilizar el padrón activo existente y el orden
+  institucional por primer apellido, segundo apellido y nombre.
+
+BIBLIOTECA
+- Registrar o editar un libro con un código ya existente devuelve un aviso
+  comprensible y un estado HTTP 409.
+- Todas las rutas asíncronas de Biblioteca entregan sus errores al manejador
+  central, evitando que una excepción de PostgreSQL cierre el proceso Node.
+
+No se elimina ni modifica información existente. No requiere SQL manual.
+

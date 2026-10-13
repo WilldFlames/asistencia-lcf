@@ -268,7 +268,7 @@ router.get("/caracterizacion/inicio",requireAuth,requireCaracterizacion,asyncRou
   }
   const secciones=await pool.query(`SELECT s.id,s.nombre,s.nivel
     FROM secciones s JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$1 AND sa.activa=true
-    WHERE COALESCE(s.activa,true)=true ${filtro}
+    WHERE true ${filtro}
     ORDER BY s.nivel,s.nombre`,params);
   res.json({anio,catalogo:CARACTERIZACION_CATALOGO,secciones:secciones.rows,puede_editar:true});
 }));
