@@ -163,7 +163,10 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
     if(!await puedeVer(req.session.usuario,ec)) return res.status(403).json({error:"Sin acceso."});
     if(ec.estado!=="en_curso") return res.status(409).json({error:"El expediente está cerrado. Solo administración puede reabrirlo."});
     if(!Number.isInteger(paso)||paso<1||paso>7) return res.status(400).json({error:"Paso inválido."});
-    if(paso>1){
+    const completado=!!req.body.completado;
+    // Un borrador debe poder conservarse aunque el paso anterior todavía no se
+    // haya cerrado. El orden se exige únicamente al marcar el paso completo.
+    if(completado && paso>1){
       const anterior=await pool.query("SELECT completado FROM expedientes_conducta_pasos WHERE expediente_id=$1 AND paso=$2",[ec.id,paso-1]);
       if(!anterior.rows[0]?.completado) return res.status(409).json({error:`Complete el paso ${paso-1} antes de avanzar.`});
     }
@@ -175,7 +178,6 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
       if(a.rows[0].n<1) return res.status(409).json({error:"El paso 3 requiere la aprobación de al menos un miembro del Comité de Evaluación."});
     }
     const contenido=req.body.contenido&&typeof req.body.contenido==='object'?{...req.body.contenido}:{};
-    const completado=!!req.body.completado;
     if([1,5,6].includes(paso) && ec.es_mayor_edad){
       contenido.encargado_id=null;
       contenido.recibe=[ec.nombre,ec.primer_apellido,ec.segundo_apellido].filter(Boolean).join(" ").trim();
@@ -195,13 +197,18 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
     }
     if(paso===2 && completado && Array.isArray(contenido.cumplidas) && contenido.cumplidas.some(x=>!x))
       return res.status(409).json({error:"Hay una acción correctiva pendiente. Use el botón de cierre con su carta de constancia."});
-    if(paso===3 && !PROYECTOS.includes(contenido.proyecto)) return res.status(400).json({error:"Seleccione el tipo de trabajo TES."});
+    if(paso===3 && completado && !PROYECTOS.includes(contenido.proyecto)) return res.status(400).json({error:"Seleccione el tipo de trabajo TES."});
     if(paso===6 && completado && !["aprobado","no_aprobado"].includes(String(contenido.resultado||"")))
       return res.status(400).json({error:"Indique el resultado del TES para emitir el Anexo 3."});
-    await pool.query(`UPDATE expedientes_conducta_pasos SET contenido=$1,completado=$2,
-      completado_por=CASE WHEN $2 THEN $3 ELSE completado_por END,completado_en=CASE WHEN $2 THEN NOW() ELSE NULL END,updated_at=NOW()
+    // Guardar cambios en un paso ya completado nunca debe devolverlo a
+    // pendiente ni borrar quién/cuándo lo completó.
+    await pool.query(`UPDATE expedientes_conducta_pasos SET contenido=$1,
+      completado=(expedientes_conducta_pasos.completado OR $2),
+      completado_por=CASE WHEN $2 AND NOT expedientes_conducta_pasos.completado THEN $3 ELSE completado_por END,
+      completado_en=CASE WHEN $2 AND NOT expedientes_conducta_pasos.completado THEN NOW() ELSE completado_en END,
+      updated_at=NOW()
       WHERE expediente_id=$4 AND paso=$5`,[contenido,completado,req.session.usuario.id,ec.id,paso]);
-    if(paso===3 && ec.proyecto!==contenido.proyecto){
+    if(paso===3 && PROYECTOS.includes(contenido.proyecto) && ec.proyecto!==contenido.proyecto){
       await pool.query("UPDATE expedientes_conducta_tes SET proyecto=$1,updated_at=NOW() WHERE id=$2",[contenido.proyecto,ec.id]);
       await pool.query("DELETE FROM expedientes_conducta_aprobaciones WHERE expediente_id=$1",[ec.id]);
     }
@@ -214,7 +221,7 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
         [`📘 El expediente de conducta N°${ec.numero}-${ec.anio} requiere su aprobación del proyecto TES.`,ec.id,tipoComite]);
     }
     res.json({ok:true});
-  }catch(e){console.error("guardar paso TES",e);res.status(500).json({error:e.message});}
+  }catch(e){console.error("guardar paso TES",e);res.status(e.status||500).json({error:e.message});}
 });
 
 router.post("/:id/aprobar-proyecto", requireAuth, async (req,res)=>{

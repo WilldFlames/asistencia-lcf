@@ -46,6 +46,16 @@ test("el flujo guarda e imprime todos los pasos en formato institucional",()=>{
   assert.match(front,/class="pdf-page-block"/);
 });
 
+test("los botones conservan borradores sin romper pasos ya completados",()=>{
+  assert.match(routes,/if\(completado && paso>1\)/);
+  assert.match(routes,/paso===3 && completado && !PROYECTOS\.includes/);
+  assert.match(routes,/completado=\(expedientes_conducta_pasos\.completado OR \$2\)/);
+  assert.match(routes,/completado_en=CASE WHEN \$2 AND NOT expedientes_conducta_pasos\.completado/);
+  assert.match(front,/ectGuardarPaso\(\$\{n\},false,this\)/);
+  assert.match(front,/Guardar cambios/);
+  assert.match(front,/btn\.textContent="⏳ Guardando\.\.\."/);
+});
+
 test("cada modalidad TES conserva actividades, seguridad e indicadores propios",()=>{
   assert.match(front,/Proyecto de reparación comunitaria/);
   assert.match(front,/Diagnóstico de convivencia/);

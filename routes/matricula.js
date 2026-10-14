@@ -631,6 +631,9 @@ router.get("/cupos/:anio", canAccess, async (req, res) => {
     LEFT JOIN secciones_idioma si ON si.seccion_id = s.id AND si.anio = $1
     LEFT JOIN secciones_config sc ON sc.seccion_id = s.id AND sc.anio = $1
     LEFT JOIN matricula m ON m.seccion_id = s.id AND m.anio = $1
+      AND COALESCE(m.estado,'') <> 'eliminada'
+      AND EXISTS (SELECT 1 FROM estudiantes e WHERE e.id=m.estudiante_id
+        AND e.activo=true AND COALESCE(e.archivado,false)=false)
     GROUP BY s.id, si.idioma, sc.tec_b ORDER BY s.nivel, s.nombre
   `;
   const r = await pool.query(q, [anio]);
@@ -660,7 +663,7 @@ router.post("/asignar", canAccess, async (req, res) => {
   const u = req.session.usuario;
   const esActual = a === await anioActualCR();
   const estadoConv = await pool.query(`SELECT convocatoria,convocatoria_estado FROM matricula
-    WHERE estudiante_id=$1 AND anio=$2`, [estudiante_id,a]);
+    WHERE estudiante_id=$1 AND anio=$2 AND COALESCE(estado,'') <> 'eliminada'`, [estudiante_id,a]);
   if(estadoConv.rows[0]?.convocatoria && estadoConv.rows[0]?.convocatoria_estado === 'pendiente'){
     return res.status(409).json({
       error:"Este estudiante está en espera por convocatoria. Primero registre en febrero si aprobó o reprobó; solamente después se puede asignar su sección.",
@@ -715,8 +718,11 @@ router.post("/asignar", canAccess, async (req, res) => {
     const c = await pool.query(`
       SELECT
         COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE UPPER(COALESCE(subgrupo,'')) = $4)::int AS sub_c
-      FROM matricula WHERE seccion_id=$1 AND anio=$2 AND estudiante_id<>$3
+        COUNT(*) FILTER (WHERE UPPER(COALESCE(m.subgrupo,'')) = $4)::int AS sub_c
+      FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
+      WHERE m.seccion_id=$1 AND m.anio=$2 AND m.estudiante_id<>$3
+        AND COALESCE(m.estado,'') <> 'eliminada'
+        AND e.activo=true AND COALESCE(e.archivado,false)=false
     `, [seccion_id, a, estudiante_id, (sub||'').toUpperCase()]);
     ocupados = c.rows[0].total;
     ocupadosSub = c.rows[0].sub_c;
@@ -797,7 +803,9 @@ router.get("/asignaciones/:anio", canAccess, async (req, res) => {
   const r = await pool.query(`
     SELECT m.estudiante_id, m.seccion_id, m.seccion_nombre, m.idioma, m.tecnologia, m.subgrupo,
       m.convocatoria, m.convocatoria_estado, m.nivel_solicitado, m.nivel_origen
-    FROM matricula m WHERE m.anio=$1
+    FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
+    WHERE m.anio=$1 AND COALESCE(m.estado,'') <> 'eliminada'
+      AND e.activo=true AND COALESCE(e.archivado,false)=false
   `, [anio]);
   res.json(r.rows);
 });
@@ -816,13 +824,23 @@ router.get("/previsualizar-aplicar/:anio", requireAuth, async (req, res) => {
     obtenerCalendario(anio),
     pool.query("SELECT aplicado_at FROM cierres_anio WHERE anio_destino=$1", [anio]),
     pool.query(`SELECT
-      (SELECT COUNT(*)::int FROM estudiantes WHERE activo=true AND COALESCE(archivado,false)=false) AS estudiantes_activos,
+      (SELECT COUNT(*)::int FROM estudiantes e
+         WHERE e.activo=true AND COALESCE(e.archivado,false)=false
+           AND NOT EXISTS (SELECT 1 FROM matricula mx WHERE mx.estudiante_id=e.id
+             AND mx.anio=$1 AND mx.estado='eliminada')) AS estudiantes_activos,
       (SELECT COUNT(*)::int FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
-         WHERE m.anio=$1 AND m.seccion_id IS NOT NULL AND e.activo=true) AS con_matricula,
+         WHERE m.anio=$1 AND m.seccion_id IS NOT NULL
+           AND COALESCE(m.estado,'') <> 'eliminada'
+           AND e.activo=true AND COALESCE(e.archivado,false)=false) AS con_matricula,
       (SELECT COUNT(*)::int FROM estudiantes e WHERE e.activo=true AND COALESCE(e.archivado,false)=false
-         AND NOT EXISTS (SELECT 1 FROM matricula m WHERE m.estudiante_id=e.id AND m.anio=$1 AND m.seccion_id IS NOT NULL)) AS sin_matricula,
+         AND NOT EXISTS (SELECT 1 FROM matricula mx WHERE mx.estudiante_id=e.id
+           AND mx.anio=$1 AND mx.estado='eliminada')
+         AND NOT EXISTS (SELECT 1 FROM matricula m WHERE m.estudiante_id=e.id AND m.anio=$1
+           AND m.seccion_id IS NOT NULL AND COALESCE(m.estado,'') <> 'eliminada')) AS sin_matricula,
       (SELECT COUNT(*)::int FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
-         WHERE m.anio=$1 AND m.convocatoria=true AND m.convocatoria_estado='pendiente' AND e.activo=true) AS convocatoria_pendiente,
+         WHERE m.anio=$1 AND m.convocatoria=true AND m.convocatoria_estado='pendiente'
+           AND COALESCE(m.estado,'') <> 'eliminada'
+           AND e.activo=true AND COALESCE(e.archivado,false)=false) AS convocatoria_pendiente,
       (SELECT COUNT(*)::int FROM asignaciones WHERE anio=$2) AS asignaciones_origen,
       (SELECT COUNT(*)::int FROM asignaciones WHERE anio=$1) AS asignaciones_destino,
       (SELECT COUNT(*)::int FROM secciones_anio WHERE anio=$1 AND activa=true) AS secciones_destino,
@@ -830,12 +848,18 @@ router.get("/previsualizar-aplicar/:anio", requireAuth, async (req, res) => {
       (SELECT COUNT(*)::int FROM seccion_orientador_anio WHERE anio=$1 AND orientador_id IS NOT NULL) AS orientadores_destino,
       (SELECT COUNT(*)::int FROM solicitud_adecuacion sa JOIN matricula m
          ON m.estudiante_id=sa.estudiante_id AND m.anio=sa.anio_destino
-         WHERE sa.anio_destino=$1 AND sa.estado='guardada' AND m.completada=true) AS adecuaciones_por_enviar,
+         JOIN estudiantes e ON e.id=m.estudiante_id
+         WHERE sa.anio_destino=$1 AND sa.estado='guardada' AND m.completada=true
+           AND COALESCE(m.estado,'') <> 'eliminada'
+           AND e.activo=true AND COALESCE(e.archivado,false)=false) AS adecuaciones_por_enviar,
       (SELECT COUNT(*)::int
          FROM restricciones_matricula r
          JOIN matricula ma ON ma.estudiante_id=r.estudiante_a_id AND ma.anio=r.anio
          JOIN matricula mb ON mb.estudiante_id=r.estudiante_b_id AND mb.anio=r.anio
+         JOIN estudiantes ea ON ea.id=ma.estudiante_id AND ea.activo=true AND COALESCE(ea.archivado,false)=false
+         JOIN estudiantes eb ON eb.id=mb.estudiante_id AND eb.activo=true AND COALESCE(eb.archivado,false)=false
          WHERE r.anio=$1 AND r.activa=true AND ma.seccion_id IS NOT NULL
+           AND COALESCE(ma.estado,'') <> 'eliminada' AND COALESCE(mb.estado,'') <> 'eliminada'
            AND ma.seccion_id=mb.seccion_id) AS conflictos_restricciones
     `, [anio, anioOrigen])
   ]);
@@ -901,6 +925,9 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       JOIN estudiantes eb ON eb.id=r.estudiante_b_id
       JOIN secciones s ON s.id=ma.seccion_id
       WHERE r.anio=$1 AND r.activa=true AND ma.seccion_id IS NOT NULL
+        AND ea.activo=true AND COALESCE(ea.archivado,false)=false
+        AND eb.activo=true AND COALESCE(eb.archivado,false)=false
+        AND COALESCE(ma.estado,'') <> 'eliminada' AND COALESCE(mb.estado,'') <> 'eliminada'
         AND ma.seccion_id=mb.seccion_id
       ORDER BY s.nombre LIMIT 10
     `, [anio]);
@@ -1128,7 +1155,8 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
         matricula_completada = COALESCE(m.completada,true)
       FROM matricula m JOIN secciones s ON s.id=m.seccion_id
       WHERE m.estudiante_id = e.id AND m.anio = $1 AND m.seccion_id IS NOT NULL
-        AND e.activo = true
+        AND COALESCE(m.estado,'') <> 'eliminada'
+        AND e.activo = true AND COALESCE(e.archivado,false)=false
       RETURNING e.id
     `, [anio]);
 
@@ -1141,6 +1169,8 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
       JOIN estudiantes e ON e.id=sa.estudiante_id
       JOIN matricula m ON m.estudiante_id=sa.estudiante_id AND m.anio=sa.anio_destino
       WHERE sa.anio_destino=$1 AND sa.estado='guardada' AND m.completada=true
+        AND COALESCE(m.estado,'') <> 'eliminada'
+        AND e.activo=true AND COALESCE(e.archivado,false)=false
       ORDER BY sa.id FOR UPDATE OF sa`,[anio]);
     let adecuacionesEnviadas=0;
     for(const sol of solicitudesMatricula.rows){
@@ -1169,7 +1199,8 @@ router.post("/aplicar/:anio", requireAuth, async (req, res) => {
     const sinMat = await client.query(`
       UPDATE estudiantes SET seccion_id = NULL, matricula_completada=false
       WHERE activo = true AND (archivado = false OR archivado IS NULL)
-        AND id NOT IN (SELECT estudiante_id FROM matricula WHERE anio = $1 AND seccion_id IS NOT NULL)
+        AND id NOT IN (SELECT estudiante_id FROM matricula WHERE anio = $1
+          AND seccion_id IS NOT NULL AND COALESCE(estado,'') <> 'eliminada')
       RETURNING id
     `, [anio]);
 
@@ -1270,7 +1301,8 @@ router.post("/convocatoria/:id/resolver", canAccess, async (req, res) => {
     const mr = await client.query(`SELECT m.*,e.idioma AS est_idioma,e.tecnologia AS est_tecnologia,
         e.subgrupo AS est_subgrupo
       FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
-      WHERE m.estudiante_id=$1 AND m.anio=$2 FOR UPDATE`, [estudianteId,anio]);
+      WHERE m.estudiante_id=$1 AND m.anio=$2 AND COALESCE(m.estado,'') <> 'eliminada'
+        AND e.activo=true AND COALESCE(e.archivado,false)=false FOR UPDATE`, [estudianteId,anio]);
     if(!mr.rows.length){ await client.query("ROLLBACK"); return res.status(404).json({ error:"Matrícula no encontrada." }); }
     const m = mr.rows[0];
     if(!m.convocatoria || m.convocatoria_estado !== "pendiente"){
@@ -1303,8 +1335,11 @@ router.post("/convocatoria/:id/resolver", canAccess, async (req, res) => {
           AND COALESCE(archivado,false)=false AND id<>$2`,
           [seccionId,estudianteId,String(subgrupoEf||'').toUpperCase()])
       : await client.query(`SELECT COUNT(*)::int AS c,
-          COUNT(*) FILTER (WHERE UPPER(COALESCE(subgrupo,''))=$4)::int AS sub_c
-          FROM matricula WHERE seccion_id=$1 AND anio=$2 AND estudiante_id<>$3`,
+          COUNT(*) FILTER (WHERE UPPER(COALESCE(m.subgrupo,''))=$4)::int AS sub_c
+          FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
+          WHERE m.seccion_id=$1 AND m.anio=$2 AND m.estudiante_id<>$3
+            AND COALESCE(m.estado,'') <> 'eliminada'
+            AND e.activo=true AND COALESCE(e.archivado,false)=false`,
           [seccionId,anio,estudianteId,String(subgrupoEf||'').toUpperCase()]);
     if(cupo.rows[0].c >= MAX_CUPO && !forzar){
       await client.query("ROLLBACK");
@@ -1369,7 +1404,9 @@ router.get("/carta-horario/:id/:anio", canAccess, async (req, res) => {
   const er=await pool.query(`SELECT e.id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,
       m.seccion_id,m.seccion_nombre,m.subgrupo,m.convocatoria,m.convocatoria_estado,s.nivel
     FROM estudiantes e JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$2
-    JOIN secciones s ON s.id=m.seccion_id WHERE e.id=$1 AND m.seccion_id IS NOT NULL`, [estudianteId,anio]);
+    JOIN secciones s ON s.id=m.seccion_id WHERE e.id=$1 AND m.seccion_id IS NOT NULL
+      AND COALESCE(m.estado,'') <> 'eliminada'
+      AND e.activo=true AND COALESCE(e.archivado,false)=false`, [estudianteId,anio]);
   if(!er.rows.length) return res.status(409).json({ error:"Primero debe asignar una sección para poder generar la carta y el horario." });
   if(er.rows[0].convocatoria && er.rows[0].convocatoria_estado === "pendiente")
     return res.status(409).json({ error:"La carta se genera después de resolver la convocatoria y asignar la sección." });

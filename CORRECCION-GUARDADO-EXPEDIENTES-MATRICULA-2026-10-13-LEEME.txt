@@ -1,0 +1,25 @@
+CORRECCIÓN DE GUARDADO — EXPEDIENTES Y MATRÍCULA
+Fecha: 13 de octubre de 2026
+
+Cambios incluidos
+
+1. Expedientes de Conducta
+   - Guardar borrador ya no exige haber completado el paso anterior.
+   - Marcar completo sí conserva el orden obligatorio de los pasos.
+   - El paso de selección del TES permite guardar un borrador antes de escoger el proyecto.
+   - Editar y guardar un paso ya completado no lo devuelve a estado pendiente.
+   - Los botones se bloquean mientras guardan para evitar dobles envíos.
+   - Los mensajes distinguen entre “borrador guardado” y “paso completo”.
+
+2. Asistente de Matrícula
+   - El guardado de datos quedó separado de la generación del PDF.
+   - Si la impresión falla o el navegador la bloquea, los datos guardados no se reportan como perdidos.
+   - Beca y adecuación habilitan el siguiente paso inmediatamente después de guardar correctamente.
+   - Los botones se bloquean durante el envío para evitar registros dobles por varios clics.
+
+Verificación
+
+- Sintaxis del servidor validada.
+- 275 pruebas automáticas aprobadas.
+- No requiere borrar información ni ejecutar pasos manuales de base de datos.
+- Al subir esta versión, basta reiniciar normalmente el servicio.

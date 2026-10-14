@@ -20,6 +20,24 @@ test("matrícula guarda un borrador enlazado y permite regresar entre pasos",()=
   assert.match(matricula,/Guardar el paso 1 no equivale a/);
 });
 
+test("guardar matrícula no confunde un fallo de impresión con un fallo de datos",()=>{
+  assert.match(frontend,/Los datos sí quedaron guardados, pero no se pudo generar la ficha/);
+  assert.match(frontend,/La solicitud sí quedó guardada, pero no se pudo generar el PDF/);
+  assert.match(frontend,/Solicitud de beca guardada/);
+  assert.match(frontend,/Solicitud de adecuación guardada/);
+  assert.match(frontend,/if\(btn\?\.disabled\) return/);
+});
+
+test("los conteos de matrícula y cupos descuentan retirados y matrículas eliminadas",()=>{
+  const expediente=leer("routes/expediente.js");
+  assert.match(matricula,/COALESCE\(m\.estado,''\) <> 'eliminada'/);
+  assert.match(matricula,/e\.activo=true AND COALESCE\(e\.archivado,false\)=false/);
+  assert.match(matricula,/LEFT JOIN matricula m ON m\.seccion_id = s\.id AND m\.anio = \$1[\s\S]*EXISTS \(SELECT 1 FROM estudiantes e/);
+  assert.match(matricula,/router\.get\("\/asignaciones\/:anio"[\s\S]*JOIN estudiantes e ON e\.id=m\.estudiante_id/);
+  assert.match(matricula,/UPDATE estudiantes e SET[\s\S]*COALESCE\(m\.estado,''\) <> 'eliminada'/);
+  assert.match(expediente,/COALESCE\(m\.estado,''\) <> 'eliminada'/);
+});
+
 test("beca acepta montos completos y autorización completa fecha y funcionario",()=>{
   assert.match(frontend,/id="beca-ingreso" maxlength="12"/);
   assert.match(frontend,/id="beca-monto-avancemos" maxlength="12"/);

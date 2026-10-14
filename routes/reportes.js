@@ -532,7 +532,7 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
         COUNT(DISTINCT CASE WHEN (100 - COALESCE(rebajo,0)) < 80
           AND (100 - COALESCE(rebajo,0)) >= 60 THEN e.id END) AS en_riesgo
       FROM secciones s
-      LEFT JOIN estudiantes e ON e.seccion_id=s.id AND e.activo=true
+      LEFT JOIN estudiantes e ON e.seccion_id=s.id AND e.activo=true AND COALESCE(e.archivado,false)=false
       LEFT JOIN (
         SELECT bc.estudiante_id, SUM(i.puntos) AS rebajo
         FROM boletas_conducta bc JOIN infracciones i ON i.id=bc.infraccion_id
@@ -603,7 +603,7 @@ router.get("/cumplimiento", requireAuth, async (req, res) => {
     FROM seccion_guia sg
     JOIN usuarios u ON u.id = sg.profesor_id
     JOIN secciones s ON s.id = sg.seccion_id
-    LEFT JOIN estudiantes e ON e.seccion_id = s.id AND e.activo = true
+    LEFT JOIN estudiantes e ON e.seccion_id = s.id AND e.activo = true AND COALESCE(e.archivado,false)=false
     LEFT JOIN boletas_conducta bc ON bc.registrado_por = u.id
       AND bc.fecha BETWEEN $1 AND $2
     GROUP BY u.id, u.nombre, u.primer_apellido, u.segundo_apellido, s.nombre

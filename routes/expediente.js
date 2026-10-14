@@ -131,14 +131,16 @@ router.post("/aplicar-matriculas", canManage, async (req, res) => {
 router.get("/matricula/stats/:anio", canManage, async (req, res) => {
   const anio = req.params.anio;
   // Contar estudiantes activos
-  const total = await pool.query(
-    "SELECT COUNT(*) AS c FROM estudiantes WHERE activo=true AND (archivado=false OR archivado IS NULL)"
-  );
+  const total = await pool.query(`SELECT COUNT(*) AS c FROM estudiantes e
+    LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$1
+    WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
+      AND COALESCE(m.estado,'') <> 'eliminada'`, [anio]);
   // Solo contar matrículas de estudiantes que SIGUEN activos (evita pendientes negativos)
   const matriculados = await pool.query(`
     SELECT COUNT(*) AS c FROM matricula m
     JOIN estudiantes e ON e.id=m.estudiante_id
     WHERE m.anio=$1 AND e.activo=true AND (e.archivado=false OR e.archivado IS NULL)
+      AND COALESCE(m.estado,'') <> 'eliminada'
   `, [anio]);
   const totalN = parseInt(total.rows[0].c);
   const matN   = parseInt(matriculados.rows[0].c);

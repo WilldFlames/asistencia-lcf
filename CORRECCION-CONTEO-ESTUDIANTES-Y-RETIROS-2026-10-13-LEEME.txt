@@ -1,0 +1,26 @@
+CORRECCIÓN DEL CONTEO DE ESTUDIANTES Y RETIROS
+Fecha: 13 de octubre de 2026
+
+Problema encontrado
+
+La lista principal de matrícula sí excluía estudiantes retirados, pero algunos
+conteos de cupos y asignaciones futuras consultaban directamente la matrícula
+anual. Por eso una persona retirada podía seguir ocupando un espacio en ciertos
+resúmenes aunque ya no apareciera en la lista.
+
+Correcciones
+
+- Los totales incluyen únicamente estudiantes activos y no archivados.
+- Las matrículas marcadas como eliminadas se descuentan del total del año.
+- Los cupos generales y los cupos A/B descuentan retiros.
+- Las asignaciones futuras dejan de devolver estudiantes retirados.
+- La vista previa del cambio de año usa exactamente el mismo criterio.
+- Un estudiante retirado no puede reaparecer al aplicar el nuevo curso lectivo.
+- Convocatorias, cartas y solicitudes de adecuación también excluyen retiros.
+- Los indicadores de Conducta y cumplimiento excluyen estudiantes archivados.
+
+Verificación
+
+- 276 pruebas automáticas aprobadas.
+- No elimina expedientes ni historial de estudiantes retirados.
+- No requiere cambios manuales en la base de datos.
