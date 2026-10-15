@@ -2706,14 +2706,16 @@ tr:hover td{background:#f8fafc;}
     <p style="font-size:12.5px;color:var(--muted)">Administración puede programarlo desde días anteriores. En la fecha indicada sustituye la entrada, la salida o ambas horas del horario general.</p>
     <div id="alert-he" class="alert"></div>
     <div class="form-grid">
-      <div class="fg"><label>Fecha *</label><input type="date" id="he-fecha" onchange="heCargar()"></div>
+      <div class="fg"><label>Fecha *</label><input type="date" id="he-fecha"></div>
       <div class="fg"><label>Sección *</label><select id="he-seccion"></select></div>
       <div class="fg"><label>Entrada especial</label><input type="time" id="he-entrada"></div>
       <div class="fg"><label>Salida especial</label><input type="time" id="he-salida"></div>
+      <div class="fg" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="he-sin-horario" onchange="heCambiarSinHorario()" style="width:auto"> 🚫 La sección no tiene jornada ese día</label></div>
       <div class="fg" style="grid-column:1/-1"><label>Motivo *</label><input id="he-motivo" placeholder="Ej. reunión de personal, actividad institucional…"></div>
     </div>
     <button class="btn btn-primary" style="margin-top:10px" onclick="heGuardar()">💾 Programar horario</button>
-    <div id="he-lista" class="table-wrap" style="margin-top:14px"></div>
+    <h3 style="margin:18px 0 6px">Historial de horarios especiales registrados</h3>
+    <div id="he-lista" class="table-wrap"></div>
   </div>
   <div class="card">
     <h2 style="margin-bottom:4px">👩‍🏫 Ausencia docente visible para las familias</h2>
@@ -17798,6 +17800,7 @@ async function ppCargarAsistenciaDia(fecha=null,destinoId='pp-as-dia-list'){
   cont.innerHTML='<div class="pp-help">Cargando...</div>';
   try{
     const r=await api(`/api/padres/hijo/${ppHijoActual.id}/asistencia-dia?fecha=${encodeURIComponent(fecha)}`);
+    if(r.sin_horario){cont.innerHTML=`<div style="text-align:center;padding:24px;border:2px solid #f59e0b;border-radius:12px;background:#fffbeb;color:#92400e"><strong>🚫 La sección no tiene jornada este día.</strong>${r.motivo?`<div style="margin-top:6px">${htmlSeguro(r.motivo)}</div>`:''}</div>`;return;}
     const clases=ppAgruparLeccionesConsecutivas(r.clases||[]);
     if(!clases.length){cont.innerHTML='<div class="pp-help" style="text-align:center;padding:24px;">No hay lecciones programadas para este día.</div>';return;}
     cont.innerHTML=clases.map(c=>{
@@ -19252,14 +19255,19 @@ async function iniciarHorarioEspecial(){
     await Promise.all([heCargar(),heCargarAusencias()]);
   }catch(e){sa('alert-he',e.message,'danger');}
 }
-function heRango(){const f=document.getElementById('he-fecha')?.value||fechaHoyCR();return `desde=${encodeURIComponent(f)}&hasta=${encodeURIComponent(f)}`;}
+function heRango(){return 'desde=2000-01-01&hasta=2099-12-31';}
+function heCambiarSinHorario(){
+  const marcado=document.getElementById('he-sin-horario').checked;
+  ['he-entrada','he-salida'].forEach(id=>{const x=document.getElementById(id);x.disabled=marcado;if(marcado)x.value='';});
+}
 async function heCargar(){
   const box=document.getElementById('he-lista');
-  try{const rows=await api(`/api/horario-especial?${heRango()}`)||[];box.innerHTML=rows.length?`<table><thead><tr><th>Fecha</th><th>Sección</th><th>Entrada</th><th>Salida</th><th>Motivo</th><th>Registró</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr style="${x.activo?'':'opacity:.55'}"><td>${fmtF(x.fecha)}</td><td>${htmlSeguro(x.seccion_nombre)}</td><td>${x.hora_entrada||'Horario general'}</td><td>${x.hora_salida||'Horario general'}</td><td>${htmlSeguro(x.motivo)}</td><td>${htmlSeguro(nombreDesdeCampos(x.creador_nombre,x.creador_ap1,x.creador_ap2))}</td><td>${x.activo?`<button class="btn btn-danger btn-xs" onclick="heAnular(${x.id})">Anular</button>`:'Anulado'}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">No hay horario especial para la fecha seleccionada.</div>';}catch(e){box.innerHTML=`<div class="empty">${htmlSeguro(e.message)}</div>`;}
+  try{const rows=await api(`/api/horario-especial?${heRango()}`)||[];box.innerHTML=rows.length?`<table><thead><tr><th>Fecha</th><th>Sección</th><th>Condición</th><th>Entrada</th><th>Salida</th><th>Motivo</th><th>Registrado por</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr style="${x.activo?'':'opacity:.55'}"><td>${fmtF(x.fecha)}</td><td>${htmlSeguro(x.seccion_nombre)}</td><td>${x.sin_horario?'<strong style="color:#b91c1c">🚫 Sin jornada</strong>':'⏱️ Horario especial'}</td><td>${x.sin_horario?'—':(x.hora_entrada||'Horario general')}</td><td>${x.sin_horario?'—':(x.hora_salida||'Horario general')}</td><td>${htmlSeguro(x.motivo)}</td><td><strong>${htmlSeguro(nombreDesdeCampos(x.creador_nombre,x.creador_ap1,x.creador_ap2,{vacio:'Usuario no disponible'}))}</strong><br><small>${fmtF(x.created_at)}</small></td><td>${x.activo?`<button class="btn btn-danger btn-xs" onclick="heAnular(${x.id})">Anular</button>`:'Anulado'}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">No hay horarios especiales registrados.</div>';}catch(e){box.innerHTML=`<div class="empty">${htmlSeguro(e.message)}</div>`;}
 }
 async function heGuardar(){
-  const body={fecha:document.getElementById('he-fecha').value,seccion_id:document.getElementById('he-seccion').value,hora_entrada:document.getElementById('he-entrada').value,hora_salida:document.getElementById('he-salida').value,motivo:document.getElementById('he-motivo').value};
-  try{await api('/api/horario-especial','POST',body);sa('alert-he','Horario especial programado. Portería lo aplicará automáticamente en esa fecha.','success');await heCargar();}catch(e){sa('alert-he',e.message,'danger');}
+  const sin_horario=document.getElementById('he-sin-horario').checked;
+  const body={fecha:document.getElementById('he-fecha').value,seccion_id:document.getElementById('he-seccion').value,hora_entrada:document.getElementById('he-entrada').value,hora_salida:document.getElementById('he-salida').value,motivo:document.getElementById('he-motivo').value,sin_horario};
+  try{await api('/api/horario-especial','POST',body);sa('alert-he',sin_horario?'Se registró que la sección no tendrá jornada. Portería bloqueará el ingreso.':'Horario especial programado. Portería lo aplicará automáticamente en esa fecha.','success');await heCargar();}catch(e){sa('alert-he',e.message,'danger');}
 }
 async function heAnular(id){if(!confirm('¿Anular este horario especial?'))return;await api(`/api/horario-especial/${id}/anular`,'PUT',{});await heCargar();}
 async function heCargarAusencias(){

@@ -230,7 +230,7 @@ function restarMinutos(hora, cantidad){
 async function jornadaHoy(seccionId, fecha){
   const dia = diaSemana(fecha);
   const anio = parseInt(fecha.slice(0,4));
-  const especial=await pool.query(`SELECT id,hora_entrada,hora_salida,motivo
+  const especial=await pool.query(`SELECT id,hora_entrada,hora_salida,motivo,COALESCE(sin_horario,false) AS sin_horario
     FROM horarios_especiales WHERE seccion_id=$1 AND fecha=$2 AND activo=true LIMIT 1`,[seccionId,fecha]);
   let primera=null,ultima=null;
   if(dia>=1&&dia<=5){
@@ -242,8 +242,8 @@ async function jornadaHoy(seccionId, fecha){
   const inicioGeneral=primera?lecciones.find(l=>l.n===Number(primera))?.ini:null;
   const finGeneral=ultima?lecciones.find(l=>l.n===Number(ultima))?.fin:null;
   const esp=especial.rows[0]||null;
-  const horaInicio=esp?.hora_entrada||inicioGeneral||null;
-  const horaFin=esp?.hora_salida||finGeneral||null;
+  const horaInicio=esp?.sin_horario?null:(esp?.hora_entrada||inicioGeneral||null);
+  const horaFin=esp?.sin_horario?null:(esp?.hora_salida||finGeneral||null);
   return {horaInicio,horaFin,tieneHorario:!!(horaInicio||horaFin),especial:esp,
     primeraLeccion:primera?Number(primera):null,ultimaLeccion:ultima?Number(ultima):null};
 }
@@ -292,7 +292,9 @@ router.post("/escaneo", canEscanear, async (req, res) => {
   // ── ENTRADA: exige jornada y admite como máximo 20 minutos de antelación.
   if(tipo === "entrada"){
     if(!jornada.horaInicio){
-      const detalle="No tiene horario de ingreso configurado para hoy";
+      const detalle=jornada.especial?.sin_horario
+        ? `La sección no tiene jornada programada hoy${jornada.especial.motivo?`: ${jornada.especial.motivo}`:""}`
+        : "No tiene horario de ingreso configurado para hoy";
       await pool.query(`INSERT INTO porteria_registros (estudiante_id,fecha,hora,tipo,resultado,detalle,registrado_por)
         VALUES($1,$2,$3,'entrada','denegado',$4,$5)`,[est.id,fecha,hora,detalle,uid]);
       return res.json({ok:true,resultado:"denegado",tipo:"entrada",hora,estudiante:est,detalle,

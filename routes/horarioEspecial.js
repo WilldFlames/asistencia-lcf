@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
       u.nombre AS creador_nombre,u.primer_apellido AS creador_ap1,u.segundo_apellido AS creador_ap2
     FROM horarios_especiales he JOIN secciones s ON s.id=he.seccion_id
     LEFT JOIN usuarios u ON u.id=he.creado_por
-    WHERE he.fecha BETWEEN $1 AND $2 ORDER BY he.fecha,s.nombre`,[desde,hasta]);
+    WHERE he.fecha BETWEEN $1 AND $2 ORDER BY he.fecha DESC,s.nombre`,[desde,hasta]);
   res.json(r.rows);
 });
 
@@ -40,19 +40,23 @@ router.post("/", async (req, res) => {
   const fecha=String(req.body.fecha||""),seccionId=Number(req.body.seccion_id);
   const entrada=String(req.body.hora_entrada||"").slice(0,5)||null;
   const salida=String(req.body.hora_salida||"").slice(0,5)||null;
+  const sinHorario=req.body.sin_horario===true;
   const motivo=String(req.body.motivo||"").trim();
   if(!fechaValida(fecha)||!Number.isInteger(seccionId)||seccionId<=0) return res.status(400).json({error:"Seleccione una fecha y una sección válidas."});
-  if(!horaValida(entrada)||!horaValida(salida)||(!entrada&&!salida)) return res.status(400).json({error:"Indique al menos una hora especial válida de entrada o salida."});
-  if(entrada&&salida&&entrada>=salida) return res.status(400).json({error:"La hora de salida debe ser posterior a la entrada."});
+  if(!sinHorario&&(!horaValida(entrada)||!horaValida(salida)||(!entrada&&!salida))) return res.status(400).json({error:"Indique al menos una hora especial válida de entrada o salida, o marque que la sección no tiene jornada."});
+  if(!sinHorario&&entrada&&salida&&entrada>=salida) return res.status(400).json({error:"La hora de salida debe ser posterior a la entrada."});
   if(!motivo) return res.status(400).json({error:"Indique el motivo del horario especial."});
   const r=await pool.query(`INSERT INTO horarios_especiales
-      (fecha,seccion_id,hora_entrada,hora_salida,motivo,activo,creado_por,anulado_por,updated_at)
-    VALUES($1,$2,$3,$4,$5,true,$6,NULL,NOW())
+      (fecha,seccion_id,hora_entrada,hora_salida,motivo,sin_horario,activo,creado_por,anulado_por,updated_at)
+    VALUES($1,$2,$3,$4,$5,$6,true,$7,NULL,NOW())
     ON CONFLICT(fecha,seccion_id) DO UPDATE SET hora_entrada=EXCLUDED.hora_entrada,
-      hora_salida=EXCLUDED.hora_salida,motivo=EXCLUDED.motivo,activo=true,
+      hora_salida=EXCLUDED.hora_salida,motivo=EXCLUDED.motivo,sin_horario=EXCLUDED.sin_horario,activo=true,
       creado_por=EXCLUDED.creado_por,anulado_por=NULL,updated_at=NOW()
-    RETURNING *`,[fecha,seccionId,entrada,salida,motivo,req.session.usuario.id]);
-  await notificarSecciones([seccionId],{title:"Horario especial",body:`${fecha}: ${entrada?`entrada ${entrada}`:"entrada habitual"} · ${salida?`salida ${salida}`:"salida habitual"}. ${motivo}`,url:"/?app=familias&abrir=horario"});
+    RETURNING *`,[fecha,seccionId,sinHorario?null:entrada,sinHorario?null:salida,motivo,sinHorario,req.session.usuario.id]);
+  const mensaje=sinHorario
+    ? `${fecha}: la sección no tendrá jornada. ${motivo}`
+    : `${fecha}: ${entrada?`entrada ${entrada}`:"entrada habitual"} · ${salida?`salida ${salida}`:"salida habitual"}. ${motivo}`;
+  await notificarSecciones([seccionId],{title:sinHorario?"Sección sin jornada":"Horario especial",body:mensaje,url:"/?app=familias&abrir=horario"});
   res.json(r.rows[0]);
 });
 

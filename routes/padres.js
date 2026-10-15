@@ -415,7 +415,11 @@ router.get("/hijo/:id/asistencia-dia", requirePadre, hijoDelPadre, async (req,re
   if(!fechaValida(fecha)) return res.status(400).json({error:"Fecha inválida."});
   const dia=new Date(`${fecha}T12:00:00Z`).getUTCDay();
   const anio=await obtenerAnioActivo();
-  if(dia<1||dia>5||!req.hijo.seccion_id) return res.json({fecha,anio,clases:[]});
+  if(!req.hijo.seccion_id) return res.json({fecha,anio,clases:[]});
+  const especial=await pool.query(`SELECT motivo,COALESCE(sin_horario,false) AS sin_horario
+    FROM horarios_especiales WHERE fecha=$1 AND seccion_id=$2 AND activo=true LIMIT 1`,[fecha,req.hijo.seccion_id]);
+  if(especial.rows[0]?.sin_horario) return res.json({fecha,anio,clases:[],sin_horario:true,motivo:especial.rows[0].motivo||""});
+  if(dia<1||dia>5) return res.json({fecha,anio,clases:[]});
   const r=await pool.query(`
     SELECT h.leccion, h.aula, h.asignacion_id, h.materia_texto,
       m.nombre AS materia_nombre,

@@ -2316,6 +2316,8 @@ async function initDB() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_horarios_especiales_fecha
       ON horarios_especiales(fecha,seccion_id) WHERE activo=true`);
+    await client.query(`ALTER TABLE horarios_especiales
+      ADD COLUMN IF NOT EXISTS sin_horario BOOLEAN DEFAULT false`);
 
     // Ausencias que deben verse en el horario diario de LCF Familias.
     await client.query(`

@@ -1,0 +1,16 @@
+ACTUALIZACIÓN DEL 15 DE OCTUBRE DE 2026
+
+1. El administrador y las auxiliares visualizan el historial completo de horarios especiales.
+2. Cada registro muestra el funcionario que lo creó y la fecha de registro.
+3. Se agregó la condición "La sección no tiene jornada ese día".
+4. La condición sin jornada reemplaza el horario normal solamente para la sección y fecha elegidas.
+5. Portería bloquea el ingreso y muestra la alerta crítica cuando una sección no tiene jornada.
+6. LCF Familias muestra al encargado que la sección no tiene jornada, junto con el motivo.
+7. Las familias reciben la notificación correspondiente al registrar la condición.
+
+La migración es aditiva: agrega una columna con valor predeterminado falso y no altera
+los horarios especiales existentes, los horarios generales ni los registros de portería.
+
+VERIFICACIÓN
+
+Se ejecutaron 282 pruebas automatizadas y todas finalizaron correctamente.

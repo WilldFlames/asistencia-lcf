@@ -43,3 +43,17 @@ test('la ausencia docente se refleja en la jornada familiar',()=>{
   assert.match(padres,/LEFT JOIN LATERAL[\s\S]*docente_ausencias/);
   assert.match(html,/Docente ausente/);
 });
+
+test('una sección puede quedar sin jornada en una fecha y bloquear el ingreso',()=>{
+  const db=read('db.js');
+  const ruta=read('routes/horarioEspecial.js');
+  const porteria=read('routes/porteria.js');
+  const padres=read('routes/padres.js');
+  const html=read('public/index.html');
+  assert.match(db,/ADD COLUMN IF NOT EXISTS sin_horario BOOLEAN DEFAULT false/);
+  assert.match(ruta,/sinHorario=req\.body\.sin_horario===true/);
+  assert.match(porteria,/jornada\.especial\?\.sin_horario/);
+  assert.match(padres,/sin_horario:true/);
+  assert.match(html,/La sección no tiene jornada ese día/);
+  assert.match(html,/Registrado por/);
+});
