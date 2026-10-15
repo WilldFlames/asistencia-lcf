@@ -37,8 +37,8 @@ const canVer      = requireRol("admin","seguridad","auxiliar","administrativo");
 async function notificarMovimientoPorteria(estudianteId, tipo, hora, resultado="permitido", detalle=""){
   const esEntrada=tipo==="entrada";
   const permitido=resultado==="permitido";
-  const title=esEntrada ? "Ingreso registrado en portería" : (permitido ? "Salida registrada en portería" : "Salida no autorizada");
-  const accion=esEntrada ? "ingresó a la institución" : (permitido ? "salió de la institución" : "intentó salir, pero no tenía autorización");
+  const title=esEntrada ? (permitido ? "Ingreso registrado en portería" : "Ingreso no autorizado") : (permitido ? "Salida registrada en portería" : "Salida no autorizada");
+  const accion=esEntrada ? (permitido ? "ingresó a la institución" : "intentó ingresar fuera de su horario") : (permitido ? "salió de la institución" : "intentó salir, pero no tenía autorización");
   await notificarEstudiante(estudianteId,{
     title,
     body:`{estudiante} ${accion} a las ${hora}.${detalle?` ${detalle}`:""}`,
@@ -219,20 +219,33 @@ router.get("/estudiante/:id/movimientos", canEscanear, async(req,res)=>{
   res.json({estudiante:est.rows[0],fecha,movimientos:mov.rows});
 });
 
-// Calcula la hora en que terminan las lecciones del estudiante HOY.
-// Devuelve { horaFin, tieneHorario }. Sin horario configurado → tieneHorario=false.
-async function finLeccionesHoy(seccionId, fecha){
+function restarMinutos(hora, cantidad){
+  const [h,m]=String(hora||"00:00").split(":").map(Number);
+  const total=Math.max(0,h*60+m-cantidad);
+  return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
+}
+
+// Jornada efectiva del estudiante: parte del horario general y sustituye la
+// entrada o salida cuando Administración programó un horario especial.
+async function jornadaHoy(seccionId, fecha){
   const dia = diaSemana(fecha);
-  if(dia < 1 || dia > 5) return { horaFin: null, tieneHorario: false, finde: true };
   const anio = parseInt(fecha.slice(0,4));
-  const r = await pool.query(
-    "SELECT MAX(leccion) AS ultima FROM horarios WHERE seccion_id=$1 AND anio=$2 AND dia=$3",
-    [seccionId, anio, dia]
-  );
-  const ultima = r.rows[0] && r.rows[0].ultima;
-  if(!ultima) return { horaFin: null, tieneHorario: false, finde: false };
-  const lec = obtenerLecciones(anio).find(l => l.n === parseInt(ultima));
-  return { horaFin: lec ? lec.fin : null, tieneHorario: true, finde: false, ultimaLeccion: parseInt(ultima) };
+  const especial=await pool.query(`SELECT id,hora_entrada,hora_salida,motivo
+    FROM horarios_especiales WHERE seccion_id=$1 AND fecha=$2 AND activo=true LIMIT 1`,[seccionId,fecha]);
+  let primera=null,ultima=null;
+  if(dia>=1&&dia<=5){
+    const r=await pool.query(`SELECT MIN(leccion) AS primera,MAX(leccion) AS ultima
+      FROM horarios WHERE seccion_id=$1 AND anio=$2 AND dia=$3`,[seccionId,anio,dia]);
+    primera=r.rows[0]?.primera; ultima=r.rows[0]?.ultima;
+  }
+  const lecciones=obtenerLecciones(anio);
+  const inicioGeneral=primera?lecciones.find(l=>l.n===Number(primera))?.ini:null;
+  const finGeneral=ultima?lecciones.find(l=>l.n===Number(ultima))?.fin:null;
+  const esp=especial.rows[0]||null;
+  const horaInicio=esp?.hora_entrada||inicioGeneral||null;
+  const horaFin=esp?.hora_salida||finGeneral||null;
+  return {horaInicio,horaFin,tieneHorario:!!(horaInicio||horaFin),especial:esp,
+    primeraLeccion:primera?Number(primera):null,ultimaLeccion:ultima?Number(ultima):null};
 }
 
 // ── ESCANEO ───────────────────────────────────────────────────────────────
@@ -247,6 +260,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
   const fecha = fechaCR();
   const hora = horaCR();
   const ced = limpiarCedula(cedula);
+  const uid = req.session.usuario.id;
 
   const estR = await pool.query(`
     SELECT e.*, s.nombre AS seccion_nombre
@@ -255,9 +269,14 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     WHERE UPPER(REGEXP_REPLACE(e.cedula,'[^[:alnum:]]','','g')) = UPPER($1)
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
   `, [ced]);
-  if(!estR.rows.length) return res.status(404).json({ error: "Estudiante no encontrado en el sistema" });
+  if(!estR.rows.length){
+    await pool.query(`INSERT INTO porteria_intentos_desconocidos
+      (identificacion,fecha,hora,detalle,registrado_por) VALUES($1,$2,$3,$4,$5)`,
+      [ced,fecha,hora,"Identificación no corresponde a un estudiante activo",uid]);
+    return res.status(404).json({ error: "🚨 ALERTA: la identificación no corresponde a ningún estudiante activo.",
+      alerta_critica:true,codigo:"identificacion_desconocida" });
+  }
   const est = estR.rows[0];
-  const uid = req.session.usuario.id;
 
   if(!tipo || tipo === "auto"){
     const ultimo = await pool.query(`
@@ -268,30 +287,41 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     tipo = ultimo.rows[0]?.tipo === "entrada" ? "salida" : "entrada";
   }
 
-  // ── ENTRADA: siempre se registra ─────────────────────────────────────
+  const jornada=await jornadaHoy(est.seccion_id,fecha);
+
+  // ── ENTRADA: exige jornada y admite como máximo 20 minutos de antelación.
   if(tipo === "entrada"){
+    if(!jornada.horaInicio){
+      const detalle="No tiene horario de ingreso configurado para hoy";
+      await pool.query(`INSERT INTO porteria_registros (estudiante_id,fecha,hora,tipo,resultado,detalle,registrado_por)
+        VALUES($1,$2,$3,'entrada','denegado',$4,$5)`,[est.id,fecha,hora,detalle,uid]);
+      return res.json({ok:true,resultado:"denegado",tipo:"entrada",hora,estudiante:est,detalle,
+        alerta_critica:true,codigo:"sin_horario"});
+    }
+    const ingresoDesde=restarMinutos(jornada.horaInicio,20);
+    if(hora<ingresoDesde){
+      const detalle=`Ingreso demasiado temprano. Su jornada inicia a las ${jornada.horaInicio}; puede ingresar desde las ${ingresoDesde}.`;
+      await pool.query(`INSERT INTO porteria_registros (estudiante_id,fecha,hora,tipo,resultado,detalle,registrado_por)
+        VALUES($1,$2,$3,'entrada','denegado',$4,$5)`,[est.id,fecha,hora,detalle,uid]);
+      await notificarMovimientoPorteria(est.id,"entrada",hora,"denegado",detalle);
+      return res.json({ok:true,resultado:"denegado",tipo:"entrada",hora,estudiante:est,detalle,
+        alerta_critica:true,codigo:"entrada_temprana"});
+    }
+    const detalle=jornada.especial
+      ? `Ingreso registrado · Horario especial (${jornada.horaInicio})`
+      : `Ingreso registrado · Jornada inicia a las ${jornada.horaInicio}`;
     await pool.query(`
       INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
-      VALUES ($1,$2,$3,'entrada','permitido','Ingreso registrado',$4)
-    `, [est.id, fecha, hora, uid]);
+      VALUES ($1,$2,$3,'entrada','permitido',$4,$5)
+    `, [est.id, fecha, hora, detalle, uid]);
     await notificarMovimientoPorteria(est.id,"entrada",hora);
-    return res.json({ ok: true, resultado: "permitido", tipo: "entrada", hora, estudiante: est, detalle: "Ingreso registrado" });
+    return res.json({ ok: true, resultado: "permitido", tipo: "entrada", hora, estudiante: est, detalle });
   }
 
   // ── SALIDA: lógica de horario + permisos ─────────────────────────────
   // 1. ¿Ya terminaron sus lecciones de hoy?
-  const fin = await finLeccionesHoy(est.seccion_id, fecha);
-
-  if(fin.finde){
-    await pool.query(`
-      INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
-      VALUES ($1,$2,$3,'salida','permitido','Día no lectivo (fin de semana)',$4)
-    `, [est.id, fecha, hora, uid]);
-    await notificarMovimientoPorteria(est.id,"salida",hora,"permitido","Día no lectivo.");
-    return res.json({ ok: true, resultado: "permitido", tipo: "salida", hora, estudiante: est, detalle: "Día no lectivo (fin de semana)" });
-  }
-
-  if(!fin.tieneHorario){
+  const fin = jornada;
+  if(!fin.horaFin){
     // Sin horario configurado para esta sección: el sistema NO puede bloquear.
     // Se permite con aviso, para no dejar estudiantes atrapados en el rollout.
     await pool.query(`
@@ -307,10 +337,10 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     await pool.query(`
       INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
       VALUES ($1,$2,$3,'salida','permitido',$4,$5)
-    `, [est.id, fecha, hora, `Fin de lecciones (terminó a las ${fin.horaFin})`, uid]);
+    `, [est.id, fecha, hora, `${fin.especial?'Horario especial':'Fin de lecciones'} (salida a las ${fin.horaFin})`, uid]);
     await notificarMovimientoPorteria(est.id,"salida",hora,"permitido",`Finalizó sus lecciones a las ${fin.horaFin}.`);
     return res.json({ ok: true, resultado: "permitido", tipo: "salida", hora, estudiante: est,
-      detalle: `Fin de lecciones (terminó a las ${fin.horaFin})` });
+      detalle: `${fin.especial?'Horario especial':'Fin de lecciones'} (salida a las ${fin.horaFin})` });
   }
 
   // 2. Todavía en horario lectivo → buscar permiso vigente sin usar por este estudiante
@@ -371,11 +401,13 @@ router.get("/registros", canVer, async (req, res) => {
   const r = await pool.query(`
     SELECT r.*, e.nombre, e.primer_apellido, e.segundo_apellido, e.cedula,
       s.nombre AS seccion_nombre,
-      p.numero AS permiso_numero, p.anio AS permiso_anio
+      p.numero AS permiso_numero, p.anio AS permiso_anio,
+      u.nombre AS registro_nombre,u.primer_apellido AS registro_ap1,u.segundo_apellido AS registro_ap2
     FROM porteria_registros r
     JOIN estudiantes e ON e.id = r.estudiante_id
     LEFT JOIN secciones s ON s.id = e.seccion_id
     LEFT JOIN permisos_salida p ON p.id = r.permiso_id
+    LEFT JOIN usuarios u ON u.id=r.registrado_por
     WHERE r.fecha = $1
     ORDER BY r.hora DESC, r.id DESC
   `, [fecha]);
@@ -389,11 +421,13 @@ router.get("/informe-diario", requireRol("admin","administrativo"), async (req,r
   const r=await pool.query(`
     SELECT r.*,e.nombre,e.primer_apellido,e.segundo_apellido,e.cedula,
       COALESCE(s.nombre,e.seccion_archivo) AS seccion_nombre,
-      p.numero AS permiso_numero,p.anio AS permiso_anio
+      p.numero AS permiso_numero,p.anio AS permiso_anio,
+      u.nombre AS registro_nombre,u.primer_apellido AS registro_ap1,u.segundo_apellido AS registro_ap2
     FROM porteria_registros r
     JOIN estudiantes e ON e.id=r.estudiante_id
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN permisos_salida p ON p.id=r.permiso_id
+    LEFT JOIN usuarios u ON u.id=r.registrado_por
     WHERE r.fecha=$1
     ORDER BY r.hora,r.id`,[fecha]);
   res.json(r.rows);
@@ -404,9 +438,9 @@ router.get("/stats", canVer, async (req, res) => {
   const fecha = req.query.fecha || fechaCR();
   const r = await pool.query(`
     SELECT
-      COUNT(CASE WHEN tipo='entrada' THEN 1 END) AS entradas,
+      COUNT(CASE WHEN tipo='entrada' AND resultado='permitido' THEN 1 END) AS entradas,
       COUNT(CASE WHEN tipo='salida' AND resultado='permitido' THEN 1 END) AS salidas,
-      COUNT(CASE WHEN tipo='salida' AND resultado='denegado' THEN 1 END) AS denegadas
+      COUNT(CASE WHEN resultado='denegado' THEN 1 END) AS denegadas
     FROM porteria_registros WHERE fecha=$1
   `, [fecha]);
   res.json(r.rows[0] || { entradas: 0, salidas: 0, denegadas: 0 });

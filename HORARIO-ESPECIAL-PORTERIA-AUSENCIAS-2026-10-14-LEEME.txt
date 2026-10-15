@@ -1,0 +1,20 @@
+ACTUALIZACIÓN DEL 14 DE OCTUBRE DE 2026
+
+1. Nuevo módulo Horario especial, exclusivo para administradores y auxiliares.
+2. Programación anticipada de entrada y/o salida especial por sección.
+3. Portería usa el horario especial de la fecha; si no existe, utiliza el horario general.
+4. Se impide ingresar sin horario o más de 20 minutos antes de la hora establecida.
+5. Los intentos tempranos y las identificaciones desconocidas muestran una alerta crítica.
+6. Las identificaciones desconocidas quedan registradas en una bitácora de seguridad.
+7. El informe diario indica quién registró la entrada y quién registró la salida.
+8. Administración puede registrar ausencias docentes por fecha y rango de lecciones.
+9. LCF Familias muestra Docente ausente en la jornada diaria correspondiente.
+
+VERIFICACIÓN
+
+Se ejecutaron 281 pruebas automatizadas y todas finalizaron correctamente.
+
+DESPLIEGUE
+
+El ZIP contiene el proyecto completo sin node_modules, archivos temporales ni credenciales.
+Al desplegarlo, las tablas nuevas se crean automáticamente durante la inicialización del sistema.

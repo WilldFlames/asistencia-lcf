@@ -1,0 +1,17 @@
+CORRECCIÓN DE CONTADORES DEL PANEL PRINCIPAL
+Fecha: 13 de octubre de 2026
+
+Los indicadores del panel ahora significan:
+
+- Usuarios activos: cuentas activas que no han sido eliminadas.
+- Estudiantes: estudiantes activos y no archivados; los retiros no se cuentan.
+- Asignaciones vigentes: asignaciones activas del año y período lectivo vigentes,
+  correspondientes únicamente a personal activo.
+
+También se mantienen las correcciones de conteo de matrícula, cupos, grupos A/B,
+convocatorias y aplicación del año nuevo incluidas en la versión anterior.
+
+Los registros retirados, desactivados e históricos no se borran. Solamente dejan
+de formar parte de los indicadores operativos actuales.
+
+Verificación: 277 pruebas automáticas aprobadas.

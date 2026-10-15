@@ -626,11 +626,11 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
       s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
       COALESCE(m.modo_simplificado, false) AS materia_modo_simplificado
     FROM asignaciones a
-    JOIN usuarios u ON u.id=a.profesor_id
+    JOIN usuarios u ON u.id=a.profesor_id AND u.activo=true AND COALESCE(u.eliminado,false)=false
     JOIN secciones s ON s.id=a.seccion_id
     JOIN secciones_anio san ON san.seccion_id=a.seccion_id AND san.anio=$2 AND san.activa=true
     JOIN materias m ON m.id=a.materia_id
-    WHERE COALESCE(a.anio, $1) = $2
+    WHERE COALESCE(a.anio, $1) = $2 AND COALESCE(a.activa,true)=true
     ORDER BY u.nombre, u.primer_apellido, u.segundo_apellido, s.nombre, m.nombre
   `;
   const sqlPeriodo = `
@@ -639,11 +639,11 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
       s.nombre AS seccion_nombre, m.nombre AS materia_nombre,
       COALESCE(m.modo_simplificado, false) AS materia_modo_simplificado
     FROM asignaciones a
-    JOIN usuarios u ON u.id=a.profesor_id
+    JOIN usuarios u ON u.id=a.profesor_id AND u.activo=true AND COALESCE(u.eliminado,false)=false
     JOIN secciones s ON s.id=a.seccion_id
     JOIN secciones_anio san ON san.seccion_id=a.seccion_id AND san.anio=$2 AND san.activa=true
     JOIN materias m ON m.id=a.materia_id
-    WHERE COALESCE(a.anio, $3) = $2 AND (
+    WHERE COALESCE(a.anio, $3) = $2 AND COALESCE(a.activa,true)=true AND (
       COALESCE(a.periodo,'I Período') = $1
       OR (
         COALESCE(a.periodo,'I Período') = 'I Período'
@@ -655,6 +655,7 @@ router.get("/asignaciones", onlyAdmin, async (req, res) => {
             AND COALESCE(a2.subgrupo,'') = COALESCE(a.subgrupo,'')
             AND COALESCE(a2.periodo,'I Período') = $1
             AND COALESCE(a2.anio, $3) = $2
+            AND COALESCE(a2.activa,true)=true
         )
       )
     )

@@ -421,7 +421,8 @@ router.get("/hijo/:id/asistencia-dia", requirePadre, hijoDelPadre, async (req,re
       m.nombre AS materia_nombre,
       u.nombre AS prof_nombre, u.primer_apellido AS prof_ap1, u.segundo_apellido AS prof_ap2,
       ast.estado, ast.justificada, ast.lecciones_ausentes, ast.lecciones_tardias,
-      sa.id AS sesion_id
+      sa.id AS sesion_id, da.motivo AS ausencia_motivo,
+      (da.id IS NOT NULL) AS docente_ausente
     FROM horarios h
     LEFT JOIN asignaciones a ON a.id=h.asignacion_id
     LEFT JOIN materias m ON m.id=a.materia_id
@@ -429,6 +430,12 @@ router.get("/hijo/:id/asistencia-dia", requirePadre, hijoDelPadre, async (req,re
     LEFT JOIN sesiones_asistencia sa ON sa.asignacion_id=h.asignacion_id AND sa.fecha=$4
     LEFT JOIN asistencia ast ON ast.sesion_id=sa.id AND ast.estudiante_id=$3
     LEFT JOIN estudiantes e ON e.id=$3
+    LEFT JOIN LATERAL (
+      SELECT d.id,d.motivo FROM docente_ausencias d
+      WHERE d.profesor_id=a.profesor_id AND d.fecha=$4 AND d.activo=true
+        AND h.leccion BETWEEN d.leccion_desde AND d.leccion_hasta
+      ORDER BY d.id DESC LIMIT 1
+    ) da ON true
     WHERE h.seccion_id=$1 AND h.anio=$2 AND h.dia=$5
       AND (h.asignacion_id IS NULL OR COALESCE(a.subgrupo,'')=''
         OR UPPER(a.subgrupo)=UPPER(COALESCE(e.subgrupo,'')))

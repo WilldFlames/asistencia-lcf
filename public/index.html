@@ -903,6 +903,9 @@ tr:hover td{background:#f8fafc;}
   .agenda-event{display:block;border:0;border-left:4px solid var(--event,#2563eb);background:#fff;border-radius:6px;padding:6px;margin-bottom:5px;font-size:10.5px;box-shadow:0 1px 4px #0f172a12;cursor:pointer;text-align:left;width:100%}.agenda-event strong{display:block;color:#172554}.agenda-event.pending{background:#fffbeb}.agenda-event.block{--event:#94a3b8;background:#f1f5f9;color:#64748b;cursor:default}.agenda-side-item{border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:7px;font-size:11px}.agenda-side-item strong{display:block;color:var(--azul)}
   .agenda-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:10.5px;color:var(--muted)}.agenda-legend span{display:flex;align-items:center;gap:4px}.agenda-legend i{width:9px;height:9px;border-radius:50%}.agenda-people{border:1px solid var(--border);border-radius:9px;max-height:210px;overflow:auto;margin-top:6px;padding:5px}.agenda-person{display:flex;gap:8px;align-items:center;padding:7px;border-bottom:1px solid #edf2f7;font-size:12px}.agenda-person input{width:auto}.agenda-person small{display:block;color:var(--muted)}.agenda-office-row{display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center;margin-bottom:7px;font-size:12px}
   @media(max-width:900px){.agenda-layout{grid-template-columns:1fr}.agenda-layout aside{border-left:0;border-top:1px solid var(--border);padding:12px 0 0}.agenda-week{grid-template-columns:repeat(7,minmax(150px,1fr))}}
+@keyframes ptAlertaCritica{0%,100%{transform:scale(1);box-shadow:0 0 0 0 #dc262699}50%{transform:scale(1.025);box-shadow:0 0 0 14px #dc262600}}
+.pt-critical-flash{animation:ptAlertaCritica .72s ease-in-out infinite;background:#b91c1c!important;border:6px solid #facc15!important;color:#fff!important;max-width:760px!important;padding:28px!important}
+.pt-critical-flash #ptr-sub,.pt-critical-flash #ptr-detalle{color:#fff!important}
 </style>
 </head>
 <body>
@@ -1247,6 +1250,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="usuarios" id="nav-usuarios" onclick="goTo('usuarios')" style="display:none"><span class="icon">👥</span><span>Usuarios</span></button>
   <button class="nav-btn" data-page="asignaciones" id="nav-asignaciones" onclick="goTo('asignaciones')" style="display:none"><span class="icon">📋</span><span>Asignaciones</span></button>
   <button class="nav-btn" data-page="permisos" id="nav-permisos" onclick="goTo('permisos')" style="display:none"><span class="icon">🚪</span><span>Permisos Salida</span></button>
+  <button class="nav-btn" data-page="horario-especial" id="nav-horario-especial" onclick="goTo('horario-especial')" style="display:none"><span class="icon">⏱️</span><span>Horario especial</span></button>
   <button class="nav-btn" data-page="porteria" id="nav-porteria" onclick="goTo('porteria')" style="display:none"><span class="icon">🛂</span><span>Portería</span></button>
   <button class="nav-btn" data-page="comedor" id="nav-comedor" onclick="goTo('comedor')" style="display:none"><span class="icon">🍽️</span><span>Comedor</span></button>
   <button class="nav-btn" data-page="carnet" id="nav-carnet" onclick="goTo('carnet')" style="display:none"><span class="icon">🪪</span><span>Carnet</span></button>
@@ -1272,7 +1276,7 @@ tr:hover td{background:#f8fafc;}
   <div class="stats dashboard-stats" id="dash-stats-admin">
     <div class="stat"><div class="stat-icon">👥</div><div class="num" id="ds-usuarios">—</div><div class="lbl">Usuarios activos</div></div>
     <div class="stat"><div class="stat-icon">🎒</div><div class="num green" id="ds-estudiantes">—</div><div class="lbl">Estudiantes</div></div>
-    <div class="stat"><div class="stat-icon">📚</div><div class="num orange" id="ds-asignaciones">—</div><div class="lbl">Asignaciones</div></div>
+    <div class="stat"><div class="stat-icon">📚</div><div class="num orange" id="ds-asignaciones">—</div><div class="lbl">Asignaciones vigentes</div></div>
   </div>
   <div class="card dashboard-welcome"><h2 id="dash-saludo">Bienvenido</h2><p style="font-size:14px;color:var(--muted)" id="dash-msg"></p></div>
   <section id="personal-pwa-panel" class="personal-pwa-panel" hidden>
@@ -2695,6 +2699,38 @@ tr:hover td{background:#f8fafc;}
   </div>
 </div>
 
+<!-- HORARIO ESPECIAL Y AUSENCIAS DOCENTES -->
+<div class="page" id="page-horario-especial">
+  <div class="card" style="margin-bottom:14px">
+    <h2 style="margin-bottom:4px">⏱️ Horario especial por sección</h2>
+    <p style="font-size:12.5px;color:var(--muted)">Administración puede programarlo desde días anteriores. En la fecha indicada sustituye la entrada, la salida o ambas horas del horario general.</p>
+    <div id="alert-he" class="alert"></div>
+    <div class="form-grid">
+      <div class="fg"><label>Fecha *</label><input type="date" id="he-fecha" onchange="heCargar()"></div>
+      <div class="fg"><label>Sección *</label><select id="he-seccion"></select></div>
+      <div class="fg"><label>Entrada especial</label><input type="time" id="he-entrada"></div>
+      <div class="fg"><label>Salida especial</label><input type="time" id="he-salida"></div>
+      <div class="fg" style="grid-column:1/-1"><label>Motivo *</label><input id="he-motivo" placeholder="Ej. reunión de personal, actividad institucional…"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:10px" onclick="heGuardar()">💾 Programar horario</button>
+    <div id="he-lista" class="table-wrap" style="margin-top:14px"></div>
+  </div>
+  <div class="card">
+    <h2 style="margin-bottom:4px">👩‍🏫 Ausencia docente visible para las familias</h2>
+    <p style="font-size:12.5px;color:var(--muted)">El horario diario del encargado mostrará “Docente ausente” en las lecciones indicadas.</p>
+    <div id="alert-he-aus" class="alert"></div>
+    <div class="form-grid">
+      <div class="fg"><label>Fecha *</label><input type="date" id="he-aus-fecha" onchange="heCargarAusencias()"></div>
+      <div class="fg"><label>Docente *</label><select id="he-aus-docente"></select></div>
+      <div class="fg"><label>Desde lección</label><select id="he-aus-desde"></select></div>
+      <div class="fg"><label>Hasta lección</label><select id="he-aus-hasta"></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>Mensaje / motivo</label><input id="he-aus-motivo" placeholder="Opcional; evite información sensible"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:10px" onclick="heGuardarAusencia()">💾 Registrar ausencia</button>
+    <div id="he-aus-lista" class="table-wrap" style="margin-top:14px"></div>
+  </div>
+</div>
+
 <!-- PORTERÍA -->
 <div class="page" id="page-porteria">
   <div class="card">
@@ -2739,7 +2775,7 @@ tr:hover td{background:#f8fafc;}
     <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-top:6px;">
       <div class="stat"><div class="num green" id="pt-entradas">0</div><div class="lbl">Entradas hoy</div></div>
       <div class="stat"><div class="num orange" id="pt-salidas">0</div><div class="lbl">Salidas permitidas</div></div>
-      <div class="stat"><div class="num" id="pt-denegadas" style="color:#dc2626;">0</div><div class="lbl">Salidas denegadas</div></div>
+      <div class="stat"><div class="num" id="pt-denegadas" style="color:#dc2626;">0</div><div class="lbl">Intentos denegados</div></div>
     </div>
   </div>
 
@@ -5808,7 +5844,7 @@ async function api(url,method="GET",body=null){
     document.getElementById("login-screen").classList.add("show");
     return null;
   }
-  if(!r.ok) throw new Error(d.error||`Error ${r.status}`);
+  if(!r.ok){const e=new Error(d.error||`Error ${r.status}`);Object.assign(e,d);throw e;}
   return d;
 }
 function sa(id,msg,type="success"){
@@ -6156,6 +6192,7 @@ function goTo(page){
   if(page==="horario")     iniciarHorario();
   if(page==="citas")       iniciarCitasDocente();
   if(page==="permisos")    iniciarPermisos();
+  if(page==="horario-especial") iniciarHorarioEspecial();
   if(page==="porteria")    iniciarPorteria();
   if(page==="carnet")      iniciarCarnet();
   if(page==="precautoria") iniciarMedidas('precautoria');
@@ -6320,6 +6357,7 @@ async function iniciarApp(){
   // Auxiliares los crean (admin también).
   if(esAdmin||esAuxiliar){
     document.getElementById("nav-permisos").style.display="";
+    document.getElementById("nav-horario-especial").style.display="";
   }
 
   // ── PORTERÍA ─────────────────────────────────────────────────
@@ -6432,7 +6470,7 @@ async function iniciarApp(){
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas','nav-expedientes-conducta',
      'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios','nav-config-anio',
-     'nav-horario','nav-citas','nav-permisos','nav-porteria'
+     'nav-horario','nav-citas','nav-permisos','nav-horario-especial','nav-porteria'
     ].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.style.display = "none";
@@ -6459,7 +6497,7 @@ async function iniciarApp(){
      'nav-archivo','nav-prematricula','nav-matricula','nav-precautoria',
      'nav-suspension','nav-hibrida','nav-debidos','nav-protocolos','nav-minutas',
      'nav-usuarios','nav-asignaciones','nav-cumplimiento','nav-carnet','nav-idiomatec','nav-anuncios','nav-config-anio',
-     'nav-inventario','nav-horario','nav-citas','nav-permisos'
+     'nav-inventario','nav-horario','nav-citas','nav-permisos','nav-horario-especial'
     ].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.style.display = "none";
@@ -17720,6 +17758,7 @@ async function ppCargarPermisos(){
 }
 
 function ppEstadoAsistenciaFila(c){
+  if(c.docente_ausente)return ['Docente ausente','warn','!'];
   if(c.estado==='P')return ['Presente','ok','●'];
   if(c.estado==='A')return [c.justificada?'Ausencia justificada':'Ausente','bad','●'];
   if(c.estado==='T')return ['Tardía','warn','●'];
@@ -17735,6 +17774,7 @@ function ppAgruparLeccionesConsecutivas(clases){
       clase.asignacion_id||'',clase.materia_nombre||clase.materia_texto||'',clase.aula||'',
       clase.prof_nombre||'',clase.prof_ap1||'',clase.prof_ap2||'',clase.estado||'',
       clase.justificada?'1':'0',clase.situacion||''
+      ,clase.docente_ausente?'1':'0',clase.ausencia_motivo||''
     ].join('|');
     const esContinua=anterior&&anterior._clave===clave&&anterior.hora_fin&&clase.hora_inicio&&anterior.hora_fin===clase.hora_inicio;
     if(esContinua){
@@ -17766,7 +17806,7 @@ async function ppCargarAsistenciaDia(fecha=null,destinoId='pp-as-dia-list'){
       return `<div class="pp-today-row">
         <div class="pp-today-time"><span>${c.hora_inicio||'—'}</span><span class="pp-time-end">${c.hora_fin||''}</span></div>
         <div><strong>${htmlSeguro(c.materia_nombre||c.materia_texto||'Materia')}</strong>${c.aula?`<div class="pp-help">Aula ${c.aula}</div>`:''}${c.cantidad_lecciones>1?`<span class="pp-lesson-count">${c.cantidad_lecciones} lecciones consecutivas</span>`:''}</div>
-        <div class="pp-teacher" style="color:#60758a;font-size:12px;">${htmlSeguro(prof)}</div>
+        <div class="pp-teacher" style="color:#60758a;font-size:12px;">${htmlSeguro(prof)}${c.docente_ausente?`<div style="color:#b45309;font-weight:700">⚠️ Docente ausente${c.ausencia_motivo?`: ${htmlSeguro(c.ausencia_motivo)}`:''}</div>`:''}</div>
         <span class="pp-status ${clase}">${punto} ${txt}</span>
       </div>`;
     }).join('');
@@ -19195,6 +19235,44 @@ async function psAnular(id){
 }
 
 // ════════════════════════════════════
+//  HORARIO ESPECIAL (admin / auxiliares)
+// ════════════════════════════════════
+let heSecciones=[],heDocentes=[];
+async function iniciarHorarioEspecial(){
+  const hoy=fechaHoyCR();
+  ['he-fecha','he-aus-fecha'].forEach(id=>{const x=document.getElementById(id);if(x&&!x.value)x.value=hoy;});
+  const opciones=Array.from({length:12},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  document.getElementById('he-aus-desde').innerHTML=opciones;
+  document.getElementById('he-aus-hasta').innerHTML=opciones;
+  document.getElementById('he-aus-hasta').value='12';
+  try{
+    [heSecciones,heDocentes]=await Promise.all([api('/api/horario-especial/secciones'),api('/api/horario-especial/docentes')]);
+    document.getElementById('he-seccion').innerHTML='<option value="">— Seleccione —</option>'+heSecciones.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join('');
+    document.getElementById('he-aus-docente').innerHTML='<option value="">— Seleccione —</option>'+heDocentes.map(d=>`<option value="${d.id}">${htmlSeguro(nombrePersona(d))}</option>`).join('');
+    await Promise.all([heCargar(),heCargarAusencias()]);
+  }catch(e){sa('alert-he',e.message,'danger');}
+}
+function heRango(){const f=document.getElementById('he-fecha')?.value||fechaHoyCR();return `desde=${encodeURIComponent(f)}&hasta=${encodeURIComponent(f)}`;}
+async function heCargar(){
+  const box=document.getElementById('he-lista');
+  try{const rows=await api(`/api/horario-especial?${heRango()}`)||[];box.innerHTML=rows.length?`<table><thead><tr><th>Fecha</th><th>Sección</th><th>Entrada</th><th>Salida</th><th>Motivo</th><th>Registró</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr style="${x.activo?'':'opacity:.55'}"><td>${fmtF(x.fecha)}</td><td>${htmlSeguro(x.seccion_nombre)}</td><td>${x.hora_entrada||'Horario general'}</td><td>${x.hora_salida||'Horario general'}</td><td>${htmlSeguro(x.motivo)}</td><td>${htmlSeguro(nombreDesdeCampos(x.creador_nombre,x.creador_ap1,x.creador_ap2))}</td><td>${x.activo?`<button class="btn btn-danger btn-xs" onclick="heAnular(${x.id})">Anular</button>`:'Anulado'}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">No hay horario especial para la fecha seleccionada.</div>';}catch(e){box.innerHTML=`<div class="empty">${htmlSeguro(e.message)}</div>`;}
+}
+async function heGuardar(){
+  const body={fecha:document.getElementById('he-fecha').value,seccion_id:document.getElementById('he-seccion').value,hora_entrada:document.getElementById('he-entrada').value,hora_salida:document.getElementById('he-salida').value,motivo:document.getElementById('he-motivo').value};
+  try{await api('/api/horario-especial','POST',body);sa('alert-he','Horario especial programado. Portería lo aplicará automáticamente en esa fecha.','success');await heCargar();}catch(e){sa('alert-he',e.message,'danger');}
+}
+async function heAnular(id){if(!confirm('¿Anular este horario especial?'))return;await api(`/api/horario-especial/${id}/anular`,'PUT',{});await heCargar();}
+async function heCargarAusencias(){
+  const f=document.getElementById('he-aus-fecha')?.value||fechaHoyCR(),box=document.getElementById('he-aus-lista');
+  try{const rows=await api(`/api/horario-especial/ausencias/lista?desde=${f}&hasta=${f}`)||[];box.innerHTML=rows.length?`<table><thead><tr><th>Fecha</th><th>Docente</th><th>Lecciones</th><th>Mensaje</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr style="${x.activo?'':'opacity:.55'}"><td>${fmtF(x.fecha)}</td><td>${htmlSeguro(nombrePersona(x))}</td><td>${x.leccion_desde} a ${x.leccion_hasta}</td><td>${htmlSeguro(x.motivo||'Docente ausente')}</td><td>${x.activo?`<button class="btn btn-danger btn-xs" onclick="heAnularAusencia(${x.id})">Anular</button>`:'Anulada'}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">No hay ausencias docentes para esta fecha.</div>';}catch(e){box.innerHTML=`<div class="empty">${htmlSeguro(e.message)}</div>`;}
+}
+async function heGuardarAusencia(){
+  const body={fecha:document.getElementById('he-aus-fecha').value,profesor_id:document.getElementById('he-aus-docente').value,leccion_desde:document.getElementById('he-aus-desde').value,leccion_hasta:document.getElementById('he-aus-hasta').value,motivo:document.getElementById('he-aus-motivo').value};
+  try{await api('/api/horario-especial/ausencias','POST',body);sa('alert-he-aus','Ausencia registrada y visible en el horario diario de las familias.','success');await heCargarAusencias();}catch(e){sa('alert-he-aus',e.message,'danger');}
+}
+async function heAnularAusencia(id){if(!confirm('¿Anular este aviso de ausencia?'))return;await api(`/api/horario-especial/ausencias/${id}/anular`,'PUT',{});await heCargarAusencias();}
+
+// ════════════════════════════════════
 //  PORTERÍA (rol seguridad)
 // ════════════════════════════════════
 let ptModo = 'auto';
@@ -19266,8 +19344,10 @@ async function ptEscanear(){
     const r = await api('/api/porteria/escaneo','POST',{ cedula, tipo: 'auto' });
     const est = r.estudiante||{};
     const ok = r.resultado === 'permitido';
-    box.style.display='';
-    if(r.tipo==='entrada'){
+    box.style.display='';box.classList.toggle('pt-critical-flash',!!r.alerta_critica);
+    if(r.alerta_critica){
+      document.getElementById('ptr-estado').innerHTML='<span>🚨 ALERTA DE PORTERÍA 🚨</span>';
+    } else if(r.tipo==='entrada'){
       box.style.background='#dcfce7'; box.style.border='3px solid #16a34a';
       document.getElementById('ptr-estado').innerHTML='<span style="color:#166534;">✅ ENTRADA REGISTRADA</span>';
     } else if(ok && r.aviso){
@@ -19286,16 +19366,16 @@ async function ptEscanear(){
     if(input) input.value='';
     await Promise.all([ptCargarStats(), ptCargarRegistros(), ptCargarPermisosHoy()]);
     // El resultado denegado se queda más tiempo en pantalla
-    ptResultTimer = setTimeout(()=>{ box.style.display='none'; }, ok ? 4000 : 8000);
+    if(!r.alerta_critica)ptResultTimer = setTimeout(()=>{ box.style.display='none'; }, ok ? 4000 : 8000);
   }catch(e){
     if(input) input.value='';
-    box.style.display='';
+    box.style.display='';box.classList.toggle('pt-critical-flash',!!e.alerta_critica||String(e.message).includes('ALERTA'));
     box.style.background='#fee2e2'; box.style.border='3px solid #dc2626';
-    document.getElementById('ptr-estado').innerHTML='<span style="color:#991b1b;">❌ ERROR</span>';
+    document.getElementById('ptr-estado').innerHTML=(e.alerta_critica||String(e.message).includes('ALERTA'))?'<span>🚨 IDENTIFICACIÓN NO RECONOCIDA 🚨</span>':'<span style="color:#991b1b;">❌ ERROR</span>';
     document.getElementById('ptr-nombre').textContent='';
     document.getElementById('ptr-sub').textContent='';
     document.getElementById('ptr-detalle').textContent=e.message;
-    ptResultTimer = setTimeout(()=>{ box.style.display='none'; }, 5000);
+    if(!box.classList.contains('pt-critical-flash'))ptResultTimer = setTimeout(()=>{ box.style.display='none'; }, 5000);
   }
   input?.focus();
 }
@@ -19321,7 +19401,8 @@ async function ptCargarRegistros(){
       const res = r.resultado==='permitido'
         ? '<span style="color:var(--verde);font-weight:bold;">✔</span>'
         : '<span style="color:#dc2626;font-weight:bold;">⛔</span>';
-      return `<tr title="${(r.detalle||'').replace(/"/g,'&quot;')}">
+      const registro=nombreDesdeCampos(r.registro_nombre,r.registro_ap1,r.registro_ap2,{vacio:'Sin identificar'});
+      return `<tr title="${htmlSeguro(`${r.detalle||''} · Registró: ${registro}`).replace(/"/g,'&quot;')}">
         <td style="white-space:nowrap;">${r.hora}</td>
       <td>${nombreEstudianteLista(r)}</td>
         <td>${r.seccion_nombre||'—'}</td>
@@ -19362,13 +19443,14 @@ async function ptImprimirInforme(){
   for(const r of registrosInforme){
     if(!mapa.has(r.estudiante_id))mapa.set(r.estudiante_id,{...r,entrada:'',salida:'',observacion:''});
     const x=mapa.get(r.estudiante_id);
-    if(r.tipo==='entrada'&&(!x.entrada||String(r.hora)<x.entrada))x.entrada=String(r.hora).slice(0,5);
-    if(r.tipo==='salida'&&r.resultado==='permitido'&&(!x.salida||String(r.hora)>x.salida))x.salida=String(r.hora).slice(0,5);
+    const registrador=nombreDesdeCampos(r.registro_nombre,r.registro_ap1,r.registro_ap2,{vacio:'Sin identificar'});
+    if(r.tipo==='entrada'&&r.resultado==='permitido'&&(!x.entrada||String(r.hora)<x.entrada)){x.entrada=String(r.hora).slice(0,5);x.entrada_registra=registrador;}
+    if(r.tipo==='salida'&&r.resultado==='permitido'&&(!x.salida||String(r.hora)>x.salida)){x.salida=String(r.hora).slice(0,5);x.salida_registra=registrador;}
     if(r.tipo==='salida'&&r.resultado==='permitido'&&r.permiso_numero)x.observacion=`Permiso de salida N°${String(r.permiso_numero).padStart(3,'0')}-${r.permiso_anio}`;
   }
   const rows=[...mapa.values()].sort((a,b)=>nombreEstudianteLista(a).localeCompare(nombreEstudianteLista(b),'es'));
   if(!rows.length){sa('alert-porteria','No hay movimientos para la fecha seleccionada.','danger');return;}
-  const body=`<p><strong>Fecha:</strong> ${fmtF(fecha)} · <strong>Estudiantes:</strong> ${rows.length}</p><table class="tabla-reporte"><thead><tr><th>#</th><th>Estudiante</th><th>Sección</th><th>Entrada</th><th>Salida</th><th>Observaciones</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${htmlSeguro(nombreEstudianteLista(x))}</td><td>${htmlSeguro(x.seccion_nombre||'—')}</td><td>${x.entrada||''}</td><td>${x.salida||''}</td><td>${htmlSeguro(x.observacion||'')}</td></tr>`).join('')}</tbody></table>`;
+  const body=`<p><strong>Fecha:</strong> ${fmtF(fecha)} · <strong>Estudiantes:</strong> ${rows.length}</p><table class="tabla-reporte"><thead><tr><th>#</th><th>Estudiante</th><th>Sección</th><th>Entrada</th><th>Salida</th><th>Observaciones</th></tr></thead><tbody>${rows.map((x,i)=>{const obs=[x.entrada_registra?`Entrada registrada por: ${x.entrada_registra}`:'',x.salida_registra?`Salida registrada por: ${x.salida_registra}`:'',x.observacion||''].filter(Boolean).join('. ');return `<tr><td>${i+1}</td><td>${htmlSeguro(nombreEstudianteLista(x))}</td><td>${htmlSeguro(x.seccion_nombre||'—')}</td><td>${x.entrada||''}</td><td>${x.salida||''}</td><td>${htmlSeguro(obs)}</td></tr>`;}).join('')}</tbody></table>`;
   await imprimirPDFMEP('INFORME DIARIO DE PORTERÍA',body,`informe_porteria_${fecha}.pdf`);
 }
 

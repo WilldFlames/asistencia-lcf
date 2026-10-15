@@ -2295,6 +2295,64 @@ async function initDB() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_porteria_fecha ON porteria_registros(fecha)`);
 
+    // ── HORARIOS ESPECIALES POR SECCIÓN ────────────────────────────────
+    // Se programan con anticipación y sustituyen únicamente la hora de
+    // entrada y/o salida de la jornada general en la fecha indicada.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS horarios_especiales (
+        id             SERIAL PRIMARY KEY,
+        fecha          DATE NOT NULL,
+        seccion_id     INTEGER NOT NULL REFERENCES secciones(id) ON DELETE CASCADE,
+        hora_entrada   TEXT DEFAULT NULL,
+        hora_salida    TEXT DEFAULT NULL,
+        motivo         TEXT NOT NULL,
+        activo         BOOLEAN DEFAULT true,
+        creado_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        anulado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at     TIMESTAMP DEFAULT NOW(),
+        updated_at     TIMESTAMP DEFAULT NOW(),
+        UNIQUE(fecha,seccion_id)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_horarios_especiales_fecha
+      ON horarios_especiales(fecha,seccion_id) WHERE activo=true`);
+
+    // Ausencias que deben verse en el horario diario de LCF Familias.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS docente_ausencias (
+        id             SERIAL PRIMARY KEY,
+        fecha          DATE NOT NULL,
+        profesor_id    INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        leccion_desde  INTEGER NOT NULL DEFAULT 1 CHECK(leccion_desde BETWEEN 1 AND 12),
+        leccion_hasta  INTEGER NOT NULL DEFAULT 12 CHECK(leccion_hasta BETWEEN 1 AND 12),
+        motivo         TEXT DEFAULT '',
+        activo         BOOLEAN DEFAULT true,
+        creado_por     INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        anulado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at     TIMESTAMP DEFAULT NOW(),
+        updated_at     TIMESTAMP DEFAULT NOW(),
+        CHECK(leccion_hasta >= leccion_desde)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_docente_ausencias_fecha
+      ON docente_ausencias(fecha,profesor_id) WHERE activo=true`);
+
+    // Una identificación desconocida no tiene estudiante_id, por eso queda
+    // en una bitácora separada para que el intento nunca se pierda.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS porteria_intentos_desconocidos (
+        id             SERIAL PRIMARY KEY,
+        identificacion TEXT NOT NULL,
+        fecha          DATE NOT NULL,
+        hora           TEXT NOT NULL,
+        detalle        TEXT DEFAULT NULL,
+        registrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at     TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_porteria_desconocidos_fecha
+      ON porteria_intentos_desconocidos(fecha)`);
+
     // ── PORTAL DE PADRES ─────────────────────────────────────────────────
     // Acceso con la cédula del encargado. Contraseña inicial = cédula
     // (cambio obligatorio). sid_activo fuerza UNA sola sesión a la vez.

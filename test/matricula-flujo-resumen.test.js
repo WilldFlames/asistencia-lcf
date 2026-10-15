@@ -10,6 +10,7 @@ const matricula=leer("routes/matricula.js");
 const alerta=leer("routes/alertaTemprana.js");
 const calificaciones=leer("routes/calificaciones.js");
 const db=leer("db.js");
+const admin=leer("routes/admin.js");
 
 test("matrícula guarda un borrador enlazado y permite regresar entre pasos",()=>{
   assert.match(frontend,/const r=await api\("\/api\/matricula\/guardar","POST",\{\.\.\.matDatosGuardados,anio:matAnio\}\)/);
@@ -36,6 +37,12 @@ test("los conteos de matrícula y cupos descuentan retirados y matrículas elimi
   assert.match(matricula,/router\.get\("\/asignaciones\/:anio"[\s\S]*JOIN estudiantes e ON e\.id=m\.estudiante_id/);
   assert.match(matricula,/UPDATE estudiantes e SET[\s\S]*COALESCE\(m\.estado,''\) <> 'eliminada'/);
   assert.match(expediente,/COALESCE\(m\.estado,''\) <> 'eliminada'/);
+});
+
+test("el panel cuenta solo asignaciones vigentes de personal activo",()=>{
+  assert.match(admin,/JOIN usuarios u ON u\.id=a\.profesor_id AND u\.activo=true AND COALESCE\(u\.eliminado,false\)=false/);
+  assert.match(admin,/COALESCE\(a\.activa,true\)=true/);
+  assert.match(frontend,/Asignaciones vigentes/);
 });
 
 test("beca acepta montos completos y autorización completa fecha y funcionario",()=>{
