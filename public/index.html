@@ -2749,7 +2749,7 @@ tr:hover td{background:#f8fafc;}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
       <h2 style="margin:0">🛂 Portería — Control de Entrada y Salida</h2>
-      <div style="display:flex;align-items:end;gap:7px;flex-wrap:wrap;"><div class="fg"><label>Fecha</label><input type="date" id="pt-fecha" onchange="ptCambiarFecha()"/></div><button class="btn btn-outline btn-sm" id="pt-btn-informe" onclick="ptImprimirInforme()" style="display:none;">🖨️ Informe diario</button></div>
+      <div id="pt-operacion-fecha" style="display:flex;align-items:end;gap:7px;flex-wrap:wrap;"><div class="fg"><label>Fecha</label><input type="date" id="pt-fecha" onchange="ptCambiarFecha()"/></div></div>
     </div>
     <div id="alert-porteria" class="alert"></div>
 
@@ -2792,7 +2792,18 @@ tr:hover td{background:#f8fafc;}
     </div>
   </div>
 
-  <div id="pt-solo-informe" class="card" style="display:none;text-align:center;padding:28px;"><h2>📄 Consulta de Portería</h2><p style="color:var(--muted);">Seleccione una fecha y utilice <strong>Informe diario</strong>. El documento mostrará únicamente los estudiantes dentro de su alcance institucional.</p></div>
+  <div id="pt-informe-panel" class="card" style="display:none;">
+    <h2 style="margin-bottom:4px;">📄 Informe de Portería por estudiante</h2>
+    <p style="color:var(--muted);font-size:12.5px;margin-bottom:12px;">Seleccione primero la sección y después el estudiante. Los docentes guía únicamente pueden consultar sus propias secciones.</p>
+    <div id="alert-porteria-informe" class="alert"></div>
+    <div class="form-grid" style="grid-template-columns:1fr 1.5fr 1fr 1fr auto;align-items:end;">
+      <div class="fg"><label>Sección *</label><select id="pt-inf-seccion" onchange="ptCargarEstudiantesInforme()"><option value="">— Sección —</option></select></div>
+      <div class="fg"><label>Estudiante *</label><select id="pt-inf-estudiante"><option value="">— Estudiante —</option></select></div>
+      <div class="fg"><label>Desde *</label><input type="date" id="pt-inf-desde"></div>
+      <div class="fg"><label>Hasta *</label><input type="date" id="pt-inf-hasta"></div>
+      <button class="btn btn-success" onclick="ptImprimirInforme()">🖨️ Imprimir</button>
+    </div>
+  </div>
   <div id="pt-operacion-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="pt-grid-2">
     <div class="card">
       <h2 style="font-size:15px;margin-bottom:10px;">📜 Movimientos de hoy</h2>
@@ -19490,12 +19501,38 @@ async function iniciarPorteria(){
   const fx=ME.funciones_extra||[];
   const puedeInforme=['admin','auxiliar','administrativo','profesor_guia','orientador'].includes(ME.rol)||fx.includes('profesor_guia')||fx.includes('orientador');
   const soloInforme=!['admin','seguridad'].includes(ME.rol);
-  const btnInforme=document.getElementById('pt-btn-informe');
-  if(btnInforme)btnInforme.style.display=puedeInforme?'':'none';
   ['pt-modo-info','pt-busqueda-wrap','pt-escaneo-wrap','pt-stats'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=soloInforme?'none':'';});
   const grid=document.getElementById('pt-operacion-grid');if(grid)grid.style.display=soloInforme?'none':'grid';
-  const aviso=document.getElementById('pt-solo-informe');if(aviso)aviso.style.display=soloInforme?'':'none';
+  const fechaOperacion=document.getElementById('pt-operacion-fecha');if(fechaOperacion)fechaOperacion.style.display=soloInforme?'none':'flex';
+  const panelInforme=document.getElementById('pt-informe-panel');if(panelInforme)panelInforme.style.display=puedeInforme?'':'none';
+  const desde=document.getElementById('pt-inf-desde'),hasta=document.getElementById('pt-inf-hasta');
+  if(desde&&!desde.value)desde.value=fechaHoyCR();
+  if(hasta&&!hasta.value)hasta.value=fechaHoyCR();
+  if(puedeInforme)await ptCargarOpcionesInforme();
   if(!soloInforme){await Promise.all([ptCargarStats(), ptCargarRegistros(), ptCargarPermisosHoy()]);document.getElementById('pt-scan-input')?.focus();}
+}
+
+async function ptCargarOpcionesInforme(){
+  const sel=document.getElementById('pt-inf-seccion'),est=document.getElementById('pt-inf-estudiante');
+  if(!sel||!est)return;
+  sel.innerHTML='<option value="">Cargando…</option>';est.innerHTML='<option value="">— Estudiante —</option>';
+  try{
+    const r=await api('/api/porteria/informe-opciones'),secciones=r?.secciones||[];
+    sel.innerHTML='<option value="">— Sección —</option>'+secciones.map(s=>`<option value="${s.id}">${htmlSeguro(s.nombre)}</option>`).join('');
+    if(secciones.length===1){sel.value=String(secciones[0].id);await ptCargarEstudiantesInforme();}
+  }catch(e){sel.innerHTML='<option value="">— Sin secciones disponibles —</option>';sa('alert-porteria-informe',e.message,'danger');}
+}
+
+async function ptCargarEstudiantesInforme(){
+  const sid=document.getElementById('pt-inf-seccion')?.value,sel=document.getElementById('pt-inf-estudiante');
+  if(!sel)return;
+  sel.innerHTML='<option value="">— Estudiante —</option>';
+  if(!sid)return;
+  sel.innerHTML='<option value="">Cargando…</option>';
+  try{
+    const rows=await api(`/api/porteria/informe-estudiantes?seccion_id=${encodeURIComponent(sid)}`)||[];
+    sel.innerHTML='<option value="">— Estudiante —</option>'+rows.map(e=>`<option value="${e.id}">${htmlSeguro(nombreEstudianteLista(e))} · ${htmlSeguro(e.cedula||'')}</option>`).join('');
+  }catch(e){sel.innerHTML='<option value="">— No disponible —</option>';sa('alert-porteria-informe',e.message,'danger');}
 }
 
 async function ptCambiarFecha(){
@@ -19620,23 +19657,30 @@ async function ptCargarPermisosHoy(){
 }
 
 async function ptImprimirInforme(){
-  const fecha=document.getElementById('pt-fecha')?.value||fechaHoyCR();
+  const desde=document.getElementById('pt-inf-desde')?.value;
+  const hasta=document.getElementById('pt-inf-hasta')?.value;
+  const seccionId=document.getElementById('pt-inf-seccion')?.value;
+  const estudianteId=document.getElementById('pt-inf-estudiante')?.value;
   const fx=ME.funciones_extra||[];
   if(!(['admin','auxiliar','administrativo','profesor_guia','orientador'].includes(ME.rol)||fx.includes('profesor_guia')||fx.includes('orientador'))){sa('alert-porteria','No tiene permiso para imprimir este informe.','danger');return;}
-  const registrosInforme=await api(`/api/porteria/informe-diario?fecha=${encodeURIComponent(fecha)}`)||[];
+  if(!seccionId||!estudianteId||!desde||!hasta){sa('alert-porteria-informe','Seleccione sección, estudiante y rango de fechas.','danger');return;}
+  if(hasta<desde){sa('alert-porteria-informe','La fecha final no puede ser anterior a la inicial.','danger');return;}
+  const registrosInforme=await api(`/api/porteria/informe-diario?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}&seccion_id=${encodeURIComponent(seccionId)}&estudiante_id=${encodeURIComponent(estudianteId)}`)||[];
   const mapa=new Map();
   for(const r of registrosInforme){
-    if(!mapa.has(r.estudiante_id))mapa.set(r.estudiante_id,{...r,entrada:'',salida:'',observacion:''});
-    const x=mapa.get(r.estudiante_id);
+    const clave=`${r.estudiante_id}-${String(r.fecha).slice(0,10)}`;
+    if(!mapa.has(clave))mapa.set(clave,{...r,entrada:'',salida:'',observacion:''});
+    const x=mapa.get(clave);
     const registrador=nombreDesdeCampos(r.registro_nombre,r.registro_ap1,r.registro_ap2,{vacio:'Sin identificar'});
     if(r.tipo==='entrada'&&r.resultado==='permitido'&&(!x.entrada||String(r.hora)<x.entrada)){x.entrada=String(r.hora).slice(0,5);x.entrada_registra=registrador;}
     if(r.tipo==='salida'&&r.resultado==='permitido'&&(!x.salida||String(r.hora)>x.salida)){x.salida=String(r.hora).slice(0,5);x.salida_registra=registrador;}
     if(r.tipo==='salida'&&r.resultado==='permitido'&&r.permiso_numero)x.observacion=`Permiso de salida N°${String(r.permiso_numero).padStart(3,'0')}-${r.permiso_anio}`;
   }
-  const rows=[...mapa.values()].sort((a,b)=>nombreEstudianteLista(a).localeCompare(nombreEstudianteLista(b),'es'));
-  if(!rows.length){sa('alert-porteria','No hay movimientos para la fecha seleccionada.','danger');return;}
-  const body=`<p><strong>Fecha:</strong> ${fmtF(fecha)} · <strong>Estudiantes:</strong> ${rows.length}</p><table class="tabla-reporte"><thead><tr><th>#</th><th>Estudiante</th><th>Sección</th><th>Entrada</th><th>Salida</th><th>Observaciones</th></tr></thead><tbody>${rows.map((x,i)=>{const obs=[x.entrada_registra?`Entrada registrada por: ${x.entrada_registra}`:'',x.salida_registra?`Salida registrada por: ${x.salida_registra}`:'',x.observacion||''].filter(Boolean).join('. ');return `<tr><td>${i+1}</td><td>${htmlSeguro(nombreEstudianteLista(x))}</td><td>${htmlSeguro(x.seccion_nombre||'—')}</td><td>${x.entrada||''}</td><td>${x.salida||''}</td><td>${htmlSeguro(obs)}</td></tr>`;}).join('')}</tbody></table>`;
-  await imprimirPDFMEP('INFORME DIARIO DE PORTERÍA',body,`informe_porteria_${fecha}.pdf`);
+  const rows=[...mapa.values()].sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  if(!rows.length){sa('alert-porteria-informe','No hay movimientos del estudiante en el rango seleccionado.','danger');return;}
+  const primero=rows[0],periodo=desde===hasta?fmtF(desde):`${fmtF(desde)} al ${fmtF(hasta)}`;
+  const body=`<p><strong>Estudiante:</strong> ${htmlSeguro(nombreEstudianteLista(primero))}<br><strong>Cédula:</strong> ${htmlSeguro(primero.cedula||'—')} · <strong>Sección:</strong> ${htmlSeguro(primero.seccion_nombre||'—')}<br><strong>Periodo consultado:</strong> ${periodo}</p><table class="tabla-reporte"><thead><tr><th>#</th><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Observaciones</th></tr></thead><tbody>${rows.map((x,i)=>{const obs=[x.entrada_registra?`Entrada registrada por: ${x.entrada_registra}`:'',x.salida_registra?`Salida registrada por: ${x.salida_registra}`:'',x.observacion||''].filter(Boolean).join('. ');return `<tr><td>${i+1}</td><td>${fmtF(String(x.fecha).slice(0,10))}</td><td>${x.entrada||''}</td><td>${x.salida||''}</td><td>${htmlSeguro(obs)}</td></tr>`;}).join('')}</tbody></table>`;
+  await imprimirPDFMEP('INFORME DE PORTERÍA',body,`informe_porteria_${primero.cedula||estudianteId}_${desde}_${hasta}.pdf`);
 }
 
 // ════════════════════════════════════
@@ -19915,6 +19959,8 @@ async function generarConstanciaRetiro(){
   let auxNombre=nombrePersona(ME);
   let auxCedula=ME.cedula||"";
   if(!auxCedula){try{const m=await api("/api/auth/me");auxCedula=m?.usuario?.cedula||"";}catch{}}
+  let cfgCentro={};
+  try{cfgCentro=await api('/api/protocolos/config-centro')||{};}catch{}
   const nivel=document.getElementById("retiro-nivel").value||"";
   const encNombre=document.getElementById("retiro-enc-nombre").value.trim()||"_______________________________";
   const encCedula=document.getElementById("retiro-enc-cedula").value.trim()||"_______________________________";
@@ -19930,37 +19976,80 @@ async function generarConstanciaRetiro(){
   const hoyDiaT=dias[hoy.getDate()]||hoy.getDate();
   const hoyMesT=meses[hoy.getMonth()];
   const hoyAnioT=anioLetra[hoy.getFullYear()]||hoy.getFullYear();
-  const contenidoHTML = `
+  const nombreEst=htmlSeguro(nombrePersona(est));
+  const cedulaEst=htmlSeguro(est.cedula||'');
+  const seccionEst=htmlSeguro(est.seccion_nombre||document.getElementById('retiro-seccion')?.selectedOptions?.[0]?.textContent||'');
+  const nivelSeguro=htmlSeguro(nivel);
+  const encNombreSeguro=htmlSeguro(encNombre),encCedulaSeguro=htmlSeguro(encCedula),motivoSeguro=htmlSeguro(motivo);
+  const auxNombreSeguro=htmlSeguro(auxNombre),auxCedulaSeguro=htmlSeguro(auxCedula);
+  const centroSeguro=htmlSeguro(cfgCentro.nombre_centro||'Liceo de Calle Fallas');
+  const directorSeguro=htmlSeguro(cfgCentro.director_nombre||'_______________________________');
+  const directorCedulaSeguro=htmlSeguro(cfgCentro.director_cedula||'');
+  let esMenor=true;
+  const nacimiento=String(est.fecha_nacimiento||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(nacimiento)){
+    const mayoria=new Date(`${nacimiento}T12:00:00`);mayoria.setFullYear(mayoria.getFullYear()+18);
+    esMenor=hRetiro<mayoria;
+  }
+  const constanciaHTML = `
+    <section class="pdf-page-block" style="width:650px;box-sizing:border-box;padding:4px 10px;background:#fff;">
     <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;">CONSTANCIA DE RETIRO DE ESTUDIANTE</h2>
     <div style="font-size:16px;line-height:1.8;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
       <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
-    <strong>${nombrePersona(est)}</strong>,
-      portador(a) de la cédula de identidad número <strong>${est.cedula}</strong>,
+    <strong>${nombreEst}</strong>,
+      portador(a) de la cédula de identidad número <strong>${cedulaEst}</strong>,
       estuvo matriculado(a) en esta institución educativa durante el curso lectivo
-      <strong>${retiroAnioT.toUpperCase()}</strong>, cursando el nivel de <strong>${nivel}</strong>.</p>
+      <strong>${retiroAnioT.toUpperCase()}</strong>, cursando el nivel de <strong>${nivelSeguro}</strong>.</p>
       <p style="text-indent:2em;">Se deja constancia de que el(la) estudiante se retiró oficialmente de la institución en fecha
       <strong>${retiroDiaT}</strong> días del mes de <strong>${retiroMesT}</strong> del año <strong>${retiroAnioT}</strong>,
-      de conformidad con la solicitud presentada por <strong>${encNombre}</strong>,
-      portador(a) de la cédula de identidad número <strong>${encCedula}</strong>.</p>
-      <p style="text-indent:2em;">El motivo del retiro, según lo indicado por el(la) encargado(a) legal, es: <strong>${motivo}</strong>.</p>
+      de conformidad con la solicitud presentada por <strong>${encNombreSeguro}</strong>,
+      portador(a) de la cédula de identidad número <strong>${encCedulaSeguro}</strong>.</p>
+      <p style="text-indent:2em;">El motivo del retiro, según lo indicado por el(la) encargado(a) legal, es: <strong>${motivoSeguro}</strong>.</p>
       <p style="text-indent:2em;">Se extiende la presente constancia a solicitud del(la) interesado(a), para los fines que estime convenientes,
       a los <strong>${hoyDiaT}</strong> días del mes de <strong>${hoyMesT}</strong> del año <strong>${hoyAnioT}</strong>.</p>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:60px;">
       <div style="text-align:center;"><div style="border-top:1px solid #374151;padding-top:8px;">
-        <div style="font-size:15px;font-weight:bold;">${auxNombre}</div>
-        <div style="font-size:14px;">Cédula: ${auxCedula}</div>
+        <div style="font-size:15px;font-weight:bold;">${auxNombreSeguro}</div>
+        <div style="font-size:14px;">Cédula: ${auxCedulaSeguro}</div>
         <div style="font-size:14px;">Auxiliar Administrativo</div>
       </div></div>
       <div style="text-align:center;"><div style="border-top:1px solid #374151;padding-top:8px;">
-        <div style="font-size:15px;font-weight:bold;">${encNombre}</div>
-        <div style="font-size:14px;">Cédula: ${encCedula}</div>
+        <div style="font-size:15px;font-weight:bold;">${encNombreSeguro}</div>
+        <div style="font-size:14px;">Cédula: ${encCedulaSeguro}</div>
         <div style="font-size:14px;">Encargado(a) Legal</div>
       </div></div>
     </div>
+    </section>
   `;
+  const actaMenorHTML=esMenor?`
+    <section class="pdf-page-block" style="width:650px;box-sizing:border-box;padding:0 10px;background:#fff;font-family:Arial,sans-serif;font-size:10.5px;line-height:1.32;text-align:justify;">
+      <h2 style="text-align:center;font-size:15px;line-height:1.25;margin:2px 0 8px;color:#1f3864;">ACTA DE RETIRO VOLUNTARIO DE ESTUDIANTE<br>Y DECLARACIÓN DE RESPONSABILIDAD LEGAL</h2>
+      <p style="margin:3px 0;"><strong>Centro educativo:</strong> ${centroSeguro}</p>
+      <p style="margin:3px 0;"><strong>Fecha:</strong> ${fmtF(fechaRetiro)}</p>
+      <p style="margin:6px 0;">Yo, <strong>${encNombreSeguro}</strong>, cédula de identidad número <strong>${encCedulaSeguro}</strong>, en calidad de persona encargada legal, declaro que he solicitado de forma voluntaria el retiro del centro educativo de la persona estudiante <strong>${nombreEst}</strong>, identificación <strong>${cedulaEst}</strong>, de la sección <strong>${seccionEst}</strong>, con fecha efectiva <strong>${fmtF(fechaRetiro)}</strong>.</p>
+      <p style="margin:5px 0;"><strong>Motivo del retiro:</strong> ${motivoSeguro}</p>
+      <h3 style="text-align:center;font-size:12px;margin:8px 0 5px;color:#1f3864;">DECLARACIÓN DE RESPONSABILIDAD Y ADVERTENCIA LEGAL</h3>
+      <p style="margin:4px 0;">Mediante la firma de la presente acta, declaro que:</p>
+      <ol style="margin:3px 0 4px 19px;padding:0;">
+        <li style="margin-bottom:4px;">La decisión de retirar a la persona estudiante es de mi exclusiva responsabilidad y no obedece a una orden, disposición o imposición del centro educativo.</li>
+        <li style="margin-bottom:4px;">El centro educativo me ha informado sobre la situación académica y de asistencia de la persona estudiante mediante llamadas, informes, la plataforma institucional o reuniones presenciales.</li>
+        <li style="margin-bottom:4px;">Se me ha advertido que, de conformidad con el artículo 78 de la Constitución Política y el artículo 64 del Código de la Niñez y la Adolescencia, Ley N.° 7739, la educación es obligatoria y constituye un derecho fundamental de la persona menor de edad.</li>
+        <li style="margin-bottom:4px;">Comprendo que tengo la responsabilidad legal de procurar la continuidad educativa de la persona estudiante y que la interrupción injustificada de sus estudios puede constituir una vulneración de sus derechos.</li>
+        <li style="margin-bottom:4px;">Asumo plenamente las consecuencias derivadas de esta decisión y dejo constancia de que el centro educativo no ha promovido ni recomendado el abandono del proceso educativo.</li>
+        <li style="margin-bottom:4px;">Se me informa que, conforme a los artículos 65, 66 y 130 del Código de la Niñez y la Adolescencia, el centro educativo podrá comunicar la situación al Patronato Nacional de la Infancia y a las autoridades competentes del Ministerio de Educación Pública cuando corresponda.</li>
+        <li>Esta declaración no implica renuncia a los derechos de la persona menor de edad ni exime al centro educativo de sus deberes legales de protección y seguimiento.</li>
+      </ol>
+      <p style="margin:7px 0 4px;">Firmo voluntariamente y declaro que he leído y comprendido el contenido de este documento.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:34px;margin-top:27px;">
+        <div style="text-align:center;border-top:1px solid #333;padding-top:4px;"><strong>${encNombreSeguro}</strong><br>Cédula: ${encCedulaSeguro}<br>Persona encargada legal</div>
+        <div style="text-align:center;border-top:1px solid #333;padding-top:4px;"><strong>${directorSeguro}</strong>${directorCedulaSeguro?`<br>Cédula: ${directorCedulaSeguro}`:''}<br>Dirección</div>
+      </div>
+      <div style="margin-top:18px;text-align:center;">Sello institucional: ______________________________</div>
+    </section>`:'';
+  const contenidoHTML=constanciaHTML+actaMenorHTML;
   cerrarModal("modal-retiro");
-  await imprimirPDFMEP(null, contenidoHTML, `constancia_retiro_${est.cedula}.pdf`);
+  await imprimirPDFMEP(null, contenidoHTML, `constancia_retiro_${est.cedula}.pdf`,{bloquesPagina:true});
   setTimeout(()=>{
     document.getElementById("archivar-retiro-est-id").value=retiroEstId;
     document.getElementById("archivar-retiro-nombre").textContent=retiroEstNombre;

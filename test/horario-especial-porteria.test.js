@@ -82,17 +82,34 @@ test('cada movimiento de Portería deja aviso privado aunque el push falle',()=>
   assert.match(ruta,/codigo:"sin_horario"[\s\S]*notificarMovimientoPorteria/);
 });
 
-test('guías y Orientación acceden solo al informe de sus secciones',()=>{
+test('el informe de Portería separa el alcance de guías y personal institucional',()=>{
   const ruta=read('routes/porteria.js');
   const html=read('public/index.html');
   assert.match(ruta,/const canInforme\s*= requireRol\("admin","auxiliar","administrativo","profesor_guia","orientador"\)/);
-  assert.match(ruta,/seccion_guia_anio/);
-  assert.match(ruta,/seccion_orientador_anio/);
+  assert.match(ruta,/function accesoTotalInforme[\s\S]*"orientador"/);
+  assert.match(ruta,/seccion_guia_anio sga[\s\S]*sga\.profesor_id=\$1/);
+  assert.doesNotMatch(ruta,/sga\.guia_id|sg\.guia_id/);
+  assert.match(ruta,/router\.get\("\/informe-opciones", canInforme/);
+  assert.match(ruta,/router\.get\("\/informe-estudiantes", canInforme/);
   assert.match(ruta,/const canVer\s*= requireRol\("admin","seguridad"\)/);
   assert.match(ruta,/router\.get\("\/registros", canVer/);
   assert.match(ruta,/router\.get\("\/stats", canVer/);
   assert.match(html,/const soloInforme=!\['admin','seguridad'\]\.includes\(ME\.rol\)/);
-  assert.match(html,/pt-solo-informe/);
+  assert.match(html,/id="pt-inf-seccion"/);
+  assert.match(html,/id="pt-inf-estudiante"/);
+  assert.match(html,/ptCargarEstudiantesInforme/);
+  assert.match(html,/estudiante_id=\$\{encodeURIComponent\(estudianteId\)\}/);
+});
+
+test('la constancia de retiro agrega el acta legal para personas menores de edad',()=>{
+  const html=read('public/index.html');
+  assert.match(html,/ACTA DE RETIRO VOLUNTARIO DE ESTUDIANTE/);
+  assert.match(html,/DECLARACIÓN DE RESPONSABILIDAD Y ADVERTENCIA LEGAL/);
+  assert.match(html,/artículo 78 de la Constitución Política/);
+  assert.match(html,/artículos 65, 66 y 130 del Código de la Niñez y la Adolescencia/);
+  assert.match(html,/cfgCentro=await api\('\/api\/protocolos\/config-centro'\)/);
+  assert.match(html,/const contenidoHTML=constanciaHTML\+actaMenorHTML/);
+  assert.match(html,/constancia_retiro_\$\{est\.cedula\}\.pdf`,\{bloquesPagina:true\}/);
 });
 
 test('el autoguardado de asistencia serializa peticiones y reintenta errores',()=>{

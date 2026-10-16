@@ -51,11 +51,14 @@ test('los listados distinguen quién inició de quién completó o ejecutó',()=
   assert.match(db,/ALTER TABLE protocolos ADD COLUMN IF NOT EXISTS finalizado_por/);
 });
 
-test('Portería imprime entrada salida y permiso para una fecha elegida',()=>{
+test('Portería imprime entrada salida y permiso por estudiante y rango',()=>{
   assert.match(html,/function ptImprimirInforme/);
-  assert.match(html,/INFORME DIARIO DE PORTERÍA/);
+  assert.match(html,/INFORME DE PORTERÍA/);
   assert.match(html,/Permiso de salida N°/);
-  assert.match(html,/pt-fecha/);
+  assert.match(html,/pt-inf-seccion/);
+  assert.match(html,/pt-inf-estudiante/);
+  assert.match(html,/pt-inf-desde/);
+  assert.match(html,/pt-inf-hasta/);
   assert.match(porteria,/const canInforme\s*= requireRol\("admin","auxiliar","administrativo","profesor_guia","orientador"\)/);
   assert.match(porteria,/router\.get\("\/informe-diario", canInforme/);
   assert.match(html,/\['admin','auxiliar','administrativo','profesor_guia','orientador'\]\.includes\(ME\.rol\)/);

@@ -1,0 +1,26 @@
+MEJORAS DEL 16 DE OCTUBRE DE 2026
+
+1. RETIRO DE PERSONAS MENORES DE EDAD
+- La Constancia de Retiro conserva su formato actual como primera página.
+- Cuando la persona estudiante es menor de edad, el mismo PDF agrega como
+  segunda página el Acta de Retiro Voluntario y Declaración de Responsabilidad
+  Legal suministrada por la institución.
+- Se completan automáticamente centro educativo, fecha, estudiante, cédula,
+  sección, persona encargada, motivo del retiro y Dirección.
+- Si la fecha de nacimiento no está registrada, el acta se incluye por
+  precaución. Para una persona mayor de edad confirmada, solo se imprime la
+  constancia ya existente.
+
+2. INFORME DE PORTERÍA
+- La consulta ahora sigue el flujo Sección -> Estudiante -> Rango de fechas.
+- El docente guía únicamente recibe sus propias secciones guía del curso
+  lectivo activo.
+- Orientación, auxiliares, personal administrativo y Administración reciben
+  todas las secciones activas.
+- El PDF identifica quién registró la entrada y quién registró la salida.
+- Se corrigió la consulta de secciones guía para utilizar la columna vigente
+  profesor_id; la referencia anterior a guia_id impedía cargar la información.
+
+VERIFICACIÓN
+- 295 pruebas automáticas aprobadas.
+- Sintaxis del servidor y de todos los bloques JavaScript de la interfaz válida.

@@ -37,6 +37,32 @@ const canVer      = requireRol("admin","seguridad");
 const canVerPermisos = requireRol("admin","auxiliar","seguridad");
 const canInforme  = requireRol("admin","auxiliar","administrativo","profesor_guia","orientador");
 
+function accesoTotalInforme(usuario){
+  // Por solicitud institucional, Orientación consulta todas las secciones en
+  // este informe. El docente guía queda limitado exclusivamente a las suyas.
+  return tieneRol(usuario,["admin","auxiliar","administrativo","orientador"]);
+}
+
+async function seccionesInformePorteria(usuario,anio){
+  if(accesoTotalInforme(usuario)){
+    const r=await pool.query(`SELECT s.id,s.nombre,s.nivel FROM secciones s
+      JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$1 AND sa.activa=true
+      ORDER BY s.nivel,s.nombre`,[anio]);
+    return r.rows;
+  }
+  if(!tieneRol(usuario,["profesor_guia"])) return [];
+  const r=await pool.query(`SELECT s.id,s.nombre,s.nivel FROM secciones s
+    JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=$2 AND sa.activa=true
+    WHERE EXISTS(
+      SELECT 1 FROM seccion_guia_anio sga
+      WHERE sga.seccion_id=s.id AND sga.profesor_id=$1 AND sga.anio=$2
+    ) OR (
+      NOT EXISTS(SELECT 1 FROM seccion_guia_anio sga_any WHERE sga_any.seccion_id=s.id AND sga_any.anio=$2)
+      AND EXISTS(SELECT 1 FROM seccion_guia sg WHERE sg.seccion_id=s.id AND sg.profesor_id=$1)
+    ) ORDER BY s.nivel,s.nombre`,[usuario.id,anio]);
+  return r.rows;
+}
+
 async function notificarMovimientoPorteria(estudianteId, tipo, hora, resultado="permitido", detalle=""){
   const esEntrada=tipo==="entrada";
   const permitido=resultado==="permitido";
@@ -435,30 +461,41 @@ router.get("/registros", canVer, async (req, res) => {
   res.json(r.rows);
 });
 
-// Fuente exclusiva del PDF diario. Administración y auxiliares ven toda la
-// institución; guías y Orientación reciben únicamente sus secciones asignadas.
-router.get("/informe-diario", canInforme, async (req,res)=>{
-  const fecha=req.query.fecha||fechaCR();
-  const u=req.session.usuario;
-  const accesoTotal=tieneRol(u,["admin","auxiliar","administrativo"]);
+router.get("/informe-opciones", canInforme, async(req,res)=>{
   const anio=await obtenerAnioActivo();
-  const params=[fecha];
-  let alcance="";
-  if(!accesoTotal){
-    params.push(u.id,anio);
-    alcance=`AND (
-      ( ${tieneRol(u,["profesor_guia"])?"true":"false"} AND (
-        EXISTS(SELECT 1 FROM seccion_guia_anio sga WHERE sga.seccion_id=e.seccion_id AND sga.guia_id=$2 AND sga.anio=$3)
-        OR (NOT EXISTS(SELECT 1 FROM seccion_guia_anio sga_any WHERE sga_any.seccion_id=e.seccion_id AND sga_any.anio=$3)
-          AND EXISTS(SELECT 1 FROM seccion_guia sg WHERE sg.seccion_id=e.seccion_id AND sg.guia_id=$2))
-      )) OR
-      ( ${tieneRol(u,["orientador"])?"true":"false"} AND (
-        EXISTS(SELECT 1 FROM seccion_orientador_anio soa WHERE soa.seccion_id=e.seccion_id AND soa.orientador_id=$2 AND soa.anio=$3)
-        OR (NOT EXISTS(SELECT 1 FROM seccion_orientador_anio soa_any WHERE soa_any.seccion_id=e.seccion_id AND soa_any.anio=$3)
-          AND EXISTS(SELECT 1 FROM seccion_orientador so WHERE so.seccion_id=e.seccion_id AND so.orientador_id=$2))
-      ))
-    )`;
-  }
+  res.json({anio,secciones:await seccionesInformePorteria(req.session.usuario,anio)});
+});
+
+router.get("/informe-estudiantes", canInforme, async(req,res)=>{
+  const seccionId=Number(req.query.seccion_id);
+  if(!Number.isInteger(seccionId)||seccionId<=0) return res.status(400).json({error:"Seleccione una sección válida."});
+  const anio=await obtenerAnioActivo();
+  const permitidas=await seccionesInformePorteria(req.session.usuario,anio);
+  if(!permitidas.some(s=>Number(s.id)===seccionId)) return res.status(403).json({error:"No tiene permiso para consultar esta sección."});
+  const r=await pool.query(`SELECT id,cedula,nombre,primer_apellido,segundo_apellido
+    FROM estudiantes WHERE seccion_id=$1 AND activo=true AND COALESCE(archivado,false)=false
+    ORDER BY primer_apellido,segundo_apellido,nombre`,[seccionId]);
+  res.json(r.rows);
+});
+
+// Fuente exclusiva del PDF. Administración, auxiliares y Orientación ven toda
+// la institución; cada guía queda limitado a sus secciones guía del año activo.
+router.get("/informe-diario", canInforme, async (req,res)=>{
+  const desde=String(req.query.desde||req.query.fecha||fechaCR());
+  const hasta=String(req.query.hasta||req.query.fecha||desde);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(desde)||!/^\d{4}-\d{2}-\d{2}$/.test(hasta)||hasta<desde)
+    return res.status(400).json({error:"El rango de fechas no es válido."});
+  const seccionId=Number(req.query.seccion_id||0);
+  const estudianteId=Number(req.query.estudiante_id||0);
+  const u=req.session.usuario;
+  const anio=await obtenerAnioActivo();
+  const permitidas=await seccionesInformePorteria(u,anio);
+  if(!permitidas.length) return res.json([]);
+  if(seccionId&&!permitidas.some(s=>Number(s.id)===seccionId)) return res.status(403).json({error:"No tiene permiso para consultar esta sección."});
+  const params=[desde,hasta,permitidas.map(s=>Number(s.id))];
+  let filtros="AND e.seccion_id=ANY($3::int[])";
+  if(seccionId){params.push(seccionId);filtros+=` AND e.seccion_id=$${params.length}`;}
+  if(estudianteId){params.push(estudianteId);filtros+=` AND e.id=$${params.length}`;}
   const r=await pool.query(`
     SELECT r.*,e.nombre,e.primer_apellido,e.segundo_apellido,e.cedula,
       COALESCE(s.nombre,e.seccion_archivo) AS seccion_nombre,
@@ -469,8 +506,8 @@ router.get("/informe-diario", canInforme, async (req,res)=>{
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN permisos_salida p ON p.id=r.permiso_id
     LEFT JOIN usuarios u ON u.id=r.registrado_por
-    WHERE r.fecha=$1 ${alcance}
-    ORDER BY r.hora,r.id`,params);
+    WHERE r.fecha BETWEEN $1 AND $2 ${filtros}
+    ORDER BY r.fecha,r.hora,r.id`,params);
   res.json(r.rows);
 });
 
