@@ -56,8 +56,9 @@ test('Portería imprime entrada salida y permiso para una fecha elegida',()=>{
   assert.match(html,/INFORME DIARIO DE PORTERÍA/);
   assert.match(html,/Permiso de salida N°/);
   assert.match(html,/pt-fecha/);
-  assert.match(porteria,/informe-diario.*requireRol\("admin","administrativo"\)/s);
-  assert.match(html,/\['admin','administrativo'\]\.includes\(ME\.rol\)/);
+  assert.match(porteria,/const canInforme\s*= requireRol\("admin","auxiliar","administrativo","profesor_guia","orientador"\)/);
+  assert.match(porteria,/router\.get\("\/informe-diario", canInforme/);
+  assert.match(html,/\['admin','auxiliar','administrativo','profesor_guia','orientador'\]\.includes\(ME\.rol\)/);
 });
 
 test('los listados históricos conservan estudiantes retirados',()=>{

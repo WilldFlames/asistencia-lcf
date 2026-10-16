@@ -1529,7 +1529,7 @@ tr:hover td{background:#f8fafc;}
           </select>
         </div>
         <button class="btn btn-primary" onclick="cargarListaDia()">🔄 Cargar</button>
-        <button class="btn btn-success" onclick="guardarAsistencia()">💾 Guardar</button>
+        <button id="asis-btn-guardar" class="btn btn-success" onclick="guardarAsistencia()">💾 Guardar</button>
         <button class="btn btn-outline btn-sm" onclick="marcarTodos('P')">✅ Todos P</button>
         <button class="btn btn-outline btn-sm" onclick="marcarTodos('A')">❌ Todos A</button>
         <button class="btn btn-outline btn-sm" onclick="imprimirAsistenciaActual()">🖨️ Imprimir / PDF</button>
@@ -2753,11 +2753,11 @@ tr:hover td{background:#f8fafc;}
     </div>
     <div id="alert-porteria" class="alert"></div>
 
-    <div style="max-width:520px;margin:14px auto;padding:12px 16px;border-radius:10px;background:#eff6ff;border:1px solid #93c5fd;text-align:center;color:#1e3a5f;font-weight:bold;">
+    <div id="pt-modo-info" style="max-width:520px;margin:14px auto;padding:12px 16px;border-radius:10px;background:#eff6ff;border:1px solid #93c5fd;text-align:center;color:#1e3a5f;font-weight:bold;">
       🔄 Modo automático: primer escaneo registra entrada; el siguiente registra salida.
     </div>
 
-    <div style="max-width:620px;margin:0 auto 14px;position:relative;">
+    <div id="pt-busqueda-wrap" style="max-width:620px;margin:0 auto 14px;position:relative;">
       <label for="pt-buscar-estudiante" style="display:block;font-size:12px;font-weight:700;color:var(--azul);margin-bottom:5px;">🔎 Buscar estudiante por nombre o cédula</label>
       <input type="search" id="pt-buscar-estudiante" placeholder="Escriba al menos dos letras o números…" autocomplete="off"
         oninput="ptProgramarBusqueda()" style="width:100%;padding:11px 13px;"/>
@@ -2766,7 +2766,7 @@ tr:hover td{background:#f8fafc;}
     <div id="pt-consulta-estudiante" style="display:none;max-width:720px;margin:0 auto 16px;padding:12px 14px;border:1px solid #93c5fd;border-radius:10px;background:#f8fbff;"></div>
 
     <!-- Input escaneo -->
-    <div style="text-align:center;padding:4px 0 8px;">
+    <div id="pt-escaneo-wrap" style="text-align:center;padding:4px 0 8px;">
       <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Escaneá o escribí la cédula del estudiante y presioná Enter</p>
       <div style="display:flex;gap:10px;justify-content:center;max-width:460px;margin:0 auto 14px;">
         <input type="text" id="pt-scan-input" placeholder="Cédula / código de barras"
@@ -2785,14 +2785,15 @@ tr:hover td{background:#f8fafc;}
     </div>
 
     <!-- Stats -->
-    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-top:6px;">
+    <div class="stats" id="pt-stats" style="grid-template-columns:repeat(3,1fr);margin-top:6px;">
       <div class="stat"><div class="num green" id="pt-entradas">0</div><div class="lbl">Entradas hoy</div></div>
       <div class="stat"><div class="num orange" id="pt-salidas">0</div><div class="lbl">Salidas permitidas</div></div>
       <div class="stat"><div class="num" id="pt-denegadas" style="color:#dc2626;">0</div><div class="lbl">Intentos denegados</div></div>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="pt-grid-2">
+  <div id="pt-solo-informe" class="card" style="display:none;text-align:center;padding:28px;"><h2>📄 Consulta de Portería</h2><p style="color:var(--muted);">Seleccione una fecha y utilice <strong>Informe diario</strong>. El documento mostrará únicamente los estudiantes dentro de su alcance institucional.</p></div>
+  <div id="pt-operacion-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" class="pt-grid-2">
     <div class="card">
       <h2 style="font-size:15px;margin-bottom:10px;">📜 Movimientos de hoy</h2>
       <div class="table-wrap" style="max-height:420px;overflow:auto;"><table style="font-size:12px;">
@@ -6430,8 +6431,9 @@ async function iniciarApp(){
   }
 
   // ── PORTERÍA ─────────────────────────────────────────────────
-  // Rol seguridad (guarda) + admin.
-  if(esAdmin||ME.rol==="seguridad"){
+  // Guarda/Admin operan; guía, Orientación, auxiliares y administrativos
+  // reciben una vista restringida exclusivamente al informe diario.
+  if(esAdmin||ME.rol==="seguridad"||esAuxiliar||esAdminIst||esOrientador||esGuia){
     document.getElementById("nav-porteria").style.display="";
   }
 
@@ -9160,6 +9162,14 @@ async function guardarAsistencia(){
   const lecc=parseInt(document.getElementById("asis-lecciones").value)||4;
   if(!fecha||!asigActiva){sa("alert-asis","Seleccioná una fecha y asignación.","danger");return;}
   if(!registrosAsist.length){sa("alert-asis","No hay estudiantes.","danger");return;}
+  if(asistenciaAutosaveEnCurso){
+    sa("alert-asis","Hay un guardado en curso. Intentá nuevamente en un momento.","warning");
+    return;
+  }
+  asistenciaAutosaveEnCurso=true;
+  const contextoEnviado=asistenciaContextoVersion;
+  const boton=document.getElementById('asis-btn-guardar');
+  if(boton){ boton.disabled=true; boton.textContent='💾 Guardando…'; }
   try{
     const resp = await api("/api/asistencia","POST",{
       asignacion_id:asigActiva, fecha, lecciones:lecc,
@@ -9172,14 +9182,21 @@ async function guardarAsistencia(){
       }))
     });
     sa("alert-asis","✅ Asistencia guardada correctamente.","success");
-    // Recargar lista para obtener asistencia_id y poder justificar
-    const d = await api(`/api/asistencia/${asigActiva}/${fecha}?_=${Date.now()}`);
-    if(d && d.estudiantes) registrosAsist = d.estudiantes;
-    reiniciarCambiosAsistencia();
-    renderTablaAsist();
-    await cargarHistSesiones();
+    // Solo refrescar la misma lista que se envió. Si el usuario cambió de
+    // grupo o fecha durante la petición, no se sobreescribe su nueva vista.
+    if(contextoEnviado===asistenciaContextoVersion){
+      const d = await api(`/api/asistencia/${asigActiva}/${fecha}?_=${Date.now()}`);
+      if(d && d.estudiantes) registrosAsist = d.estudiantes;
+      reiniciarCambiosAsistencia();
+      renderTablaAsist();
+      await cargarHistSesiones();
+    }
     try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
   }catch(err){sa("alert-asis","Error: "+err.message,"danger");}
+  finally{
+    asistenciaAutosaveEnCurso=false;
+    if(boton){ boton.disabled=false; boton.textContent='💾 Guardar'; }
+  }
 }
 
 // Respaldo automático discreto: solo se activa después de una modificación
@@ -9218,7 +9235,11 @@ setInterval(async()=>{
     asistenciaVersionGuardada=Math.max(asistenciaVersionGuardada,versionEnviada);
     const info=document.getElementById('asis-sesion-info');
     if(info){ info.style.display=''; info.textContent=`☁️ Guardado automático ${new Date().toLocaleTimeString('es-CR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
-  }catch(e){ console.warn('Autoguardado de asistencia:',e.message); }
+  }catch(e){
+    console.warn('Autoguardado de asistencia:',e.message);
+    const info=document.getElementById('asis-sesion-info');
+    if(info){ info.style.display=''; info.textContent='⚠️ No se pudo guardar; se reintentará automáticamente.'; }
+  }
   finally{ asistenciaAutosaveEnCurso=false; }
 },10000);
 
@@ -19466,15 +19487,20 @@ async function ptConsultarMovimientos(estudianteId){
 async function iniciarPorteria(){
   const fecha=document.getElementById('pt-fecha');
   if(fecha&&!fecha.value)fecha.value=fechaHoyCR();
+  const fx=ME.funciones_extra||[];
+  const puedeInforme=['admin','auxiliar','administrativo','profesor_guia','orientador'].includes(ME.rol)||fx.includes('profesor_guia')||fx.includes('orientador');
+  const soloInforme=!['admin','seguridad'].includes(ME.rol);
   const btnInforme=document.getElementById('pt-btn-informe');
-  if(btnInforme)btnInforme.style.display=['admin','administrativo'].includes(ME.rol)?'':'none';
-  await Promise.all([ptCargarStats(), ptCargarRegistros(), ptCargarPermisosHoy()]);
-  document.getElementById('pt-scan-input')?.focus();
+  if(btnInforme)btnInforme.style.display=puedeInforme?'':'none';
+  ['pt-modo-info','pt-busqueda-wrap','pt-escaneo-wrap','pt-stats'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=soloInforme?'none':'';});
+  const grid=document.getElementById('pt-operacion-grid');if(grid)grid.style.display=soloInforme?'none':'grid';
+  const aviso=document.getElementById('pt-solo-informe');if(aviso)aviso.style.display=soloInforme?'':'none';
+  if(!soloInforme){await Promise.all([ptCargarStats(), ptCargarRegistros(), ptCargarPermisosHoy()]);document.getElementById('pt-scan-input')?.focus();}
 }
 
 async function ptCambiarFecha(){
   const consulta=document.getElementById('pt-consulta-estudiante');if(consulta)consulta.style.display='none';
-  await Promise.all([ptCargarStats(),ptCargarRegistros(),ptCargarPermisosHoy()]);
+  if(['admin','seguridad'].includes(ME.rol))await Promise.all([ptCargarStats(),ptCargarRegistros(),ptCargarPermisosHoy()]);
 }
 
 function ptSetModo(modo){
@@ -19595,7 +19621,8 @@ async function ptCargarPermisosHoy(){
 
 async function ptImprimirInforme(){
   const fecha=document.getElementById('pt-fecha')?.value||fechaHoyCR();
-  if(!['admin','administrativo'].includes(ME.rol)){sa('alert-porteria','Solo Administración puede imprimir este informe.','danger');return;}
+  const fx=ME.funciones_extra||[];
+  if(!(['admin','auxiliar','administrativo','profesor_guia','orientador'].includes(ME.rol)||fx.includes('profesor_guia')||fx.includes('orientador'))){sa('alert-porteria','No tiene permiso para imprimir este informe.','danger');return;}
   const registrosInforme=await api(`/api/porteria/informe-diario?fecha=${encodeURIComponent(fecha)}`)||[];
   const mapa=new Map();
   for(const r of registrosInforme){

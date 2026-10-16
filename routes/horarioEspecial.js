@@ -46,24 +46,59 @@ router.post("/", async (req, res) => {
   if(!sinHorario&&(!horaValida(entrada)||!horaValida(salida)||(!entrada&&!salida))) return res.status(400).json({error:"Indique al menos una hora especial válida de entrada o salida, o marque que la sección no tiene jornada."});
   if(!sinHorario&&entrada&&salida&&entrada>=salida) return res.status(400).json({error:"La hora de salida debe ser posterior a la entrada."});
   if(!motivo) return res.status(400).json({error:"Indique el motivo del horario especial."});
-  const r=await pool.query(`INSERT INTO horarios_especiales
-      (fecha,seccion_id,hora_entrada,hora_salida,motivo,sin_horario,activo,creado_por,anulado_por,updated_at)
-    VALUES($1,$2,$3,$4,$5,$6,true,$7,NULL,NOW())
-    ON CONFLICT(fecha,seccion_id) DO UPDATE SET hora_entrada=EXCLUDED.hora_entrada,
-      hora_salida=EXCLUDED.hora_salida,motivo=EXCLUDED.motivo,sin_horario=EXCLUDED.sin_horario,activo=true,
-      creado_por=EXCLUDED.creado_por,anulado_por=NULL,updated_at=NOW()
-    RETURNING *`,[fecha,seccionId,sinHorario?null:entrada,sinHorario?null:salida,motivo,sinHorario,req.session.usuario.id]);
   const mensaje=sinHorario
     ? `${fecha}: la sección no tendrá jornada. ${motivo}`
     : `${fecha}: ${entrada?`entrada ${entrada}`:"entrada habitual"} · ${salida?`salida ${salida}`:"salida habitual"}. ${motivo}`;
-  await notificarSecciones([seccionId],{title:sinHorario?"Sección sin jornada":"Horario especial",body:mensaje,url:"/?app=familias&abrir=horario"});
-  res.json(r.rows[0]);
+  const titulo=sinHorario?"Sección sin jornada":"Horario especial";
+  const client=await pool.connect();
+  let horario;
+  try{
+    await client.query("BEGIN");
+    const r=await client.query(`INSERT INTO horarios_especiales
+        (fecha,seccion_id,hora_entrada,hora_salida,motivo,sin_horario,activo,creado_por,anulado_por,updated_at)
+      VALUES($1,$2,$3,$4,$5,$6,true,$7,NULL,NOW())
+      ON CONFLICT(fecha,seccion_id) DO UPDATE SET hora_entrada=EXCLUDED.hora_entrada,
+        hora_salida=EXCLUDED.hora_salida,motivo=EXCLUDED.motivo,sin_horario=EXCLUDED.sin_horario,activo=true,
+        creado_por=EXCLUDED.creado_por,anulado_por=NULL,updated_at=NOW()
+      RETURNING *`,[fecha,seccionId,sinHorario?null:entrada,sinHorario?null:salida,motivo,sinHorario,req.session.usuario.id]);
+    horario=r.rows[0];
+    // Horario y aviso permanente se confirman juntos: nunca queda uno sin
+    // el otro. Al editar el horario se actualiza el mismo aviso.
+    await client.query(`INSERT INTO anuncios
+        (titulo,cuerpo,para_todos,secciones,creado_por,activo,tipo_origen,referencia_id)
+      VALUES($1,$2,false,ARRAY[$3]::int[],$4,true,'horario_especial',$5)
+      ON CONFLICT(tipo_origen,referencia_id) WHERE tipo_origen IS NOT NULL AND referencia_id IS NOT NULL
+      DO UPDATE SET titulo=EXCLUDED.titulo,cuerpo=EXCLUDED.cuerpo,secciones=EXCLUDED.secciones,
+        creado_por=EXCLUDED.creado_por,activo=true,created_at=NOW()`,[titulo,mensaje,seccionId,req.session.usuario.id,horario.id]);
+    await client.query("COMMIT");
+  }catch(err){
+    await client.query("ROLLBACK");
+    throw err;
+  }finally{
+    client.release();
+  }
+  await notificarSecciones([seccionId],{title:`📣 ${titulo}`,body:mensaje,url:"/?app=familias&abrir=avisos",tag:`horario-especial-${horario.id}`,urgency:"high"});
+  res.json(horario);
 });
 
 router.put("/:id/anular", async (req,res)=>{
-  const r=await pool.query(`UPDATE horarios_especiales SET activo=false,anulado_por=$1,updated_at=NOW()
-    WHERE id=$2 RETURNING id`,[req.session.usuario.id,req.params.id]);
-  if(!r.rows.length)return res.status(404).json({error:"Horario especial no encontrado."});
+  const client=await pool.connect();
+  let horario;
+  try{
+    await client.query("BEGIN");
+    const r=await client.query(`UPDATE horarios_especiales SET activo=false,anulado_por=$1,updated_at=NOW()
+      WHERE id=$2 RETURNING id,seccion_id,fecha`,[req.session.usuario.id,req.params.id]);
+    if(!r.rows.length){ await client.query("ROLLBACK"); return res.status(404).json({error:"Horario especial no encontrado."}); }
+    horario=r.rows[0];
+    await client.query(`UPDATE anuncios SET activo=false WHERE tipo_origen='horario_especial' AND referencia_id=$1`,[horario.id]);
+    await client.query("COMMIT");
+  }catch(err){
+    await client.query("ROLLBACK");
+    throw err;
+  }finally{
+    client.release();
+  }
+  await notificarSecciones([horario.seccion_id],{title:"Horario especial anulado",body:`Se anuló el horario especial programado para el ${String(horario.fecha).slice(0,10)}. Consulte el horario diario actualizado.`,url:"/?app=familias&abrir=avisos",tag:`horario-especial-anulado-${horario.id}`,urgency:"high"});
   res.json({ok:true});
 });
 

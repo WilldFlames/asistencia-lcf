@@ -1,0 +1,45 @@
+AVISOS, PORTERÍA E INFORMES — 16/10/2026
+=========================================
+
+HORARIO ESPECIAL
+- Al guardar un horario especial o una fecha sin jornada se crea también un
+  aviso permanente para las familias de la sección.
+- El aviso aparece en la pestaña Avisos del portal familiar y se envía además
+  como notificación al dispositivo, cuando este tiene las notificaciones activas.
+- Si el horario se edita, el aviso se actualiza sin duplicarse.
+- Horario y aviso se guardan en una sola transacción para evitar registros
+  incompletos.
+
+ENTRADAS Y SALIDAS
+- Cada ingreso, salida o intento denegado deja un aviso privado ligado al
+  estudiante y visible para su encargado principal.
+- El aviso queda en el sistema aunque el teléfono esté sin conexión o no tenga
+  permiso para mostrar notificaciones.
+- Se corrigió el caso de intento de ingreso cuando la sección no tiene jornada.
+- Un problema secundario de notificación nunca impide registrar el movimiento
+  principal de Portería.
+
+INFORME DE PORTERÍA
+- Administración y auxiliares pueden imprimir el informe institucional completo.
+- Cada docente guía puede imprimir solamente los movimientos de sus secciones guía.
+- Cada orientadora puede imprimir solamente los movimientos de sus secciones
+  asignadas en el año lectivo.
+- Para guía, Orientación, auxiliares y personal administrativo, Portería se abre
+  en modo de informe: no muestra ni habilita escaneo, búsqueda ni operación.
+- El informe conserva quién registró la entrada y quién registró la salida.
+
+AUTOGUARDADO DE ASISTENCIA
+- Abrir o consultar una lista sigue sin crear una sesión automáticamente.
+- El autoguardado continúa únicamente después de un cambio real y cada 10 segundos.
+- Se evita que el botón Guardar y el respaldo automático envíen datos al mismo tiempo.
+- Si falla el respaldo, se muestra el aviso y se reintenta sin marcar los cambios
+  como guardados.
+- Un cambio de grupo o fecha durante una petición no sobrescribe la nueva vista.
+
+BASE DE DATOS
+- La actualización crea automáticamente las columnas e índices de origen de
+  anuncios y la tabla de avisos privados para familias al iniciar el servidor.
+- No se requiere ejecutar scripts manuales ni borrar información existente.
+
+VERIFICACIÓN
+- Suite completa: 294 pruebas aprobadas, 0 fallos.

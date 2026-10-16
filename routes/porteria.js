@@ -1,8 +1,9 @@
 const router = require("express").Router();
 const { pool } = require("../db");
-const { requireAuth, requireRol } = require("../middleware/auth");
+const { requireAuth, requireRol, tieneRol } = require("../middleware/auth");
 const { obtenerLecciones } = require("./horarios");
 const { notificarEstudiante, notificarSecciones } = require("../utils/push-familias");
+const { obtenerAnioActivo } = require("../utils/lectivo");
 
 // ── Fecha/hora Costa Rica (mismo patrón que comedor.js) ────────────────────
 function fechaCR(){
@@ -32,20 +33,37 @@ function limpiarCedula(c){ return String(c||'').replace(/[\s\-.\/\\]/g,''); }
 // ── Roles ──────────────────────────────────────────────────────────────────
 const canEscanear = requireRol("admin","seguridad");
 const canPermisos = requireRol("admin","auxiliar");
-const canVer      = requireRol("admin","seguridad","auxiliar","administrativo");
+const canVer      = requireRol("admin","seguridad");
+const canVerPermisos = requireRol("admin","auxiliar","seguridad");
+const canInforme  = requireRol("admin","auxiliar","administrativo","profesor_guia","orientador");
 
 async function notificarMovimientoPorteria(estudianteId, tipo, hora, resultado="permitido", detalle=""){
   const esEntrada=tipo==="entrada";
   const permitido=resultado==="permitido";
   const title=esEntrada ? (permitido ? "Ingreso registrado en portería" : "Ingreso no autorizado") : (permitido ? "Salida registrada en portería" : "Salida no autorizada");
   const accion=esEntrada ? (permitido ? "ingresó a la institución" : "intentó ingresar fuera de su horario") : (permitido ? "salió de la institución" : "intentó salir, pero no tenía autorización");
-  await notificarEstudiante(estudianteId,{
-    title,
-    body:`{estudiante} ${accion} a las ${hora}.${detalle?` ${detalle}`:""}`,
-    url:"/?app=familias&abrir=porteria",
-    tag:`porteria-${tipo}-${resultado}-${estudianteId}-${fechaCR()}-${String(hora).replace(":","")}`,
-    urgency:"high"
-  });
+  const cuerpo=`{estudiante} ${accion} a las ${hora}.${detalle?` ${detalle}`:""}`;
+  const clave=`porteria-${tipo}-${resultado}-${estudianteId}-${fechaCR()}-${String(hora).replace(":","")}`;
+  // El aviso queda visible en el portal aunque el teléfono no tenga permiso
+  // de notificaciones o se encuentre sin conexión.
+  // Una falla secundaria de avisos nunca debe revertir ni impedir el
+  // movimiento que Portería ya registró correctamente.
+  try{
+    const n=await pool.query("SELECT nombre,primer_apellido FROM estudiantes WHERE id=$1",[estudianteId]);
+    const estudiante=n.rows.length?[n.rows[0].nombre,n.rows[0].primer_apellido].filter(Boolean).join(" "):"El estudiante";
+    await pool.query(`INSERT INTO avisos_familia(estudiante_id,tipo,titulo,cuerpo,url,clave)
+      VALUES($1,'porteria',$2,$3,'/?app=familias&abrir=porteria',$4)
+      ON CONFLICT(clave) DO NOTHING`,[estudianteId,title,cuerpo.replace("{estudiante}",estudiante),clave]);
+    await notificarEstudiante(estudianteId,{
+      title,
+      body:cuerpo,
+      url:"/?app=familias&abrir=porteria",
+      tag:clave,
+      urgency:"high"
+    });
+  }catch(err){
+    console.error("Aviso de Portería no enviado:",err.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -68,7 +86,7 @@ router.get("/estudiante/:cedula", requireRol("admin","auxiliar","seguridad"), as
 });
 
 // ── Listar permisos (filtros: fecha o todos) ──────────────────────────────
-router.get("/permisos", canVer, async (req, res) => {
+router.get("/permisos", canVerPermisos, async (req, res) => {
   const { fecha, todos } = req.query;
   let where = "WHERE 1=1";
   const params = [];
@@ -297,6 +315,7 @@ router.post("/escaneo", canEscanear, async (req, res) => {
         : "No tiene horario de ingreso configurado para hoy";
       await pool.query(`INSERT INTO porteria_registros (estudiante_id,fecha,hora,tipo,resultado,detalle,registrado_por)
         VALUES($1,$2,$3,'entrada','denegado',$4,$5)`,[est.id,fecha,hora,detalle,uid]);
+      await notificarMovimientoPorteria(est.id,"entrada",hora,"denegado",detalle);
       return res.json({ok:true,resultado:"denegado",tipo:"entrada",hora,estudiante:est,detalle,
         alerta_critica:true,codigo:"sin_horario"});
     }
@@ -416,10 +435,30 @@ router.get("/registros", canVer, async (req, res) => {
   res.json(r.rows);
 });
 
-// Fuente exclusiva del PDF diario. Aunque seguridad y auxiliares pueden ver
-// la operación de portería, únicamente Administración puede emitir el informe.
-router.get("/informe-diario", requireRol("admin","administrativo"), async (req,res)=>{
+// Fuente exclusiva del PDF diario. Administración y auxiliares ven toda la
+// institución; guías y Orientación reciben únicamente sus secciones asignadas.
+router.get("/informe-diario", canInforme, async (req,res)=>{
   const fecha=req.query.fecha||fechaCR();
+  const u=req.session.usuario;
+  const accesoTotal=tieneRol(u,["admin","auxiliar","administrativo"]);
+  const anio=await obtenerAnioActivo();
+  const params=[fecha];
+  let alcance="";
+  if(!accesoTotal){
+    params.push(u.id,anio);
+    alcance=`AND (
+      ( ${tieneRol(u,["profesor_guia"])?"true":"false"} AND (
+        EXISTS(SELECT 1 FROM seccion_guia_anio sga WHERE sga.seccion_id=e.seccion_id AND sga.guia_id=$2 AND sga.anio=$3)
+        OR (NOT EXISTS(SELECT 1 FROM seccion_guia_anio sga_any WHERE sga_any.seccion_id=e.seccion_id AND sga_any.anio=$3)
+          AND EXISTS(SELECT 1 FROM seccion_guia sg WHERE sg.seccion_id=e.seccion_id AND sg.guia_id=$2))
+      )) OR
+      ( ${tieneRol(u,["orientador"])?"true":"false"} AND (
+        EXISTS(SELECT 1 FROM seccion_orientador_anio soa WHERE soa.seccion_id=e.seccion_id AND soa.orientador_id=$2 AND soa.anio=$3)
+        OR (NOT EXISTS(SELECT 1 FROM seccion_orientador_anio soa_any WHERE soa_any.seccion_id=e.seccion_id AND soa_any.anio=$3)
+          AND EXISTS(SELECT 1 FROM seccion_orientador so WHERE so.seccion_id=e.seccion_id AND so.orientador_id=$2))
+      ))
+    )`;
+  }
   const r=await pool.query(`
     SELECT r.*,e.nombre,e.primer_apellido,e.segundo_apellido,e.cedula,
       COALESCE(s.nombre,e.seccion_archivo) AS seccion_nombre,
@@ -430,8 +469,8 @@ router.get("/informe-diario", requireRol("admin","administrativo"), async (req,r
     LEFT JOIN secciones s ON s.id=e.seccion_id
     LEFT JOIN permisos_salida p ON p.id=r.permiso_id
     LEFT JOIN usuarios u ON u.id=r.registrado_por
-    WHERE r.fecha=$1
-    ORDER BY r.hora,r.id`,[fecha]);
+    WHERE r.fecha=$1 ${alcance}
+    ORDER BY r.hora,r.id`,params);
   res.json(r.rows);
 });
 

@@ -702,14 +702,17 @@ router.get("/hijo/:id/conducta", requirePadre, hijoDelPadre, async (req, res) =>
 router.get("/anuncios", requirePadre, async (req, res) => {
   const hijos = await hijosDe(req.session.padre.cedula);
   const secIds = hijos.map(h=>h.seccion_id).filter(Boolean);
+  const estIds = hijos.map(h=>h.id).filter(Boolean);
   const r = await pool.query(`
-    SELECT a.id, a.titulo, a.cuerpo, a.para_todos, a.secciones, a.created_at
-    FROM anuncios a
-    WHERE a.activo = true
-      AND (a.para_todos = true OR a.secciones && $1::int[])
-    ORDER BY a.created_at DESC
-    LIMIT 30
-  `, [secIds.length ? secIds : [0]]);
+    SELECT * FROM (
+      SELECT 'anuncio-'||a.id AS id,a.titulo,a.cuerpo,a.para_todos,a.secciones,a.created_at,'anuncio' AS tipo
+      FROM anuncios a
+      WHERE a.activo=true AND (a.para_todos=true OR a.secciones && $1::int[])
+      UNION ALL
+      SELECT 'aviso-'||af.id AS id,af.titulo,af.cuerpo,false AS para_todos,ARRAY[]::int[] AS secciones,af.created_at,af.tipo
+      FROM avisos_familia af WHERE af.estudiante_id=ANY($2::int[])
+    ) avisos ORDER BY created_at DESC LIMIT 50
+  `, [secIds.length ? secIds : [0],estIds.length?estIds:[0]]);
   res.json(r.rows);
 });
 

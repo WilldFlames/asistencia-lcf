@@ -2906,6 +2906,31 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    // Los anuncios automáticos conservan un vínculo con el registro que los
+    // originó. Así una edición del horario especial actualiza el mismo aviso
+    // y no llena el portal familiar de duplicados.
+    await client.query(`ALTER TABLE anuncios ADD COLUMN IF NOT EXISTS tipo_origen TEXT DEFAULT NULL`);
+    await client.query(`ALTER TABLE anuncios ADD COLUMN IF NOT EXISTS referencia_id INTEGER DEFAULT NULL`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS anuncios_origen_uq
+      ON anuncios(tipo_origen,referencia_id) WHERE tipo_origen IS NOT NULL AND referencia_id IS NOT NULL`);
+
+    // Avisos privados de una persona estudiante. A diferencia de anuncios,
+    // nunca se comparten con toda la sección: únicamente los consulta el
+    // encargado principal asociado al estudiante.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS avisos_familia (
+        id             BIGSERIAL PRIMARY KEY,
+        estudiante_id  INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+        tipo           TEXT NOT NULL,
+        titulo         TEXT NOT NULL,
+        cuerpo         TEXT NOT NULL,
+        url            TEXT DEFAULT '/?app=familias&abrir=avisos',
+        clave          TEXT UNIQUE,
+        created_at     TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_avisos_familia_estudiante
+      ON avisos_familia(estudiante_id,created_at DESC)`);
 
     // ── EXTRAMUROS ─────────────────────────────────────────────────────
     // Una actividad puede incluir muchos responsables y estudiantes. Cada
