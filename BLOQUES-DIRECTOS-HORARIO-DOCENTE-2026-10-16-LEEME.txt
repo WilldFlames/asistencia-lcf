@@ -1,0 +1,27 @@
+ACTUALIZACIÓN: BLOQUES DIRECTOS EN EL HORARIO DEL DOCENTE
+Fecha: 16 de octubre de 2026
+
+CAMBIOS
+
+1. Se eliminó el formulario superior de "Bloques adicionales del docente".
+2. El administrador ahora agrega un bloque seleccionando directamente un espacio
+   libre en el horario del docente.
+3. Los tipos disponibles son:
+   - Club
+   - C. Departamento
+   - CTA
+   - C. Adicional
+4. Un bloque existente se puede seleccionar en la misma cuadrícula para editarlo
+   o eliminarlo.
+5. Solo el administrador puede crear, editar o eliminar estos bloques. Secretaría
+   conserva únicamente la consulta de horarios.
+6. El resumen superior ahora muestra por separado la cantidad de lecciones Guía.
+7. Los bloques anteriores de Coordinación se conservan y se presentan como
+   C. Departamento; la actualización no borra horarios existentes.
+
+VERIFICACIÓN
+
+- Se validan cruces contra las lecciones regulares y otros bloques del docente.
+- Se mantiene la separación por curso lectivo.
+- Suite completa: 282 pruebas aprobadas, 0 fallos.
+

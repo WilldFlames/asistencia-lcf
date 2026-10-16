@@ -35,7 +35,8 @@ test('la interfaz de secretaría abre horarios y no habilita edición',()=>{
   assert.match(ui,/id="hor-btn-aulas"/);
   assert.match(ui,/const esSecretariaH = ME\.rol === 'secretaria'/);
   assert.match(ui,/return horVerAulas\(\)/);
-  assert.match(ui,/document\.getElementById\('hor-bloques-admin'\)\.style\.display=ME\.rol==='admin'/);
+  assert.match(ui,/if\(ME\.rol!=='admin'\|\|horModo!=='docente-admin'\)return;/);
+  assert.match(ui,/id="modal-hor-bloque"/);
   assert.match(ui,/document\.getElementById\('hor-btn-guardar'\)\.style\.display='none'/);
 });
 

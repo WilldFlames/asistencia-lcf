@@ -2230,7 +2230,7 @@ async function initDB() {
         anio          INTEGER NOT NULL,
         dia           INTEGER NOT NULL CHECK(dia BETWEEN 1 AND 5),
         leccion       INTEGER NOT NULL CHECK(leccion BETWEEN 1 AND 12),
-        tipo          TEXT NOT NULL CHECK(tipo IN ('club','coordinacion')),
+        tipo          TEXT NOT NULL CHECK(tipo IN ('club','coordinacion','cta','coordinacion_adicional')),
         detalle       TEXT DEFAULT '',
         lugar         TEXT DEFAULT '',
         creado_por    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -2241,6 +2241,18 @@ async function initDB() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_horario_bloques_docente_anio
       ON horario_bloques_docente(profesor_id,anio,dia,leccion)`);
+    // Amplía los tipos sin modificar los bloques ya guardados. El valor
+    // histórico "coordinacion" se muestra ahora como C. Departamento.
+    await client.query(`ALTER TABLE horario_bloques_docente
+      DROP CONSTRAINT IF EXISTS horario_bloques_docente_tipo_check`);
+    await client.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint
+        WHERE conrelid='horario_bloques_docente'::regclass
+          AND conname='horario_bloques_docente_tipo_check') THEN
+        ALTER TABLE horario_bloques_docente ADD CONSTRAINT horario_bloques_docente_tipo_check
+          CHECK(tipo IN ('club','coordinacion','cta','coordinacion_adicional'));
+      END IF;
+    END $$`);
 
     // ── PERMISOS DE SALIDA (auxiliares) ──────────────────────────────────
     // Consecutivo interno por año (numero + anio). Individual o por sección.

@@ -59,11 +59,22 @@ function enteroRango(valor,min,max){
   return Number.isInteger(n)&&n>=min&&n<=max?n:null;
 }
 
+const TIPOS_BLOQUE={
+  club:'Club',
+  coordinacion:'C. Departamento',
+  cta:'CTA',
+  coordinacion_adicional:'C. Adicional'
+};
+function nombreTipoBloque(tipo){return TIPOS_BLOQUE[tipo]||'Bloque';}
+
 function resumenDocente(celdas,bloques){
   const lecciones=new Set(celdas.map(c=>`${c.dia}-${c.leccion}`)).size;
+  const guia=new Set(celdas.filter(c=>textoComparable(c.materia_nombre)==='guia').map(c=>`${c.dia}-${c.leccion}`)).size;
   const club=bloques.filter(b=>b.tipo==='club').length;
   const coordinacion=bloques.filter(b=>b.tipo==='coordinacion').length;
-  return {lecciones,club,coordinacion,total_semanal:lecciones+club+coordinacion};
+  const cta=bloques.filter(b=>b.tipo==='cta').length;
+  const coordinacion_adicional=bloques.filter(b=>b.tipo==='coordinacion_adicional').length;
+  return {lecciones,guia,club,coordinacion,cta,coordinacion_adicional,total_semanal:lecciones+bloques.length};
 }
 
 async function horarioCompletoDocente(profesorId,anio){
@@ -89,7 +100,7 @@ async function validarBloque(body,idExcluir=null){
   const dia=enteroRango(body?.dia,1,5),leccion=enteroRango(body?.leccion,1,12);
   const tipo=String(body?.tipo||'').trim().toLowerCase();
   const detalle=String(body?.detalle||'').trim(),lugar=String(body?.lugar||'').trim();
-  if(!profesorId||!anio||!dia||!leccion||!['club','coordinacion'].includes(tipo))
+  if(!profesorId||!anio||!dia||!leccion||!Object.hasOwn(TIPOS_BLOQUE,tipo))
     return {error:'Complete docente, año, día, lección y tipo de bloque.'};
   if(detalle.length>120||lugar.length>80) return {error:'El nombre o lugar del bloque es demasiado extenso.'};
   const docente=await pool.query(`SELECT id FROM usuarios WHERE id=$1 AND activo=true`,[profesorId]);
@@ -173,7 +184,9 @@ router.get("/aulas", requireRol("admin","secretaria"), asyncRoute(async (req,res
     WHERE h.anio=$1 AND NULLIF(BTRIM(h.aula::text),'') IS NOT NULL
     UNION ALL
     SELECT b.dia,b.leccion,b.lugar AS aula,
-      CASE WHEN b.tipo='club' THEN 'CLUB' ELSE 'COORDINACIÓN' END AS seccion_nombre,
+      CASE b.tipo WHEN 'club' THEN 'CLUB' WHEN 'coordinacion' THEN 'C. DEPARTAMENTO'
+        WHEN 'cta' THEN 'CTA' WHEN 'coordinacion_adicional' THEN 'C. ADICIONAL'
+        ELSE 'BLOQUE' END AS seccion_nombre,
       NULL AS subgrupo,COALESCE(NULLIF(b.detalle,''),INITCAP(b.tipo)) AS materia_nombre,
       u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2,
       true AS es_bloque
@@ -338,7 +351,7 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
       if(conflicto.rows.length){
         const x=conflicto.rows[0];
         await client.query('ROLLBACK');
-        return res.status(409).json({error:`${x.nombre} ${x.primer_apellido} ya tiene ${x.tipo==='club'?'Club':'Coordinación'} el día ${x.dia}, lección ${x.leccion}.`});
+        return res.status(409).json({error:`${x.nombre} ${x.primer_apellido} ya tiene ${nombreTipoBloque(x.tipo)} el día ${x.dia}, lección ${x.leccion}.`});
       }
     }
     await client.query("DELETE FROM horarios WHERE seccion_id=$1 AND anio=$2", [seccionId, a]);
