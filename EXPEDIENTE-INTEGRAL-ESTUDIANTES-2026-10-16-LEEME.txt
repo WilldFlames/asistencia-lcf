@@ -1,0 +1,29 @@
+EXPEDIENTE INTEGRAL DEL ESTUDIANTE — 16/10/2026
+================================================
+
+Se agregó un apartado de consulta y generación documental para Administración
+y Orientación.
+
+FUNCIONAMIENTO
+- Administración puede buscar estudiantes activos y retirados de toda la institución.
+- Orientación solo puede consultar estudiantes de sus niveles asignados en el año activo.
+- Se exige indicar la entidad solicitante y el motivo antes de generar el PDF.
+- El PDF incluye portada, índice y apartados identificados para matrícula,
+  encargados, notas, asistencia, conducta, debidos procesos, pautas, alertas,
+  comunicaciones, adecuaciones, TES, informes, Portería, citas, extramuros y
+  caracterización, entre otros registros disponibles.
+- Cada generación deja auditoría con estudiante, usuario, fecha, entidad,
+  motivo y curso lectivo.
+
+CONFIDENCIALIDAD
+- Los documentos confidenciales de Orientación quedan excluidos por defecto.
+- Solo la persona orientadora responsable del nivel actual puede incluirlos.
+- La inclusión exige una confirmación visible y queda registrada en auditoría.
+
+SEGURIDAD DE LOS DATOS
+- El módulo es de solo lectura respecto de los documentos fuente.
+- No cambia el orden, el estado ni el contenido de expedientes ya existentes.
+- El historial de generación se guarda en una tabla independiente.
+
+VERIFICACIÓN
+- Suite completa: 290 pruebas aprobadas, 0 fallos.

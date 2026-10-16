@@ -1443,6 +1443,24 @@ async function initDB() {
       `);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_minutas_estado ON minutas(estado)`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_minutas_anio ON minutas(anio)`);
+      // Un documento confidencial de Orientación no hereda la visibilidad
+      // ordinaria de la minuta. Su acceso se resuelve dinámicamente mediante
+      // la sección ACTUAL de los estudiantes vinculados, de modo que al subir
+      // de nivel el expediente pase a la nueva persona orientadora.
+      await client.query(`ALTER TABLE minutas ADD COLUMN IF NOT EXISTS es_confidencial BOOLEAN NOT NULL DEFAULT false`);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS minuta_estudiantes (
+          id              SERIAL PRIMARY KEY,
+          minuta_id       INTEGER NOT NULL REFERENCES minutas(id) ON DELETE CASCADE,
+          estudiante_id   INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+          vinculado_por   INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+          created_at      TIMESTAMP DEFAULT NOW(),
+          UNIQUE(minuta_id, estudiante_id)
+        )
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_minest_minuta ON minuta_estudiantes(minuta_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_minest_estudiante ON minuta_estudiantes(estudiante_id)`);
 
       // Asistentes a la minuta: presentes y ausentes.
       // - Si es del sistema, usuario_id != null y heredamos nombre/puesto desde usuarios.
@@ -3122,6 +3140,24 @@ async function initDB() {
     if(cedulasConflicto.rows[0].total){
       console.warn(`⚠️ Cédulas con guiones no modificadas por posible duplicado: ${cedulasConflicto.rows[0].total}`);
     }
+
+    // ── EXPEDIENTE INTEGRAL DEL ESTUDIANTE ───────────────────────────
+    // No duplica ni modifica los documentos fuente. Únicamente conserva la
+    // trazabilidad de cada compilación solicitada para una entidad externa.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS expediente_integral_generaciones (
+        id                    BIGSERIAL PRIMARY KEY,
+        estudiante_id         INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+        generado_por          INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        entidad_solicitante   TEXT NOT NULL,
+        motivo                TEXT NOT NULL,
+        incluye_confidenciales BOOLEAN NOT NULL DEFAULT false,
+        curso_lectivo         INTEGER,
+        generado_at           TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_integral_estudiante
+      ON expediente_integral_generaciones(estudiante_id,generado_at DESC)`);
 
     console.log("✅ Base de datos lista");
   } finally {

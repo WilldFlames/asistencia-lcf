@@ -1,0 +1,34 @@
+ACTUALIZACIÓN: DOCUMENTOS CONFIDENCIALES EN MINUTAS DE ORIENTACIÓN
+Fecha: 16 de octubre de 2026
+
+FUNCIONAMIENTO
+
+1. Orientación puede marcar una minuta como "Documento confidencial de
+   Orientación".
+2. Al hacerlo debe seleccionar uno o varios estudiantes atendidos. La lista
+   proviene del padrón activo del sistema y se limita a los niveles que la
+   persona orientadora tiene asignados.
+3. Un documento confidencial solamente es visible para la persona orientadora
+   responsable de la sección actual de al menos uno de sus estudiantes.
+4. Administración, asistentes y otros funcionarios no heredan acceso a estos
+   documentos.
+5. Cuando el estudiante cambia de nivel o sección, el sistema consulta la
+   asignación anual vigente: la orientadora anterior pierde acceso y la nueva
+   lo recibe automáticamente. No se copia ni se mueve el documento.
+6. El documento muestra su condición confidencial y los estudiantes vinculados
+   tanto en pantalla como en el PDF institucional.
+7. Las minutas ordinarias conservan exactamente sus reglas anteriores.
+
+SEGURIDAD
+
+- La restricción se valida en el servidor para listas, detalle, edición,
+  asistentes, finalización, reapertura, eliminación e impresión.
+- La asignación anual tiene prioridad; la asignación histórica solo se usa como
+  respaldo cuando todavía no existe configuración para el año activo.
+- Los datos y minutas existentes se conservan. La migración agrega campos y una
+  tabla de relación sin eliminar información.
+
+VERIFICACIÓN
+
+- Suite completa: 286 pruebas aprobadas, 0 fallos.
+

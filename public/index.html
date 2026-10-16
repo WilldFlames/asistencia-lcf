@@ -1262,6 +1262,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="consecutivos" id="nav-consecutivos" onclick="goTo('consecutivos')" style="display:none"><span class="icon">🔢</span><span>Consecutivos</span></button>
   <button class="nav-btn" data-page="constancia" id="nav-constancia" onclick="goTo('constancia')" style="display:none"><span class="icon">📄</span><span>Constancia</span></button>
   <button class="nav-btn" data-page="archivo" id="nav-archivo" onclick="goTo('archivo')" style="display:none"><span class="icon">🗄️</span><span>Archivo</span></button>
+  <button class="nav-btn" data-page="expediente-integral" id="nav-expediente-integral" onclick="goTo('expediente-integral')" style="display:none"><span class="icon">📚</span><span>Expediente integral</span></button>
   <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📈</span><span>Cumplimiento</span></button>
   <button class="nav-btn" data-page="precautoria" id="nav-precautoria" onclick="goTo('precautoria')" style="display:none"><span class="icon">⚠️</span><span>Precautoria</span></button>
   <button class="nav-btn" data-page="suspension" id="nav-suspension" onclick="goTo('suspension')" style="display:none"><span class="icon">🚫</span><span>Suspensión</span></button>
@@ -2992,6 +2993,35 @@ tr:hover td{background:#f8fafc;}
 </div><!-- /page-carnet -->
 
 <!-- ARCHIVO -->
+<div class="page" id="page-expediente-integral">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+      <div><h2 style="margin:0 0 4px">📚 Expediente integral del estudiante</h2>
+        <p style="margin:0;color:var(--muted);font-size:13px;">Compila la información institucional en un PDF de consulta. Los registros originales permanecen sin cambios.</p></div>
+    </div>
+    <div id="alert-expediente-integral" class="alert"></div>
+    <div class="form-grid" style="grid-template-columns:1.2fr 1fr;gap:14px;">
+      <div>
+        <label>Buscar estudiante *</label>
+        <div style="display:flex;gap:8px;"><input id="ei-buscar" placeholder="Nombre, apellidos o cédula" onkeydown="if(event.key==='Enter')eiBuscarEstudiantes()" style="flex:1"/><button class="btn btn-outline" onclick="eiBuscarEstudiantes()">🔎 Buscar</button></div>
+        <select id="ei-estudiante" size="8" onchange="eiSeleccionarEstudiante()" style="width:100%;margin-top:8px;min-height:210px;"></select>
+        <div id="ei-seleccion" style="margin-top:8px;padding:10px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:13px;">Seleccione un estudiante.</div>
+      </div>
+      <div>
+        <label>Entidad solicitante *</label><input id="ei-entidad" maxlength="180" placeholder="Ej. Supervisión Educativa, PANI, Dirección Regional"/>
+        <label style="margin-top:12px;">Motivo de la solicitud *</label><textarea id="ei-motivo" rows="5" maxlength="800" placeholder="Indique el propósito institucional de la entrega"></textarea>
+        <label id="ei-conf-wrap" style="display:none;margin-top:12px;padding:11px;border:1px solid #f59e0b;background:#fffbeb;border-radius:8px;font-weight:normal;">
+          <input type="checkbox" id="ei-confidenciales"/> Incluir documentos confidenciales de Orientación vinculados al estudiante
+          <small style="display:block;color:#92400e;margin-top:5px;">Su inclusión quedará registrada. Utilícela únicamente cuando sea necesaria para la solicitud.</small>
+        </label>
+        <button class="btn btn-primary" id="ei-generar" onclick="eiGenerar()" style="width:100%;margin-top:16px;">📄 Generar expediente integral</button>
+        <p style="font-size:11px;color:var(--muted);margin-top:8px;">Cada generación conserva usuario, fecha, entidad, motivo y si incluyó información confidencial.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHIVO -->
 <div class="page" id="page-archivo">
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
@@ -4311,7 +4341,7 @@ tr:hover td{background:#f8fafc;}
   </p>
 
   <div style="background:#fef9c3;border:1px solid #fde047;color:#713f12;border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:14px;">
-    🔒 <strong>Privacidad:</strong> cada minuta la ven quien la creó y las personas marcadas como <strong>presentes</strong>. Admin y Administrativo pueden acceder para supervisión — cada consulta queda registrada y se notifica al creador. Para reabrir una minuta ajena, se requiere justificación escrita.
+    🔒 <strong>Privacidad:</strong> las minutas ordinarias las ven quien las creó y las personas presentes; Administración puede supervisarlas con auditoría. Los <strong>documentos confidenciales de Orientación</strong> solo son visibles para la persona orientadora responsable del nivel actual de los estudiantes vinculados y se trasladan automáticamente cuando cambian de nivel.
   </div>
 
   <div id="alert-min" class="alert"></div>
@@ -4403,6 +4433,19 @@ tr:hover td{background:#f8fafc;}
         <label>Elaborada por</label>
         <input type="text" id="nmin-elaborada" placeholder="Se autocompleta con tu nombre"/>
       </div>
+      <div id="nmin-confidencial-wrap" style="grid-column:1/-1;display:none;background:#fff1f2;border:1px solid #fda4af;border-radius:8px;padding:11px 12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#881337;font-weight:bold;">
+          <input type="checkbox" id="nmin-confidencial" onchange="minToggleConfidencial('nmin')"/>
+          🔐 Documento confidencial de Orientación
+        </label>
+        <small style="display:block;color:#9f1239;margin-top:5px;">No será visible para Administración ni para los asistentes. El acceso seguirá automáticamente al nivel actual de los estudiantes seleccionados.</small>
+        <div id="nmin-estudiantes-wrap" style="display:none;margin-top:10px;">
+          <label>Estudiantes atendidos *</label>
+          <input type="search" id="nmin-estudiante-buscar" oninput="minFiltrarEstudiantes('nmin')" placeholder="Buscar por nombre, cédula o sección…" style="margin:5px 0 7px;"/>
+          <select id="nmin-estudiantes" multiple size="7" style="width:100%;"></select>
+          <small style="color:var(--muted);">Puede seleccionar varios con Ctrl (o manteniendo pulsado en tablet).</small>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="cerrarModal('modal-nueva-minuta')">Cancelar</button>
@@ -4450,6 +4493,11 @@ tr:hover td{background:#f8fafc;}
       <h4 style="margin:8px 0;color:#ea580c;">👤 Personal Ausente</h4>
       <div id="mind-ausentes-lista" style="margin-bottom:8px;"></div>
       <button class="btn btn-outline btn-xs" onclick="abrirAgregarAsistente('ausente')" id="btn-min-add-ausente">+ Agregar ausente</button>
+    </div>
+
+    <div id="mind-estudiantes-bloque" style="display:none;margin-bottom:14px;background:#fff1f2;border:1px solid #fda4af;border-radius:8px;padding:10px 12px;">
+      <h4 style="margin:0 0 7px;color:#881337;">🔐 Estudiantes vinculados al documento confidencial</h4>
+      <div id="mind-estudiantes-lista" style="font-size:12.5px;"></div>
     </div>
 
     <!-- Temas tratados y acuerdos -->
@@ -4537,6 +4585,14 @@ tr:hover td{background:#f8fafc;}
       <div class="fg"><label>Hora fin</label><input type="time" id="emin-hora-fin"/></div>
       <div class="fg" style="grid-column:1/-1;">
         <label>Elaborada por</label><input type="text" id="emin-elaborada"/>
+      </div>
+      <div id="emin-confidencial-wrap" style="grid-column:1/-1;display:none;background:#fff1f2;border:1px solid #fda4af;border-radius:8px;padding:11px 12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#881337;font-weight:bold;"><input type="checkbox" id="emin-confidencial" onchange="minToggleConfidencial('emin')"/> 🔐 Documento confidencial de Orientación</label>
+        <div id="emin-estudiantes-wrap" style="display:none;margin-top:10px;">
+          <label>Estudiantes atendidos *</label>
+          <input type="search" id="emin-estudiante-buscar" oninput="minFiltrarEstudiantes('emin')" placeholder="Buscar por nombre, cédula o sección…" style="margin:5px 0 7px;"/>
+          <select id="emin-estudiantes" multiple size="7" style="width:100%;"></select>
+        </div>
       </div>
     </div>
     <div class="modal-actions">
@@ -6219,6 +6275,7 @@ function goTo(page){
   if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
   if(page==="archivo")      iniciarArchivo();
+  if(page==="expediente-integral") iniciarExpedienteIntegral();
   if(page==="prematricula") iniciarPrematricula();
   if(page==="matricula")    iniciarMatricula();
   if(page==="config-anio")  iniciarConfigAnio();
@@ -6391,6 +6448,10 @@ async function iniciarApp(){
   // El docente ve únicamente estudiantes y notas de sus propias asignaciones.
   if(esAdmin||esAuxiliar||esProfesor||esGuia||esOrientador)
     document.getElementById("nav-archivo").style.display="";
+  if(esAdmin||esOrientador){
+    document.getElementById("sec-gestion").style.display="";
+    document.getElementById("nav-expediente-integral").style.display="";
+  }
 
   // ── PREMATRÍCULA / MATRÍCULA ─────────────────────────────────
   if(esAdmin||esAuxiliar||esAdminIst){
@@ -14203,6 +14264,40 @@ let minEstadoActual = 'en_curso';
 let minData = [];
 let minActual = null;
 let minUsuariosCache = [];
+let minEstudiantesConfCache = [];
+const minEstudiantesSeleccionados={nmin:new Set(),emin:new Set()};
+
+function minEsOrientacion(){return tieneAlgunRol('orientador');}
+function minCapturarEstudiantes(prefijo){
+  const sel=document.getElementById(`${prefijo}-estudiantes`);
+  if(!sel)return;
+  [...sel.options].forEach(o=>{
+    const id=Number(o.value);if(o.selected)minEstudiantesSeleccionados[prefijo].add(id);
+    else minEstudiantesSeleccionados[prefijo].delete(id);
+  });
+}
+function minRenderEstudiantes(prefijo){
+  const sel=document.getElementById(`${prefijo}-estudiantes`);if(!sel)return;
+  const q=String(document.getElementById(`${prefijo}-estudiante-buscar`)?.value||'').toLocaleLowerCase('es-CR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const visibles=minEstudiantesConfCache.filter(e=>{
+    const txt=`${e.nombre||''} ${e.primer_apellido||''} ${e.segundo_apellido||''} ${e.cedula||''} ${e.seccion_nombre||''}`.toLocaleLowerCase('es-CR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return !q||txt.includes(q)||minEstudiantesSeleccionados[prefijo].has(Number(e.id));
+  });
+  sel.innerHTML=visibles.map(e=>`<option value="${e.id}" ${minEstudiantesSeleccionados[prefijo].has(Number(e.id))?'selected':''}>${htmlSeguro(e.seccion_nombre||'Sin sección')} · ${htmlSeguro(nombrePersona(e))} · ${htmlSeguro(e.cedula||'')}</option>`).join('');
+  sel.onchange=()=>minCapturarEstudiantes(prefijo);
+}
+function minFiltrarEstudiantes(prefijo){minCapturarEstudiantes(prefijo);minRenderEstudiantes(prefijo);}
+async function minCargarEstudiantesConfidenciales(prefijo,seleccionados=[]){
+  if(!minEstudiantesConfCache.length)minEstudiantesConfCache=await api('/api/minutas/confidenciales/estudiantes')||[];
+  minEstudiantesSeleccionados[prefijo]=new Set((seleccionados||[]).map(Number));
+  const buscador=document.getElementById(`${prefijo}-estudiante-buscar`);if(buscador)buscador.value='';
+  minRenderEstudiantes(prefijo);
+}
+function minToggleConfidencial(prefijo){
+  const activo=!!document.getElementById(`${prefijo}-confidencial`)?.checked;
+  const wrap=document.getElementById(`${prefijo}-estudiantes-wrap`);if(wrap)wrap.style.display=activo?'':'none';
+}
+function minIdsConfidenciales(prefijo){minCapturarEstudiantes(prefijo);return [...minEstudiantesSeleccionados[prefijo]];}
 
 async function iniciarMinutas(){
   document.getElementById('alert-min').className = 'alert';
@@ -14246,7 +14341,7 @@ async function cargarMinutasLista(estado){
         : '<span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-size:10px;">🏢 Presencial</span>';
       return `<tr style="cursor:pointer;" onclick="abrirMinutaDetalle(${m.id})">
         <td style="padding:8px;border-bottom:1px solid var(--border);font-family:monospace;font-weight:bold;">MIN-${String(m.numero).padStart(3,'0')}-${m.anio}</td>
-        <td style="padding:8px;border-bottom:1px solid var(--border);">${m.tema || '<em style="color:var(--muted);">(sin tema)</em>'}</td>
+        <td style="padding:8px;border-bottom:1px solid var(--border);">${m.es_confidencial?'<span style="display:inline-block;background:#ffe4e6;color:#9f1239;border-radius:10px;padding:2px 7px;font-size:10px;font-weight:bold;margin-right:5px;">🔐 Confidencial</span>':''}${m.tema || '<em style="color:var(--muted);">(sin tema)</em>'}${m.es_confidencial?`<div style="font-size:10px;color:#9f1239;margin-top:3px;">${m.estudiantes_atendidos||0} estudiante(s) vinculado(s)</div>`:''}</td>
         <td style="padding:8px;border-bottom:1px solid var(--border);">${m.fecha_reunion ? fmtF(m.fecha_reunion) : '—'}</td>
         <td style="padding:8px;border-bottom:1px solid var(--border);">${tipoBadge}</td>
         <td style="padding:8px;border-bottom:1px solid var(--border);font-size:12px;">${creador}</td>
@@ -14286,6 +14381,14 @@ async function abrirNuevaMinuta(){
   // Default fecha hoy
   document.getElementById('nmin-fecha').value = fechaHoyCR();
   document.getElementById('alert-nmin').className = 'alert';
+  const puedeConf=minEsOrientacion();
+  document.getElementById('nmin-confidencial-wrap').style.display=puedeConf?'':'none';
+  document.getElementById('nmin-confidencial').checked=false;
+  minEstudiantesSeleccionados.nmin=new Set();
+  minToggleConfidencial('nmin');
+  if(puedeConf){
+    try{await minCargarEstudiantesConfidenciales('nmin',[]);}catch(e){sa('alert-nmin',e.message,'danger');}
+  }
   document.getElementById('modal-nueva-minuta').classList.add('show');
 }
 
@@ -14293,6 +14396,9 @@ async function guardarNuevaMinuta(){
   const tema = document.getElementById('nmin-tema').value.trim();
   if(!tema){ sa('alert-nmin','El tema es obligatorio.','danger'); return; }
   const tipo_reunion = document.querySelector('input[name="nmin-tipo"]:checked')?.value || 'presencial';
+  const es_confidencial=minEsOrientacion()&&document.getElementById('nmin-confidencial').checked;
+  const estudiante_ids=es_confidencial?minIdsConfidenciales('nmin'):[];
+  if(es_confidencial&&!estudiante_ids.length){sa('alert-nmin','Seleccione al menos un estudiante atendido.','danger');return;}
   const data = {
     tipo_reunion,
     plataforma:    document.getElementById('nmin-plataforma').value.trim(),
@@ -14303,6 +14409,8 @@ async function guardarNuevaMinuta(){
     hora_fin:      document.getElementById('nmin-hora-fin').value || '',
     tema,
     elaborada_por: document.getElementById('nmin-elaborada').value.trim(),
+    es_confidencial,
+    estudiante_ids,
   };
   try {
     const r = await api('/api/minutas', 'POST', data);
@@ -14323,11 +14431,12 @@ async function abrirMinutaDetalle(id){
     if(!minActual) return;
     const m = minActual.minuta;
     const a = minActual.asistentes || [];
+    const estudiantesConf=minActual.estudiantes||[];
 
     document.getElementById('mind-titulo').textContent =
       `📝 Minuta MIN-${String(m.numero).padStart(3,'0')}-${m.anio}`;
     document.getElementById('mind-subtitulo').innerHTML =
-      `Creada por ${nombreDesdeCampos(m.ini_nombre,m.ini_ap1,m.ini_ap2)} · ${fmtTS(m.created_at)} · Estado: ${m.estado === 'en_curso' ? '<strong style="color:#1e40af;">En curso</strong>' : '<strong style="color:#16a34a;">Finalizada</strong>'}`;
+      `${m.es_confidencial?'<strong style="color:#9f1239;">🔐 Documento confidencial de Orientación</strong> · ':''}Creada por ${nombreDesdeCampos(m.ini_nombre,m.ini_ap1,m.ini_ap2)} · ${fmtTS(m.created_at)} · Estado: ${m.estado === 'en_curso' ? '<strong style="color:#1e40af;">En curso</strong>' : '<strong style="color:#16a34a;">Finalizada</strong>'}`;
 
     // Botones según estado y permisos:
     //  - Editar / Finalizar / Añadir asistentes / Eliminar → solo el creador
@@ -14380,6 +14489,12 @@ async function abrirMinutaDetalle(id){
     };
     document.getElementById('mind-presentes-lista').innerHTML = renderAsis(presentes, 'presente');
     document.getElementById('mind-ausentes-lista').innerHTML = renderAsis(ausentes, 'ausente');
+
+    const bloqueEst=document.getElementById('mind-estudiantes-bloque');
+    bloqueEst.style.display=m.es_confidencial?'':'none';
+    document.getElementById('mind-estudiantes-lista').innerHTML=estudiantesConf.length
+      ? estudiantesConf.map(e=>`<div style="padding:4px 0;border-bottom:1px solid #fecdd3;"><strong>${htmlSeguro(nombrePersona(e))}</strong> · ${htmlSeguro(e.cedula||'')} · Sección actual: ${htmlSeguro(e.seccion_nombre||'Sin sección')}</div>`).join('')
+      : '<em>No hay estudiantes vinculados.</em>';
 
     // Temas y acuerdos
     document.getElementById('mind-temas').value = m.temas_tratados || '';
@@ -14502,7 +14617,7 @@ async function quitarAsistente(aid){
 }
 
 // ─── Editar / finalizar / reabrir / eliminar ─────────────────────────────
-function abrirEditarMinuta(){
+async function abrirEditarMinuta(){
   if(!minActual) return;
   const m = minActual.minuta;
   document.getElementById('emin-tipo').value         = m.tipo_reunion || 'presencial';
@@ -14514,6 +14629,14 @@ function abrirEditarMinuta(){
   document.getElementById('emin-hora-ini').value     = m.hora_inicio || '';
   document.getElementById('emin-hora-fin').value     = m.hora_fin || '';
   document.getElementById('emin-elaborada').value    = m.elaborada_por || '';
+  const puedeConf=minEsOrientacion();
+  document.getElementById('emin-confidencial-wrap').style.display=puedeConf?'':'none';
+  document.getElementById('emin-confidencial').checked=!!m.es_confidencial;
+  if(puedeConf){
+    try{await minCargarEstudiantesConfidenciales('emin',(minActual.estudiantes||[]).map(e=>e.id));}
+    catch(e){sa('alert-mineditar',e.message,'danger');}
+  }
+  minToggleConfidencial('emin');
   eminToggleTipo();
   document.getElementById('alert-mineditar').className = 'alert';
   document.getElementById('modal-min-editar').classList.add('show');
@@ -14537,6 +14660,11 @@ async function guardarEdicionMinuta(){
     tema:          document.getElementById('emin-tema').value.trim(),
     elaborada_por: document.getElementById('emin-elaborada').value.trim(),
   };
+  if(minEsOrientacion()){
+    data.es_confidencial=document.getElementById('emin-confidencial').checked;
+    data.estudiante_ids=data.es_confidencial?minIdsConfidenciales('emin'):[];
+    if(data.es_confidencial&&!data.estudiante_ids.length){sa('alert-mineditar','Seleccione al menos un estudiante atendido.','danger');return;}
+  }
   try {
     await api(`/api/minutas/${minActual.minuta.id}`, 'PUT', data);
     cerrarModal('modal-min-editar');
@@ -14644,7 +14772,7 @@ async function imprimirMinuta(){
   try{minActual=await api(`/api/minutas/${minActual.minuta.id}`);}catch(e){
     sa("alert-mind",e.message||"No se pudo actualizar la minuta antes de imprimir.","danger");return;
   }
-  const m=minActual.minuta,a=minActual.asistentes||[];
+  const m=minActual.minuta,a=minActual.asistentes||[],estudiantesConf=minActual.estudiantes||[];
   const presentes=a.filter(x=>x.tipo==="presente"),ausentes=a.filter(x=>x.tipo==="ausente");
   const numFmt=`MIN-${String(m.numero).padStart(3,"0")}-${m.anio}`;
   const esc=v=>htmlSeguro(String(v??""));
@@ -14660,6 +14788,7 @@ async function imprimirMinuta(){
     <div style="font-family:Arial,sans-serif;color:#172033;font-size:11px;line-height:1.38;">
       <div style="text-align:center;margin:0 0 10px;">
         <div style="font-family:monospace;font-size:12px;">Código de referencia: <strong>${esc(numFmt)}</strong></div>
+        ${m.es_confidencial?'<div style="margin-top:5px;color:#9f1239;font-weight:bold;">🔐 DOCUMENTO CONFIDENCIAL DE ORIENTACIÓN</div>':''}
       </div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:11px;">
         <tr><td style="${lbl}">Tipo de reunión</td><td style="${td}">${tipoTxt}</td></tr>
@@ -14674,6 +14803,7 @@ async function imprimirMinuta(){
         <tr><td style="${lbl}">Personal presente</td><td style="${td}">${presentes.length?presentes.map(p=>`• ${persona(p)}`).join("<br>"):"<em>Ninguno registrado</em>"}</td></tr>
         <tr><td style="${lbl}">Personal ausente</td><td style="${td}">${ausentes.length?ausentes.map(p=>`• ${persona(p)} <strong>(${p.justificacion==="justificado"?"justificado":"injustificado"})</strong>`).join("<br>"):"<em>Ninguno registrado</em>"}</td></tr>
       </table>
+      ${m.es_confidencial?`<section class="reporte-materia" style="margin-bottom:10px;">${tituloSeccion("Estudiantes atendidos")}<div style="border:1px solid #64748b;border-top:0;padding:8px;">${estudiantesConf.map(e=>`${esc(nombrePersona(e))} · ${esc(e.cedula||"")} · Sección actual ${esc(e.seccion_nombre||"—")}`).join("<br>")||"Sin estudiantes vinculados"}</div></section>`:''}
       <section class="reporte-materia" style="margin-bottom:10px;">${tituloSeccion("Temas tratados")}<div style="border:1px solid #64748b;border-top:0;padding:9px;white-space:pre-wrap;min-height:45px;">${esc((m.temas_tratados||"").trim()||"Sin temas registrados.")}</div></section>
       <section class="reporte-materia" style="margin-bottom:10px;">${tituloSeccion("Acuerdos y compromisos")}<div style="border:1px solid #64748b;border-top:0;padding:9px;white-space:pre-wrap;min-height:38px;">${esc((m.acuerdos||"").trim()||"Sin acuerdos registrados.")}</div></section>
       <section class="reporte-materia">${tituloSeccion("Firma de participantes")}<table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr><th style="${lbl}width:58%;text-align:center;">Nombre</th><th style="${lbl}width:42%;text-align:center;">Firma</th></tr></thead><tbody>${presentes.length?presentes.map(p=>`<tr><td style="${td}">${persona(p)}</td><td style="${td}height:34px;"></td></tr>`).join(""):`<tr><td style="${td}height:34px;"></td><td style="${td}"></td></tr>`}</tbody></table></section>
@@ -21871,6 +22001,95 @@ async function imprimirListaAdecuaciones(){
     const contenido=`<p><strong>Curso lectivo:</strong> ${ANIO_LECTIVO_ACTIVO}</p><table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr><th style="border:1px solid #94a3b8;padding:5px;">Estudiante</th><th style="border:1px solid #94a3b8;padding:5px;">Sección</th><th style="border:1px solid #94a3b8;padding:5px;">Adecuación</th><th style="border:1px solid #94a3b8;padding:5px;">Observación</th></tr></thead><tbody>${rows.map(e=>`<tr><td style="border:1px solid #94a3b8;padding:5px;">${htmlSeguro(nombreEstudianteLista(e))}<br/>${htmlSeguro(e.cedula||"")}</td><td style="border:1px solid #94a3b8;padding:5px;">${htmlSeguro(e.seccion_nombre||"")}</td><td style="border:1px solid #94a3b8;padding:5px;">${htmlSeguro(e.adecuacion_tipos||"")}</td><td style="border:1px solid #94a3b8;padding:5px;">${htmlSeguro(e.adecuacion_observacion||"")}</td></tr>`).join("")}</tbody></table>`;
     await imprimirPDFMEP("LISTA INSTITUCIONAL DE ADECUACIONES",contenido,`adecuaciones_${ANIO_LECTIVO_ACTIVO}.pdf`);
   }catch(e){sa("alert-adecuaciones",e.message,"danger");}
+}
+
+let EI_ESTUDIANTES=[];
+async function iniciarExpedienteIntegral(){
+  const conf=document.getElementById('ei-confidenciales'); if(conf) conf.checked=false;
+  await eiBuscarEstudiantes();
+}
+async function eiBuscarEstudiantes(){
+  const sel=document.getElementById('ei-estudiante');
+  try{
+    sel.innerHTML='<option>Cargando...</option>';
+    const q=document.getElementById('ei-buscar').value.trim();
+    const r=await api('/api/expediente-integral/estudiantes'+(q?'?q='+encodeURIComponent(q):''));
+    EI_ESTUDIANTES=r.estudiantes||[];
+    sel.innerHTML=EI_ESTUDIANTES.length?EI_ESTUDIANTES.map(e=>`<option value="${e.id}">${htmlSeguro(`${e.primer_apellido} ${e.segundo_apellido}, ${e.nombre} · ${e.cedula} · ${e.seccion_nombre||'Sin sección'}${e.activo?'':' · RETIRADO'}`)}</option>`).join(''):'<option value="">Sin coincidencias</option>';
+    document.getElementById('ei-conf-wrap').style.display=r.puede_incluir_confidenciales?'block':'none';
+    if(EI_ESTUDIANTES.length){sel.selectedIndex=0;eiSeleccionarEstudiante();}else document.getElementById('ei-seleccion').textContent='No se encontraron estudiantes.';
+  }catch(e){sel.innerHTML='';sa('alert-expediente-integral',e.message,'danger');}
+}
+function eiSeleccionarEstudiante(){
+  const id=Number(document.getElementById('ei-estudiante').value),e=EI_ESTUDIANTES.find(x=>Number(x.id)===id);
+  document.getElementById('ei-seleccion').innerHTML=e?`<strong>${htmlSeguro(`${e.nombre} ${e.primer_apellido} ${e.segundo_apellido}`)}</strong><br>Cédula: ${htmlSeguro(e.cedula)} · Sección: ${htmlSeguro(e.seccion_nombre||'Sin sección')} · Estado: <strong>${e.activo?'Activo':'Retirado'}</strong>`:'Seleccione un estudiante.';
+}
+function eiFecha(v){if(!v)return '—';const s=String(v).slice(0,10),p=s.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(v);}
+function eiTexto(v){
+  if(v===null||v===undefined||v==='')return '—';
+  if(typeof v==='boolean')return v?'Sí':'No';
+  if(Array.isArray(v))return v.map(eiTexto).join(', ')||'—';
+  if(typeof v==='object')return Object.entries(v).map(([k,x])=>`${k}: ${eiTexto(x)}`).join(' · ');
+  return String(v);
+}
+function eiFila(etiqueta,valor){return `<div style="display:grid;grid-template-columns:145px 1fr;gap:8px;padding:4px 0;border-bottom:1px solid #e2e8f0;"><strong style="color:#334155;">${htmlSeguro(etiqueta)}</strong><span>${htmlSeguro(eiTexto(valor))}</span></div>`;}
+function eiTarjeta(titulo,filas){return `<div style="border:1px solid #cbd5e1;border-radius:7px;padding:9px 11px;margin:0 0 9px;break-inside:avoid;"><div style="font-weight:bold;color:#1F3864;margin-bottom:5px;">${htmlSeguro(titulo)}</div>${filas.join('')}</div>`;}
+function eiPaginasSeccion(titulo,items,formatear,porPagina=7){
+  if(!items?.length)return [`<section class="pdf-page-block"><h2 style="color:#1F3864;border-bottom:2px solid #1F3864;padding-bottom:6px;">${htmlSeguro(titulo)}</h2><p style="color:#64748b;">No hay registros institucionales en esta sección.</p></section>`];
+  const paginas=[];for(let i=0;i<items.length;i+=porPagina){const parte=items.slice(i,i+porPagina);paginas.push(`<section class="pdf-page-block"><h2 style="color:#1F3864;border-bottom:2px solid #1F3864;padding-bottom:6px;">${htmlSeguro(titulo)}${items.length>porPagina?` (${i+1}-${Math.min(i+porPagina,items.length)} de ${items.length})`:''}</h2>${parte.map((x,j)=>formatear(x,i+j)).join('')}</section>`);}return paginas;
+}
+function eiConstruirPDF(r){
+  const e=r.estudiante,d=r.datos,a=r.auditoria;
+  const nombre=`${e.nombre} ${e.primer_apellido} ${e.segundo_apellido}`.replace(/\s+/g,' ').trim();
+  const secciones=[
+    ['Personas encargadas',d.encargados,x=>eiTarjeta(`${x.es_principal?'Encargado principal':'Persona encargada'} · ${x.nombre} ${x.primer_apellido||''} ${x.segundo_apellido||''}`,[eiFila('Parentesco',x.parentesco),eiFila('Cédula',x.cedula),eiFila('Teléfonos',[x.telefono,x.celular,x.telefono_trabajo].filter(Boolean).join(' / ')),eiFila('Correo',x.email),eiFila('Dirección',x.direccion)])],
+    ['Historial de matrícula',d.matriculas,x=>eiTarjeta(`Curso lectivo ${x.anio}`,[eiFila('Sección',x.seccion_nombre||x.seccion_actual),eiFila('Boleta',x.num_boleta),eiFila('Estado',x.estado||'Registrada'),eiFila('Confirmada por',x.confirmado_por_nombre),eiFila('Observaciones',x.observaciones)])],
+    ['Archivo anual de matrícula',d.historial_matricula,x=>eiTarjeta(`Curso lectivo ${x.anio}`,[eiFila('Sección',x.seccion_nombre),eiFila('Nivel',x.nivel),eiFila('Fecha de archivo',eiFecha(x.created_at)),eiFila('Encargados conservados',Array.isArray(x.encargados_snap)?x.encargados_snap.map(y=>`${y.nombre||''} ${y.primer_apellido||''}`).join(', '):x.encargados_snap)])],
+    ['Resumen académico histórico',d.academico_historico,x=>eiTarjeta(`${x.anio} · ${x.periodo} · ${x.materia_nombre}`,[eiFila('Sección',x.seccion_nombre),eiFila('Docente',x.profesor_nombre),eiFila('Nota total',x.nota_total),eiFila('Cotidiano / tareas',`${eiTexto(x.nota_cotidiano)} / ${eiTexto(x.nota_tareas)}`),eiFila('Pruebas / proyecto',`${eiTexto(x.nota_pruebas)} / ${eiTexto(x.nota_proyecto)}`),eiFila('Ausencias / tardías',`${x.ausencias||0} / ${x.tardias||0}`),eiFila('Conducta',x.conducta_nota)])],
+    ['Evaluaciones registradas',d.evaluaciones,x=>eiTarjeta(`${eiFecha(x.fecha)} · ${x.materia||''} · ${x.nombre}`,[eiFila('Período / tipo',`${x.periodo} · ${x.tipo}`),eiFila('Docente',x.profesor),eiFila('Resultado',x.puntos_obtenidos!=null?`${x.puntos_obtenidos} de ${x.puntaje_total||'—'}`:`${x.puntos_indicadores||0} de ${x.maximo_indicadores||'—'}`),eiFila('Descripción',x.descripcion)])],
+    ['Asistencia',d.asistencia,x=>eiTarjeta(`${x.anio} · ${x.materia}`,[eiFila('Sesiones / lecciones',`${x.sesiones} / ${x.lecciones}`),eiFila('Ausencias',x.ausencias),eiFila('Justificadas',x.justificadas),eiFila('Tardías',x.tardias)])],
+    ['Conducta — registros actuales',d.conducta_actual,x=>eiTarjeta(`Boleta N.º ${x.id} · ${eiFecha(x.fecha)}`,[eiFila('Clasificación',x.tipo),eiFila('Puntos',x.puntos),eiFila('Infracción',x.descripcion),eiFila('Materia',x.materia),eiFila('Registró',x.registrado_por_nombre),eiFila('Observación',x.observacion)])],
+    ['Conducta — historial archivado',d.conducta_historica,x=>eiTarjeta(`${x.anio} · ${x.periodo} · ${eiFecha(x.fecha)}`,[eiFila('Boleta origen',x.boleta_origen_id),eiFila('Clasificación / puntos',`${x.infraccion_tipo||'—'} / ${x.puntos}`),eiFila('Infracción',x.infraccion_descripcion),eiFila('Responsable',x.registrado_por_nombre||x.responsable_nombre),eiFila('Observación',x.observacion)])],
+    ['Debidos procesos',d.debidos_procesos,x=>eiTarjeta(`Expediente N.º ${x.numero}-${x.anio}`,[eiFila('Estado',x.estado),eiFila('Fecha de apertura',eiFecha(x.created_at)),eiFila('Iniciado por',x.iniciado_por_nombre),eiFila('Completado por',x.finalizado_por_nombre),eiFila('Fecha de cierre',eiFecha(x.finalizado_en)),eiFila('Decisión',x.decision_sesion)])],
+    ['Documentos de debidos procesos',d.pasos_debidos,x=>eiTarjeta(`Expediente N.º ${x.numero}-${x.anio} · ${x.tipo}`,[eiFila('Orden',x.orden),eiFila('Estado',x.completado?'Completado':'Pendiente'),eiFila('Completado por',x.completado_por_nombre),eiFila('Fecha',eiFecha(x.completado_en)),eiFila('Observación',x.observacion),eiFila('Contenido registrado',x.contenido)])],
+    ['Pautas y protocolos',d.pautas,x=>eiTarjeta(`Pauta ${x.pauta} · N.º ${x.numero}-${x.anio}`,[eiFila('Participación',x.rol),eiFila('Estado',x.estado),eiFila('Iniciada por',x.iniciado_por_nombre),eiFila('Completada por',x.finalizado_por_nombre),eiFila('Fecha de cierre',eiFecha(x.finalizado_en||x.fecha_cierre))])],
+    ['Formularios de pautas',d.formularios_pautas,x=>eiTarjeta(`Pauta ${x.pauta} · N.º ${x.numero}-${x.anio} · ${x.tipo}`,[eiFila('Orden',x.orden),eiFila('Estado',x.estado),eiFila('Completado por',x.completado_por_nombre),eiFila('Fecha',eiFecha(x.completado_en)),eiFila('Contenido registrado',x.contenido)])],
+    ['Alertas tempranas',d.alertas_tempranas,x=>eiTarjeta(`Alerta N.º ${x.id} · ${x.materia||'General'}`,[eiFila('Curso lectivo',x.anio),eiFila('Estado',x.estado),eiFila('Activación',eiFecha(x.fecha_activacion)),eiFila('Docente',x.profesor_nombre),eiFila('Categorías',x.categorias),eiFila('Observación inicial',x.observacion_inicial),eiFila('Cierre',eiFecha(x.fecha_cierre))])],
+    ['Seguimientos de alerta temprana',d.seguimientos_alerta,x=>eiTarjeta(`Alerta N.º ${x.alerta_id} · ${eiFecha(x.fecha)}`,[eiFila('Estado',x.estado),eiFila('Registrado por',x.registrado_por_nombre),eiFila('Observaciones',x.observaciones)])],
+    ['Planes de acción de alerta temprana',d.acciones_alerta,x=>eiTarjeta(`Alerta N.º ${x.alerta_id} · ${x.accion}`,[eiFila('Fechas',`${eiFecha(x.fecha_inicio)} a ${eiFecha(x.fecha_final)}`),eiFila('Responsable',x.responsable),eiFila('Institución referida',x.institucion_referida),eiFila('Registrado por',x.registrado_por_nombre),eiFila('Observaciones',x.observaciones)])],
+    ['Comunicaciones telefónicas',d.llamadas,x=>eiTarjeta(`${eiFecha(x.fecha)} · ${x.materia||'General'}`,[eiFila('Docente',x.profesor_nombre),eiFila('Hora',`${String(x.hora_inicio||'').slice(0,5)} - ${String(x.hora_fin||'').slice(0,5)}`),eiFila('Medio / resultado',`${x.medio} · ${x.resultado}`),eiFila('Persona atendió',x.atendio_nombre),eiFila('Situación',x.descripcion_situacion),eiFila('Compromisos',`${x.compromisos_encargado||''} ${x.compromisos_docente||''}`.trim()),eiFila('Observaciones',x.observaciones)])],
+    ['Cartas de ausentismo',d.cartas_ausentismo,x=>eiTarjeta(`${eiFecha(x.fecha)} · ${x.materia}`,[eiFila('Período',x.periodo),eiFila('Ausencias / lecciones',`${x.ausencias} / ${x.total_lecciones}`),eiFila('Porcentaje',`${x.porcentaje}%`),eiFila('Emitida por',x.emitida_por_nombre),eiFila('Observaciones',x.observaciones)])],
+    ['Adecuaciones educativas',d.adecuaciones,x=>eiTarjeta('Registro vigente',[eiFila('No significativa',x.no_significativa),eiFila('Significativa',x.significativa),eiFila('De acceso',x.acceso),eiFila('Observación',x.observacion),eiFila('Actualización',eiFecha(x.updated_at))])],
+    ['Solicitudes de adecuación',d.solicitudes_adecuacion,x=>eiTarjeta(`Solicitud N.º ${x.id} · ${x.tipo}`,[eiFila('Docente',x.profesor_nombre),eiFila('Estado',x.estado),eiFila('Motivo',x.motivo),eiFila('Respuesta',x.respuesta),eiFila('Resuelta por',x.resuelta_por_nombre),eiFila('Fecha',eiFecha(x.created_at))])],
+    ['Medidas estudiantiles',d.medidas,x=>eiTarjeta(`${x.tipo} · ${eiFecha(x.fecha_inicio)} a ${eiFecha(x.fecha_fin)}`,[eiFila('Estado',x.activa?'Activa':'Inactiva'),eiFila('Registró',x.creado_por_nombre),eiFila('Observación',x.observacion)])],
+    ['Expedientes de conducta TES',d.expedientes_conducta,x=>eiTarjeta(`Expediente N.º ${x.numero}-${x.anio}`,[eiFila('Estado',x.estado),eiFila('Sección',x.seccion_nombre),eiFila('Docente guía',x.guia_nombre),eiFila('Proyecto',x.proyecto),eiFila('Nota anual inicial',x.nota_anual),eiFila('Resultado TES',x.resultado_tes),eiFila('Nota final de conducta',x.nota_final_conducta),eiFila('Motivo de cierre',x.motivo_cierre)])],
+    ['Documentos del expediente TES',d.pasos_tes,x=>eiTarjeta(`Expediente N.º ${x.numero}-${x.anio} · Paso ${x.paso}`,[eiFila('Estado',x.completado?'Completado':'Pendiente'),eiFila('Completado por',x.completado_por_nombre),eiFila('Fecha',eiFecha(x.completado_en)),eiFila('Contenido registrado',x.contenido)])],
+    ['Informes docentes',d.informes,x=>eiTarjeta(`Informe N.º ${x.id} · ${eiFecha(x.created_at)}`,[eiFila('Remitente',x.remitente_nombre),eiFila('Destinatario',x.destinatario_nombre),eiFila('Estado',x.respondido?'Respondido':'Pendiente'),eiFila('Asistencia',x.resp_asistencia),eiFila('Trabajo cotidiano',x.resp_trabajo_cotidiano),eiFila('Tareas',x.resp_tareas),eiFila('Exámenes / proyectos',x.resp_examenes),eiFila('Comportamiento',x.resp_comportamiento),eiFila('Observaciones',x.resp_observaciones||x.observaciones)])],
+    ['Observaciones docentes',d.observaciones,x=>eiTarjeta(`${eiFecha(x.fecha)} · ${x.registrado_por_nombre||'Personal institucional'}`,[eiFila('Observación',x.observacion),eiFila('Registrada',eiFecha(x.created_at))])],
+    ['Movimientos de Portería',d.porteria,x=>eiTarjeta(`${eiFecha(x.fecha)} · ${x.hora||''} · ${x.tipo}`,[eiFila('Resultado',x.resultado),eiFila('Registró',x.registrado_por_nombre),eiFila('Detalle',x.detalle),eiFila('Permiso relacionado',x.permiso_id)])],
+    ['Citas con encargados',d.citas,x=>eiTarjeta(`${eiFecha(x.fecha)} · ${String(x.hora||'').slice(0,5)}`,[eiFila('Docente',x.profesor_nombre),eiFila('Estado',x.estado),eiFila('Solicitada por',x.solicitada_por),eiFila('Motivo',x.motivo),eiFila('Respuesta',x.respuesta_mensaje)])],
+    ['Actividades extramuros',d.extramuros,x=>eiTarjeta(`${eiFecha(x.fecha_actividad)} · ${x.nombre_actividad}`,[eiFila('Consecutivo estudiantil',`${x.consecutivo}-${x.anio}`),eiFila('Lugar',x.lugar_actividad),eiFila('Horario',`${String(x.hora_salida||'').slice(0,5)} a ${String(x.hora_regreso||'').slice(0,5)}`),eiFila('Objeto',x.objeto_actividad),eiFila('Estado',x.estado),eiFila('Observaciones',x.observaciones)])],
+    ['Caracterización de la población',d.caracterizaciones,x=>eiTarjeta(`${x.anio} · Código ${x.codigo}`,[eiFila('Caracterización',x.descripcion),eiFila('Actualización',eiFecha(x.updated_at))])],
+    ['Documentación confidencial de Orientación',d.minutas_confidenciales,x=>eiTarjeta(`Documento N.º ${x.numero}-${x.anio}`,[eiFila('Fecha',eiFecha(x.fecha_reunion)),eiFila('Tema',x.tema),eiFila('Dependencia / lugar',`${x.dependencia||''} · ${x.lugar||''}`),eiFila('Contenido',x.temas_tratados),eiFila('Acuerdos',x.acuerdos),eiFila('Estado',x.estado)])]
+  ];
+  const total=secciones.reduce((n,s)=>n+(s[1]?.length||0),0);
+  const portada=`<section class="pdf-page-block" style="text-align:center;padding-top:45px;"><h1 style="font-size:25px;color:#1F3864;margin-bottom:8px;">EXPEDIENTE INTEGRAL DEL ESTUDIANTE</h1><p style="font-size:14px;color:#64748b;">Compilación institucional para consulta oficial</p><div style="margin:35px auto 25px;max-width:520px;text-align:left;border:2px solid #1F3864;padding:18px;">${eiFila('Estudiante',nombre)}${eiFila('Cédula',e.cedula)}${eiFila('Sección',e.seccion_nombre||'Sin sección')}${eiFila('Estado',e.activo?'Activo':'Retirado')}${eiFila('Entidad solicitante',a.entidad_solicitante)}${eiFila('Motivo',a.motivo)}${eiFila('Generado por',a.generado_por)}${eiFila('Fecha de generación',new Date(a.generado_at).toLocaleString('es-CR'))}${eiFila('Control de generación',`EI-${a.id}-${a.curso_lectivo}`)}${eiFila('Registros compilados',total)}${eiFila('Confidenciales incluidos',a.incluye_confidenciales)}</div><p style="font-size:11px;color:#64748b;text-align:justify;">Este documento reúne información procedente de los módulos institucionales. Cada registro conserva su naturaleza y referencia; la generación de este PDF no modifica los documentos fuente.</p></section>`;
+  const indice=`<section class="pdf-page-block"><h2 style="color:#1F3864;border-bottom:2px solid #1F3864;padding-bottom:6px;">Índice documental</h2>${secciones.map((s,i)=>eiFila(`${i+1}. ${s[0]}`,`${s[1]?.length||0} registro(s)`)).join('')}<div style="margin-top:18px;padding:10px;background:#f8fafc;border-left:4px solid #1F3864;font-size:11px;">La documentación confidencial de Orientación se excluye por defecto y solo aparece cuando la persona orientadora responsable autoriza expresamente su incorporación.</div></section>`;
+  const paginas=[portada,indice];secciones.forEach(s=>paginas.push(...eiPaginasSeccion(s[0],s[1],s[2],s[3]||7)));
+  return {html:paginas.join(''),archivo:`expediente_integral_${String(e.cedula).replace(/\W/g,'')}.pdf`};
+}
+async function eiGenerar(){
+  const btn=document.getElementById('ei-generar');
+  try{
+    const estudiante_id=Number(document.getElementById('ei-estudiante').value);
+    if(!estudiante_id)throw new Error('Seleccione un estudiante.');
+    const incluir=document.getElementById('ei-confidenciales').checked;
+    if(incluir&&!confirm('Este PDF incluirá documentación confidencial de Orientación y la acción quedará auditada. ¿Desea continuar?'))return;
+    btn.disabled=true;btn.textContent='⏳ Compilando información...';
+    const r=await api('/api/expediente-integral/generar','POST',{estudiante_id,entidad_solicitante:document.getElementById('ei-entidad').value,motivo:document.getElementById('ei-motivo').value,incluir_confidenciales:incluir});
+    const pdf=eiConstruirPDF(r);sa('alert-expediente-integral',`Expediente compilado. Control EI-${r.auditoria.id}-${r.auditoria.curso_lectivo}.`,'success');
+    await imprimirPDFMEP(null,pdf.html,pdf.archivo,{bloquesPagina:true});
+  }catch(e){sa('alert-expediente-integral',e.message,'danger');}finally{btn.disabled=false;btn.textContent='📄 Generar expediente integral';}
 }
 
 async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo, opciones={}){
