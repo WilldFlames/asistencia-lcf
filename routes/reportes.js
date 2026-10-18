@@ -527,10 +527,17 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
       SELECT
         s.id AS seccion_id,
         s.nombre AS seccion_nombre,
+        s.nivel,
+        CASE WHEN s.nivel BETWEEN 7 AND 9 THEN 65 ELSE 70 END AS nota_minima,
+        CASE WHEN s.nivel BETWEEN 7 AND 9 THEN 70 ELSE 75 END AS limite_riesgo,
         COUNT(DISTINCT e.id) AS total,
-        COUNT(DISTINCT CASE WHEN (100 - COALESCE(rebajo,0)) < 60 THEN e.id END) AS criticos,
-        COUNT(DISTINCT CASE WHEN (100 - COALESCE(rebajo,0)) < 80
-          AND (100 - COALESCE(rebajo,0)) >= 60 THEN e.id END) AS en_riesgo
+        COUNT(DISTINCT CASE WHEN
+          (100 - COALESCE(r.rebajo,0)) < CASE WHEN s.nivel BETWEEN 7 AND 9 THEN 65 ELSE 70 END
+          THEN e.id END) AS criticos,
+        COUNT(DISTINCT CASE WHEN
+          (100 - COALESCE(r.rebajo,0)) >= CASE WHEN s.nivel BETWEEN 7 AND 9 THEN 65 ELSE 70 END
+          AND (100 - COALESCE(r.rebajo,0)) < CASE WHEN s.nivel BETWEEN 7 AND 9 THEN 70 ELSE 75 END
+          THEN e.id END) AS en_riesgo
       FROM secciones s
       LEFT JOIN estudiantes e ON e.seccion_id=s.id AND e.activo=true AND COALESCE(e.archivado,false)=false
       LEFT JOIN (
@@ -540,7 +547,7 @@ router.get("/dashboard-profesor", requireAuth, async (req, res) => {
         GROUP BY bc.estudiante_id
       ) r ON r.estudiante_id=e.id
       WHERE s.id = ANY($1::int[])
-      GROUP BY s.id, s.nombre
+      GROUP BY s.id, s.nombre, s.nivel
       ORDER BY s.nivel, s.nombre
     `, [ids, periodoActual.desde, periodoActual.hasta]);
     estadosConducta = cond.rows;

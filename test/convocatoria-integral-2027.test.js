@@ -52,3 +52,15 @@ test('la interfaz identifica el modo prueba y no revela materias ajenas al docen
   assert.match(ui,/convData\.ve_detalle\?/);
   assert.match(ui,/Detalle visible para Administración/);
 });
+
+test('el listado informativo se construye al abrir y se agrupa por sección',()=>{
+  const route=read('routes/convocatoria.js');
+  const ui=read('public/index.html');
+  assert.match(route,/const sincroniza = staff/);
+  assert.match(route,/tieneNotaRegistrada/);
+  assert.match(route,/incidencias:incidencias\.length/);
+  assert.match(ui,/await convCargar\(true\)/);
+  assert.match(ui,/Calculando estudiantes con convocatoria/);
+  assert.match(ui,/const porSeccion=new Map/);
+  assert.match(ui,/Sección \$\{htmlSeguro\(seccion\)\}/);
+});

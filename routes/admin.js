@@ -363,10 +363,22 @@ router.post("/padres/:cedula/vista-prueba", onlyAdmin, async (req, res) => {
 // Devuelve una fila por cédula única con la lista de hijos y estado de cuenta.
 router.get("/padres/buscar", canGestionarPadres, async (req, res) => {
   const q = (req.query.q || '').trim();
-  if(q.length < 2) return res.json([]);
+  const soloActivos = req.query.activos === "1";
+  if(q.length < 2 && !soloActivos) return res.json([]);
   const ced = limpiarCed(q);
   const like = `%${q}%`;
-  const r = await pool.query(`
+  const r = soloActivos ? await pool.query(`
+    SELECT pa.cedula,
+      MAX(enc.nombre) AS nombre,
+      MAX(enc.primer_apellido) AS primer_apellido,
+      MAX(enc.segundo_apellido) AS segundo_apellido
+    FROM padres_acceso pa
+    JOIN encargados enc ON REPLACE(REPLACE(REPLACE(enc.cedula,'-',''),'.',''),' ','')=pa.cedula
+      AND COALESCE(enc.es_principal,false)=true
+    WHERE pa.servicio_habilitado=true
+    GROUP BY pa.cedula
+    ORDER BY MAX(enc.primer_apellido),MAX(enc.segundo_apellido),MAX(enc.nombre)
+  `) : await pool.query(`
     SELECT DISTINCT enc.cedula,
       MAX(enc.nombre)          FILTER (WHERE enc.cedula IS NOT NULL) AS nombre,
       MAX(enc.primer_apellido) FILTER (WHERE enc.cedula IS NOT NULL) AS primer_apellido,
@@ -396,9 +408,11 @@ router.get("/padres/buscar", canGestionarPadres, async (req, res) => {
         AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
     `, [cedLimpia]);
     const acc = await pool.query(`
-      SELECT activo, servicio_habilitado, servicio_habilitado_at,
-        primer_login, sid_activo IS NOT NULL AS sesion_activa, created_at
-      FROM padres_acceso WHERE cedula = $1
+      SELECT pa.activo, pa.servicio_habilitado, pa.servicio_habilitado_at,
+        pa.primer_login, pa.sid_activo IS NOT NULL AS sesion_activa, pa.created_at,
+        TRIM(CONCAT_WS(' ',u.nombre,u.primer_apellido,u.segundo_apellido)) AS habilitado_por_nombre
+      FROM padres_acceso pa LEFT JOIN usuarios u ON u.id=pa.servicio_habilitado_por
+      WHERE pa.cedula = $1
     `, [cedLimpia]);
     const esPersonal = await pool.query("SELECT id FROM usuarios WHERE cedula=$1", [cedLimpia]);
     salida.push({
@@ -412,6 +426,16 @@ router.get("/padres/buscar", canGestionarPadres, async (req, res) => {
     });
   }
   res.json(salida);
+});
+
+// Cierre anual del servicio. Conserva cuentas, contraseñas e historial; solo
+// apaga el acceso comercial y revoca las sesiones familiares abiertas.
+router.put("/padres/servicio/desactivar-todos", canGestionarPadres, async (req,res)=>{
+  const r=await pool.query(`UPDATE padres_acceso
+    SET servicio_habilitado=false,sid_activo=NULL,
+        servicio_deshabilitado_at=NOW(),servicio_deshabilitado_por=$1
+    WHERE servicio_habilitado=true RETURNING cedula`,[req.session.usuario.id]);
+  res.json({ok:true,desactivados:r.rowCount});
 });
 
 // Ver los hijos de un padre específico
@@ -505,6 +529,8 @@ router.put("/padres/:cedula/servicio", canGestionarPadres, async (req, res) => {
         SET servicio_habilitado=$1,
             servicio_habilitado_at=CASE WHEN $1 THEN NOW() ELSE servicio_habilitado_at END,
             servicio_habilitado_por=CASE WHEN $1 THEN $2 ELSE servicio_habilitado_por END,
+            servicio_deshabilitado_at=CASE WHEN $1 THEN NULL ELSE NOW() END,
+            servicio_deshabilitado_por=CASE WHEN $1 THEN NULL ELSE $2 END,
             activo=CASE WHEN $1 THEN true ELSE activo END,
             sid_activo=CASE WHEN $1 THEN sid_activo ELSE NULL END
         WHERE cedula=$3

@@ -7,7 +7,11 @@ const { calcularPromediosInstitucional } = require("./calificaciones");
 const LIMITE = 8;
 const INICIO_REGLAS = 2027;
 const staff = requireRol("admin", "auxiliar", "profesor", "profesor_guia", "orientador");
-const sincroniza = requireRol("admin", "auxiliar");
+// Sincronizar no altera calificaciones: únicamente reconstruye el control
+// informativo a partir de las notas ya guardadas. Permitirlo a todo el personal
+// autorizado evita que un docente vea la pantalla vacía hasta que Administración
+// haya entrado primero al módulo.
+const sincroniza = staff;
 const esGestion = u => ["admin", "auxiliar"].includes(u.rol);
 const redondearAnual = n => Math.round(Number(n));
 const minima = nivel => Number(nivel) <= 9 ? 65 : 70;
@@ -62,8 +66,20 @@ async function sincronizar(anio, usuarioId) {
   `, [anio])).rows;
 
   const acumulado = new Map();
+  const incidencias = [];
+  const tieneNotaRegistrada = est => {
+    const rubros = est?.rubros || {};
+    if (est?.modo_simplificado) {
+      return ["cotidiano", "tarea", "examen", "proyecto"]
+        .some(k => rubros[k]?.nota_100 != null);
+    }
+    return ["cotidiano", "tarea", "examen", "proyecto"]
+      .some(k => Number(rubros[k]?.cant_con_nota || 0) > 0);
+  };
   const poner = (est, g, periodo, nota) => {
-    if (nota == null || !Number.isFinite(Number(nota))) return;
+    // La asistencia puede producir un total aun cuando no exista ninguna nota.
+    // Convocatoria solo toma materias donde el docente registró calificaciones.
+    if (!tieneNotaRegistrada(est) || nota == null || !Number.isFinite(Number(nota))) return;
     // Hogar e Industriales se aprueban con el único semestre cursado. Aunque
     // existan datos antiguos en ambos períodos, son UNA asignatura y nunca
     // pueden sumar dos aplazadas. El subgrupo determina el semestre real:
@@ -90,7 +106,12 @@ async function sincronizar(anio, usuarioId) {
       try {
         const data = await calcularPromediosInstitucional(g.profesor_id, g.seccion_id, g.materia_id, g.subgrupo, periodo);
         for (const est of data.estudiantes || []) poner(est, g, periodo, est.total);
-      } catch (_) { /* asignación sin regla o sin datos: no se contabiliza */ }
+      } catch (e) {
+        incidencias.push({
+          asignacion_id:Number(g.id), materia:g.materia_nombre,
+          seccion_id:Number(g.seccion_id), periodo, detalle:e.message
+        });
+      }
     }
   }
 
@@ -163,7 +184,12 @@ async function sincronizar(anio, usuarioId) {
         VALUES($1,'sincronizacion',jsonb_build_object('total_aplazadas',$2,'modo_informativo',$3),$4)`, [expedienteId,total,informativo,usuarioId]);
     }
     await client.query("COMMIT");
-    return { expedientes:estudiantes.size, materias:fallos.length, modo_informativo:Number(anio)<INICIO_REGLAS, limite:LIMITE };
+    return {
+      expedientes:estudiantes.size, materias:fallos.length,
+      modo_informativo:Number(anio)<INICIO_REGLAS, limite:LIMITE,
+      incidencias:incidencias.length,
+      detalle_incidencias:incidencias.slice(0,20)
+    };
   } catch (e) { await client.query("ROLLBACK"); throw e; }
   finally { client.release(); }
 }
@@ -190,7 +216,7 @@ router.get("/listado", staff, async (req,res) => {
       if(!esGestion(u)) delete x.profesor_nombre;
       return x;
     });
-    res.json({anio,modo_informativo:anio<INICIO_REGLAS,limite:LIMITE,puede_sincronizar:esGestion(u),ve_detalle:esGestion(u),filas});
+    res.json({anio,modo_informativo:anio<INICIO_REGLAS,limite:LIMITE,puede_sincronizar:true,ve_detalle:esGestion(u),filas});
   }catch(e){console.error("convocatoria listado",e);res.status(500).json({error:e.message});}
 });
 

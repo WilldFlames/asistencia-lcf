@@ -2405,6 +2405,8 @@ async function initDB() {
     await client.query(`ALTER TABLE padres_acceso ADD COLUMN IF NOT EXISTS servicio_habilitado BOOLEAN DEFAULT false`);
     await client.query(`ALTER TABLE padres_acceso ADD COLUMN IF NOT EXISTS servicio_habilitado_at TIMESTAMP DEFAULT NULL`);
     await client.query(`ALTER TABLE padres_acceso ADD COLUMN IF NOT EXISTS servicio_habilitado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+    await client.query(`ALTER TABLE padres_acceso ADD COLUMN IF NOT EXISTS servicio_deshabilitado_at TIMESTAMP DEFAULT NULL`);
+    await client.query(`ALTER TABLE padres_acceso ADD COLUMN IF NOT EXISTS servicio_deshabilitado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
 
     // Cada teléfono/navegador autorizado por una familia conserva su propia
     // suscripción Web Push. El endpoint es único: si el dispositivo cambia de

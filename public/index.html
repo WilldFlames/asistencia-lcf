@@ -3188,6 +3188,10 @@ tr:hover td{background:#f8fafc;}
       Buscá por <strong>cédula, nombre o apellido</strong> del encargado principal. Primero habilitá el servicio cuando confirme el pago. También podés reiniciar su contraseña, bloquearlo por seguridad o cerrar su sesión activa.
     </p>
     <div id="alert-gp" class="alert"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 11px;margin-bottom:10px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;">
+      <div id="gp-resumen-activos" style="font-size:12.5px;color:var(--muted);">Cargando servicios activos…</div>
+      <button id="gp-desactivar-todos" class="btn btn-danger btn-sm" onclick="gpDesactivarTodos()" style="display:none;">⏹ Desactivar todos</button>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <input type="text" id="gp-buscar" placeholder="Cédula, nombre o apellido..." style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;" onkeydown="if(event.key==='Enter') gpBuscar()"/>
       <button class="btn btn-primary btn-sm" onclick="gpBuscar()">🔍 Buscar</button>
@@ -6987,7 +6991,9 @@ async function cargarDashboard(){
       _estados.forEach(ec => {
         const {total,criticos,en_riesgo,seccion_nombre} = ec;
         const _total = parseInt(total)||0, _crit = parseInt(criticos)||0, _ries = parseInt(en_riesgo)||0;
-        const _bien  = Math.max(0, _total - _crit - _ries);
+        const _normal = Math.max(0, _total - _crit - _ries);
+        const _minima = Number(ec.nota_minima)||(Number(ec.nivel)<=9?65:70);
+        const _limiteRiesgo = Number(ec.limite_riesgo)||(Number(ec.nivel)<=9?70:75);
         html += `<div class="card" style="margin:0;">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px;flex-wrap:wrap;">
             <div style="font-weight:bold;font-size:14px;color:var(--azul);">📋 Conducta${seccion_nombre?` · ${seccion_nombre}`:''}</div>
@@ -6996,16 +7002,16 @@ async function cargarDashboard(){
           <div style="font-size:10px;color:var(--muted);margin-bottom:9px;">${_periodoLbl} · ${_total} estudiante${_total===1?'':'s'}</div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
             <div style="text-align:center;padding:10px;background:#f0fdf4;border-radius:8px;flex:1;">
-              <div style="font-size:22px;font-weight:bold;color:var(--verde);">${_bien}</div>
-              <div style="font-size:11px;color:var(--muted);">En buen estado</div>
+              <div style="font-size:22px;font-weight:bold;color:var(--verde);">${_normal}</div>
+              <div style="font-size:11px;color:var(--muted);">Normal (≥${_limiteRiesgo})</div>
             </div>
             <div style="text-align:center;padding:10px;background:#fef9c3;border-radius:8px;flex:1;">
               <div style="font-size:22px;font-weight:bold;color:var(--naranja);">${_ries}</div>
-              <div style="font-size:11px;color:var(--muted);">En riesgo (60-79)</div>
+              <div style="font-size:11px;color:var(--muted);">En riesgo (${_minima}–&lt;${_limiteRiesgo})</div>
             </div>
             <div style="text-align:center;padding:10px;background:#fee2e2;border-radius:8px;flex:1;">
               <div style="font-size:22px;font-weight:bold;color:var(--rojo);">${_crit}</div>
-              <div style="font-size:11px;color:var(--muted);">Críticos (<60)</div>
+              <div style="font-size:11px;color:var(--muted);">Críticos (&lt;${_minima})</div>
             </div>
           </div>
           ${_crit>0||_ries>0?`<button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;" onclick="goTo('conducta')">Ver conducta completa →</button>`:""}
@@ -7606,19 +7612,29 @@ async function abrirGestionPadres(){
   document.getElementById("modal-gestion-padres").classList.add("show");
   document.getElementById("alert-gp").className = "alert";
   document.getElementById("gp-buscar").value = "";
-  document.getElementById("gp-resultados").innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Escribí al menos 2 caracteres y presioná buscar.</div>';
+  document.getElementById("gp-resultados").innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Cargando servicios activos…</div>';
+  document.getElementById("gp-resumen-activos").textContent="Cargando servicios activos…";
+  document.getElementById("gp-desactivar-todos").style.display="none";
+  await gpBuscar(true);
   setTimeout(()=>document.getElementById("gp-buscar").focus(), 100);
 }
 
-async function gpBuscar(){
+async function gpBuscar(mostrarActivos=false){
   const q = document.getElementById("gp-buscar").value.trim();
   const cont = document.getElementById("gp-resultados");
-  if(q.length < 2){ cont.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Escribí al menos 2 caracteres.</div>'; return; }
+  if(q.length < 2 && !mostrarActivos){
+    await gpBuscar(true);
+    return;
+  }
   cont.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">🔍 Buscando...</div>';
   try{
-    const rows = await api(`/api/admin/padres/buscar?q=${encodeURIComponent(q)}`)||[];
+    const rows = await api(`/api/admin/padres/buscar?q=${encodeURIComponent(q)}${mostrarActivos?'&activos=1':''}`)||[];
+    if(mostrarActivos){
+      document.getElementById("gp-resumen-activos").innerHTML=`<strong>${rows.length}</strong> servicio${rows.length===1?'':'s'} familiar${rows.length===1?'':'es'} activo${rows.length===1?'':'s'}`;
+      document.getElementById("gp-desactivar-todos").style.display=rows.length?'':'none';
+    }
     if(!rows.length){
-      cont.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Sin resultados. Verificá que la cédula esté registrada como encargada en el expediente de algún estudiante activo.</div>';
+      cont.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">${mostrarActivos?'No hay servicios familiares activos.':'Sin resultados. Verificá que la cédula esté registrada como encargada en el expediente de algún estudiante activo.'}</div>`;
       return;
     }
     cont.innerHTML = rows.map(p=>{
@@ -7640,6 +7656,7 @@ async function gpBuscar(){
         if(c.primer_login)  est.push('<span style="color:#ea580c;font-size:11.5px;">Contraseña sin cambiar</span>');
         if(c.sesion_activa) est.push('<span style="color:var(--azul);font-size:11.5px;">🔵 Sesión activa</span>');
         estado = est.join(' · ');
+        if(c.servicio_habilitado_at) estado += `<div style="margin-top:3px;color:var(--muted);font-size:11px;">Habilitado: ${new Date(c.servicio_habilitado_at).toLocaleString('es-CR')}${c.habilitado_por_nombre?` · por ${htmlSeguro(c.habilitado_por_nombre)}`:''}</div>`;
       }
       const btnReset = !puedeSeguridad ? '' : (p.es_personal
         ? '<button class="btn btn-outline btn-xs" disabled title="Personal del liceo — reiniciar desde Admin → Usuarios">🔑 Reset</button>'
@@ -7736,8 +7753,34 @@ async function gpServicio(cedula,nombre,habilitar){
   try{
     await api(`/api/admin/padres/${encodeURIComponent(cedula)}/servicio`,"PUT",{habilitado:habilitar});
     sa("alert-gp",`✅ ${nombre}: servicio ${habilitar?'habilitado':'desactivado'}.`,"success");
-    await gpBuscar();
+    await gpRefrescarVista();
   }catch(e){sa("alert-gp",e.message,"danger");}
+}
+
+async function gpRefrescarVista(){
+  const q=document.getElementById("gp-buscar").value.trim();
+  if(q.length>=2){await gpBuscar(false);await gpActualizarResumenActivos();} else await gpBuscar(true);
+}
+
+async function gpActualizarResumenActivos(){
+  try{
+    const rows=await api('/api/admin/padres/buscar?q=&activos=1')||[];
+    document.getElementById("gp-resumen-activos").innerHTML=`<strong>${rows.length}</strong> servicio${rows.length===1?'':'s'} familiar${rows.length===1?'':'es'} activo${rows.length===1?'':'s'}`;
+    document.getElementById("gp-desactivar-todos").style.display=rows.length?'':'none';
+  }catch(_){ }
+}
+
+async function gpDesactivarTodos(){
+  const texto=document.getElementById("gp-resumen-activos").textContent.trim();
+  if(!confirm(`CIERRE ANUAL DE LCF FAMILIAS\n\n${texto}.\n\nSe desactivarán todos los servicios y se cerrarán sus sesiones. No se borrarán cuentas, contraseñas, estudiantes ni historial.\n\n¿Desea continuar?`)) return;
+  const boton=document.getElementById("gp-desactivar-todos");boton.disabled=true;boton.textContent="Desactivando…";
+  try{
+    const r=await api('/api/admin/padres/servicio/desactivar-todos','PUT',{});
+    document.getElementById("gp-buscar").value="";
+    sa("alert-gp",`✅ Cierre anual completado: ${r.desactivados} servicio${r.desactivados===1?'':'s'} desactivado${r.desactivados===1?'':'s'}. Las cuentas y el historial se conservaron.`,"success");
+    await gpBuscar(true);
+  }catch(e){sa("alert-gp",e.message,"danger");}
+  finally{boton.disabled=false;boton.textContent="⏹ Desactivar todos";}
 }
 
 async function gpCerrarSesion(cedula){
@@ -27126,14 +27169,16 @@ async function atDescargarExcel(){
 // CONVOCATORIA / PRUEBAS DE AMPLIACIÓN
 // ══════════════════════════════════════════════════════════════════════
 let convData={filas:[],ve_detalle:false,puede_sincronizar:false,modo_informativo:true,limite:8};
+let convAutoRecalculado=false;
 const CONV_ESTADOS={primera_pendiente:'1.ª ampliación pendiente',segunda_pendiente:'2.ª ampliación pendiente',estrategia_pendiente:'Estrategia de Promoción',tes_pendiente:'Pendiente de TES',aprobada:'Aprobada',reprobada:'Reprobada',bloqueada:'Sin derecho'};
 function convClase(estado){return estado==='aprobada'?'success':estado==='reprobada'||estado==='bloqueada'?'danger':estado==='estrategia_pendiente'?'purple':'warning';}
 async function iniciarConvocatoria(){
   const anio=document.getElementById('conv-anio');
   if(!anio.value) anio.value=ANIO_LECTIVO_ACTIVO||new Date().getFullYear();
-  await convCargar();
+  convAutoRecalculado=false;
+  await convCargar(true);
 }
-async function convCargar(){
+async function convCargar(recalcularSiVacio=false){
   const anio=Number(document.getElementById('conv-anio').value)||ANIO_LECTIVO_ACTIVO;
   const cont=document.getElementById('conv-listado');cont.innerHTML='<div class="empty">Cargando control cruzado...</div>';
   try{
@@ -27145,6 +27190,17 @@ async function convCargar(){
     const secciones=[...new Set((convData.filas||[]).map(x=>x.seccion_nombre).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
     const sel=document.getElementById('conv-filtro-seccion'),actual=sel.value;
     sel.innerHTML='<option value="">Todas mis secciones</option>'+secciones.map(x=>`<option>${htmlSeguro(x)}</option>`).join('');sel.value=actual;
+    // La primera entrada al módulo construye el listado si todavía no existe.
+    // Así 2026 sigue siendo informativo sin depender de una carga administrativa.
+    if(recalcularSiVacio && !convAutoRecalculado && !(convData.filas||[]).length && convData.puede_sincronizar){
+      convAutoRecalculado=true;
+      cont.innerHTML='<div class="empty">Calculando estudiantes con convocatoria a partir de las notas actuales…</div>';
+      try{
+        const r=await api('/api/convocatoria/sincronizar','POST',{anio});
+        if(r.incidencias) sa('alert-conv',`Se cargó el control. ${r.incidencias} asignación(es) no pudieron calcularse por falta de configuración; Administración puede revisar sus reglas REAC.`,'warning');
+        return await convCargar(false);
+      }catch(e){sa('alert-conv',e.message,'danger');}
+    }
     convRender();
   }catch(e){cont.innerHTML='';sa('alert-conv',e.message,'danger');}
 }
@@ -27152,7 +27208,7 @@ async function convSincronizar(){
   const anio=Number(document.getElementById('conv-anio').value);
   if(!confirm(`Se recalcularán las materias aplazadas de ${anio} usando las notas disponibles. Las materias sin nota no se contarán. ¿Continuar?`))return;
   const b=document.getElementById('conv-sync');b.disabled=true;b.textContent='Calculando…';
-  try{const r=await api('/api/convocatoria/sincronizar','POST',{anio});sa('alert-conv',`Listo: ${r.expedientes} estudiantes y ${r.materias} materias aplazadas.`, 'success');await convCargar();}
+  try{const r=await api('/api/convocatoria/sincronizar','POST',{anio});sa('alert-conv',`Listo: ${r.expedientes} estudiantes y ${r.materias} materias aplazadas.${r.incidencias?` ${r.incidencias} asignación(es) requieren revisar su configuración REAC.`:''}`, r.incidencias?'warning':'success');await convCargar(false);}
   catch(e){sa('alert-conv',e.message,'danger');}finally{b.disabled=false;b.textContent='↻ Recalcular';}
 }
 function convRender(){
@@ -27160,13 +27216,17 @@ function convRender(){
   const filas=(convData.filas||[]).filter(x=>(!sec||x.seccion_nombre===sec)&&(!est||x.estado===est)&&(!q||String(x.estudiante_nombre).toLowerCase().includes(q)));
   const cont=document.getElementById('conv-listado');
   if(!filas.length){cont.innerHTML=`<div class="empty">No hay registros con esos filtros.${convData.puede_sincronizar?' Use <strong>Recalcular</strong> para traer las notas actuales.':''}</div>`;return;}
-  cont.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>Sección</th><th>Materia</th><th>Nota origen</th><th>Aplazadas</th><th>Estado</th><th>Resultados</th><th></th></tr></thead><tbody>${filas.map(x=>{
+  const porSeccion=new Map();
+  for(const x of filas){const k=x.seccion_nombre||'Sin sección';if(!porSeccion.has(k))porSeccion.set(k,[]);porSeccion.get(k).push(x);}
+  cont.innerHTML=[...porSeccion.entries()].map(([seccion,registros])=>`<section style="margin:0 0 18px;">
+    <h3 style="margin:0;padding:10px 12px;background:#eaf2fb;color:var(--azul);border:1px solid #d4e1ef;border-radius:9px 9px 0 0;">Sección ${htmlSeguro(seccion)} · ${new Set(registros.map(x=>x.estudiante_id)).size} estudiante(s)</h3>
+    <div class="table-wrap" style="border-radius:0 0 9px 9px;"><table><thead><tr><th>Estudiante</th><th>Materia</th><th>Nota anual</th><th>Aplazadas</th><th>Estado</th><th>Resultados</th><th></th></tr></thead><tbody>${registros.map(x=>{
     const alerta=Number(x.total_aplazadas)>Number(x.limite_institucional);
     const detalle=convData.ve_detalle?`<br><small>Docente: ${htmlSeguro(x.profesor_nombre||'—')}</small>`:'';
     const resultados=[x.primera_nota!=null?`1.ª: ${Number(x.primera_nota).toFixed(1)}`:'',x.segunda_nota!=null?`2.ª: ${Number(x.segunda_nota).toFixed(1)}`:'',x.estrategia_nota!=null?`Estrategia: ${Number(x.estrategia_nota).toFixed(1)}`:''].filter(Boolean).join('<br>')||'—';
     const boton=['primera_pendiente','segunda_pendiente','estrategia_pendiente'].includes(x.estado)?`<button class="btn btn-primary btn-xs" onclick="convRegistrar(${x.id},'${x.estado==='primera_pendiente'?'primera':x.estado==='segunda_pendiente'?'segunda':'estrategia'}')">Registrar</button>`:'';
-    return `<tr><td><strong>${htmlSeguro(x.estudiante_nombre)}</strong>${detalle}</td><td>${htmlSeguro(x.seccion_nombre||'—')}</td><td>${htmlSeguro(x.materia_nombre)}${x.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(x.periodo_origen)}</small>`:''}</td><td>${Number(x.nota_origen).toFixed(2)} / ${Number(x.nota_minima).toFixed(0)}</td><td><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong>${alerta?' *':''}</button></td><td><span class="badge ${convClase(x.estado)}">${htmlSeguro(CONV_ESTADOS[x.estado]||x.estado)}</span></td><td>${resultados}</td><td>${boton}</td></tr>`;
-  }).join('')}</tbody></table></div>`;
+    return `<tr><td><strong>${htmlSeguro(x.estudiante_nombre)}</strong>${detalle}</td><td>${htmlSeguro(x.materia_nombre)}${x.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(x.periodo_origen)}</small>`:''}</td><td>${Number(x.nota_origen).toFixed(2)} / ${Number(x.nota_minima).toFixed(0)}</td><td><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong>${alerta?' *':''}</button></td><td><span class="badge ${convClase(x.estado)}">${htmlSeguro(CONV_ESTADOS[x.estado]||x.estado)}</span></td><td>${resultados}</td><td>${boton}</td></tr>`;
+  }).join('')}</tbody></table></div></section>`).join('');
 }
 function convExplicarConteo(expedienteId){
   const filas=(convData.filas||[]).filter(x=>String(x.expediente_id)===String(expedienteId)),x=filas[0];if(!x)return;
