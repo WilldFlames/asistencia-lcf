@@ -63,7 +63,7 @@ const TIPOS_BLOQUE={
   club:'Club',
   coordinacion:'C. Departamento',
   cta:'CTA',
-  coordinacion_adicional:'C. Adicional'
+  coordinacion_adicional:'C. Académica'
 };
 function nombreTipoBloque(tipo){return TIPOS_BLOQUE[tipo]||'Bloque';}
 
@@ -185,7 +185,7 @@ router.get("/aulas", requireRol("admin","secretaria"), asyncRoute(async (req,res
     UNION ALL
     SELECT b.dia,b.leccion,b.lugar AS aula,
       CASE b.tipo WHEN 'club' THEN 'CLUB' WHEN 'coordinacion' THEN 'C. DEPARTAMENTO'
-        WHEN 'cta' THEN 'CTA' WHEN 'coordinacion_adicional' THEN 'C. ADICIONAL'
+        WHEN 'cta' THEN 'CTA' WHEN 'coordinacion_adicional' THEN 'C. ACADÉMICA'
         ELSE 'BLOQUE' END AS seccion_nombre,
       NULL AS subgrupo,COALESCE(NULLIF(b.detalle,''),INITCAP(b.tipo)) AS materia_nombre,
       u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2,

@@ -2662,7 +2662,7 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-outline btn-sm" type="button" onclick="horCancelarBloque()">✕</button>
     </div>
     <div class="form-grid" style="margin-top:16px">
-      <div class="fg"><label>Tipo *</label><select id="hor-bloque-tipo"><option value="club">🎨 Club</option><option value="coordinacion">🏢 C. Departamento</option><option value="cta">📋 CTA</option><option value="coordinacion_adicional">➕ C. Adicional</option></select></div>
+        <div class="fg"><label>Tipo *</label><select id="hor-bloque-tipo"><option value="club">🎨 Club</option><option value="coordinacion">🏢 C. Departamento</option><option value="cta">📋 CTA</option><option value="coordinacion_adicional">➕ C. Académica</option></select></div>
       <div class="fg"><label>Nombre o detalle (opcional)</label><input id="hor-bloque-detalle" maxlength="120" placeholder="Ej. Club de Robótica"></div>
       <div class="fg" style="grid-column:1/-1"><label>Lugar (opcional)</label><input id="hor-bloque-lugar" maxlength="80" placeholder="Ej. Laboratorio"></div>
     </div>
@@ -19013,7 +19013,7 @@ function horRenderGrid(mapa, editable,editarBloques=false){
           const aulaTxt = (c.aula !== null && c.aula !== undefined && c.aula !== '')
             ? `<span class="hor-room">${c.es_bloque?'📍 ':''}${htmlSeguro(c.es_bloque?c.aula:horAulaEtiqueta(c.aula))}</span>` : '';
           if(c.es_bloque){
-            const tipos={club:['🎨','Club'],coordinacion:['🏢','C. Departamento'],cta:['📋','CTA'],coordinacion_adicional:['➕','C. Adicional']};
+            const tipos={club:['🎨','Club'],coordinacion:['🏢','C. Departamento'],cta:['📋','CTA'],coordinacion_adicional:['➕','C. Académica']};
             const [icono,tipo]=tipos[c.tipo]||['🧩','Bloque'];
             const accion=editarBloques&&c.id?` onclick="horEditarBloque(${c.id})" title="Editar este bloque"`:'';
             return `<div class="hor-class-card hor-extra hor-extra-${c.tipo}${editarBloques?' hor-extra-editable':''}"${accion}><div class="hor-subject">${icono} ${tipo}</div>${c.detalle?`<div class="hor-teacher">${htmlSeguro(c.detalle)}</div>`:''}${aulaTxt}</div>`;
@@ -19090,7 +19090,7 @@ function horResumenHtml(r={}){
     <div class="hor-summary-item"><strong>${Number(r.club)||0}</strong><span>Club</span></div>
     <div class="hor-summary-item"><strong>${Number(r.coordinacion)||0}</strong><span>C. Departamento</span></div>
     <div class="hor-summary-item"><strong>${Number(r.cta)||0}</strong><span>CTA</span></div>
-    <div class="hor-summary-item"><strong>${Number(r.coordinacion_adicional)||0}</strong><span>C. Adicional</span></div>
+    <div class="hor-summary-item"><strong>${Number(r.coordinacion_adicional)||0}</strong><span>C. Académica</span></div>
     <div class="hor-summary-item"><strong>${Number(r.total_semanal)||0}</strong><span>Total semanal</span></div>
   </div>`;
 }
@@ -19111,7 +19111,7 @@ function horMapaDocente(r){
 function horRenderHorarioDocente(r,titulo){
   horResumenActual=r.resumen||{};
   document.getElementById('hor-grid-wrap').innerHTML=
-    `<div style="padding:12px 12px 4px;font-size:13px;font-weight:bold;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>👤 ${htmlSeguro(titulo)}</span>${horModo==='docente-admin'&&ME.rol==='admin'?'<small style="color:var(--muted);font-weight:normal">Seleccione un espacio libre para agregar Club, C. Departamento, CTA o C. Adicional.</small>':''}</div>`+
+    `<div style="padding:12px 12px 4px;font-size:13px;font-weight:bold;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>👤 ${htmlSeguro(titulo)}</span>${horModo==='docente-admin'&&ME.rol==='admin'?'<small style="color:var(--muted);font-weight:normal">Seleccione un espacio libre para agregar Club, C. Departamento, CTA o C. Académica.</small>':''}</div>`+
     horResumenHtml(r.resumen)+horRenderGrid(horMapaDocente(r),false,horModo==='docente-admin'&&ME.rol==='admin');
   document.getElementById('hor-btn-imprimir').style.display='';
 }

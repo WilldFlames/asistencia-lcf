@@ -41,10 +41,13 @@ test('los bloques no pueden coincidir con una clase y las clases respetan los bl
 
 test('la administración visual ofrece los cuatro tipos directamente en la grilla',()=>{
   const ui=leer('public/index.html');
+  const ruta=leer('routes/horarios.js');
   assert.match(ui,/id="hor-btn-docentes"/);
   assert.match(ui,/id="hor-docente"/);
   assert.match(ui,/id="hor-bloque-tipo"/);
-  assert.match(ui,/<option value="club">🎨 Club<\/option><option value="coordinacion">🏢 C\. Departamento<\/option><option value="cta">📋 CTA<\/option><option value="coordinacion_adicional">➕ C\. Adicional<\/option>/);
+  assert.match(ui,/<option value="club">🎨 Club<\/option><option value="coordinacion">🏢 C\. Departamento<\/option><option value="cta">📋 CTA<\/option><option value="coordinacion_adicional">➕ C\. Académica<\/option>/);
+  assert.doesNotMatch(ui,/C\. Adicional/);
+  assert.match(ruta,/coordinacion_adicional:'C\. Académica'/);
   assert.match(ui,/horAbrirBloqueCelda\(\$\{dia\},\$\{lec\.n\}\)/);
   assert.doesNotMatch(ui,/Bloques adicionales del docente/);
   assert.match(ui,/function horGuardarBloque/);

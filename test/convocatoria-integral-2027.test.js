@@ -74,3 +74,11 @@ test('el recálculo evita revisar asignaciones vacías y limita al docente auten
   assert.match(route,/Math\.min\(4,Math\.max\(1,trabajos\.length\)\)/);
   assert.match(route,/grupos_revisados:grupos\.length/);
 });
+
+test('la auditoría de convocatoria declara los tipos que PostgreSQL guarda en JSON',()=>{
+  const route=read('routes/convocatoria.js');
+  assert.match(route,/'total_aplazadas',\$2::integer/);
+  assert.match(route,/'modo_informativo',\$3::boolean/);
+  assert.match(route,/'nota',\$4::numeric/);
+  assert.match(route,/'fecha',\$5::date/);
+});

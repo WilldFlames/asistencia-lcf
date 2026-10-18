@@ -230,7 +230,10 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
         AND cm.primera_nota IS NULL AND cm.segunda_nota IS NULL AND cm.estrategia_nota IS NULL
         AND NOT ((cm.materia_nombre||'|'||cm.periodo_origen)=ANY($2::text[]))`, [expedienteId, claves]);
       await client.query(`INSERT INTO convocatoria_eventos(expediente_id,tipo,detalle,usuario_id)
-        VALUES($1,'sincronizacion',jsonb_build_object('total_aplazadas',$2,'modo_informativo',$3),$4)`, [expedienteId,total,informativo,usuarioId]);
+        VALUES($1,'sincronizacion',jsonb_build_object(
+          'total_aplazadas',$2::integer,
+          'modo_informativo',$3::boolean
+        ),$4)`, [expedienteId,total,informativo,usuarioId]);
     }
     await client.query("COMMIT");
     return {
@@ -297,7 +300,9 @@ router.post("/materia/:id/resultado", staff, async (req,res)=>{
     if(etapa==="primera") await client.query(`UPDATE convocatoria_materias SET primera_nota=$1,primera_fecha=$2,primera_registrada_por=$3,primera_registrada_at=NOW(),estado=$4,nota_final=$5,updated_at=NOW() WHERE id=$6`,[nota,fecha,u.id,aprobada?"aprobada":"segunda_pendiente",aprobada?min:null,id]);
     if(etapa==="segunda") await client.query(`UPDATE convocatoria_materias SET segunda_nota=$1,segunda_fecha=$2,segunda_registrada_por=$3,segunda_registrada_at=NOW(),cumple_pruebas_tareas=$4,cumple_asistencia=$5,cumple_proyectos=$6,presento_ambas=true,estado=$7,nota_final=$8,updated_at=NOW() WHERE id=$9`,[nota,fecha,u.id,req.body.cumple_pruebas_tareas===true,req.body.cumple_asistencia===true,req.body.cumple_proyectos===true,aprobada?"aprobada":"reprobada",aprobada?min:null,id]);
     if(etapa==="estrategia") await client.query(`UPDATE convocatoria_materias SET estrategia_nota=$1,estrategia_fecha=$2,estrategia_registrada_por=$3,estrategia_registrada_at=NOW(),estado=$4,nota_final=$5,updated_at=NOW() WHERE id=$6`,[nota,fecha,u.id,aprobada?"aprobada":"reprobada",aprobada?min:null,id]);
-    await client.query(`INSERT INTO convocatoria_eventos(expediente_id,materia_id,tipo,detalle,usuario_id) VALUES($1,$2,$3,jsonb_build_object('nota',$4,'fecha',$5),$6)`,[m.exp_id,id,`resultado_${etapa}`,nota,fecha,u.id]);
+    await client.query(`INSERT INTO convocatoria_eventos(expediente_id,materia_id,tipo,detalle,usuario_id)
+      VALUES($1,$2,$3,jsonb_build_object('nota',$4::numeric,'fecha',$5::date),$6)`,
+      [m.exp_id,id,`resultado_${etapa}`,nota,fecha,u.id]);
     await recalcularEstado(client,m.exp_id);
     await client.query("COMMIT"); res.json({ok:true});
   }catch(e){await client.query("ROLLBACK");res.status(e.status||500).json({error:e.message});}
