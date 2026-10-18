@@ -1,0 +1,19 @@
+CORRECCIÓN DEL EXPEDIENTE INTEGRAL
+16 DE OCTUBRE DE 2026
+
+- Se unificó el diseño de la portada, el índice y todos los apartados.
+- Cada apartado utiliza el mismo encabezado, tipografía, colores, márgenes,
+  tarjetas, etiquetas y distribución de información.
+- Se omiten automáticamente los apartados que no tengan registros.
+- El índice se reconstruye después del filtro y solo enumera contenido real.
+- El índice se divide en varias páginas si la cantidad de apartados lo exige.
+- Los campos sin información se omiten dentro de cada ficha para evitar filas
+  innecesarias llenas de guiones.
+- Los registros se distribuyen en grupos más pequeños por página para mantener
+  el texto legible y evitar que el generador reduzca demasiado el contenido.
+- Una adecuación vacía (sin ningún tipo marcado ni observación) no genera una
+  sección artificial en el expediente.
+
+VERIFICACIÓN
+- 296 pruebas automáticas aprobadas.
+- Sintaxis completa de los bloques JavaScript validada.

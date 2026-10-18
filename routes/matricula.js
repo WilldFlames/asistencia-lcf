@@ -359,9 +359,22 @@ router.delete("/bloqueos/:id", puedeGestionarBloqueos, async (req,res)=>{
 router.post("/completar/:id", canAccess, async (req, res) => {
   const anioActivo = await obtenerAnioActivo();
   const anio = parseInt(req.body?.anio || req.query.anio) || anioActivo;
-  const convocatoria = req.body?.convocatoria === true;
-  const nivelSolicitado = parseInt(req.body?.nivel_solicitado) || null;
+  let convocatoria = req.body?.convocatoria === true;
+  let nivelSolicitado = parseInt(req.body?.nivel_solicitado) || null;
   const uid = req.session.usuario.id;
+  // Desde los resultados del curso 2027 el expediente de Convocatoria manda
+  // sobre la selección manual: una condición pendiente siempre deja la
+  // matrícula provisional y sin sección. El año 2026 es solo informativo.
+  const controlConv=await pool.query(`SELECT condicion,nivel,modo_informativo,total_aplazadas,limite_institucional
+    FROM convocatoria_expedientes WHERE estudiante_id=$1 AND anio=$2`,[req.params.id,anio-1]);
+  const control=controlConv.rows[0];
+  if(control && !control.modo_informativo){
+    if(['con_derecho','sincronizado','pendiente'].includes(control.condicion)) convocatoria=true;
+    if(['bloqueado_limite','repite'].includes(control.condicion)){
+      convocatoria=false;
+      nivelSolicitado=Number(control.nivel);
+    }
+  }
   const bloqueo=await bloqueoPendiente(req.params.id,anio);
   if(bloqueo) return res.status(423).json({error:`MATRÍCULA RESTRINGIDA. Motivo: ${bloqueo.motivo}. Dirección debe autorizarla antes de finalizar.`,matricula_restringida:true,bloqueo});
   if(convocatoria){
@@ -692,6 +705,20 @@ router.post("/asignar", canAccess, async (req, res) => {
   if(!secR.rows.length) return res.status(404).json({ error:"Sección no encontrada." });
   const secNombre = secR.rows[0].nombre;
   const nivelDestino = parseInt(secR.rows[0].nivel);
+  const controlConv=await pool.query(`SELECT condicion,nivel,modo_informativo,total_aplazadas,limite_institucional
+    FROM convocatoria_expedientes WHERE estudiante_id=$1 AND anio=$2`,[estudiante_id,a-1]);
+  const control=controlConv.rows[0];
+  if(control && !control.modo_informativo){
+    if(['con_derecho','sincronizado','pendiente'].includes(control.condicion)){
+      return res.status(409).json({error:'El estudiante todavía tiene pruebas de ampliación o Estrategia de Promoción pendientes. Puede completar la matrícula provisional, pero no elegir sección.',convocatoria_pendiente:true});
+    }
+    if(['bloqueado_limite','repite'].includes(control.condicion) && nivelDestino!==Number(control.nivel)){
+      return res.status(409).json({error:`El estudiante debe repetir ${control.nivel}° y únicamente puede matricularse en ese mismo nivel.`,repite_nivel:Number(control.nivel)});
+    }
+    if(control.condicion==='aprobado' && Number(control.nivel)<11 && nivelDestino!==Number(control.nivel)+1){
+      return res.status(409).json({error:`El estudiante aprobó su proceso y debe matricular ${Number(control.nivel)+1}°.`});
+    }
+  }
   const historial=await pool.query(`SELECT e.idioma AS est_idioma,e.tecnologia AS est_tecnologia,
       m.idioma AS mat_idioma,m.tecnologia AS mat_tecnologia
     FROM estudiantes e LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$2

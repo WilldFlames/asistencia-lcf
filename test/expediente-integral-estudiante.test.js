@@ -38,10 +38,20 @@ test('la información confidencial se excluye por defecto y exige confirmación 
 test('la interfaz genera portada índice y secciones identificadas en el PDF institucional',()=>{
   assert.match(server,/\/api\/expediente-integral/);
   assert.match(ui,/id="page-expediente-integral"/);
-  assert.match(ui,/EXPEDIENTE INTEGRAL DEL ESTUDIANTE/);
+  assert.match(ui,/EXPEDIENTE INTEGRAL(?:<br>|\s+)DEL ESTUDIANTE/);
   assert.match(ui,/Índice documental/);
   assert.match(ui,/Debidos procesos/);
   assert.match(ui,/Alertas tempranas/);
   assert.match(ui,/Movimientos de Portería/);
   assert.match(ui,/imprimirPDFMEP\(null,pdf\.html,pdf\.archivo,\{bloquesPagina:true\}\)/);
+});
+
+test('el PDF omite apartados vacíos y reconstruye un índice con formato uniforme',()=>{
+  assert.match(ui,/const seccionesConDatos=secciones\.filter\(s=>Array\.isArray\(s\[1\]\)&&s\[1\]\.length>0\)/);
+  assert.match(ui,/eiPaginasIndice\(seccionesConDatos\)/);
+  assert.match(ui,/seccionesConDatos\.forEach\(\(s,i\)=>paginas\.push/);
+  assert.doesNotMatch(ui,/No hay registros institucionales en esta sección/);
+  assert.match(ui,/function eiEncabezadoSeccion/);
+  assert.match(ui,/DOCUMENTO INSTITUCIONAL/);
+  assert.match(ui,/Apartados incluidos/);
 });

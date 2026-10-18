@@ -60,6 +60,7 @@ app.use("/api/notificaciones", requireAuth, require("./routes/notificaciones"));
 app.use("/api/observaciones",  requireAuth, require("./routes/observaciones"));
 app.use("/api/conducta",       requireAuth, require("./routes/conducta"));
 app.use("/api/expedientes-conducta", requireAuth, require("./routes/expedientesConducta"));
+app.use("/api/convocatoria", requireAuth, require("./routes/convocatoria"));
 app.use("/api/expediente",     requireAuth, require("./routes/expediente"));
 app.use("/api/expediente-integral", requireAuth, require("./routes/expedienteIntegral"));
 app.use("/api/comedor",        requireAuth, require("./routes/comedor"));

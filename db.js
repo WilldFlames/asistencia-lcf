@@ -3184,6 +3184,87 @@ async function initDB() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_integral_estudiante
       ON expediente_integral_generaciones(estudiante_id,generado_at DESC)`);
 
+    // ── CONVOCATORIAS / PRUEBAS DE AMPLIACIÓN ───────────────────────
+    // El expediente consolida la condición completa del estudiante. El detalle
+    // conserva una fila por materia (o por semestre para Hogar/Industriales),
+    // incluso después del cierre anual, para que el control no dependa de las
+    // evaluaciones crudas que se depuran al aplicar la matrícula del año nuevo.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS convocatoria_expedientes (
+        id                    BIGSERIAL PRIMARY KEY,
+        estudiante_id         INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+        anio                  INTEGER NOT NULL,
+        nivel                 INTEGER NOT NULL,
+        seccion_id            INTEGER REFERENCES secciones(id) ON DELETE SET NULL,
+        total_aplazadas       INTEGER NOT NULL DEFAULT 0,
+        limite_institucional  INTEGER NOT NULL DEFAULT 8,
+        conducta_incluida     BOOLEAN NOT NULL DEFAULT false,
+        modo_informativo      BOOLEAN NOT NULL DEFAULT true,
+        condicion             TEXT NOT NULL DEFAULT 'sincronizado'
+          CHECK(condicion IN ('sincronizado','con_derecho','bloqueado_limite','pendiente','aprobado','repite')),
+        sincronizado_por      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        sincronizado_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+        cerrado_at            TIMESTAMP,
+        UNIQUE(estudiante_id,anio)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_exp_anio_estado
+      ON convocatoria_expedientes(anio,condicion,seccion_id)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS convocatoria_materias (
+        id                    BIGSERIAL PRIMARY KEY,
+        expediente_id         BIGINT NOT NULL REFERENCES convocatoria_expedientes(id) ON DELETE CASCADE,
+        materia_id            INTEGER REFERENCES materias(id) ON DELETE SET NULL,
+        materia_nombre        TEXT NOT NULL,
+        periodo_origen        TEXT NOT NULL DEFAULT 'Anual',
+        asignacion_id         INTEGER REFERENCES asignaciones(id) ON DELETE SET NULL,
+        profesor_id           INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        nota_origen           NUMERIC(6,2),
+        nota_minima           NUMERIC(6,2) NOT NULL,
+        estado                TEXT NOT NULL DEFAULT 'primera_pendiente'
+          CHECK(estado IN ('bloqueada','primera_pendiente','segunda_pendiente','estrategia_pendiente','tes_pendiente','aprobada','reprobada')),
+        primera_nota          NUMERIC(6,2),
+        primera_fecha         DATE,
+        primera_registrada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        primera_registrada_at TIMESTAMP,
+        segunda_nota          NUMERIC(6,2),
+        segunda_fecha         DATE,
+        segunda_registrada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        segunda_registrada_at TIMESTAMP,
+        cumple_pruebas_tareas BOOLEAN,
+        cumple_asistencia     BOOLEAN,
+        cumple_proyectos      BOOLEAN,
+        presento_ambas        BOOLEAN,
+        estrategia_nota       NUMERIC(6,2),
+        estrategia_fecha      DATE,
+        estrategia_registrada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        estrategia_registrada_at TIMESTAMP,
+        nota_final            NUMERIC(6,2),
+        observaciones         TEXT NOT NULL DEFAULT '',
+        updated_at            TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE(expediente_id,materia_nombre,periodo_origen)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_mat_profesor
+      ON convocatoria_materias(profesor_id,estado)`);
+    // Compatibilidad si la tabla fue creada durante una instalación de prueba.
+    await client.query(`ALTER TABLE convocatoria_materias DROP CONSTRAINT IF EXISTS convocatoria_materias_estado_check`);
+    await client.query(`ALTER TABLE convocatoria_materias ADD CONSTRAINT convocatoria_materias_estado_check
+      CHECK(estado IN ('bloqueada','primera_pendiente','segunda_pendiente','estrategia_pendiente','tes_pendiente','aprobada','reprobada'))`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS convocatoria_eventos (
+        id              BIGSERIAL PRIMARY KEY,
+        expediente_id   BIGINT NOT NULL REFERENCES convocatoria_expedientes(id) ON DELETE CASCADE,
+        materia_id      BIGINT REFERENCES convocatoria_materias(id) ON DELETE SET NULL,
+        tipo            TEXT NOT NULL,
+        detalle         JSONB NOT NULL DEFAULT '{}'::jsonb,
+        usuario_id      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_eventos_exp
+      ON convocatoria_eventos(expediente_id,created_at DESC)`);
+
     console.log("✅ Base de datos lista");
   } finally {
     client.release();

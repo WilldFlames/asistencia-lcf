@@ -1,0 +1,30 @@
+MÓDULO CONVOCATORIA — 16 DE OCTUBRE DE 2026
+
+Se agregó el control de primera y segunda prueba de ampliación, Estrategia de
+Promoción y su vínculo con la matrícula.
+
+REGLA INSTITUCIONAL
+- Hasta 8 materias contabilizadas: puede presentar.
+- 9 o más: no tiene derecho y repite el nivel.
+- Conducta cuenta una sola vez; Guía y Orientación no se duplican como materias.
+- Las materias sin nota no entran al conteo.
+- Educación para el Hogar y Artes Industriales se conservan por semestre.
+
+VIGENCIA
+- Curso lectivo 2026: modo informativo y de prueba; no bloquea matrícula.
+- Resultados desde 2027: las restricciones son obligatorias.
+
+ACCESO
+- Cada docente ve y registra solamente su materia.
+- El docente solo conoce la cantidad total de aplazadas, no las otras materias.
+- Administración y auxiliares ven el control cruzado completo.
+- Solo el docente responsable o Administración registra resultados.
+
+MATRÍCULA
+- Con ampliaciones o estrategia pendientes: matrícula provisional sin sección.
+- Si aprueba todo: se habilita el nivel siguiente.
+- Si queda sin derecho o reprueba definitivamente: solo se permite el mismo nivel.
+- Los expedientes sobreviven al cierre anual y conservan auditoría.
+
+VERIFICACIÓN
+- npm test: 301 pruebas aprobadas, 0 fallidas.
