@@ -52,18 +52,60 @@ async function recalcularEstado(client, expedienteId) {
   await client.query("UPDATE convocatoria_expedientes SET condicion=$1,cerrado_at=CASE WHEN $1 IN ('aprobado','repite') THEN NOW() ELSE NULL END WHERE id=$2", [condicion, expedienteId]);
 }
 
-async function sincronizar(anio, usuarioId) {
+async function sincronizar(anio, usuarioId, profesorFiltro=null) {
   const activo = await obtenerAnioActivo();
   if (Number(anio) !== Number(activo)) throw Object.assign(new Error(`Solo se pueden recalcular las notas del curso lectivo activo (${activo}). Los años cerrados conservan su expediente.`), { status: 409 });
+  const parametros=[anio];
+  let filtroProfesor="";
+  if(Number.isInteger(Number(profesorFiltro)) && Number(profesorFiltro)>0){
+    parametros.push(Number(profesorFiltro));
+    filtroProfesor=`AND a.profesor_id=$${parametros.length}`;
+  }
   const grupos = (await pool.query(`
-    SELECT DISTINCT ON (a.profesor_id,a.seccion_id,a.materia_id,COALESCE(a.subgrupo,''))
-      a.id,a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,m.nombre AS materia_nombre,s.nivel
-    FROM asignaciones a JOIN materias m ON m.id=a.materia_id JOIN secciones s ON s.id=a.seccion_id
-    WHERE a.anio=$1 AND COALESCE(a.activa,true)=true
-      AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
-    ORDER BY a.profesor_id,a.seccion_id,a.materia_id,COALESCE(a.subgrupo,''),
-      CASE WHEN a.periodo='II Período' THEN 0 ELSE 1 END,a.id DESC
-  `, [anio])).rows;
+    WITH candidatos AS (
+      SELECT DISTINCT ON (a.profesor_id,a.seccion_id,a.materia_id,COALESCE(a.subgrupo,''))
+        a.id,a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,
+        m.nombre AS materia_nombre,s.nivel
+      FROM asignaciones a
+      JOIN materias m ON m.id=a.materia_id
+      JOIN secciones s ON s.id=a.seccion_id
+      WHERE a.anio=$1 AND COALESCE(a.activa,true)=true
+        ${filtroProfesor}
+        AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
+      ORDER BY a.profesor_id,a.seccion_id,a.materia_id,COALESCE(a.subgrupo,''),
+        CASE WHEN a.periodo='II Período' THEN 0 ELSE 1 END,a.id DESC
+    )
+    SELECT c.*,periodos.periodos_con_notas
+    FROM candidatos c
+    CROSS JOIN LATERAL (
+      SELECT ARRAY_AGG(DISTINCT z.periodo ORDER BY z.periodo) AS periodos_con_notas
+      FROM (
+        SELECT ev.periodo
+        FROM evaluaciones ev
+        WHERE ev.profesor_id=c.profesor_id AND ev.seccion_id=c.seccion_id
+          AND ev.materia_id=c.materia_id
+          AND COALESCE(ev.subgrupo,'')=COALESCE(c.subgrupo,'')
+          AND ev.periodo IN ('I Período','II Período')
+          AND EXTRACT(YEAR FROM ev.fecha)=$1
+          AND (
+            EXISTS(SELECT 1 FROM notas_examen nx WHERE nx.evaluacion_id=ev.id AND nx.puntos_obtenidos IS NOT NULL)
+            OR EXISTS(SELECT 1 FROM notas_indicador ni WHERE ni.evaluacion_id=ev.id AND ni.puntaje IS NOT NULL)
+          )
+        UNION
+        SELECT cs.periodo
+        FROM asignaciones ax
+        JOIN calificaciones_simplificadas cs ON cs.asignacion_id=ax.id
+        WHERE ax.anio=$1 AND ax.profesor_id=c.profesor_id AND ax.seccion_id=c.seccion_id
+          AND ax.materia_id=c.materia_id
+          AND COALESCE(ax.subgrupo,'')=COALESCE(c.subgrupo,'')
+          AND cs.periodo IN ('I Período','II Período')
+          AND (cs.pct_cotidiano IS NOT NULL OR cs.pct_tareas IS NOT NULL
+            OR cs.pct_pruebas IS NOT NULL OR cs.pct_proyectos IS NOT NULL)
+      ) z
+    ) periodos
+    WHERE COALESCE(CARDINALITY(periodos.periodos_con_notas),0)>0
+    ORDER BY c.profesor_id,c.seccion_id,c.materia_id,COALESCE(c.subgrupo,'')
+  `, parametros)).rows;
 
   const acumulado = new Map();
   const incidencias = [];
@@ -101,8 +143,12 @@ async function sincronizar(anio, usuarioId) {
     acumulado.set(clave, actual);
   };
 
-  for (const g of grupos) {
-    for (const periodo of ["I Período", "II Período"]) {
+  const trabajos=grupos.flatMap(g=>(g.periodos_con_notas||[]).map(periodo=>({g,periodo})));
+  let siguiente=0;
+  const procesar=async()=>{
+    while(siguiente<trabajos.length){
+      const indice=siguiente++;
+      const {g,periodo}=trabajos[indice];
       try {
         const data = await calcularPromediosInstitucional(g.profesor_id, g.seccion_id, g.materia_id, g.subgrupo, periodo);
         for (const est of data.estudiantes || []) poner(est, g, periodo, est.total);
@@ -113,7 +159,10 @@ async function sincronizar(anio, usuarioId) {
         });
       }
     }
-  }
+  };
+  // Una concurrencia pequeña reduce mucho el tiempo sin saturar PostgreSQL ni
+  // repetir el problema de estabilidad que tuvo el servidor con procesos masivos.
+  await Promise.all(Array.from({length:Math.min(4,Math.max(1,trabajos.length))},procesar));
 
   const fallos = [];
   for (const x of acumulado.values()) {
@@ -187,6 +236,7 @@ async function sincronizar(anio, usuarioId) {
     return {
       expedientes:estudiantes.size, materias:fallos.length,
       modo_informativo:Number(anio)<INICIO_REGLAS, limite:LIMITE,
+      grupos_revisados:grupos.length, periodos_revisados:trabajos.length,
       incidencias:incidencias.length,
       detalle_incidencias:incidencias.slice(0,20)
     };
@@ -195,7 +245,14 @@ async function sincronizar(anio, usuarioId) {
 }
 
 router.post("/sincronizar", sincroniza, async (req,res) => {
-  try { const anio=Number(req.body.anio)||await obtenerAnioActivo(); res.json(await sincronizar(anio,req.session.usuario.id)); }
+  try {
+    const anio=Number(req.body.anio)||await obtenerAnioActivo();
+    const u=req.session.usuario;
+    // Docentes recalculan únicamente lo que imparten. Administración y
+    // auxiliares conservan el control cruzado de toda la institución.
+    const profesorFiltro=esGestion(u)?null:Number(u.id);
+    res.json(await sincronizar(anio,u.id,profesorFiltro));
+  }
   catch(e){ console.error("convocatoria sincronizar",e); res.status(e.status||500).json({error:e.message}); }
 });
 

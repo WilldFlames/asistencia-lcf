@@ -64,3 +64,13 @@ test('el listado informativo se construye al abrir y se agrupa por sección',()=
   assert.match(ui,/const porSeccion=new Map/);
   assert.match(ui,/Sección \$\{htmlSeguro\(seccion\)\}/);
 });
+
+test('el recálculo evita revisar asignaciones vacías y limita al docente autenticado',()=>{
+  const route=read('routes/convocatoria.js');
+  assert.match(route,/periodos_con_notas/);
+  assert.match(route,/EXISTS\(SELECT 1 FROM notas_examen/);
+  assert.match(route,/EXISTS\(SELECT 1 FROM notas_indicador/);
+  assert.match(route,/profesorFiltro=esGestion\(u\)\?null:Number\(u\.id\)/);
+  assert.match(route,/Math\.min\(4,Math\.max\(1,trabajos\.length\)\)/);
+  assert.match(route,/grupos_revisados:grupos\.length/);
+});
