@@ -36,3 +36,13 @@ test('la interfaz explica conexiones de computadora y móvil',()=>{
   assert.match(html,/Brother iPrint&amp;Label/);
   assert.match(html,/Imprimir en PT-D610BT/);
 });
+
+test('móvil prepara imágenes y abre el selector para Brother iPrint&Label',()=>{
+  assert.match(html,/function cbarEsDispositivoMovil\(\)/);
+  assert.match(html,/function cbarArchivoPNG\(estudiante, largoMm\)/);
+  assert.match(html,/function cbarCompartirConBrother\(estudiantes\)/);
+  assert.match(html,/navigator\.canShare\(\{files:archivos\}\)/);
+  assert.match(html,/navigator\.share\(\{/);
+  assert.match(html,/Enviar a Brother iPrint&Label/);
+  assert.match(html,/esPtouch && cbarEsDispositivoMovil\(\) && cbarCompartirConBrother\(seleccionados\)/);
+});

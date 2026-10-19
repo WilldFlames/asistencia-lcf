@@ -6,7 +6,12 @@ Fecha: 19 de octubre de 2026
 - La configuración global de página se aplica únicamente en la ventana separada de impresión.
 - La vista previa se mantiene centrada y contenida en computadoras, tabletas y celulares.
 - También se aisló la previsualización del formato de hoja carta para evitar efectos secundarios.
+- En teléfonos y tabletas, el botón prepara cada etiqueta como PNG y abre el selector
+  del sistema para enviarla a Brother iPrint&Label.
+- En computadora se conserva la impresión por el controlador Brother instalado.
+- Android y iOS exigen que la persona confirme la aplicación receptora; una página web
+  no puede omitir de forma segura ese selector ni controlar directamente el Bluetooth.
 
 Verificación:
 - Prueba específica de etiquetas PT-D610BT: aprobada.
-- Suite completa del sistema: 320 pruebas aprobadas, 0 fallos.
+- Suite completa del sistema: 321 pruebas aprobadas, 0 fallos.

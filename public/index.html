@@ -2999,9 +2999,9 @@ tr:hover td{background:#f8fafc;}
       <div id="cbar-ayuda-ptd610" style="margin-top:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:9px 12px;font-size:12px;color:#166534;line-height:1.45;">
         🏷️ <strong>Perfil PT-D610BT:</strong> imprime una etiqueta por corte sobre cinta TZe de 24 mm,
         centrada dentro del área imprimible de 18 mm. En computadora seleccioná la impresora Brother y
-        usá escala 100 % y márgenes “ninguno”. En celular o tablet podés revisar el diseño, pero la conexión
-        Bluetooth directa se administra con Brother iPrint&amp;Label; el navegador no puede controlar por sí solo
-        el Bluetooth Classic de esta etiquetadora.
+        usá escala 100 % y márgenes “ninguno”. En celular o tablet, <strong>Enviar a Brother iPrint&amp;Label</strong>
+        prepara las etiquetas como imágenes y abre el menú del dispositivo para elegir la aplicación Brother.
+        Por seguridad, Android y iOS no permiten que una página seleccione una aplicación instalada sin confirmación.
       </div>
     </div>
 
@@ -24353,8 +24353,88 @@ function cbarCambiarFormato(){
   const boton = document.getElementById('btn-cbar-imprimir');
   if(largo) largo.style.display = esPtouch ? '' : 'none';
   if(ayuda) ayuda.style.display = esPtouch ? '' : 'none';
-  if(boton) boton.textContent = esPtouch ? '🖨️ Imprimir en PT-D610BT' : '🖨️ Imprimir hoja carta';
+  if(boton) boton.textContent = esPtouch
+    ? (cbarEsDispositivoMovil() ? '📲 Enviar a Brother iPrint&Label' : '🖨️ Imprimir en PT-D610BT')
+    : '🖨️ Imprimir hoja carta';
   cerrarPreviewBarras();
+}
+
+function cbarEsDispositivoMovil(){
+  const ua = String(navigator.userAgent || '');
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ||
+    (/Macintosh/i.test(ua) && Number(navigator.maxTouchPoints || 0) > 1);
+}
+
+function cbarArchivoPNG(estudiante, largoMm){
+  const pxMm = 12; // aproximadamente 300 ppp para conservar barras nítidas
+  const ancho = Math.round(largoMm * pxMm);
+  const alto = Math.round(24 * pxMm);
+  const canvas = document.createElement('canvas');
+  canvas.width = ancho;
+  canvas.height = alto;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, ancho, alto);
+
+  const valor = cbarLimpiar(estudiante.cedula);
+  const barra = document.createElement('canvas');
+  JsBarcode(barra, valor, {
+    format:'CODE128', displayValue:false, margin:0, height:112, width:3,
+    background:'#ffffff', lineColor:'#000000'
+  });
+  const maxBarra = ancho - (8 * pxMm);
+  const escala = Math.min(1, maxBarra / barra.width);
+  const bw = Math.round(barra.width * escala);
+  const bh = Math.round(barra.height * escala);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(barra, Math.round((ancho-bw)/2), 34, bw, bh);
+
+  const nombre = nombrePersona(estudiante);
+  let tam = 25;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#000';
+  do {
+    ctx.font = `700 ${tam}px Arial, Helvetica, sans-serif`;
+    if(ctx.measureText(nombre).width <= ancho-(8*pxMm) || tam <= 15) break;
+    tam -= 1;
+  } while(tam > 14);
+  ctx.fillText(nombre, ancho/2, 207, ancho-(8*pxMm));
+  ctx.font = '20px monospace';
+  ctx.fillText(valor, ancho/2, 249, ancho-(8*pxMm));
+
+  const data = canvas.toDataURL('image/png');
+  const binario = atob(data.split(',')[1]);
+  const bytes = new Uint8Array(binario.length);
+  for(let i=0;i<binario.length;i++) bytes[i] = binario.charCodeAt(i);
+  const nombreArchivo = `Etiqueta-${valor || estudiante.id}.png`;
+  return new File([bytes], nombreArchivo, {type:'image/png'});
+}
+
+function cbarCompartirConBrother(estudiantes){
+  if(typeof JsBarcode !== 'function' || typeof File !== 'function' ||
+     typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false;
+  const largoSolicitado = Number(document.getElementById('cbar-largo')?.value || 70);
+  const largo = [60,70,80].includes(largoSolicitado) ? largoSolicitado : 70;
+  let archivos;
+  try {
+    archivos = estudiantes.filter(e=>cbarLimpiar(e.cedula)).map(e=>cbarArchivoPNG(e,largo));
+  } catch(error) {
+    console.error('No se pudieron preparar las etiquetas para Brother:', error);
+    return false;
+  }
+  if(!archivos.length || !navigator.canShare({files:archivos})) return false;
+  navigator.share({
+    files: archivos,
+    title: 'Etiquetas PT-D610BT',
+    text: 'Abrir estas etiquetas con Brother iPrint&Label.'
+  }).catch(error=>{
+    if(error?.name !== 'AbortError'){
+      console.error('No se pudo abrir el menú para Brother:', error);
+      sa('alert-carnet','No fue posible enviar las etiquetas. Podés usar Previsualizar o la impresión normal.','danger');
+    }
+  });
+  return true;
 }
 
 function construirHTMLBarrasPTD610(estudiantes, incluirScript = true){
@@ -24576,6 +24656,8 @@ function imprimirBarras(){
     sa('alert-carnet', 'Seleccioná al menos un estudiante.', 'danger');
     return;
   }
+  const esPtouch = (document.getElementById('cbar-formato')?.value || 'ptd610') === 'ptd610';
+  if(esPtouch && cbarEsDispositivoMovil() && cbarCompartirConBrother(seleccionados)) return;
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Códigos de Barras</title>
