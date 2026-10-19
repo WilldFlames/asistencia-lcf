@@ -55,6 +55,16 @@ test('docente solo ve su materia y administración conserva el control cruzado',
   assert.match(route,/pendientes\.length === 1 && cumple \? "estrategia_pendiente"/);
 });
 
+test('administración y auxiliares ven una fila por estudiante y despliegan sus materias',()=>{
+  const ui=read('public/index.html');
+  assert.match(ui,/if\(convData\.ve_detalle\)\{convRenderGestion\(base,est\);return;\}/);
+  assert.match(ui,/function convRenderGestion\(filas,estadoFiltro=''/);
+  assert.match(ui,/const porSeccion=new Map/);
+  assert.match(ui,/Sección \$\{htmlSeguro\(seccion\)\} · \$\{grupos\.length\} estudiante\(s\)/);
+  assert.match(ui,/Ver materias \(\$\{g\.materias\.length\}\)/);
+  assert.match(ui,/Conducta está incluida una sola vez en el total/);
+});
+
 test('la interfaz identifica el modo prueba y no revela materias ajenas al docente',()=>{
   const ui=read('public/index.html');
   assert.match(ui,/id="nav-convocatoria"/);

@@ -27223,7 +27223,9 @@ async function convSincronizar(){
 }
 function convRender(){
   const sec=document.getElementById('conv-filtro-seccion').value,est=document.getElementById('conv-filtro-estado').value,q=document.getElementById('conv-buscar').value.trim().toLowerCase();
-  const filas=(convData.filas||[]).filter(x=>(!sec||x.seccion_nombre===sec)&&(!est||x.estado===est)&&(!q||String(x.estudiante_nombre).toLowerCase().includes(q)));
+  const base=(convData.filas||[]).filter(x=>(!sec||x.seccion_nombre===sec)&&(!q||String(x.estudiante_nombre).toLowerCase().includes(q)));
+  if(convData.ve_detalle){convRenderGestion(base,est);return;}
+  const filas=base.filter(x=>!est||x.estado===est);
   const cont=document.getElementById('conv-listado');
   if(!filas.length){cont.innerHTML='<div class="empty">No hay estudiantes con convocatoria para esos filtros.</div>';return;}
   const porSeccion=new Map();
@@ -27240,6 +27242,38 @@ function convRender(){
     const estado=x.sin_derecho_esta_materia?'<span class="badge danger">Sin derecho por ausentismo</span>':`<span class="badge ${convClase(x.estado)}">${htmlSeguro(CONV_ESTADOS[x.estado]||x.estado)}</span>`;
     return `<tr><td><strong style="${nombreRojo}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong>${detalle}</td><td>${htmlSeguro(x.materia_nombre)}${x.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(x.periodo_origen)}</small>`:''}</td><td>${Number(x.nota_origen).toFixed(2)} / ${Number(x.nota_minima).toFixed(0)}</td><td><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong>${alerta?' *':''}</button></td><td>${estado}</td><td>${resultados}</td><td>${boton}</td></tr>`;
   }).join('')}</tbody></table></div></section>`).join('');
+}
+function convRenderGestion(filas,estadoFiltro=''){
+  const cont=document.getElementById('conv-listado'),porEstudiante=new Map();
+  for(const x of filas){
+    const k=String(x.estudiante_id);
+    if(!porEstudiante.has(k))porEstudiante.set(k,{base:x,materias:[]});
+    porEstudiante.get(k).materias.push(x);
+  }
+  let estudiantes=[...porEstudiante.values()];
+  if(estadoFiltro)estudiantes=estudiantes.filter(g=>g.materias.some(x=>x.estado===estadoFiltro));
+  if(!estudiantes.length){cont.innerHTML='<div class="empty">No hay estudiantes con convocatoria para esos filtros.</div>';return;}
+  const porSeccion=new Map();
+  for(const g of estudiantes){const k=g.base.seccion_nombre||'Sin sección';if(!porSeccion.has(k))porSeccion.set(k,[]);porSeccion.get(k).push(g);}
+  cont.innerHTML=[...porSeccion.entries()].map(([seccion,grupos])=>`<section style="margin:0 0 18px;">
+    <h3 style="margin:0;padding:10px 12px;background:#eaf2fb;color:var(--azul);border:1px solid #d4e1ef;border-radius:9px 9px 0 0;">Sección ${htmlSeguro(seccion)} · ${grupos.length} estudiante(s)</h3>
+    <div class="table-wrap" style="border-radius:0 0 9px 9px;"><table><thead><tr><th>Estudiante</th><th style="width:125px;text-align:center;">Aplazadas</th><th>Condición institucional</th><th style="width:210px;">Materias</th></tr></thead><tbody>${grupos.map(g=>{
+      const x=g.base,alerta=Number(x.total_aplazadas)>Number(x.limite_institucional)||x.sin_derecho_ausentismo;
+      const asterisco=alerta?' <span style="color:#b91c1c;font-weight:900;" title="Requiere atención institucional">*</span>':'';
+      const condicion=x.sin_derecho_ausentismo
+        ? '<span class="badge danger">Repite · Sin derecho por ausentismo</span>'
+        : Number(x.total_aplazadas)>Number(x.limite_institucional)
+          ? '<span class="badge danger">Repite · Supera el límite</span>'
+          : `<span class="badge warning">Con derecho · Máximo ${x.limite_institucional}</span>`;
+      const detalleMaterias=g.materias.map(m=>{
+        const resultados=[m.primera_nota!=null?`1.ª: ${Number(m.primera_nota).toFixed(1)}`:'',m.segunda_nota!=null?`2.ª: ${Number(m.segunda_nota).toFixed(1)}`:'',m.estrategia_nota!=null?`Estrategia: ${Number(m.estrategia_nota).toFixed(1)}`:''].filter(Boolean).join(' · ')||'Sin resultados';
+        const estado=m.sin_derecho_esta_materia?'Sin derecho por ausentismo':(CONV_ESTADOS[m.estado]||m.estado);
+        const boton=ME.rol==='admin'&&!m.sin_derecho_ausentismo&&['primera_pendiente','segunda_pendiente','estrategia_pendiente'].includes(m.estado)?`<button class="btn btn-primary btn-xs" onclick="convRegistrar(${m.id},'${m.estado==='primera_pendiente'?'primera':m.estado==='segunda_pendiente'?'segunda':'estrategia'}')">Registrar</button>`:'';
+        return `<tr><td><strong>${htmlSeguro(m.materia_nombre)}</strong>${m.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(m.periodo_origen)}</small>`:''}</td><td>${Number(m.nota_origen).toFixed(2)} / ${Number(m.nota_minima).toFixed(0)}</td><td>${htmlSeguro(m.profesor_nombre||'—')}</td><td><span class="badge ${convClase(m.sin_derecho_esta_materia?'bloqueada':m.estado)}">${htmlSeguro(estado)}</span><br><small>${htmlSeguro(resultados)}</small></td><td>${boton}</td></tr>`;
+      }).join('');
+      const conducta=x.conducta_incluida?'<div style="font-size:11px;color:var(--muted);margin-top:7px;">Conducta está incluida una sola vez en el total y se consulta en su módulo propio.</div>':'';
+      return `<tr><td><strong style="${alerta?'color:#b91c1c;':''}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong></td><td style="text-align:center;"><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong></button></td><td>${condicion}</td><td><details><summary class="btn btn-outline btn-xs" style="cursor:pointer;display:inline-block;">Ver materias (${g.materias.length})</summary><div style="margin-top:8px;min-width:650px;"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Nota</th><th>Docente</th><th>Estado / resultados</th><th></th></tr></thead><tbody>${detalleMaterias}</tbody></table>${conducta}</div></details></td></tr>`;
+    }).join('')}</tbody></table></div></section>`).join('');
 }
 function convExplicarConteo(expedienteId){
   const filas=(convData.filas||[]).filter(x=>String(x.expediente_id)===String(expedienteId)),x=filas[0];if(!x)return;

@@ -1,0 +1,13 @@
+VISTA INSTITUCIONAL DE CONVOCATORIA — 19 DE OCTUBRE DE 2026
+
+- Administración y auxiliares ven los registros agrupados primero por sección.
+- Cada estudiante aparece una sola vez, aunque tenga varias materias aplazadas.
+- La fila muestra el total de materias y su condición institucional.
+- El botón "Ver materias" despliega únicamente cuando se necesita el detalle de materia, nota, docente, estado y resultados.
+- Conducta continúa incluida en el conteo, pero se consulta desde su módulo propio.
+- Los docentes conservan la vista por materia necesaria para registrar sus resultados.
+- Solo Administración recibe botones de registro dentro del detalle institucional; la vista auxiliar es de consulta.
+
+VERIFICACIÓN
+- Suite completa: 321 pruebas aprobadas, 0 fallos.
+
