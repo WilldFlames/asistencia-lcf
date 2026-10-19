@@ -27169,16 +27169,18 @@ async function atDescargarExcel(){
 // CONVOCATORIA / PRUEBAS DE AMPLIACIÓN
 // ══════════════════════════════════════════════════════════════════════
 let convData={filas:[],ve_detalle:false,puede_sincronizar:false,modo_informativo:true,limite:8};
-let convAutoRecalculado=false;
+let convSincronizacionEnCurso=false;
 const CONV_ESTADOS={primera_pendiente:'1.ª ampliación pendiente',segunda_pendiente:'2.ª ampliación pendiente',estrategia_pendiente:'Estrategia de Promoción',tes_pendiente:'Pendiente de TES',aprobada:'Aprobada',reprobada:'Reprobada',bloqueada:'Sin derecho'};
 function convClase(estado){return estado==='aprobada'?'success':estado==='reprobada'||estado==='bloqueada'?'danger':estado==='estrategia_pendiente'?'purple':'warning';}
 async function iniciarConvocatoria(){
   const anio=document.getElementById('conv-anio');
   if(!anio.value) anio.value=ANIO_LECTIVO_ACTIVO||new Date().getFullYear();
-  convAutoRecalculado=false;
-  await convCargar(true);
+  // Mostrar inmediatamente lo ya guardado y actualizarlo en segundo paso. El
+  // usuario nunca tiene que recordar presionar Recalcular para poblar la vista.
+  await convCargar(false);
+  await convSincronizarAutomatico();
 }
-async function convCargar(recalcularSiVacio=false){
+async function convCargar(){
   const anio=Number(document.getElementById('conv-anio').value)||ANIO_LECTIVO_ACTIVO;
   const cont=document.getElementById('conv-listado');cont.innerHTML='<div class="empty">Cargando control cruzado...</div>';
   try{
@@ -27187,22 +27189,26 @@ async function convCargar(recalcularSiVacio=false){
     document.getElementById('conv-modo').innerHTML=convData.modo_informativo
       ? `<div class="alert warning show"><strong>🧪 ${anio}: modo informativo.</strong> Permite probar y registrar resultados, pero no bloquea automáticamente convocatorias ni matrícula. Las restricciones obligatorias comienzan con el curso lectivo 2027.</div>`
       : `<div class="alert info show"><strong>Reglas vigentes:</strong> hasta ${convData.limite} materias aplazadas puede presentar; con ${Number(convData.limite)+1} o más queda sin derecho. Conducta cuenta una sola vez.</div>`;
-    const secciones=[...new Set((convData.filas||[]).map(x=>x.seccion_nombre).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
+    const secciones=(convData.secciones||[]).map(x=>x.nombre).filter(Boolean);
     const sel=document.getElementById('conv-filtro-seccion'),actual=sel.value;
-    sel.innerHTML='<option value="">Todas mis secciones</option>'+secciones.map(x=>`<option>${htmlSeguro(x)}</option>`).join('');sel.value=actual;
-    // La primera entrada al módulo construye el listado si todavía no existe.
-    // Así 2026 sigue siendo informativo sin depender de una carga administrativa.
-    if(recalcularSiVacio && !convAutoRecalculado && !(convData.filas||[]).length && convData.puede_sincronizar){
-      convAutoRecalculado=true;
-      cont.innerHTML='<div class="empty">Calculando estudiantes con convocatoria a partir de las notas actuales…</div>';
-      try{
-        const r=await api('/api/convocatoria/sincronizar','POST',{anio});
-        if(r.incidencias) sa('alert-conv',`Se cargó el control. ${r.incidencias} asignación(es) no pudieron calcularse por falta de configuración; Administración puede revisar sus reglas REAC.`,'warning');
-        return await convCargar(false);
-      }catch(e){sa('alert-conv',e.message,'danger');}
-    }
+    sel.innerHTML=`<option value="">${convData.ve_detalle?'Todas las secciones':'Todas mis secciones'}</option>`+secciones.map(x=>`<option>${htmlSeguro(x)}</option>`).join('');
+    if([...sel.options].some(o=>o.value===actual))sel.value=actual;
     convRender();
   }catch(e){cont.innerHTML='';sa('alert-conv',e.message,'danger');}
+}
+async function convSincronizarAutomatico(){
+  if(convSincronizacionEnCurso)return;
+  const anio=Number(document.getElementById('conv-anio').value)||ANIO_LECTIVO_ACTIVO;
+  if(anio!==Number(ANIO_LECTIVO_ACTIVO))return;
+  convSincronizacionEnCurso=true;
+  const cont=document.getElementById('conv-listado');
+  if(!(convData.filas||[]).length)cont.innerHTML='<div class="empty">Actualizando automáticamente las convocatorias desde las notas registradas…</div>';
+  try{
+    const r=await api('/api/convocatoria/sincronizar','POST',{anio});
+    if(r.incidencias)sa('alert-conv',`Actualización terminada. ${r.incidencias} asignación(es) necesitan revisar su regla REAC.`,'warning');
+    await convCargar(false);
+  }catch(e){sa('alert-conv','No se pudo actualizar automáticamente: '+e.message,'danger');}
+  finally{convSincronizacionEnCurso=false;}
 }
 async function convSincronizar(){
   const anio=Number(document.getElementById('conv-anio').value);
@@ -27215,7 +27221,7 @@ function convRender(){
   const sec=document.getElementById('conv-filtro-seccion').value,est=document.getElementById('conv-filtro-estado').value,q=document.getElementById('conv-buscar').value.trim().toLowerCase();
   const filas=(convData.filas||[]).filter(x=>(!sec||x.seccion_nombre===sec)&&(!est||x.estado===est)&&(!q||String(x.estudiante_nombre).toLowerCase().includes(q)));
   const cont=document.getElementById('conv-listado');
-  if(!filas.length){cont.innerHTML=`<div class="empty">No hay registros con esos filtros.${convData.puede_sincronizar?' Use <strong>Recalcular</strong> para traer las notas actuales.':''}</div>`;return;}
+  if(!filas.length){cont.innerHTML='<div class="empty">No hay estudiantes con convocatoria para esos filtros.</div>';return;}
   const porSeccion=new Map();
   for(const x of filas){const k=x.seccion_nombre||'Sin sección';if(!porSeccion.has(k))porSeccion.set(k,[]);porSeccion.get(k).push(x);}
   cont.innerHTML=[...porSeccion.entries()].map(([seccion,registros])=>`<section style="margin:0 0 18px;">

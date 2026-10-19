@@ -53,6 +53,7 @@ async function recalcularEstado(client, expedienteId) {
 }
 
 async function sincronizar(anio, usuarioId, profesorFiltro=null) {
+  const inicio=Date.now();
   const activo = await obtenerAnioActivo();
   if (Number(anio) !== Number(activo)) throw Object.assign(new Error(`Solo se pueden recalcular las notas del curso lectivo activo (${activo}). Los años cerrados conservan su expediente.`), { status: 409 });
   const parametros=[anio];
@@ -144,6 +145,7 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
   };
 
   const trabajos=grupos.flatMap(g=>(g.periodos_con_notas||[]).map(periodo=>({g,periodo})));
+  console.info(`[CONVOCATORIA] cálculo ${anio}: ${grupos.length} grupos y ${trabajos.length} períodos${profesorFiltro?` del docente ${profesorFiltro}`:' institucionales'}.`);
   let siguiente=0;
   const procesar=async()=>{
     while(siguiente<trabajos.length){
@@ -183,7 +185,7 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
     WHERE ec.anio=$1 AND ec.nota_anual IS NOT NULL
     ORDER BY ec.estudiante_id,ec.updated_at DESC,ec.id DESC
   `, [anio])).rows;
-  for (const c of conducta) if (redondearAnual(c.nota_origen) < minima(c.nivel)) fallos.push({
+  for (const c of conducta) if ((!profesorFiltro || Number(c.profesor_id)===Number(profesorFiltro)) && redondearAnual(c.nota_origen) < minima(c.nivel)) fallos.push({
     ...c,materia_id:null,materia_nombre:"Conducta",periodo_origen:"Anual",asignacion_id:null,
     nota_minima:minima(c.nivel),estado_inicial:c.resultado_tes==='aprobado'?'aprobada':c.resultado_tes==='no_aprobado'?'reprobada':'tes_pendiente'
   });
@@ -196,7 +198,18 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    for (const [estudianteId, materias] of estudiantes) {
+    // Solamente una sincronización del mismo año puede escribir a la vez.
+    // El bloqueo es de PostgreSQL (funciona incluso entre varios contenedores)
+    // y se libera automáticamente al confirmar o revertir la transacción.
+    await client.query(
+      "SELECT pg_advisory_xact_lock($1::integer,$2::integer)",
+      [20261018,Number(anio)]
+    );
+    // Mantener un orden único también evita ciclos de bloqueo si otro proceso
+    // institucional toca expedientes mientras se actualiza el control.
+    const estudiantesOrdenados=[...estudiantes.entries()]
+      .sort((a,b)=>Number(a[0])-Number(b[0]));
+    for (const [estudianteId, materias] of estudiantesOrdenados) {
       const info = await client.query(`SELECT e.seccion_id,s.nivel FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`, [estudianteId]);
       if (!info.rows.length || !info.rows[0].nivel) continue;
       const total = materias.length;
@@ -206,15 +219,15 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
         (estudiante_id,anio,nivel,seccion_id,total_aplazadas,limite_institucional,conducta_incluida,modo_informativo,condicion,sincronizado_por,sincronizado_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
         ON CONFLICT(estudiante_id,anio) DO UPDATE SET nivel=EXCLUDED.nivel,seccion_id=EXCLUDED.seccion_id,
-          total_aplazadas=EXCLUDED.total_aplazadas,limite_institucional=EXCLUDED.limite_institucional,
-          conducta_incluida=EXCLUDED.conducta_incluida,modo_informativo=EXCLUDED.modo_informativo,
+          total_aplazadas=CASE WHEN $11::boolean THEN convocatoria_expedientes.total_aplazadas ELSE EXCLUDED.total_aplazadas END,
+          limite_institucional=EXCLUDED.limite_institucional,
+          conducta_incluida=CASE WHEN $11::boolean THEN convocatoria_expedientes.conducta_incluida ELSE EXCLUDED.conducta_incluida END,
+          modo_informativo=EXCLUDED.modo_informativo,
           condicion=CASE WHEN convocatoria_expedientes.condicion IN ('aprobado','repite') THEN convocatoria_expedientes.condicion ELSE EXCLUDED.condicion END,
           sincronizado_por=EXCLUDED.sincronizado_por,sincronizado_at=NOW()
-        RETURNING id`, [estudianteId, anio, info.rows[0].nivel, info.rows[0].seccion_id, total, LIMITE, materias.some(m=>m.materia_nombre==="Conducta"), informativo, condicion, usuarioId]);
+        RETURNING id`, [estudianteId, anio, info.rows[0].nivel, info.rows[0].seccion_id, total, LIMITE, materias.some(m=>m.materia_nombre==="Conducta"), informativo, condicion, usuarioId,!!profesorFiltro]);
       const expedienteId = ex.rows[0].id;
-      const claves = [];
       for (const m of materias) {
-        claves.push(`${m.materia_nombre}|${m.periodo_origen}`);
         await client.query(`INSERT INTO convocatoria_materias
           (expediente_id,materia_id,materia_nombre,periodo_origen,asignacion_id,profesor_id,nota_origen,nota_minima,estado)
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
@@ -226,16 +239,31 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
           [expedienteId,m.materia_id,m.materia_nombre,m.periodo_origen,m.asignacion_id,m.profesor_id,m.nota_origen,m.nota_minima,
             m.estado_inicial||((!informativo&&total>LIMITE)?"bloqueada":"primera_pendiente")]);
       }
-      await client.query(`DELETE FROM convocatoria_materias cm WHERE cm.expediente_id=$1
-        AND cm.primera_nota IS NULL AND cm.segunda_nota IS NULL AND cm.estrategia_nota IS NULL
-        AND NOT ((cm.materia_nombre||'|'||cm.periodo_origen)=ANY($2::text[]))`, [expedienteId, claves]);
       await client.query(`INSERT INTO convocatoria_eventos(expediente_id,tipo,detalle,usuario_id)
         VALUES($1,'sincronizacion',jsonb_build_object(
           'total_aplazadas',$2::integer,
           'modo_informativo',$3::boolean
         ),$4)`, [expedienteId,total,informativo,usuarioId]);
     }
+    // Quitar únicamente candidatos que ya no están aplazados. En una carga
+    // docente nunca se tocan materias de otros profesores; la carga
+    // institucional sí reconcilia el conjunto completo.
+    const clavesVigentes=fallos.map(m=>`${m.estudiante_id}|${m.materia_nombre}|${m.periodo_origen}`);
+    await client.query(`DELETE FROM convocatoria_materias cm
+      USING convocatoria_expedientes ce
+      WHERE ce.id=cm.expediente_id AND ce.anio=$1
+        AND ($2::integer IS NULL OR cm.profesor_id=$2::integer)
+        AND cm.primera_nota IS NULL AND cm.segunda_nota IS NULL AND cm.estrategia_nota IS NULL
+        AND NOT ((ce.estudiante_id::text||'|'||cm.materia_nombre||'|'||cm.periodo_origen)=ANY($3::text[]))`,
+      [anio,profesorFiltro||null,clavesVigentes]);
+    // El total siempre se deriva de las materias conservadas. Así una
+    // sincronización parcial no reemplaza el conteo institucional.
+    await client.query(`UPDATE convocatoria_expedientes ce SET
+        total_aplazadas=(SELECT COUNT(*)::integer FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id),
+        conducta_incluida=EXISTS(SELECT 1 FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id AND cm.materia_nombre='Conducta')
+      WHERE ce.anio=$1`,[anio]);
     await client.query("COMMIT");
+    console.info(`[CONVOCATORIA] sincronización ${anio} completada: ${estudiantes.size} estudiantes, ${fallos.length} materias, ${Date.now()-inicio} ms.`);
     return {
       expedientes:estudiantes.size, materias:fallos.length,
       modo_informativo:Number(anio)<INICIO_REGLAS, limite:LIMITE,
@@ -262,6 +290,17 @@ router.post("/sincronizar", sincroniza, async (req,res) => {
 router.get("/listado", staff, async (req,res) => {
   try {
     const u=req.session.usuario, anio=Number(req.query.anio)||await obtenerAnioActivo();
+    const secciones=esGestion(u)
+      ? (await pool.query(`SELECT s.id,s.nombre,s.nivel FROM secciones s
+          JOIN secciones_anio sa ON sa.seccion_id=s.id
+          WHERE sa.anio=$1 AND sa.activa=true
+          ORDER BY s.nivel,s.nombre`,[anio])).rows
+      : (await pool.query(`SELECT DISTINCT s.id,s.nombre,s.nivel
+          FROM asignaciones a JOIN secciones s ON s.id=a.seccion_id
+          JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=a.anio
+          WHERE a.anio=$1 AND a.profesor_id=$2 AND COALESCE(a.activa,true)=true
+            AND sa.activa=true
+          ORDER BY s.nivel,s.nombre`,[anio,u.id])).rows;
     const params=[anio];
     let alcance="";
     if(!esGestion(u)){ params.push(u.id); alcance=`AND cm.profesor_id=$${params.length}`; }
@@ -276,7 +315,7 @@ router.get("/listado", staff, async (req,res) => {
       if(!esGestion(u)) delete x.profesor_nombre;
       return x;
     });
-    res.json({anio,modo_informativo:anio<INICIO_REGLAS,limite:LIMITE,puede_sincronizar:true,ve_detalle:esGestion(u),filas});
+    res.json({anio,modo_informativo:anio<INICIO_REGLAS,limite:LIMITE,puede_sincronizar:true,ve_detalle:esGestion(u),secciones,filas});
   }catch(e){console.error("convocatoria listado",e);res.status(500).json({error:e.message});}
 });
 

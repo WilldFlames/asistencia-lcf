@@ -59,8 +59,8 @@ test('el listado informativo se construye al abrir y se agrupa por sección',()=
   assert.match(route,/const sincroniza = staff/);
   assert.match(route,/tieneNotaRegistrada/);
   assert.match(route,/incidencias:incidencias\.length/);
-  assert.match(ui,/await convCargar\(true\)/);
-  assert.match(ui,/Calculando estudiantes con convocatoria/);
+  assert.match(ui,/await convCargar\(false\);[\s\S]*await convSincronizarAutomatico\(\)/);
+  assert.match(ui,/Actualizando automáticamente las convocatorias/);
   assert.match(ui,/const porSeccion=new Map/);
   assert.match(ui,/Sección \$\{htmlSeguro\(seccion\)\}/);
 });
@@ -81,4 +81,31 @@ test('la auditoría de convocatoria declara los tipos que PostgreSQL guarda en J
   assert.match(route,/'modo_informativo',\$3::boolean/);
   assert.match(route,/'nota',\$4::numeric/);
   assert.match(route,/'fecha',\$5::date/);
+});
+
+test('dos recálculos simultáneos no pueden bloquearse entre sí',()=>{
+  const route=read('routes/convocatoria.js');
+  assert.match(route,/pg_advisory_xact_lock\(\$1::integer,\$2::integer\)/);
+  assert.match(route,/const estudiantesOrdenados=\[\.\.\.estudiantes\.entries\(\)\]/);
+  assert.match(route,/sort\(\(a,b\)=>Number\(a\[0\]\)-Number\(b\[0\]\)\)/);
+  assert.match(route,/sincronización \$\{anio\} completada/);
+});
+
+test('el recálculo de un docente no elimina ni sustituye materias ajenas',()=>{
+  const route=read('routes/convocatoria.js');
+  assert.match(route,/\$2::integer IS NULL OR cm\.profesor_id=\$2::integer/);
+  assert.match(route,/CASE WHEN \$11::boolean THEN convocatoria_expedientes\.total_aplazadas/);
+  assert.match(route,/total_aplazadas=\(SELECT COUNT\(\*\)::integer FROM convocatoria_materias/);
+  assert.match(route,/clavesVigentes=fallos\.map/);
+});
+
+test('las secciones existen aunque todavía no haya expedientes y la carga es automática',()=>{
+  const route=read('routes/convocatoria.js');
+  const ui=read('public/index.html');
+  assert.match(route,/SELECT s\.id,s\.nombre,s\.nivel FROM secciones s[\s\S]*JOIN secciones_anio sa/);
+  assert.match(route,/SELECT DISTINCT s\.id,s\.nombre,s\.nivel[\s\S]*FROM asignaciones a/);
+  assert.match(route,/secciones,filas/);
+  assert.match(ui,/await convCargar\(false\);[\s\S]*await convSincronizarAutomatico\(\)/);
+  assert.match(ui,/Actualizando automáticamente las convocatorias/);
+  assert.match(ui,/convData\.secciones\|\|\[\]/);
 });
