@@ -23042,7 +23042,7 @@ async function marcarConvocatoriaAusentismo(asignacionId,estudianteId){
   if(!confirm(`¿Confirmar que ${nombreEstudianteLista(x)} no tiene derecho a convocatoria por ausentismo en ${x.materia}?\n\nCálculo: ${x.ausencias} ausencias de ${x.total_lecciones} lecciones (${x.porcentaje}%).`)) return;
   try{
     await api('/api/cartas/convocatoria/marcar','POST',{asignacion_id:asignacionId,estudiante_id:estudianteId});
-    sa('alert-conv-aus','✅ Se registró que el estudiante no tiene derecho a convocatoria por ausentismo, solamente para este docente y esta asignatura.','success');
+    sa('alert-conv-aus','✅ Marca registrada. La asignatura que originó la exclusión se identificará en rojo y los demás docentes verán el asterisco institucional. El estudiante deberá repetir el curso lectivo completo.','success');
     await cargarControlConvocatoriaAusentismo();
   }catch(e){sa('alert-conv-aus',e.message,'danger');}
 }
@@ -27172,7 +27172,7 @@ async function atDescargarExcel(){
 // ══════════════════════════════════════════════════════════════════════
 // CONVOCATORIA / PRUEBAS DE AMPLIACIÓN
 // ══════════════════════════════════════════════════════════════════════
-let convData={filas:[],ve_detalle:false,puede_sincronizar:false,modo_informativo:true,limite:8};
+let convData={filas:[],ve_detalle:false,puede_sincronizar:false,modo_informativo:true,limites:{basica:6,diversificada:7}};
 let convSincronizacionEnCurso=false;
 const CONV_ESTADOS={primera_pendiente:'1.ª ampliación pendiente',segunda_pendiente:'2.ª ampliación pendiente',estrategia_pendiente:'Estrategia de Promoción',tes_pendiente:'Pendiente de TES',aprobada:'Aprobada',reprobada:'Reprobada',bloqueada:'Sin derecho'};
 function convClase(estado){return estado==='aprobada'?'success':estado==='reprobada'||estado==='bloqueada'?'danger':estado==='estrategia_pendiente'?'purple':'warning';}
@@ -27192,7 +27192,7 @@ async function convCargar(){
     document.getElementById('conv-sync').style.display=convData.puede_sincronizar?'':'none';
     document.getElementById('conv-modo').innerHTML=convData.modo_informativo
       ? `<div class="alert warning show"><strong>🧪 ${anio}: modo informativo.</strong> Permite probar y registrar resultados, pero no bloquea automáticamente convocatorias ni matrícula. Las restricciones obligatorias comienzan con el curso lectivo 2027.</div>`
-      : `<div class="alert info show"><strong>Reglas vigentes:</strong> hasta ${convData.limite} materias aplazadas puede presentar; con ${Number(convData.limite)+1} o más queda sin derecho. Conducta cuenta una sola vez.</div>`;
+      : `<div class="alert info show"><strong>Reglas vigentes:</strong> de 7.º a 9.º puede presentar hasta 6 materias (con 7 repite); en 10.º y 11.º puede presentar hasta 7 (con 8 repite). Conducta cuenta una sola vez. Una marca sin derecho por ausentismo implica repetir el curso completo.</div>`;
     const secciones=(convData.secciones||[]).map(x=>x.nombre).filter(Boolean);
     const sel=document.getElementById('conv-filtro-seccion'),actual=sel.value;
     sel.innerHTML=`<option value="">${convData.ve_detalle?'Todas las secciones':'Todas mis secciones'}</option>`+secciones.map(x=>`<option>${htmlSeguro(x)}</option>`).join('');
@@ -27231,17 +27231,21 @@ function convRender(){
   cont.innerHTML=[...porSeccion.entries()].map(([seccion,registros])=>`<section style="margin:0 0 18px;">
     <h3 style="margin:0;padding:10px 12px;background:#eaf2fb;color:var(--azul);border:1px solid #d4e1ef;border-radius:9px 9px 0 0;">Sección ${htmlSeguro(seccion)} · ${new Set(registros.map(x=>x.estudiante_id)).size} estudiante(s)</h3>
     <div class="table-wrap" style="border-radius:0 0 9px 9px;"><table><thead><tr><th>Estudiante</th><th>Materia</th><th>Nota anual</th><th>Aplazadas</th><th>Estado</th><th>Resultados</th><th></th></tr></thead><tbody>${registros.map(x=>{
-    const alerta=Number(x.total_aplazadas)>Number(x.limite_institucional);
+    const alerta=Number(x.total_aplazadas)>Number(x.limite_institucional)||x.sin_derecho_ausentismo;
+    const nombreRojo=x.sin_derecho_esta_materia?'color:#b91c1c;':'';
+    const asterisco=x.sin_derecho_ausentismo?` <span style="color:#b91c1c;font-weight:900;" title="Existe una marca institucional sin derecho por ausentismo">*</span>`:'';
     const detalle=convData.ve_detalle?`<br><small>Docente: ${htmlSeguro(x.profesor_nombre||'—')}</small>`:'';
     const resultados=[x.primera_nota!=null?`1.ª: ${Number(x.primera_nota).toFixed(1)}`:'',x.segunda_nota!=null?`2.ª: ${Number(x.segunda_nota).toFixed(1)}`:'',x.estrategia_nota!=null?`Estrategia: ${Number(x.estrategia_nota).toFixed(1)}`:''].filter(Boolean).join('<br>')||'—';
-    const boton=['primera_pendiente','segunda_pendiente','estrategia_pendiente'].includes(x.estado)?`<button class="btn btn-primary btn-xs" onclick="convRegistrar(${x.id},'${x.estado==='primera_pendiente'?'primera':x.estado==='segunda_pendiente'?'segunda':'estrategia'}')">Registrar</button>`:'';
-    return `<tr><td><strong>${htmlSeguro(x.estudiante_nombre)}</strong>${detalle}</td><td>${htmlSeguro(x.materia_nombre)}${x.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(x.periodo_origen)}</small>`:''}</td><td>${Number(x.nota_origen).toFixed(2)} / ${Number(x.nota_minima).toFixed(0)}</td><td><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong>${alerta?' *':''}</button></td><td><span class="badge ${convClase(x.estado)}">${htmlSeguro(CONV_ESTADOS[x.estado]||x.estado)}</span></td><td>${resultados}</td><td>${boton}</td></tr>`;
+    const boton=!x.sin_derecho_ausentismo&&['primera_pendiente','segunda_pendiente','estrategia_pendiente'].includes(x.estado)?`<button class="btn btn-primary btn-xs" onclick="convRegistrar(${x.id},'${x.estado==='primera_pendiente'?'primera':x.estado==='segunda_pendiente'?'segunda':'estrategia'}')">Registrar</button>`:'';
+    const estado=x.sin_derecho_esta_materia?'<span class="badge danger">Sin derecho por ausentismo</span>':`<span class="badge ${convClase(x.estado)}">${htmlSeguro(CONV_ESTADOS[x.estado]||x.estado)}</span>`;
+    return `<tr><td><strong style="${nombreRojo}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong>${detalle}</td><td>${htmlSeguro(x.materia_nombre)}${x.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(x.periodo_origen)}</small>`:''}</td><td>${Number(x.nota_origen).toFixed(2)} / ${Number(x.nota_minima).toFixed(0)}</td><td><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong>${alerta?' *':''}</button></td><td>${estado}</td><td>${resultados}</td><td>${boton}</td></tr>`;
   }).join('')}</tbody></table></div></section>`).join('');
 }
 function convExplicarConteo(expedienteId){
   const filas=(convData.filas||[]).filter(x=>String(x.expediente_id)===String(expedienteId)),x=filas[0];if(!x)return;
   const conducta=x.conducta_incluida?' Conducta está incluida una sola vez en ese total, pero se consulta y resuelve desde Expedientes de Conducta.':'';
-  const base=`El estudiante registra ${x.total_aplazadas} materia(s) contabilizada(s). El límite institucional es ${x.limite_institucional}; con ${Number(x.limite_institucional)+1} o más no tiene derecho a ampliación.${conducta}`;
+  const ausentismo=x.sin_derecho_ausentismo?(x.sin_derecho_esta_materia?'\n\nEsta asignatura originó una marca sin derecho por ausentismo. El estudiante debe repetir el curso lectivo completo.':'\n\nExiste una marca institucional sin derecho por ausentismo en otra asignatura. Por confidencialidad, al docente solo se le muestra el asterisco. El estudiante debe repetir el curso lectivo completo.') : '';
+  const base=`El estudiante registra ${x.total_aplazadas} materia(s) contabilizada(s). Para su nivel puede presentar hasta ${x.limite_institucional}; con ${Number(x.limite_institucional)+1} o más debe repetir el curso lectivo.${conducta}${ausentismo}`;
   alert(convData.ve_detalle?`${base}\n\nMaterias académicas visibles en Convocatoria:\n${filas.map(y=>`• ${y.materia_nombre}${y.periodo_origen!=='Anual'?' — '+y.periodo_origen:''}`).join('\n')}`:base);
 }
 async function convRegistrar(id,etapa){

@@ -3230,17 +3230,20 @@ async function initDB() {
         nivel                 INTEGER NOT NULL,
         seccion_id            INTEGER REFERENCES secciones(id) ON DELETE SET NULL,
         total_aplazadas       INTEGER NOT NULL DEFAULT 0,
-        limite_institucional  INTEGER NOT NULL DEFAULT 8,
+        limite_institucional  INTEGER NOT NULL DEFAULT 6,
         conducta_incluida     BOOLEAN NOT NULL DEFAULT false,
         modo_informativo      BOOLEAN NOT NULL DEFAULT true,
         condicion             TEXT NOT NULL DEFAULT 'sincronizado'
-          CHECK(condicion IN ('sincronizado','con_derecho','bloqueado_limite','pendiente','aprobado','repite')),
+          CHECK(condicion IN ('sincronizado','con_derecho','bloqueado_limite','bloqueado_ausentismo','pendiente','aprobado','repite')),
         sincronizado_por      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
         sincronizado_at       TIMESTAMP NOT NULL DEFAULT NOW(),
         cerrado_at            TIMESTAMP,
         UNIQUE(estudiante_id,anio)
       )
     `);
+    await client.query(`ALTER TABLE convocatoria_expedientes DROP CONSTRAINT IF EXISTS convocatoria_expedientes_condicion_check`);
+    await client.query(`ALTER TABLE convocatoria_expedientes ADD CONSTRAINT convocatoria_expedientes_condicion_check
+      CHECK(condicion IN ('sincronizado','con_derecho','bloqueado_limite','bloqueado_ausentismo','pendiente','aprobado','repite'))`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_exp_anio_estado
       ON convocatoria_expedientes(anio,condicion,seccion_id)`);
     await client.query(`

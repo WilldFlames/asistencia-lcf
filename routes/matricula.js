@@ -370,7 +370,7 @@ router.post("/completar/:id", canAccess, async (req, res) => {
   const control=controlConv.rows[0];
   if(control && !control.modo_informativo){
     if(['con_derecho','sincronizado','pendiente'].includes(control.condicion)) convocatoria=true;
-    if(['bloqueado_limite','repite'].includes(control.condicion)){
+    if(['bloqueado_limite','bloqueado_ausentismo','repite'].includes(control.condicion)){
       convocatoria=false;
       nivelSolicitado=Number(control.nivel);
     }
@@ -712,7 +712,7 @@ router.post("/asignar", canAccess, async (req, res) => {
     if(['con_derecho','sincronizado','pendiente'].includes(control.condicion)){
       return res.status(409).json({error:'El estudiante todavía tiene pruebas de ampliación o Estrategia de Promoción pendientes. Puede completar la matrícula provisional, pero no elegir sección.',convocatoria_pendiente:true});
     }
-    if(['bloqueado_limite','repite'].includes(control.condicion) && nivelDestino!==Number(control.nivel)){
+    if(['bloqueado_limite','bloqueado_ausentismo','repite'].includes(control.condicion) && nivelDestino!==Number(control.nivel)){
       return res.status(409).json({error:`El estudiante debe repetir ${control.nivel}° y únicamente puede matricularse en ese mismo nivel.`,repite_nivel:Number(control.nivel)});
     }
     if(control.condicion==='aprobado' && Number(control.nivel)<11 && nivelDestino!==Number(control.nivel)+1){

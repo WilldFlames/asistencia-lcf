@@ -31,6 +31,14 @@ test('la exclusión de convocatoria pertenece a profesor, asignatura y estudiant
   assert.match(frontend,/ACTA DE ESTUDIANTES SIN DERECHO A CONVOCATORIA POR AUSENTISMO/);
 });
 
+test('una sola exclusión por ausentismo actualiza el control institucional completo',()=>{
+  assert.match(cartas,/async function actualizarConvocatoriaPorAusentismo/);
+  assert.match(cartas,/bloqueado_ausentismo/);
+  assert.match(cartas,/await actualizarConvocatoriaPorAusentismo\(estudianteId, calculo\.rango\.anio\)/);
+  assert.match(cartas,/RETURNING id,estudiante_id,anio/);
+  assert.match(frontend,/los demás docentes verán el asterisco institucional/);
+});
+
 test('restricciones usa la lista institucional completa',()=>{
   assert.match(matricula,/router\.get\("\/restricciones-estudiantes\/:anio"/);
   assert.match(matricula,/FROM estudiantes e/);

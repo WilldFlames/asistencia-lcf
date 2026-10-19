@@ -14,9 +14,9 @@ test('convocatoria conserva expediente, materias y auditoría aun después del c
   assert.match(db,/UNIQUE\(estudiante_id,anio\)/);
 });
 
-test('la regla institucional usa ocho, ignora materias sin nota y separa las semestrales',()=>{
+test('la regla institucional usa seis en 7-9 y siete en 10-11, ignora materias sin nota y separa las semestrales',()=>{
   const route=read('routes/convocatoria.js');
-  assert.match(route,/const LIMITE = 8/);
+  assert.match(route,/const limitePorNivel = nivel => Number\(nivel\) <= 9 \? 6 : 7/);
   assert.match(route,/const INICIO_REGLAS = 2027/);
   assert.match(route,/nota == null \|\| !Number\.isFinite/);
   assert.match(route,/Educación para el Hogar/);
@@ -27,6 +27,16 @@ test('la regla institucional usa ocho, ignora materias sin nota y separa las sem
   assert.match(route,/materia_nombre:"Conducta"/);
   assert.match(route,/resultado_tes==='aprobado'\?'aprobada'/);
   assert.match(route,/tes_pendiente/);
+});
+
+test('una exclusión por ausentismo se propaga sin revelar otra materia al docente',()=>{
+  const route=read('routes/convocatoria.js');
+  const ui=read('public/index.html');
+  assert.match(route,/bloqueado_ausentismo/);
+  assert.match(route,/sin_derecho_ausentismo/);
+  assert.match(route,/sin_derecho_esta_materia/);
+  assert.match(ui,/Esta asignatura originó una marca sin derecho por ausentismo/);
+  assert.match(ui,/Por confidencialidad, al docente solo se le muestra el asterisco/);
 });
 
 test('2026 es informativo y desde 2027 matrícula obedece la condición final',()=>{

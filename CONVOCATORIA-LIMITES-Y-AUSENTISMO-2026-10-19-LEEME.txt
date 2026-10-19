@@ -1,0 +1,21 @@
+ACTUALIZACIÓN DE CONVOCATORIA — 19 DE OCTUBRE DE 2026
+
+1. Límites por nivel
+   - 7.º, 8.º y 9.º: máximo 6 materias para convocatoria. Con 7 o más debe repetir el curso lectivo.
+   - 10.º y 11.º: máximo 7 materias para convocatoria. Con 8 o más debe repetir el curso lectivo.
+   - Conducta continúa contándose una sola vez y no se muestra como fila en Convocatoria.
+
+2. Sin derecho por ausentismo
+   - La marca se sigue registrando desde Carta de Ausentismo, vinculada al profesor y la asignatura que la originaron.
+   - Una sola marca activa produce una exclusión institucional de todas las convocatorias y determina repetición del curso completo.
+   - El profesor que originó la marca ve el nombre del estudiante en rojo y el estado "Sin derecho por ausentismo".
+   - Los demás profesores ven un asterisco institucional, sin conocer la asignatura ajena.
+   - Si se retira la marca, el control se recalcula y restaura la condición que corresponda por cantidad de materias.
+
+3. Curso lectivo 2026
+   - Conserva el modo informativo acordado: muestra las advertencias y marcas, pero los bloqueos obligatorios de matrícula y resultados comienzan en 2027.
+
+VERIFICACIÓN
+   - Sintaxis de rutas validada.
+   - Suite completa: 320 pruebas aprobadas, 0 fallos.
+

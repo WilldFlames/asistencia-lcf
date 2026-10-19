@@ -63,6 +63,28 @@ async function calcularAusentismo(asignacionId, estudianteId, usuario, permitirA
   return { asignacion:a, estudiante:est.rows[0], rango, total_lecciones:total, ausencias, porcentaje };
 }
 
+// La marca nace en Carta de Ausentismo, pero su efecto es institucional: una
+// sola asignatura sin derecho impide todas las convocatorias del estudiante.
+// En 2026 se muestra como advertencia (año informativo); desde 2027 también
+// bloquea las materias y la promoción de matrícula.
+async function actualizarConvocatoriaPorAusentismo(estudianteId, anio) {
+  await pool.query(`UPDATE convocatoria_expedientes ce SET condicion=CASE
+      WHEN ce.condicion IN ('aprobado','repite') THEN ce.condicion
+      WHEN EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true) THEN 'bloqueado_ausentismo'
+      WHEN ce.total_aplazadas>ce.limite_institucional THEN 'bloqueado_limite'
+      ELSE 'con_derecho' END,
+      sincronizado_at=NOW()
+    WHERE ce.estudiante_id=$1 AND ce.anio=$2`, [estudianteId, anio]);
+  await pool.query(`UPDATE convocatoria_materias cm SET estado=CASE
+      WHEN ce.modo_informativo=false AND ce.condicion IN ('bloqueado_limite','bloqueado_ausentismo') AND cm.estado<>'aprobada' THEN 'bloqueada'
+      WHEN cm.estado='bloqueada' AND ce.condicion NOT IN ('bloqueado_limite','bloqueado_ausentismo')
+        AND cm.primera_nota IS NULL AND cm.segunda_nota IS NULL AND cm.estrategia_nota IS NULL THEN 'primera_pendiente'
+      ELSE cm.estado END, updated_at=NOW()
+    FROM convocatoria_expedientes ce
+    WHERE ce.id=cm.expediente_id AND ce.estudiante_id=$1 AND ce.anio=$2`, [estudianteId, anio]);
+}
+
 // ── DATOS PRE-LLENADOS para el formulario ─────────────────────────────────────
 // Devuelve la info del estudiante + cálculo de ausencias del período actual
 // en la asignación del profesor que consulta. Si el profesor tiene varias
@@ -465,6 +487,7 @@ router.post("/convocatoria/marcar", requireDocente, async (req,res)=>{
   `,[calculo.rango.anio,estudianteId,asignacionId,a.profesor_id,a.materia,a.seccion_nombre,
      calculo.ausencias,calculo.total_lecciones,calculo.porcentaje,calculo.rango.desde,
      calculo.rango.hasta,FUNDAMENTO_CONVOCATORIA,obs]);
+  await actualizarConvocatoriaPorAusentismo(estudianteId, calculo.rango.anio);
   res.json({ok:true,id:r.rows[0].id,porcentaje:calculo.porcentaje});
 });
 
@@ -472,9 +495,10 @@ router.delete("/convocatoria/:id", requireDocente, async(req,res)=>{
   const u=req.session.usuario;
   const admin=u.rol==='admin';
   const r=await pool.query(`UPDATE convocatoria_ausentismo SET activa=false,actualizada_at=NOW()
-    WHERE id=$1 AND activa=true ${admin?'':'AND profesor_id=$2'} RETURNING id`,
+    WHERE id=$1 AND activa=true ${admin?'':'AND profesor_id=$2'} RETURNING id,estudiante_id,anio`,
     admin?[req.params.id]:[req.params.id,u.id]);
   if(!r.rows.length) return res.status(404).json({error:"Registro no encontrado."});
+  await actualizarConvocatoriaPorAusentismo(r.rows[0].estudiante_id, r.rows[0].anio);
   res.json({ok:true});
 });
 

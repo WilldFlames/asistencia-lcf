@@ -4,7 +4,7 @@ const { requireRol } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 const { calcularPromediosInstitucional } = require("./calificaciones");
 
-const LIMITE = 8;
+const limitePorNivel = nivel => Number(nivel) <= 9 ? 6 : 7;
 const INICIO_REGLAS = 2027;
 const staff = requireRol("admin", "auxiliar", "profesor", "profesor_guia", "orientador");
 // Sincronizar no altera calificaciones: únicamente reconstruye el control
@@ -26,6 +26,17 @@ async function recalcularEstado(client, expedienteId) {
   if (!er.rows.length) return;
   const exp = er.rows[0];
   const materias = (await client.query("SELECT * FROM convocatoria_materias WHERE expediente_id=$1 ORDER BY id", [expedienteId])).rows;
+  const sinDerechoAusentismo = (await client.query(`SELECT EXISTS(
+    SELECT 1 FROM convocatoria_ausentismo
+    WHERE estudiante_id=$1 AND anio=$2 AND activa=true
+  ) AS existe`, [exp.estudiante_id, exp.anio])).rows[0].existe;
+  if (sinDerechoAusentismo) {
+    if (!exp.modo_informativo) {
+      await client.query("UPDATE convocatoria_materias SET estado='bloqueada',updated_at=NOW() WHERE expediente_id=$1 AND estado<>'aprobada'", [expedienteId]);
+    }
+    await client.query("UPDATE convocatoria_expedientes SET condicion='bloqueado_ausentismo' WHERE id=$1", [expedienteId]);
+    return;
+  }
   const bloqueoReal = !exp.modo_informativo && Number(exp.total_aplazadas) > Number(exp.limite_institucional);
   if (bloqueoReal) {
     await client.query("UPDATE convocatoria_materias SET estado='bloqueada',updated_at=NOW() WHERE expediente_id=$1 AND estado<>'aprobada'", [expedienteId]);
@@ -197,6 +208,8 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
     if (!estudiantes.has(f.estudiante_id)) estudiantes.set(f.estudiante_id, []);
     estudiantes.get(f.estudiante_id).push(f);
   }
+  const exclusiones = new Set((await pool.query(`SELECT DISTINCT estudiante_id
+    FROM convocatoria_ausentismo WHERE anio=$1 AND activa=true`, [anio])).rows.map(x=>Number(x.estudiante_id)));
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -216,7 +229,9 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
       if (!info.rows.length || !info.rows[0].nivel) continue;
       const total = materias.length;
       const informativo = Number(anio) < INICIO_REGLAS;
-      const condicion = total > LIMITE ? "bloqueado_limite" : "con_derecho";
+      const limite = limitePorNivel(info.rows[0].nivel);
+      const sinDerechoAusentismo = exclusiones.has(Number(estudianteId));
+      const condicion = sinDerechoAusentismo ? "bloqueado_ausentismo" : total > limite ? "bloqueado_limite" : "con_derecho";
       const ex = await client.query(`INSERT INTO convocatoria_expedientes
         (estudiante_id,anio,nivel,seccion_id,total_aplazadas,limite_institucional,conducta_incluida,modo_informativo,condicion,sincronizado_por,sincronizado_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
@@ -227,7 +242,7 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
           modo_informativo=EXCLUDED.modo_informativo,
           condicion=CASE WHEN convocatoria_expedientes.condicion IN ('aprobado','repite') THEN convocatoria_expedientes.condicion ELSE EXCLUDED.condicion END,
           sincronizado_por=EXCLUDED.sincronizado_por,sincronizado_at=NOW()
-        RETURNING id`, [estudianteId, anio, info.rows[0].nivel, info.rows[0].seccion_id, total, LIMITE, materias.some(m=>m.materia_nombre==="Conducta"), informativo, condicion, usuarioId,!!profesorFiltro]);
+        RETURNING id`, [estudianteId, anio, info.rows[0].nivel, info.rows[0].seccion_id, total, limite, materias.some(m=>m.materia_nombre==="Conducta"), informativo, condicion, usuarioId,!!profesorFiltro]);
       const expedienteId = ex.rows[0].id;
       for (const m of materias) {
         await client.query(`INSERT INTO convocatoria_materias
@@ -239,7 +254,7 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
             estado=CASE WHEN EXCLUDED.materia_nombre='Conducta' THEN EXCLUDED.estado ELSE convocatoria_materias.estado END,
             updated_at=NOW()`,
           [expedienteId,m.materia_id,m.materia_nombre,m.periodo_origen,m.asignacion_id,m.profesor_id,m.nota_origen,m.nota_minima,
-            m.estado_inicial||((!informativo&&total>LIMITE)?"bloqueada":"primera_pendiente")]);
+            m.estado_inicial||((!informativo&&(total>limite||sinDerechoAusentismo))?"bloqueada":"primera_pendiente")]);
       }
       await client.query(`INSERT INTO convocatoria_eventos(expediente_id,tipo,detalle,usuario_id)
         VALUES($1,'sincronizacion',jsonb_build_object(
@@ -262,13 +277,25 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
     // sincronización parcial no reemplaza el conteo institucional.
     await client.query(`UPDATE convocatoria_expedientes ce SET
         total_aplazadas=(SELECT COUNT(*)::integer FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id),
-        conducta_incluida=EXISTS(SELECT 1 FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id AND cm.materia_nombre='Conducta')
+        limite_institucional=CASE WHEN ce.nivel<=9 THEN 6 ELSE 7 END,
+        conducta_incluida=EXISTS(SELECT 1 FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id AND cm.materia_nombre='Conducta'),
+        condicion=CASE
+          WHEN ce.condicion IN ('aprobado','repite') THEN ce.condicion
+          WHEN EXISTS(SELECT 1 FROM convocatoria_ausentismo ca WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true) THEN 'bloqueado_ausentismo'
+          WHEN (SELECT COUNT(*) FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id) > CASE WHEN ce.nivel<=9 THEN 6 ELSE 7 END THEN 'bloqueado_limite'
+          ELSE 'con_derecho' END
       WHERE ce.anio=$1`,[anio]);
+    await client.query(`UPDATE convocatoria_materias cm SET estado=CASE
+        WHEN ce.modo_informativo=false AND ce.condicion IN ('bloqueado_limite','bloqueado_ausentismo') AND cm.estado<>'aprobada' THEN 'bloqueada'
+        WHEN cm.estado='bloqueada' AND ce.condicion NOT IN ('bloqueado_limite','bloqueado_ausentismo')
+          AND cm.primera_nota IS NULL AND cm.segunda_nota IS NULL AND cm.estrategia_nota IS NULL THEN 'primera_pendiente'
+        ELSE cm.estado END, updated_at=NOW()
+      FROM convocatoria_expedientes ce WHERE ce.id=cm.expediente_id AND ce.anio=$1`,[anio]);
     await client.query("COMMIT");
     console.info(`[CONVOCATORIA] sincronización ${anio} completada: ${estudiantes.size} estudiantes, ${fallos.length} materias, ${Date.now()-inicio} ms.`);
     return {
       expedientes:estudiantes.size, materias:fallos.length,
-      modo_informativo:Number(anio)<INICIO_REGLAS, limite:LIMITE,
+      modo_informativo:Number(anio)<INICIO_REGLAS, limites:{basica:6,diversificada:7},
       grupos_revisados:grupos.length, periodos_revisados:trabajos.length,
       incidencias:incidencias.length,
       detalle_incidencias:incidencias.slice(0,20)
@@ -308,7 +335,13 @@ router.get("/listado", staff, async (req,res) => {
     if(!esGestion(u)){ params.push(u.id); alcance=`AND cm.profesor_id=$${params.length}`; }
     const r=await pool.query(`SELECT cm.*,ce.estudiante_id,ce.total_aplazadas,ce.limite_institucional,
       ce.modo_informativo,ce.condicion,ce.conducta_incluida,s.nombre AS seccion_nombre,s.nivel,
-      ${nombreCompleto("e")} AS estudiante_nombre,${nombreCompleto("u")} AS profesor_nombre
+      ${nombreCompleto("e")} AS estudiante_nombre,${nombreCompleto("u")} AS profesor_nombre,
+      EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true) AS sin_derecho_ausentismo,
+      EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true
+          AND ca.profesor_id=cm.profesor_id
+          AND (ca.asignacion_id=cm.asignacion_id OR LOWER(ca.materia)=LOWER(cm.materia_nombre))) AS sin_derecho_esta_materia
       FROM convocatoria_materias cm JOIN convocatoria_expedientes ce ON ce.id=cm.expediente_id
       JOIN estudiantes e ON e.id=ce.estudiante_id LEFT JOIN secciones s ON s.id=ce.seccion_id
       LEFT JOIN usuarios u ON u.id=cm.profesor_id
@@ -318,7 +351,7 @@ router.get("/listado", staff, async (req,res) => {
       if(!esGestion(u)) delete x.profesor_nombre;
       return x;
     });
-    res.json({anio,modo_informativo:anio<INICIO_REGLAS,limite:LIMITE,puede_sincronizar:true,ve_detalle:esGestion(u),secciones,filas});
+    res.json({anio,modo_informativo:anio<INICIO_REGLAS,limites:{basica:6,diversificada:7},puede_sincronizar:true,ve_detalle:esGestion(u),secciones,filas});
   }catch(e){console.error("convocatoria listado",e);res.status(500).json({error:e.message});}
 });
 
@@ -330,11 +363,14 @@ router.post("/materia/:id/resultado", staff, async (req,res)=>{
   const client=await pool.connect();
   try{
     await client.query("BEGIN");
-    const qr=await client.query(`SELECT cm.*,ce.total_aplazadas,ce.limite_institucional,ce.modo_informativo,ce.id AS exp_id
+    const qr=await client.query(`SELECT cm.*,ce.total_aplazadas,ce.limite_institucional,ce.modo_informativo,ce.id AS exp_id,
+      EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true) AS sin_derecho_ausentismo
       FROM convocatoria_materias cm JOIN convocatoria_expedientes ce ON ce.id=cm.expediente_id WHERE cm.id=$1 FOR UPDATE`,[id]);
     if(!qr.rows.length) throw Object.assign(new Error("Registro no encontrado."),{status:404});
     const m=qr.rows[0];
     if(u.rol!=="admin" && Number(m.profesor_id)!==Number(u.id)) throw Object.assign(new Error("Solo el docente responsable o Administración puede registrar este resultado."),{status:403});
+    if(!m.modo_informativo && m.sin_derecho_ausentismo) throw Object.assign(new Error("El estudiante fue marcado sin derecho por ausentismo y debe repetir el curso lectivo completo."),{status:409});
     if(!m.modo_informativo && Number(m.total_aplazadas)>Number(m.limite_institucional)) throw Object.assign(new Error("El estudiante supera el límite institucional y no tiene derecho a realizar convocatorias."),{status:409});
     if(etapa==="segunda" && m.primera_nota==null) throw Object.assign(new Error("Primero debe registrar la primera ampliación."),{status:409});
     if(etapa==="estrategia" && m.estado!=="estrategia_pendiente") throw Object.assign(new Error("La Estrategia de Promoción todavía no está habilitada para esta materia."),{status:409});
