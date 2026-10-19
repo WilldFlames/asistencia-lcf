@@ -27236,8 +27236,9 @@ function convRender(){
 }
 function convExplicarConteo(expedienteId){
   const filas=(convData.filas||[]).filter(x=>String(x.expediente_id)===String(expedienteId)),x=filas[0];if(!x)return;
-  const base=`El estudiante registra ${x.total_aplazadas} materia(s) contabilizada(s). El límite institucional es ${x.limite_institucional}; con ${Number(x.limite_institucional)+1} o más no tiene derecho a ampliación.`;
-  alert(convData.ve_detalle?`${base}\n\nDetalle visible para Administración:\n${filas.map(y=>`• ${y.materia_nombre}${y.periodo_origen!=='Anual'?' — '+y.periodo_origen:''}`).join('\n')}`:base);
+  const conducta=x.conducta_incluida?' Conducta está incluida una sola vez en ese total, pero se consulta y resuelve desde Expedientes de Conducta.':'';
+  const base=`El estudiante registra ${x.total_aplazadas} materia(s) contabilizada(s). El límite institucional es ${x.limite_institucional}; con ${Number(x.limite_institucional)+1} o más no tiene derecho a ampliación.${conducta}`;
+  alert(convData.ve_detalle?`${base}\n\nMaterias académicas visibles en Convocatoria:\n${filas.map(y=>`• ${y.materia_nombre}${y.periodo_origen!=='Anual'?' — '+y.periodo_origen:''}`).join('\n')}`:base);
 }
 async function convRegistrar(id,etapa){
   const fila=(convData.filas||[]).find(x=>Number(x.id)===Number(id));if(!fila)return;

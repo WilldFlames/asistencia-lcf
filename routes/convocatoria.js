@@ -309,7 +309,8 @@ router.get("/listado", staff, async (req,res) => {
       ${nombreCompleto("e")} AS estudiante_nombre,${nombreCompleto("u")} AS profesor_nombre
       FROM convocatoria_materias cm JOIN convocatoria_expedientes ce ON ce.id=cm.expediente_id
       JOIN estudiantes e ON e.id=ce.estudiante_id LEFT JOIN secciones s ON s.id=ce.seccion_id
-      LEFT JOIN usuarios u ON u.id=cm.profesor_id WHERE ce.anio=$1 ${alcance}
+      LEFT JOIN usuarios u ON u.id=cm.profesor_id
+      WHERE ce.anio=$1 AND cm.materia_nombre<>'Conducta' ${alcance}
       ORDER BY s.nombre,e.primer_apellido,e.segundo_apellido,e.nombre,cm.materia_nombre,cm.periodo_origen`,params);
     const filas=r.rows.map(x=>{
       if(!esGestion(u)) delete x.profesor_nombre;

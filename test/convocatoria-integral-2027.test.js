@@ -50,7 +50,7 @@ test('la interfaz identifica el modo prueba y no revela materias ajenas al docen
   assert.match(ui,/id="nav-convocatoria"/);
   assert.match(ui,/modo informativo/);
   assert.match(ui,/convData\.ve_detalle\?/);
-  assert.match(ui,/Detalle visible para Administración/);
+  assert.match(ui,/Materias académicas visibles en Convocatoria/);
 });
 
 test('el listado informativo se construye al abrir y se agrupa por sección',()=>{
@@ -108,4 +108,14 @@ test('las secciones existen aunque todavía no haya expedientes y la carga es au
   assert.match(ui,/await convCargar\(false\);[\s\S]*await convSincronizarAutomatico\(\)/);
   assert.match(ui,/Actualizando automáticamente las convocatorias/);
   assert.match(ui,/convData\.secciones\|\|\[\]/);
+});
+
+test('Conducta cuenta para el límite pero se consulta únicamente en su propio módulo',()=>{
+  const route=read('routes/convocatoria.js');
+  const ui=read('public/index.html');
+  assert.match(route,/materia_nombre:"Conducta"/);
+  assert.match(route,/total_aplazadas=\(SELECT COUNT\(\*\)::integer FROM convocatoria_materias/);
+  assert.match(route,/cm\.materia_nombre<>'Conducta'/);
+  assert.match(ui,/Conducta está incluida una sola vez en ese total/);
+  assert.match(ui,/se consulta y resuelve desde Expedientes de Conducta/);
 });
