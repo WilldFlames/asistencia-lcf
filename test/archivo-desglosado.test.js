@@ -18,7 +18,7 @@ test('al archivar se conserva el promedio por rubro solo para períodos con dato
   assert.match(calificaciones,/\$3::int IS NOT NULL AND e\.id = \$3/);
   assert.match(calificaciones,/calcularPromedioEstudianteArchivado/);
   assert.match(estudiantes,/promedioArchivadoTieneDatos/);
-  assert.match(estudiantes,/for\(const periodo of \["I Período","II Período"\]\)/);
+  assert.match(estudiantes,/for\(const periodo of periodos\)/);
   assert.match(estudiantes,/INSERT INTO expediente_academico/);
   assert.ok(estudiantes.indexOf('archivarResumenAcademicoEstudiante(est,anioArchivo)')<estudiantes.indexOf('// Archivar — mantener activo=true'));
 });
@@ -38,6 +38,21 @@ test('el cierre anual rescata también a estudiantes archivados con notas parcia
   assert.match(matricula,/JOIN secciones s ON s\.nombre = e\.seccion_archivo/);
   assert.match(matricula,/a\.subgrupo, periodo, estudiante\.id/);
   assert.match(matricula,/if\(!tieneDatos\) continue/);
+});
+
+test('el retiro excluye materias sin promedio y respeta el semestre real de talleres',()=>{
+  assert.match(estudiantes,/m\.nombre NOT IN \('Guía','Orientación','Fortalecimiento Matemático'\)/);
+  assert.match(estudiantes,/ARRAY_AGG\(DISTINCT COALESCE\(a\.periodo,'I Período'\)/);
+  assert.match(estudiantes,/\['Educación para el Hogar','Artes Industriales'\]\.includes/);
+  assert.match(estudiantes,/const periodos=semestral\?\(a\.periodos_asignados\|\|\[\]\):\["I Período","II Período"\]/);
+});
+
+test('las materias existen antes de enlazar las reglas REAC y Biología solo usa 10°-11°',()=>{
+  const indiceSemilla=db.indexOf("for (const materia of [...MATERIAS_DEFAULT,'Inglés Conversacional','Diseño Publicitario'])");
+  const indiceMapeo=db.indexOf('const mapeoMaterias = [');
+  assert.ok(indiceSemilla>=0 && indiceSemilla<indiceMapeo);
+  assert.match(db,/\{ materia:'Biología',\s+regla:'acad_10_11',\s+lvl:\[10,11\] \}/);
+  assert.doesNotMatch(db,/materia:'Biología'[\s\S]{0,80}lvl:\[7,9\]/);
 });
 
 test('el Archivo muestra promedios y conducta desglosados por los períodos existentes',()=>{

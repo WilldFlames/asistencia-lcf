@@ -21,20 +21,29 @@ function promedioArchivadoTieneDatos(est){
 async function archivarResumenAcademicoEstudiante(est,anio){
   if(!est?.id||!est?.sec_id) return 0;
   const bases=await pool.query(`
-    SELECT DISTINCT a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,
+    SELECT a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,
       s.nombre AS seccion_nombre,m.nombre AS materia_nombre,
-      u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2
+      u.nombre AS prof_nombre,u.primer_apellido AS prof_ap1,u.segundo_apellido AS prof_ap2,
+      ARRAY_AGG(DISTINCT COALESCE(a.periodo,'I Período') ORDER BY COALESCE(a.periodo,'I Período')) AS periodos_asignados
     FROM asignaciones a
     JOIN secciones s ON s.id=a.seccion_id
     JOIN materias m ON m.id=a.materia_id
     JOIN usuarios u ON u.id=a.profesor_id
     WHERE a.anio=$1 AND a.seccion_id=$2
       AND (a.subgrupo IS NULL OR a.subgrupo=$3)
+      AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
+    GROUP BY a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,s.nombre,m.nombre,
+      u.nombre,u.primer_apellido,u.segundo_apellido
     ORDER BY m.nombre,a.profesor_id,a.subgrupo
   `,[anio,est.sec_id,est.subgrupo||null]);
   let guardados=0;
   for(const a of bases.rows){
-    for(const periodo of ["I Período","II Período"]){
+    // Hogar y Artes Industriales son semestrales: cada subgrupo solo debe
+    // archivarse en el período que realmente tiene asignado. Las materias
+    // anuales conservan ambos períodos, incluida la herencia I -> II.
+    const semestral=['Educación para el Hogar','Artes Industriales'].includes(a.materia_nombre);
+    const periodos=semestral?(a.periodos_asignados||[]):["I Período","II Período"];
+    for(const periodo of periodos){
       try{
         const data=await calcularPromedioEstudianteArchivado(
           a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,periodo,est.id

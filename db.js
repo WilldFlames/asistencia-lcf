@@ -1801,6 +1801,14 @@ async function initDB() {
     }
 
 
+    // Las materias deben existir antes de crear materia_regla_evaluacion.
+    // Antes se sembraban al final de initDB: en una instalación nueva el
+    // primer arranque intentaba mapear Biología, Física, Química y las demás
+    // cuando todavía no existían, y la regla aparecía recién tras reiniciar.
+    for (const materia of [...MATERIAS_DEFAULT,'Inglés Conversacional','Diseño Publicitario']) {
+      await client.query("INSERT INTO materias (nombre) VALUES ($1) ON CONFLICT DO NOTHING", [materia]);
+    }
+
     // ── MÓDULO DE CALIFICACIONES ──────────────────────────────────────────
     // Catálogo OFICIAL de evaluación según el REAC 2026 (porcentajes fijos).
     // No es editable por el profesor — solo informativo. Los porcentajes los

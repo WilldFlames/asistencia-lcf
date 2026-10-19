@@ -2967,6 +2967,21 @@ tr:hover td{background:#f8fafc;}
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="fg" style="min-width:260px;">
+          <label>Formato de impresión *</label>
+          <select id="cbar-formato" onchange="cbarCambiarFormato()">
+            <option value="carta">Hoja carta · etiquetas 5 × 3 cm</option>
+            <option value="ptd610" selected>Brother P-touch PT-D610BT · cinta 24 mm</option>
+          </select>
+        </div>
+        <div class="fg" id="cbar-largo-wrap" style="min-width:180px;">
+          <label>Longitud de etiqueta</label>
+          <select id="cbar-largo" onchange="cerrarPreviewBarras()">
+            <option value="60">60 mm</option>
+            <option value="70" selected>70 mm (recomendado)</option>
+            <option value="80">80 mm</option>
+          </select>
+        </div>
         <div class="fg" style="min-width:240px;">
           <label>Sección *</label>
           <select id="cbar-seccion" onchange="cargarEstBarras()">
@@ -2980,6 +2995,13 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" onclick="cbarSelTodos()">☑️ Seleccionar todos</button>
         <button class="btn btn-outline btn-sm" onclick="cbarSelNinguno()">▢ Quitar selección</button>
       </div>
+      <div id="cbar-ayuda-ptd610" style="margin-top:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:9px 12px;font-size:12px;color:#166534;line-height:1.45;">
+        🏷️ <strong>Perfil PT-D610BT:</strong> imprime una etiqueta por corte sobre cinta TZe de 24 mm,
+        centrada dentro del área imprimible de 18 mm. En computadora seleccioná la impresora Brother y
+        usá escala 100 % y márgenes “ninguno”. En celular o tablet podés revisar el diseño, pero la conexión
+        Bluetooth directa se administra con Brother iPrint&amp;Label; el navegador no puede controlar por sí solo
+        el Bluetooth Classic de esta etiquetadora.
+      </div>
     </div>
 
     <div class="card">
@@ -2990,7 +3012,7 @@ tr:hover td{background:#f8fafc;}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-primary" onclick="previsualizarBarras()" id="btn-cbar-preview" disabled>👁️ Previsualizar</button>
-          <button class="btn btn-success" onclick="imprimirBarras()" id="btn-cbar-imprimir" disabled>🖨️ Imprimir</button>
+          <button class="btn btn-success" onclick="imprimirBarras()" id="btn-cbar-imprimir" disabled>🖨️ Imprimir en PT-D610BT</button>
         </div>
       </div>
 
@@ -24214,6 +24236,7 @@ function cbarLimpiar(cedula){
 async function inicializarBarrasSiNecesario(){
   if(cbarInicializado) return;
   cbarInicializado = true;
+  cbarCambiarFormato();
   // Poblar secciones
   try {
     const secs = await api(carnetUrlSecciones()) || [];
@@ -24322,10 +24345,91 @@ function actualizarBotonesBarras(){
   document.getElementById('btn-cbar-imprimir').disabled = !hay;
 }
 
+function cbarCambiarFormato(){
+  const esPtouch = (document.getElementById('cbar-formato')?.value || 'ptd610') === 'ptd610';
+  const largo = document.getElementById('cbar-largo-wrap');
+  const ayuda = document.getElementById('cbar-ayuda-ptd610');
+  const boton = document.getElementById('btn-cbar-imprimir');
+  if(largo) largo.style.display = esPtouch ? '' : 'none';
+  if(ayuda) ayuda.style.display = esPtouch ? '' : 'none';
+  if(boton) boton.textContent = esPtouch ? '🖨️ Imprimir en PT-D610BT' : '🖨️ Imprimir hoja carta';
+  cerrarPreviewBarras();
+}
+
+function construirHTMLBarrasPTD610(estudiantes, incluirScript = true){
+  const largoSolicitado = Number(document.getElementById('cbar-largo')?.value || 70);
+  const largo = [60,70,80].includes(largoSolicitado) ? largoSolicitado : 70;
+  const items = estudiantes
+    .filter(e => cbarLimpiar(e.cedula))
+    .map(e => ({
+      cedula: cbarLimpiar(e.cedula),
+      nombre: nombrePersona(e)
+    }));
+
+  return `
+    <style>
+      @page { size: ${largo}mm 24mm; margin: 0; }
+      html, body {
+        width: ${largo}mm; margin: 0; padding: 0; background: #fff;
+        font-family: Arial, Helvetica, sans-serif; color: #000;
+      }
+      .cbar-grid { width: ${largo}mm; margin: 0; padding: 0; }
+      .cbar-cell {
+        width: ${largo}mm; height: 24mm; margin: 0; padding: 3mm 3mm;
+        box-sizing: border-box; overflow: hidden; background: #fff;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        break-after: page; page-break-after: always; break-inside: avoid; page-break-inside: avoid;
+      }
+      .cbar-cell:last-child { break-after: auto; page-break-after: auto; }
+      .cbar-cell svg { display: block; width: ${largo-8}mm; height: 9.5mm; flex: 0 0 9.5mm; }
+      .cbar-nombre {
+        width: ${largo-8}mm; margin-top: .7mm; font-size: 7pt; line-height: 1.05;
+        font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .cbar-ced { margin-top: .4mm; font: 6.5pt/1 monospace; text-align: center; }
+      @media screen {
+        body { background:#e5e7eb; }
+        .cbar-cell { margin: 4mm 0; outline: 1px dashed #94a3b8; }
+      }
+      @media print {
+        html, body, .cbar-grid { width: ${largo}mm !important; }
+        body { background:#fff; }
+      }
+    </style>
+    <div class="cbar-grid">
+      ${items.map(it => `
+        <div class="cbar-cell">
+          <svg class="barcode" data-value="${it.cedula}"></svg>
+          <div class="cbar-nombre">${htmlSeguro(it.nombre)}</div>
+          <div class="cbar-ced">${it.cedula}</div>
+        </div>
+      `).join('')}
+    </div>
+    ${incluirScript ? `
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"><\/script>
+    <script>
+      window.addEventListener('load', function(){
+        document.querySelectorAll('svg.barcode').forEach(function(svg){
+          try {
+            JsBarcode(svg, svg.dataset.value, {
+              format:'CODE128', displayValue:false, margin:0, height:38, width:1.45
+            });
+          } catch(e){ console.error('Error generando barcode:', e); }
+        });
+        setTimeout(function(){ window.print(); }, 350);
+      });
+    <\/script>` : ''}
+  `;
+}
+
 // Genera el HTML de la hoja imprimible con la grilla de códigos de barras.
 // Cada código mide 5cm × 3cm (5cm de ancho, 3cm de alto). Se acomodan 3 por
 // fila en carta con márgenes de 1cm.
 function construirHTMLBarras(estudiantes, incluirScript = true){
+  if((document.getElementById('cbar-formato')?.value || 'ptd610') === 'ptd610'){
+    return construirHTMLBarrasPTD610(estudiantes, incluirScript);
+  }
   const seleccionados = document.getElementById('cbar-seccion');
   const nombreSec = seleccionados.options[seleccionados.selectedIndex]?.text || '';
 
