@@ -72,6 +72,8 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
       JOIN secciones s ON s.id=a.seccion_id
       WHERE a.anio=$1 AND COALESCE(a.activa,true)=true
         ${filtroProfesor}
+        -- Guía equivale a Conducta, que se incorpora una sola vez más abajo.
+        -- Orientación no tiene nota y Fortalecimiento tampoco genera convocatoria.
         AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
       ORDER BY a.profesor_id,a.seccion_id,a.materia_id,COALESCE(a.subgrupo,''),
         CASE WHEN a.periodo='II Período' THEN 0 ELSE 1 END,a.id DESC

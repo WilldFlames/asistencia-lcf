@@ -23,6 +23,14 @@ test('el perfil usa el área imprimible de 18 mm y una etiqueta por corte',()=>{
   assert.match(html,/80 mm/);
 });
 
+test('la previsualización aísla sus estilos y no encoge la aplicación',()=>{
+  assert.match(html,/class="cbar-ptouch-document"/);
+  assert.match(html,/\.cbar-ptouch-document \.cbar-grid/);
+  assert.doesNotMatch(html,/html, body \{\s*width: \$\{largo\}mm/);
+  assert.doesNotMatch(html,/@media screen \{\s*body \{ background:#e5e7eb; \}/);
+  assert.match(html,/<style>html,body\{margin:0;padding:0;background:#fff;\}<\/style><\/head>/);
+});
+
 test('la interfaz explica conexiones de computadora y móvil',()=>{
   assert.match(html,/escala 100 % y márgenes “ninguno”/);
   assert.match(html,/Brother iPrint&amp;Label/);

@@ -12,6 +12,7 @@ const calificaciones=read('routes/calificaciones.js');
 const matricula=read('routes/matricula.js');
 const frontend=read('public/index.html');
 const conducta=read('utils/archivo-conducta.js');
+const convocatoria=read('routes/convocatoria.js');
 
 test('al archivar se conserva el promedio por rubro solo para períodos con datos',()=>{
   assert.match(calificaciones,/estudianteForzadoId=null/);
@@ -53,6 +54,25 @@ test('las materias existen antes de enlazar las reglas REAC y Biología solo usa
   assert.ok(indiceSemilla>=0 && indiceSemilla<indiceMapeo);
   assert.match(db,/\{ materia:'Biología',\s+regla:'acad_10_11',\s+lvl:\[10,11\] \}/);
   assert.doesNotMatch(db,/materia:'Biología'[\s\S]{0,80}lvl:\[7,9\]/);
+});
+
+test('Guía hereda Conducta una sola vez y Orientación no lleva nota',()=>{
+  assert.match(db,/mat\.nombre IN \('Guía','Orientación'\)/);
+  assert.doesNotMatch(db,/\{ materia:'Guía',\s+regla:/);
+  assert.doesNotMatch(db,/\{ materia:'Orientación',\s+regla:/);
+  assert.match(estudiantes,/Guía se conserva mediante el archivo de Conducta; Orientación no lleva nota/);
+  assert.match(convocatoria,/Guía equivale a Conducta, que se incorpora una sola vez más abajo/);
+  assert.match(convocatoria,/materia_nombre:"Conducta"/);
+  assert.match(frontend,/Guía utiliza la misma nota de <strong>Conducta<\/strong>/);
+  assert.match(frontend,/Orientación no lleva nota/);
+});
+
+test('Música usa 45-10-40-5 desde sétimo hasta undécimo',()=>{
+  assert.match(db,/"Artes Plásticas","Música","Informática Educativa"/);
+  assert.match(db,/cod:'musica_7_11'[\s\S]{0,140}lvl:\[7,11\][\s\S]{0,100}pc:45, pt:10, pp:0,\s+ppr:40, pa:5/);
+  assert.match(db,/materia:'Música',\s+regla:'musica_7_11',\s+lvl:\[7,11\]/);
+  assert.match(db,/mat\.nombre='Música'/);
+  assert.doesNotMatch(db,/materia:'Música'[\s\S]{0,80}regla:'practica_7_9'/);
 });
 
 test('el Archivo muestra promedios y conducta desglosados por los períodos existentes',()=>{

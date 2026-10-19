@@ -8,7 +8,7 @@ const pool = new Pool({
 
 const MATERIAS_DEFAULT = [
   "Español","Estudios Sociales","Matemática","Ciencias","Cívica",
-  "Inglés","Francés","Artes Industriales","Artes Plásticas","Informática Educativa",
+  "Inglés","Francés","Artes Industriales","Artes Plásticas","Música","Informática Educativa",
   "Ética y Valores","Guía","Orientación","Educación Física","Educación para el Hogar",
   "Biología","Física Matemática","Química","Filosofía","Psicología",
   "Educación para la Paz","Fortalecimiento Matemático"
@@ -1884,6 +1884,8 @@ async function initDB() {
         nota:'1 proyecto (40%)' },
       { cod:'tecno_10_11',  desc:'Tecnologías Diversificadas (10°-11°)',lvl:[10,11],pc:35, pt:10, pp:50, ppr:0,  pa:5, np:2, npr:0, op:false,
         nota:'Mínimo 2 pruebas (50% total)' },
+      { cod:'musica_7_11',  desc:'Música (7°-11°)',                    lvl:[7,11], pc:45, pt:10, pp:0,  ppr:40, pa:5, np:0, npr:1, op:false,
+        nota:'1 proyecto (40%) — misma distribución de 7° a 11°' },
     ];
     for(const r of reglas){
       await client.query(`
@@ -1908,6 +1910,14 @@ async function initDB() {
 
     // Mapeo materia → regla (por nivel)
     // Si una materia se usa en distintos niveles con reglas distintas, se inserta dos veces.
+    // Música tiene una sola distribución de 7° a 11°. Se borran rangos viejos
+    // antes de insertar el rango único para que una instalación actualizada no
+    // conserve dos reglas aplicables al mismo nivel.
+    await client.query(`
+      DELETE FROM materia_regla_evaluacion mre
+      USING materias mat
+      WHERE mre.materia_id=mat.id AND mat.nombre='Música'
+    `);
     const mapeoMaterias = [
       // 7°-9° académicas
       { materia:'Matemática',          regla:'acad_7_9',     lvl:[7,9] },
@@ -1923,6 +1933,7 @@ async function initDB() {
       { materia:'Educación para el Hogar',regla:'taller_7_9', lvl:[7,9] },
       { materia:'Artes Industriales',  regla:'taller_7_9',   lvl:[7,9] },
       { materia:'Artes Plásticas',     regla:'practica_7_9', lvl:[7,9] },
+      { materia:'Música',              regla:'musica_7_11',  lvl:[7,11] },
       // 7°-9° cívica
       { materia:'Cívica',              regla:'civica_7_9',   lvl:[7,9] },
       // 7°-9° tecnológica
@@ -1968,6 +1979,18 @@ async function initDB() {
         console.log(`Mapeo ${m.materia} → ${m.regla}:`, e.message);
       }
     }
+
+    // Guía es el espacio desde el que se acompaña la Conducta, no una segunda
+    // materia calificable. Su nota es la nota de Conducta que se calcula desde
+    // las boletas y el TES. Orientación no lleva calificación. Limpiar cualquier
+    // mapeo heredado evita que instalaciones antiguas intenten crear promedios
+    // REAC independientes o dupliquen Conducta en Convocatoria.
+    await client.query(`
+      DELETE FROM materia_regla_evaluacion mre
+      USING materias mat
+      WHERE mre.materia_id=mat.id
+        AND mat.nombre IN ('Guía','Orientación')
+    `);
 
     // ── MÓDULO DE CALIFICACIONES (Fase 2) ─────────────────────────────────
     // Evaluaciones concretas: cada examen, tarea, cotidiano o proyecto que

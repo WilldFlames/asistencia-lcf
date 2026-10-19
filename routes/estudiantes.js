@@ -31,6 +31,7 @@ async function archivarResumenAcademicoEstudiante(est,anio){
     JOIN usuarios u ON u.id=a.profesor_id
     WHERE a.anio=$1 AND a.seccion_id=$2
       AND (a.subgrupo IS NULL OR a.subgrupo=$3)
+      -- Guía se conserva mediante el archivo de Conducta; Orientación no lleva nota.
       AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
     GROUP BY a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,s.nombre,m.nombre,
       u.nombre,u.primer_apellido,u.segundo_apellido

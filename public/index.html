@@ -1718,7 +1718,8 @@ tr:hover td{background:#f8fafc;}
       Acá ves cómo se evalúa cada una de tus asignaciones según el <strong>REAC 2026</strong>.
       Los porcentajes son oficiales del MEP y no se pueden modificar.
       En la próxima fase vas a poder registrar exámenes, tareas, cotidianos y proyectos para tus estudiantes.
-      Las materias Guía y Orientación no llevan nota.
+      Guía utiliza la misma nota de <strong>Conducta</strong> y no se califica como una materia aparte.
+      Orientación no lleva nota.
     </p>
     <div id="alert-calif" class="alert"></div>
   </div>
@@ -24369,42 +24370,48 @@ function construirHTMLBarrasPTD610(estudiantes, incluirScript = true){
   return `
     <style>
       @page { size: ${largo}mm 24mm; margin: 0; }
-      html, body {
-        width: ${largo}mm; margin: 0; padding: 0; background: #fff;
+      .cbar-ptouch-document {
+        width: ${largo}mm; max-width: 100%; margin: 0 auto; padding: 0; background: #fff;
         font-family: Arial, Helvetica, sans-serif; color: #000;
+        box-sizing: border-box; overflow: hidden;
       }
-      .cbar-grid { width: ${largo}mm; margin: 0; padding: 0; }
-      .cbar-cell {
+      .cbar-ptouch-document .cbar-grid { width: 100%; margin: 0; padding: 0; }
+      .cbar-ptouch-document .cbar-cell {
         width: ${largo}mm; height: 24mm; margin: 0; padding: 3mm 3mm;
+        max-width: 100%;
         box-sizing: border-box; overflow: hidden; background: #fff;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         break-after: page; page-break-after: always; break-inside: avoid; page-break-inside: avoid;
       }
-      .cbar-cell:last-child { break-after: auto; page-break-after: auto; }
-      .cbar-cell svg { display: block; width: ${largo-8}mm; height: 9.5mm; flex: 0 0 9.5mm; }
-      .cbar-nombre {
+      .cbar-ptouch-document .cbar-cell:last-child { break-after: auto; page-break-after: auto; }
+      .cbar-ptouch-document .cbar-cell svg { display: block; width: calc(100% - 2mm); max-width: ${largo-8}mm; height: 9.5mm; flex: 0 0 9.5mm; }
+      .cbar-ptouch-document .cbar-nombre {
         width: ${largo-8}mm; margin-top: .7mm; font-size: 7pt; line-height: 1.05;
+        max-width: calc(100% - 2mm);
         font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden;
         text-overflow: ellipsis;
       }
-      .cbar-ced { margin-top: .4mm; font: 6.5pt/1 monospace; text-align: center; }
+      .cbar-ptouch-document .cbar-ced { margin-top: .4mm; font: 6.5pt/1 monospace; text-align: center; }
       @media screen {
-        body { background:#e5e7eb; }
-        .cbar-cell { margin: 4mm 0; outline: 1px dashed #94a3b8; }
+        .cbar-ptouch-document { background:#e5e7eb; padding:1px 0; }
+        .cbar-ptouch-document .cbar-cell { margin: 4mm 0; outline: 1px dashed #94a3b8; }
       }
       @media print {
-        html, body, .cbar-grid { width: ${largo}mm !important; }
-        body { background:#fff; }
+        .cbar-ptouch-document,
+        .cbar-ptouch-document .cbar-grid { width: ${largo}mm !important; max-width:none; }
+        .cbar-ptouch-document { margin:0; background:#fff; overflow:visible; }
       }
     </style>
-    <div class="cbar-grid">
-      ${items.map(it => `
-        <div class="cbar-cell">
-          <svg class="barcode" data-value="${it.cedula}"></svg>
-          <div class="cbar-nombre">${htmlSeguro(it.nombre)}</div>
-          <div class="cbar-ced">${it.cedula}</div>
-        </div>
-      `).join('')}
+    <div class="cbar-ptouch-document">
+      <div class="cbar-grid">
+        ${items.map(it => `
+          <div class="cbar-cell">
+            <svg class="barcode" data-value="${it.cedula}"></svg>
+            <div class="cbar-nombre">${htmlSeguro(it.nombre)}</div>
+            <div class="cbar-ced">${it.cedula}</div>
+          </div>
+        `).join('')}
+      </div>
     </div>
     ${incluirScript ? `
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"><\/script>
@@ -24446,19 +24453,19 @@ function construirHTMLBarras(estudiantes, incluirScript = true){
   return `
     <style>
       @page { size: letter; margin: 1cm; }
-      body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; }
-      .cbar-header {
+      .cbar-carta-document { font-family: Arial, sans-serif; margin: 0 auto; padding: 0; color: #000; max-width:100%; overflow-x:auto; }
+      .cbar-carta-document .cbar-header {
         text-align: center; margin-bottom: 10px;
         font-size: 11pt; font-weight: bold; color: #1F3864;
       }
-      .cbar-header .sub { font-size: 9.5pt; font-weight: normal; color: #444; margin-top: 2px; }
-      .cbar-grid {
+      .cbar-carta-document .cbar-header .sub { font-size: 9.5pt; font-weight: normal; color: #444; margin-top: 2px; }
+      .cbar-carta-document .cbar-grid {
         display: grid;
         grid-template-columns: repeat(3, 5cm);
         gap: 0;
         justify-content: center;
       }
-      .cbar-cell {
+      .cbar-carta-document .cbar-cell {
         width: 5cm;
         height: 3cm;
         border: 1px dashed #999;
@@ -24471,8 +24478,8 @@ function construirHTMLBarras(estudiantes, incluirScript = true){
         page-break-inside: avoid;
         break-inside: avoid;
       }
-      .cbar-cell svg { width: 100%; height: 1.6cm; }
-      .cbar-nombre {
+      .cbar-carta-document .cbar-cell svg { width: 100%; height: 1.6cm; }
+      .cbar-carta-document .cbar-nombre {
         font-size: 8pt;
         font-weight: bold;
         text-align: center;
@@ -24481,31 +24488,33 @@ function construirHTMLBarras(estudiantes, incluirScript = true){
         max-width: 4.6cm;
         overflow-wrap: break-word;
       }
-      .cbar-ced {
+      .cbar-carta-document .cbar-ced {
         font-family: monospace;
         font-size: 7.5pt;
         color: #555;
         margin-top: 1mm;
       }
       @media print {
-        .cbar-cell { border: 1px dashed #666; }
+        .cbar-carta-document { overflow:visible; }
+        .cbar-carta-document .cbar-cell { border: 1px dashed #666; }
         .no-print { display: none !important; }
       }
     </style>
+    <div class="cbar-carta-document">
+      <div class="cbar-header">
+        LICEO DE CALLE FALLAS — Códigos de Barras
+        <div class="sub">${nombreSec} · ${items.length} estudiante(s) · Recortá por las líneas y pegá en el cuaderno</div>
+      </div>
 
-    <div class="cbar-header">
-      LICEO DE CALLE FALLAS — Códigos de Barras
-      <div class="sub">${nombreSec} · ${items.length} estudiante(s) · Recortá por las líneas y pegá en el cuaderno</div>
-    </div>
-
-    <div class="cbar-grid">
-      ${items.map(it => `
-        <div class="cbar-cell">
-          <svg class="barcode" data-value="${it.cedula}"></svg>
-          <div class="cbar-nombre">${it.nombre}</div>
-          <div class="cbar-ced">${it.cedula}</div>
-        </div>
-      `).join('')}
+      <div class="cbar-grid">
+        ${items.map(it => `
+          <div class="cbar-cell">
+            <svg class="barcode" data-value="${it.cedula}"></svg>
+            <div class="cbar-nombre">${htmlSeguro(it.nombre)}</div>
+            <div class="cbar-ced">${htmlSeguro(it.cedula)}</div>
+          </div>
+        `).join('')}
+      </div>
     </div>
 
     ${incluirScript ? `
@@ -24569,7 +24578,8 @@ function imprimirBarras(){
   }
   const html = `<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"/><title>Códigos de Barras</title></head>
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Códigos de Barras</title>
+<style>html,body{margin:0;padding:0;background:#fff;}</style></head>
 <body>${construirHTMLBarras(seleccionados, true)}</body>
 </html>`;
   const w = window.open('', '_blank');

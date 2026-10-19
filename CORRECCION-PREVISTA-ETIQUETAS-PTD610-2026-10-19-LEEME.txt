@@ -1,0 +1,12 @@
+CORRECCIÓN DE PREVISUALIZACIÓN — BROTHER P-TOUCH PT-D610BT
+Fecha: 19 de octubre de 2026
+
+- La vista previa de etiquetas ya no modifica el ancho de toda la aplicación.
+- Los estilos de 60, 70 u 80 mm quedan aislados dentro de la tarjeta de etiqueta.
+- La configuración global de página se aplica únicamente en la ventana separada de impresión.
+- La vista previa se mantiene centrada y contenida en computadoras, tabletas y celulares.
+- También se aisló la previsualización del formato de hoja carta para evitar efectos secundarios.
+
+Verificación:
+- Prueba específica de etiquetas PT-D610BT: aprobada.
+- Suite completa del sistema: 320 pruebas aprobadas, 0 fallos.
