@@ -56,13 +56,20 @@ test('docente solo ve su materia y administración conserva el control cruzado',
 });
 
 test('administración y auxiliares ven una fila por estudiante y despliegan sus materias',()=>{
+  const route=read('routes/convocatoria.js');
   const ui=read('public/index.html');
+  assert.match(route,/AS marcas_ausentismo/);
+  assert.match(route,/COALESCE\(ca\.confirmada_por,ca\.profesor_id\)/);
+  assert.match(route,/delete x\.marcas_ausentismo/);
   assert.match(ui,/if\(convData\.ve_detalle\)\{convRenderGestion\(base,est\);return;\}/);
   assert.match(ui,/function convRenderGestion\(filas,estadoFiltro=''/);
   assert.match(ui,/const porSeccion=new Map/);
   assert.match(ui,/Sección \$\{htmlSeguro\(seccion\)\} · \$\{grupos\.length\} estudiante\(s\)/);
   assert.match(ui,/Ver materias \(\$\{g\.materias\.length\}\)/);
   assert.match(ui,/Conducta está incluida una sola vez en el total/);
+  assert.match(ui,/<strong>Marcó:<\/strong>/);
+  assert.match(ui,/m\.profesor_nombre/);
+  assert.match(ui,/Trazabilidad de la marca/);
 });
 
 test('la interfaz identifica el modo prueba y no revela materias ajenas al docente',()=>{
@@ -73,13 +80,15 @@ test('la interfaz identifica el modo prueba y no revela materias ajenas al docen
   assert.match(ui,/Materias académicas visibles en Convocatoria/);
 });
 
-test('el listado informativo se construye al abrir y se agrupa por sección',()=>{
+test('el listado informativo se construye al abrir y solo recalcula vacío con enfriamiento',()=>{
   const route=read('routes/convocatoria.js');
   const ui=read('public/index.html');
   assert.match(route,/const sincroniza = staff/);
   assert.match(route,/tieneNotaRegistrada/);
   assert.match(route,/incidencias:incidencias\.length/);
-  assert.match(ui,/await convCargar\(false\);[\s\S]*await convSincronizarAutomatico\(\)/);
+  assert.match(ui,/await convCargar\(false\);[\s\S]*if\(!\(convData\.filas\|\|\[\]\)\.length\)await convSincronizarAutomatico\(\)/);
+  assert.match(ui,/sessionStorage\.getItem\(clave\)/);
+  assert.match(ui,/10\*60\*1000/);
   assert.match(ui,/Actualizando automáticamente las convocatorias/);
   assert.match(ui,/const porSeccion=new Map/);
   assert.match(ui,/Sección \$\{htmlSeguro\(seccion\)\}/);
@@ -125,7 +134,7 @@ test('las secciones existen aunque todavía no haya expedientes y la carga es au
   assert.match(route,/SELECT s\.id,s\.nombre,s\.nivel FROM secciones s[\s\S]*JOIN secciones_anio sa/);
   assert.match(route,/SELECT DISTINCT s\.id,s\.nombre,s\.nivel[\s\S]*FROM asignaciones a/);
   assert.match(route,/secciones,filas/);
-  assert.match(ui,/await convCargar\(false\);[\s\S]*await convSincronizarAutomatico\(\)/);
+  assert.match(ui,/if\(!\(convData\.filas\|\|\[\]\)\.length\)await convSincronizarAutomatico\(\)/);
   assert.match(ui,/Actualizando automáticamente las convocatorias/);
   assert.match(ui,/convData\.secciones\|\|\[\]/);
 });

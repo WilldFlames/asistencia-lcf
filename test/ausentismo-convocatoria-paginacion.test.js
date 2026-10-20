@@ -39,6 +39,16 @@ test('una sola exclusión por ausentismo actualiza el control institucional comp
   assert.match(frontend,/los demás docentes verán el asterisco institucional/);
 });
 
+test('el porcentaje solo propone revisión y únicamente el profesor confirma la exclusión',()=>{
+  assert.match(db,/confirmada_docente\s+BOOLEAN NOT NULL DEFAULT false/);
+  assert.match(cartas,/requiere_revision:porcentaje>20/);
+  assert.match(cartas,/confirmacion_docente!==true/);
+  assert.match(cartas,/calcularAusentismo\(asignacionId,estudianteId,u,false\)/);
+  assert.match(cartas,/confirmada_docente=true/);
+  assert.match(frontend,/Esto no los marca automáticamente: solo el profesor decide mediante el botón/);
+  assert.match(frontend,/confirmacion_docente:true/);
+});
+
 test('restricciones usa la lista institucional completa',()=>{
   assert.match(matricula,/router\.get\("\/restricciones-estudiantes\/:anio"/);
   assert.match(matricula,/FROM estudiantes e/);

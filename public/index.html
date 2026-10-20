@@ -22953,9 +22953,9 @@ function renderControlConvocatoriaAusentismo(){
   const cand=document.getElementById('conv-aus-candidatos');
   const regs=document.getElementById('conv-aus-registros');
   const marcados=new Set(convAusRegistros.map(claveConvAus));
-  const excedidos=convAusCandidatos.filter(x=>x.sin_derecho && !marcados.has(claveConvAus(x)));
+  const excedidos=convAusCandidatos.filter(x=>x.requiere_revision && !marcados.has(claveConvAus(x)));
   const revisados=convAusCandidatos.length;
-  const conserva=convAusCandidatos.filter(x=>!x.sin_derecho).length;
+  const conserva=convAusCandidatos.filter(x=>!x.requiere_revision).length;
 
   if(ME.rol==='admin' && !revisados){
     cand.innerHTML=`<div style="padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;color:#1e3a8a;font-size:12.5px;">
@@ -22967,7 +22967,7 @@ function renderControlConvocatoriaAusentismo(){
     </div>`;
   }else{
     cand.innerHTML=`
-      <div style="font-size:12px;color:var(--muted);margin-bottom:7px;">${excedidos.length} caso(s) superan el 20% de ausentismo y están pendientes de confirmación docente.</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:7px;">${excedidos.length} caso(s) superan el 20% de ausentismo y requieren revisión. Esto no los marca automáticamente: solo el profesor decide mediante el botón.</div>
       <div class="table-wrap"><table style="min-width:760px;font-size:12px;"><thead><tr>
         <th>Estudiante</th><th>Sección</th><th>Asignatura</th><th style="text-align:center;">Ausencias</th><th style="text-align:center;">Porcentaje</th><th></th>
       </tr></thead><tbody>${excedidos.map(x=>`<tr>
@@ -23041,7 +23041,7 @@ async function marcarConvocatoriaAusentismo(asignacionId,estudianteId){
   if(!x) return;
   if(!confirm(`¿Confirmar que ${nombreEstudianteLista(x)} no tiene derecho a convocatoria por ausentismo en ${x.materia}?\n\nCálculo: ${x.ausencias} ausencias de ${x.total_lecciones} lecciones (${x.porcentaje}%).`)) return;
   try{
-    await api('/api/cartas/convocatoria/marcar','POST',{asignacion_id:asignacionId,estudiante_id:estudianteId});
+    await api('/api/cartas/convocatoria/marcar','POST',{asignacion_id:asignacionId,estudiante_id:estudianteId,confirmacion_docente:true});
     sa('alert-conv-aus','✅ Marca registrada. La asignatura que originó la exclusión se identificará en rojo y los demás docentes verán el asterisco institucional. El estudiante deberá repetir el curso lectivo completo.','success');
     await cargarControlConvocatoriaAusentismo();
   }catch(e){sa('alert-conv-aus',e.message,'danger');}
@@ -26722,19 +26722,13 @@ async function pdfZoom(delta){
     try{
       const r = await fetch('/api/version?t='+Date.now());
       const d = await r.json();
-      if(d.version && d.version !== versionActual){
+      if(d.version && d.version !== versionActual && !document.getElementById('version-aviso')){
+        versionActual=d.version;
         const aviso = document.createElement('div');
         aviso.id = 'version-aviso';
         aviso.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:#1e3a5f;color:#fff;padding:14px 20px;border-radius:10px;font-family:Arial,sans-serif;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px;max-width:320px;';
-        aviso.innerHTML = '<span style="font-size:20px;">🔄</span><div><strong>Nueva versión disponible</strong><br/><span style="opacity:.8;font-size:12px;">El sistema se actualiza en <span id="reload-countdown">5</span> seg...</span></div><button onclick="location.reload()" style="background:#fff;color:#1e3a5f;border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;">Ahora</button>';
+        aviso.innerHTML = '<span style="font-size:20px;">🔄</span><div><strong>Nueva versión disponible</strong><br/><span style="opacity:.8;font-size:12px;">Guardá lo que estés haciendo y actualizá cuando estés listo.</span></div><button onclick="location.reload()" style="background:#fff;color:#1e3a5f;border:none;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;">Actualizar</button>';
         document.body.appendChild(aviso);
-        let seg = 5;
-        const iv = setInterval(()=>{
-          seg--;
-          const el = document.getElementById('reload-countdown');
-          if(el) el.textContent = seg;
-          if(seg <= 0){ clearInterval(iv); location.reload(); }
-        }, 1000);
       }
     }catch{}
   }, 30000);
@@ -27182,7 +27176,9 @@ async function iniciarConvocatoria(){
   // Mostrar inmediatamente lo ya guardado y actualizarlo en segundo paso. El
   // usuario nunca tiene que recordar presionar Recalcular para poblar la vista.
   await convCargar(false);
-  await convSincronizarAutomatico();
+  // El recálculo completo es costoso. Solo se ejecuta automáticamente cuando
+  // todavía no existe información y nunca más de una vez cada diez minutos.
+  if(!(convData.filas||[]).length)await convSincronizarAutomatico();
 }
 async function convCargar(){
   const anio=Number(document.getElementById('conv-anio').value)||ANIO_LECTIVO_ACTIVO;
@@ -27204,6 +27200,9 @@ async function convSincronizarAutomatico(){
   if(convSincronizacionEnCurso)return;
   const anio=Number(document.getElementById('conv-anio').value)||ANIO_LECTIVO_ACTIVO;
   if(anio!==Number(ANIO_LECTIVO_ACTIVO))return;
+  const clave=`conv-sync-${anio}-${ME?.id||'usuario'}`,ahora=Date.now(),ultima=Number(sessionStorage.getItem(clave)||0);
+  if(ahora-ultima<10*60*1000)return;
+  sessionStorage.setItem(clave,String(ahora));
   convSincronizacionEnCurso=true;
   const cont=document.getElementById('conv-listado');
   if(!(convData.filas||[]).length)cont.innerHTML='<div class="empty">Actualizando automáticamente las convocatorias desde las notas registradas…</div>';
@@ -27265,6 +27264,8 @@ function convRenderGestion(filas,estadoFiltro=''){
         : Number(x.total_aplazadas)>Number(x.limite_institucional)
           ? '<span class="badge danger">Repite · Supera el límite</span>'
           : `<span class="badge warning">Con derecho · Máximo ${x.limite_institucional}</span>`;
+      const marcas=Array.isArray(x.marcas_ausentismo)?x.marcas_ausentismo:[];
+      const trazabilidad=marcas.length?`<div style="margin-top:7px;font-size:11px;line-height:1.45;color:#7f1d1d;">${marcas.map(m=>`<div><strong>Marcó:</strong> ${htmlSeguro(m.profesor_nombre||'Funcionario no identificado')} · ${htmlSeguro(m.materia||'Materia no indicada')}${m.confirmada_at?` · ${fmtF(m.confirmada_at)} ${String(m.confirmada_at).slice(11,16)}`:''}</div>`).join('')}</div>`:'';
       const detalleMaterias=g.materias.map(m=>{
         const resultados=[m.primera_nota!=null?`1.ª: ${Number(m.primera_nota).toFixed(1)}`:'',m.segunda_nota!=null?`2.ª: ${Number(m.segunda_nota).toFixed(1)}`:'',m.estrategia_nota!=null?`Estrategia: ${Number(m.estrategia_nota).toFixed(1)}`:''].filter(Boolean).join(' · ')||'Sin resultados';
         const estado=m.sin_derecho_esta_materia?'Sin derecho por ausentismo':(CONV_ESTADOS[m.estado]||m.estado);
@@ -27272,15 +27273,17 @@ function convRenderGestion(filas,estadoFiltro=''){
         return `<tr><td><strong>${htmlSeguro(m.materia_nombre)}</strong>${m.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(m.periodo_origen)}</small>`:''}</td><td>${Number(m.nota_origen).toFixed(2)} / ${Number(m.nota_minima).toFixed(0)}</td><td>${htmlSeguro(m.profesor_nombre||'—')}</td><td><span class="badge ${convClase(m.sin_derecho_esta_materia?'bloqueada':m.estado)}">${htmlSeguro(estado)}</span><br><small>${htmlSeguro(resultados)}</small></td><td>${boton}</td></tr>`;
       }).join('');
       const conducta=x.conducta_incluida?'<div style="font-size:11px;color:var(--muted);margin-top:7px;">Conducta está incluida una sola vez en el total y se consulta en su módulo propio.</div>':'';
-      return `<tr><td><strong style="${alerta?'color:#b91c1c;':''}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong></td><td style="text-align:center;"><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong></button></td><td>${condicion}</td><td><details><summary class="btn btn-outline btn-xs" style="cursor:pointer;display:inline-block;">Ver materias (${g.materias.length})</summary><div style="margin-top:8px;min-width:650px;"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Nota</th><th>Docente</th><th>Estado / resultados</th><th></th></tr></thead><tbody>${detalleMaterias}</tbody></table>${conducta}</div></details></td></tr>`;
+      return `<tr><td><strong style="${alerta?'color:#b91c1c;':''}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong></td><td style="text-align:center;"><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong></button></td><td>${condicion}${trazabilidad}</td><td><details><summary class="btn btn-outline btn-xs" style="cursor:pointer;display:inline-block;">Ver materias (${g.materias.length})</summary><div style="margin-top:8px;min-width:650px;"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Nota</th><th>Docente</th><th>Estado / resultados</th><th></th></tr></thead><tbody>${detalleMaterias}</tbody></table>${conducta}</div></details></td></tr>`;
     }).join('')}</tbody></table></div></section>`).join('');
 }
 function convExplicarConteo(expedienteId){
   const filas=(convData.filas||[]).filter(x=>String(x.expediente_id)===String(expedienteId)),x=filas[0];if(!x)return;
   const conducta=x.conducta_incluida?' Conducta está incluida una sola vez en ese total, pero se consulta y resuelve desde Expedientes de Conducta.':'';
   const ausentismo=x.sin_derecho_ausentismo?(x.sin_derecho_esta_materia?'\n\nEsta asignatura originó una marca sin derecho por ausentismo. El estudiante debe repetir el curso lectivo completo.':'\n\nExiste una marca institucional sin derecho por ausentismo en otra asignatura. Por confidencialidad, al docente solo se le muestra el asterisco. El estudiante debe repetir el curso lectivo completo.') : '';
+  const marcas=convData.ve_detalle&&Array.isArray(x.marcas_ausentismo)?x.marcas_ausentismo:[];
+  const auditoria=marcas.length?`\n\nTrazabilidad de la marca:\n${marcas.map(m=>`• ${m.profesor_nombre||'Funcionario no identificado'} · ${m.materia||'Materia no indicada'}${m.confirmada_at?' · '+fmtF(m.confirmada_at):''}`).join('\n')}`:'';
   const base=`El estudiante registra ${x.total_aplazadas} materia(s) contabilizada(s). Para su nivel puede presentar hasta ${x.limite_institucional}; con ${Number(x.limite_institucional)+1} o más debe repetir el curso lectivo.${conducta}${ausentismo}`;
-  alert(convData.ve_detalle?`${base}\n\nMaterias académicas visibles en Convocatoria:\n${filas.map(y=>`• ${y.materia_nombre}${y.periodo_origen!=='Anual'?' — '+y.periodo_origen:''}`).join('\n')}`:base);
+  alert(convData.ve_detalle?`${base}${auditoria}\n\nMaterias académicas visibles en Convocatoria:\n${filas.map(y=>`• ${y.materia_nombre}${y.periodo_origen!=='Anual'?' — '+y.periodo_origen:''}`).join('\n')}`:base);
 }
 async function convRegistrar(id,etapa){
   const fila=(convData.filas||[]).find(x=>Number(x.id)===Number(id));if(!fila)return;

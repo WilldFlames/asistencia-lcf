@@ -1,0 +1,16 @@
+CONVOCATORIA - TRAZABILIDAD DE MARCAS DE AUSENTISMO
+Fecha: 19 de octubre de 2026
+
+CAMBIO REALIZADO
+- Administración y auxiliares pueden ver quién confirmó la marca "sin derecho por ausentismo".
+- La vista institucional muestra el funcionario, la materia y la fecha de confirmación.
+- El detalle del conteo también incluye esta trazabilidad.
+- Los profesores continúan viendo únicamente el asterisco institucional cuando la marca pertenece a otra materia.
+- El servidor elimina el nombre y la trazabilidad de la respuesta enviada a profesores, por lo que la privacidad no depende solo de la pantalla.
+
+VERIFICACIÓN
+- Prueba específica de Convocatoria: correcta.
+- Suite completa: 322 pruebas correctas, 0 errores.
+
+INSTALACIÓN
+Subir el contenido completo de este paquete y desplegar normalmente. No requiere borrar información ni ejecutar instrucciones manuales sobre la base de datos.

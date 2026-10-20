@@ -71,7 +71,8 @@ async function actualizarConvocatoriaPorAusentismo(estudianteId, anio) {
   await pool.query(`UPDATE convocatoria_expedientes ce SET condicion=CASE
       WHEN ce.condicion IN ('aprobado','repite') THEN ce.condicion
       WHEN EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
-        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true) THEN 'bloqueado_ausentismo'
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true
+          AND ca.confirmada_docente=true) THEN 'bloqueado_ausentismo'
       WHEN ce.total_aplazadas>ce.limite_institucional THEN 'bloqueado_limite'
       ELSE 'con_derecho' END,
       sincronizado_at=NOW()
@@ -394,7 +395,7 @@ router.get("/convocatoria/candidatos", requireDocente, async (req, res) => {
     const porcentaje=x.total_lecciones
       ? Math.round((Number(x.ausencias)/Number(x.total_lecciones))*10000)/100 : 0;
     return {...x,porcentaje,fecha_desde:rango.desde,fecha_hasta:rango.hasta,
-      sin_derecho:porcentaje>20};
+      requiere_revision:porcentaje>20};
   });
   res.json(salida);
 });
@@ -413,7 +414,7 @@ router.get("/convocatoria/registros", requireDocente, async (req, res) => {
     JOIN usuarios u ON u.id=ca.profesor_id
     LEFT JOIN notificaciones_ampliacion_asistencia na ON na.convocatoria_id=ca.id
     LEFT JOIN usuarios ue ON ue.id=na.entregada_por
-    WHERE ca.anio=$1 AND ca.activa=true ${admin?'':'AND ca.profesor_id=$2'}
+    WHERE ca.anio=$1 AND ca.activa=true AND ca.confirmada_docente=true ${admin?'':'AND ca.profesor_id=$2'}
     ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre,ca.materia
   `,admin?[anio]:[anio,u.id]);
   res.json(r.rows);
@@ -436,7 +437,7 @@ router.post("/convocatoria/:id/notificar", requireDocente, async(req,res)=>{
       FROM encargados WHERE estudiante_id=e.id
       ORDER BY es_principal DESC NULLS LAST,id LIMIT 1
     ) enc ON true
-    WHERE ca.id=$1 AND ca.activa=true AND ($2::boolean=true OR ca.profesor_id=$3)`,
+    WHERE ca.id=$1 AND ca.activa=true AND ca.confirmada_docente=true AND ($2::boolean=true OR ca.profesor_id=$3)`,
     [req.params.id,admin,u.id]);
   if(!base.rows.length) return res.status(404).json({error:"La marca no existe o no pertenece al docente."});
   const x=base.rows[0];
@@ -460,9 +461,13 @@ router.post("/convocatoria/:id/notificar", requireDocente, async(req,res)=>{
 
 router.post("/convocatoria/marcar", requireDocente, async (req,res)=>{
   const u=req.session.usuario;
+  if(!["profesor","profesor_guia"].includes(u.rol))
+    return res.status(403).json({error:"Únicamente el profesor responsable de la asignatura puede decidir y marcar que un estudiante no tiene derecho."});
+  if(req.body.confirmacion_docente!==true)
+    return res.status(400).json({error:"La decisión requiere confirmación expresa del profesor."});
   const asignacionId=Number(req.body.asignacion_id);
   const estudianteId=Number(req.body.estudiante_id);
-  const calculo=await calcularAusentismo(asignacionId,estudianteId,u);
+  const calculo=await calcularAusentismo(asignacionId,estudianteId,u,false);
   if(!calculo) return res.status(403).json({error:"El estudiante no pertenece a esa asignatura del docente."});
   if(!calculo.estudiante.activo || calculo.estudiante.archivado)
     return res.status(409).json({error:"Solo se puede marcar a estudiantes activos."});
@@ -475,14 +480,16 @@ router.post("/convocatoria/marcar", requireDocente, async (req,res)=>{
   const r=await pool.query(`
     INSERT INTO convocatoria_ausentismo
       (anio,estudiante_id,asignacion_id,profesor_id,materia,seccion,ausencias,total_lecciones,
-       porcentaje,fecha_desde,fecha_hasta,fundamento,observaciones,activa)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true)
+      porcentaje,fecha_desde,fecha_hasta,fundamento,observaciones,activa,
+      confirmada_docente,confirmada_por,confirmada_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true,true,$4,NOW())
     ON CONFLICT (anio,estudiante_id,asignacion_id,profesor_id) DO UPDATE SET
       materia=EXCLUDED.materia,seccion=EXCLUDED.seccion,ausencias=EXCLUDED.ausencias,
       total_lecciones=EXCLUDED.total_lecciones,porcentaje=EXCLUDED.porcentaje,
       fecha_desde=EXCLUDED.fecha_desde,fecha_hasta=EXCLUDED.fecha_hasta,
       fundamento=EXCLUDED.fundamento,observaciones=EXCLUDED.observaciones,
-      activa=true,actualizada_at=NOW()
+      activa=true,confirmada_docente=true,confirmada_por=EXCLUDED.confirmada_por,
+      confirmada_at=NOW(),actualizada_at=NOW()
     RETURNING id
   `,[calculo.rango.anio,estudianteId,asignacionId,a.profesor_id,a.materia,a.seccion_nombre,
      calculo.ausencias,calculo.total_lecciones,calculo.porcentaje,calculo.rango.desde,
@@ -495,7 +502,7 @@ router.delete("/convocatoria/:id", requireDocente, async(req,res)=>{
   const u=req.session.usuario;
   const admin=u.rol==='admin';
   const r=await pool.query(`UPDATE convocatoria_ausentismo SET activa=false,actualizada_at=NOW()
-    WHERE id=$1 AND activa=true ${admin?'':'AND profesor_id=$2'} RETURNING id,estudiante_id,anio`,
+    WHERE id=$1 AND activa=true AND confirmada_docente=true ${admin?'':'AND profesor_id=$2'} RETURNING id,estudiante_id,anio`,
     admin?[req.params.id]:[req.params.id,u.id]);
   if(!r.rows.length) return res.status(404).json({error:"Registro no encontrado."});
   await actualizarConvocatoriaPorAusentismo(r.rows[0].estudiante_id, r.rows[0].anio);

@@ -827,11 +827,19 @@ async function initDB() {
         fundamento          TEXT NOT NULL,
         observaciones       TEXT DEFAULT '',
         activa              BOOLEAN NOT NULL DEFAULT true,
+        confirmada_docente  BOOLEAN NOT NULL DEFAULT false,
+        confirmada_por      INTEGER REFERENCES usuarios(id) ON DELETE RESTRICT,
+        confirmada_at       TIMESTAMP,
         marcada_at          TIMESTAMP DEFAULT NOW(),
         actualizada_at      TIMESTAMP DEFAULT NOW(),
         UNIQUE(anio, estudiante_id, asignacion_id, profesor_id)
       )
     `);
+    // Las filas de instalaciones anteriores no se presumen autorizadas: el
+    // profesor propietario debe confirmarlas expresamente desde su botón.
+    await client.query(`ALTER TABLE convocatoria_ausentismo ADD COLUMN IF NOT EXISTS confirmada_docente BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE convocatoria_ausentismo ADD COLUMN IF NOT EXISTS confirmada_por INTEGER REFERENCES usuarios(id) ON DELETE RESTRICT`);
+    await client.query(`ALTER TABLE convocatoria_ausentismo ADD COLUMN IF NOT EXISTS confirmada_at TIMESTAMP`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_aus_prof
       ON convocatoria_ausentismo(anio, profesor_id, activa)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_aus_est
@@ -3287,6 +3295,21 @@ async function initDB() {
     await client.query(`ALTER TABLE convocatoria_materias DROP CONSTRAINT IF EXISTS convocatoria_materias_estado_check`);
     await client.query(`ALTER TABLE convocatoria_materias ADD CONSTRAINT convocatoria_materias_estado_check
       CHECK(estado IN ('bloqueada','primera_pendiente','segunda_pendiente','estrategia_pendiente','tes_pendiente','aprobada','reprobada'))`);
+    // Retirar bloqueos heredados que no tienen confirmación expresa del
+    // profesor. Se conserva el registro histórico para auditoría, pero deja de
+    // afectar Convocatoria y Matrícula hasta que el docente vuelva a marcarlo.
+    await client.query(`UPDATE convocatoria_expedientes ce SET condicion=CASE
+        WHEN ce.total_aplazadas>ce.limite_institucional THEN 'bloqueado_limite'
+        ELSE 'con_derecho' END
+      WHERE ce.condicion='bloqueado_ausentismo'
+        AND NOT EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
+          WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio
+            AND ca.activa=true AND ca.confirmada_docente=true)`);
+    await client.query(`UPDATE convocatoria_materias cm SET estado='primera_pendiente',updated_at=NOW()
+      FROM convocatoria_expedientes ce
+      WHERE ce.id=cm.expediente_id AND cm.estado='bloqueada'
+        AND ce.condicion NOT IN ('bloqueado_limite','bloqueado_ausentismo')
+        AND cm.primera_nota IS NULL AND cm.segunda_nota IS NULL AND cm.estrategia_nota IS NULL`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS convocatoria_eventos (
         id              BIGSERIAL PRIMARY KEY,

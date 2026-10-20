@@ -28,7 +28,7 @@ async function recalcularEstado(client, expedienteId) {
   const materias = (await client.query("SELECT * FROM convocatoria_materias WHERE expediente_id=$1 ORDER BY id", [expedienteId])).rows;
   const sinDerechoAusentismo = (await client.query(`SELECT EXISTS(
     SELECT 1 FROM convocatoria_ausentismo
-    WHERE estudiante_id=$1 AND anio=$2 AND activa=true
+    WHERE estudiante_id=$1 AND anio=$2 AND activa=true AND confirmada_docente=true
   ) AS existe`, [exp.estudiante_id, exp.anio])).rows[0].existe;
   if (sinDerechoAusentismo) {
     if (!exp.modo_informativo) {
@@ -209,7 +209,7 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
     estudiantes.get(f.estudiante_id).push(f);
   }
   const exclusiones = new Set((await pool.query(`SELECT DISTINCT estudiante_id
-    FROM convocatoria_ausentismo WHERE anio=$1 AND activa=true`, [anio])).rows.map(x=>Number(x.estudiante_id)));
+    FROM convocatoria_ausentismo WHERE anio=$1 AND activa=true AND confirmada_docente=true`, [anio])).rows.map(x=>Number(x.estudiante_id)));
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -281,7 +281,7 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
         conducta_incluida=EXISTS(SELECT 1 FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id AND cm.materia_nombre='Conducta'),
         condicion=CASE
           WHEN ce.condicion IN ('aprobado','repite') THEN ce.condicion
-          WHEN EXISTS(SELECT 1 FROM convocatoria_ausentismo ca WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true) THEN 'bloqueado_ausentismo'
+          WHEN EXISTS(SELECT 1 FROM convocatoria_ausentismo ca WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true AND ca.confirmada_docente=true) THEN 'bloqueado_ausentismo'
           WHEN (SELECT COUNT(*) FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id) > CASE WHEN ce.nivel<=9 THEN 6 ELSE 7 END THEN 'bloqueado_limite'
           ELSE 'con_derecho' END
       WHERE ce.anio=$1`,[anio]);
@@ -337,18 +337,31 @@ router.get("/listado", staff, async (req,res) => {
       ce.modo_informativo,ce.condicion,ce.conducta_incluida,s.nombre AS seccion_nombre,s.nivel,
       ${nombreCompleto("e")} AS estudiante_nombre,${nombreCompleto("u")} AS profesor_nombre,
       EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
-        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true) AS sin_derecho_ausentismo,
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true AND ca.confirmada_docente=true) AS sin_derecho_ausentismo,
       EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
-        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true AND ca.confirmada_docente=true
           AND ca.profesor_id=cm.profesor_id
-          AND (ca.asignacion_id=cm.asignacion_id OR LOWER(ca.materia)=LOWER(cm.materia_nombre))) AS sin_derecho_esta_materia
+          AND (ca.asignacion_id=cm.asignacion_id OR LOWER(ca.materia)=LOWER(cm.materia_nombre))) AS sin_derecho_esta_materia,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'profesor_id',COALESCE(ca.confirmada_por,ca.profesor_id),
+          'profesor_nombre',TRIM(CONCAT_WS(' ',um.nombre,um.primer_apellido,um.segundo_apellido)),
+          'materia',ca.materia,
+          'confirmada_at',ca.confirmada_at
+        ) ORDER BY ca.confirmada_at,ca.id)
+        FROM convocatoria_ausentismo ca
+        LEFT JOIN usuarios um ON um.id=COALESCE(ca.confirmada_por,ca.profesor_id)
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio
+          AND ca.activa=true AND ca.confirmada_docente=true),'[]'::jsonb) AS marcas_ausentismo
       FROM convocatoria_materias cm JOIN convocatoria_expedientes ce ON ce.id=cm.expediente_id
       JOIN estudiantes e ON e.id=ce.estudiante_id LEFT JOIN secciones s ON s.id=ce.seccion_id
       LEFT JOIN usuarios u ON u.id=cm.profesor_id
       WHERE ce.anio=$1 AND cm.materia_nombre<>'Conducta' ${alcance}
       ORDER BY s.nombre,e.primer_apellido,e.segundo_apellido,e.nombre,cm.materia_nombre,cm.periodo_origen`,params);
     const filas=r.rows.map(x=>{
-      if(!esGestion(u)) delete x.profesor_nombre;
+      if(!esGestion(u)){
+        delete x.profesor_nombre;
+        delete x.marcas_ausentismo;
+      }
       return x;
     });
     res.json({anio,modo_informativo:anio<INICIO_REGLAS,limites:{basica:6,diversificada:7},puede_sincronizar:true,ve_detalle:esGestion(u),secciones,filas});
@@ -365,7 +378,7 @@ router.post("/materia/:id/resultado", staff, async (req,res)=>{
     await client.query("BEGIN");
     const qr=await client.query(`SELECT cm.*,ce.total_aplazadas,ce.limite_institucional,ce.modo_informativo,ce.id AS exp_id,
       EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
-        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true) AS sin_derecho_ausentismo
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true AND ca.confirmada_docente=true) AS sin_derecho_ausentismo
       FROM convocatoria_materias cm JOIN convocatoria_expedientes ce ON ce.id=cm.expediente_id WHERE cm.id=$1 FOR UPDATE`,[id]);
     if(!qr.rows.length) throw Object.assign(new Error("Registro no encontrado."),{status:404});
     const m=qr.rows[0];

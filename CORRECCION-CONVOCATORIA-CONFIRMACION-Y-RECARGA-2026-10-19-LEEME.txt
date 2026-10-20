@@ -1,0 +1,19 @@
+CORRECCIÓN DE CONVOCATORIA Y RECARGAS — 19 DE OCTUBRE DE 2026
+
+1. Ausentismo no decide automáticamente
+   - Superar el 20 % solamente coloca al estudiante en "Requiere revisión".
+   - Solo el profesor propietario de la asignatura puede pulsar "Marcar sin derecho".
+   - La API exige una confirmación expresa del profesor y valida que la asignación le pertenezca.
+   - Administración y otros perfiles no pueden crear esa decisión por el docente.
+   - Convocatoria y Matrícula únicamente reconocen marcas con confirmación docente explícita.
+   - Las marcas antiguas sin confirmación dejan de bloquear, pero permanecen en la base para auditoría.
+
+2. Estabilidad y recargas
+   - Convocatoria ya no recalcula toda la institución cada vez que se abre.
+   - El cálculo automático solo ocurre si la vista está vacía y tiene un intervalo mínimo de diez minutos.
+   - El aviso de nueva versión ya no recarga la página por la fuerza ni interrumpe el trabajo.
+   - Ahora muestra un botón "Actualizar" para que la persona decida cuándo recargar.
+
+VERIFICACIÓN
+   - Suite completa: 322 pruebas aprobadas, 0 fallos.
+
