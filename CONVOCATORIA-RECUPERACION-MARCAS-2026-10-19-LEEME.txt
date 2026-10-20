@@ -1,0 +1,23 @@
+CONVOCATORIA - RECUPERACIÓN DE MARCAS MANUALES EXISTENTES
+Fecha: 19 de octubre de 2026
+
+CAUSA CORREGIDA
+La actualización que agregó el campo de confirmación dejó las marcas antiguas
+con confirmada_docente=false. Por eso la pantalla no recibía ninguna marca y no
+podía mostrar ni el asterisco ni el color rojo.
+
+SOLUCIÓN
+- Al iniciar el despliegue se recuperan las marcas históricas creadas con el botón manual.
+- Se registra como responsable al profesor propietario de la marca.
+- Se conserva la fecha histórica disponible.
+- No se crean marcas nuevas automáticamente por superar el 20 %.
+- Los profesores ajenos ven solamente el asterisco.
+- El profesor que marcó ve el estudiante rojo.
+- Auxiliares y Administración ven rojo y la trazabilidad completa.
+
+La recuperación es idempotente: puede ejecutarse en cada inicio sin duplicar ni
+alterar nuevamente las filas ya confirmadas.
+
+VERIFICACIÓN
+- Pruebas focalizadas: 21 correctas.
+- Suite completa: 322 pruebas correctas, 0 errores.

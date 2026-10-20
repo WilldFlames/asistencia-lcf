@@ -41,6 +41,8 @@ test('una sola exclusión por ausentismo actualiza el control institucional comp
 
 test('el porcentaje solo propone revisión y únicamente el profesor confirma la exclusión',()=>{
   assert.match(db,/confirmada_docente\s+BOOLEAN NOT NULL DEFAULT false/);
+  assert.match(db,/UPDATE convocatoria_ausentismo SET[\s\S]*confirmada_docente=true,[\s\S]*confirmada_por=profesor_id,[\s\S]*confirmada_at=COALESCE\(actualizada_at,marcada_at,NOW\(\)\)/);
+  assert.match(db,/WHERE confirmada_docente=false[\s\S]*AND confirmada_por IS NULL[\s\S]*AND confirmada_at IS NULL/);
   assert.match(cartas,/requiere_revision:porcentaje>20/);
   assert.match(cartas,/confirmacion_docente!==true/);
   assert.match(cartas,/calcularAusentismo\(asignacionId,estudianteId,u,false\)/);

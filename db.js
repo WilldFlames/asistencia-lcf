@@ -835,11 +835,21 @@ async function initDB() {
         UNIQUE(anio, estudiante_id, asignacion_id, profesor_id)
       )
     `);
-    // Las filas de instalaciones anteriores no se presumen autorizadas: el
-    // profesor propietario debe confirmarlas expresamente desde su botón.
     await client.query(`ALTER TABLE convocatoria_ausentismo ADD COLUMN IF NOT EXISTS confirmada_docente BOOLEAN NOT NULL DEFAULT false`);
     await client.query(`ALTER TABLE convocatoria_ausentismo ADD COLUMN IF NOT EXISTS confirmada_por INTEGER REFERENCES usuarios(id) ON DELETE RESTRICT`);
     await client.query(`ALTER TABLE convocatoria_ausentismo ADD COLUMN IF NOT EXISTS confirmada_at TIMESTAMP`);
+    // Antes de existir estas tres columnas, convocatoria_ausentismo solamente
+    // recibía filas desde el botón manual "Marcar sin derecho" del profesor.
+    // Recuperar esa decisión histórica evita que una actualización borre de la
+    // vista el asterisco y el color rojo. El cálculo superior al 20 % continúa
+    // siendo solo un candidato y no inserta ninguna fila por sí mismo.
+    await client.query(`UPDATE convocatoria_ausentismo SET
+        confirmada_docente=true,
+        confirmada_por=profesor_id,
+        confirmada_at=COALESCE(actualizada_at,marcada_at,NOW())
+      WHERE confirmada_docente=false
+        AND confirmada_por IS NULL
+        AND confirmada_at IS NULL`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_aus_prof
       ON convocatoria_ausentismo(anio, profesor_id, activa)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_conv_aus_est
