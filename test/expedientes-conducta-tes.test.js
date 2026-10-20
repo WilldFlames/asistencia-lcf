@@ -5,6 +5,7 @@ const path=require("node:path");
 const root=path.join(__dirname,"..");
 const read=f=>fs.readFileSync(path.join(root,f),"utf8");
 const db=read("db.js"),routes=read("routes/expedientesConducta.js"),front=read("public/index.html"),dp=read("routes/debidosProcesos.js");
+const sincronizacion=read("utils/sincronizar-expediente-conducta.js"),conducta=read("routes/conducta.js");
 
 test("expedientes de conducta conserva consecutivo, siete pasos y cierre auditable",()=>{
   assert.match(db,/CREATE TABLE IF NOT EXISTS expedientes_conducta_tes/);
@@ -114,6 +115,26 @@ test("Conducta usa la nota definitiva del TES sin borrar boletas ni períodos",(
   assert.match(front,/Resultado definitivo por TES/);
   assert.match(routes,/nota_final_conducta=CASE WHEN \$2='aprobado'/);
   assert.match(read("routes/conducta.js"),/resultado-tes/);
+});
+
+test("cualquier cambio de nota invalida solo el expediente abierto y libera su consecutivo",()=>{
+  assert.match(db,/CREATE TABLE IF NOT EXISTS expedientes_conducta_cancelados/);
+  assert.match(db,/expediente_snapshot JSONB/);
+  assert.match(sincronizacion,/WHERE estudiante_id=\$1 AND anio=\$2 AND estado='en_curso'/);
+  assert.match(sincronizacion,/INSERT INTO expedientes_conducta_cancelados/);
+  assert.match(sincronizacion,/Math\.abs\(notaExpediente - nota\.nota_anual\)/);
+  assert.match(sincronizacion,/la nota anual cambió de/);
+  assert.match(sincronizacion,/DELETE FROM expedientes_conducta_tes\s+WHERE id=\$1 AND estado='en_curso'/);
+  assert.match(routes,/sincronizarExpedientesConductaAbiertos\(anio\)/);
+  assert.match(routes,/generate_series\(1,/);
+  assert.doesNotMatch(routes,/COALESCE\(MAX\(numero\),0\)\+1 AS numero/);
+});
+
+test("agregar o retirar una boleta revalida inmediatamente el expediente en curso",()=>{
+  assert.match(conducta,/sincronizarExpedienteConductaAbierto\(estudiante_id,anioBoleta\)/);
+  assert.match(conducta,/DELETE FROM boletas_conducta WHERE id=\$1 RETURNING estudiante_id,fecha::text/);
+  assert.match(conducta,/sincronizarExpedienteConductaAbierto\(x\.estudiante_id,anioBoleta\)/);
+  assert.match(routes,/notaActual\.nota_anual>=notaActual\.minimo/);
 });
 
 test("desestimar cierra, imprime y permite reimprimir la carta independiente",()=>{

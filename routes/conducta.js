@@ -4,6 +4,7 @@ const { requireAuth, requireRol } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 const { notificarEstudiante } = require("../utils/push-familias");
 const { exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
+const { sincronizarExpedienteConductaAbierto } = require("../utils/sincronizar-expediente-conducta");
 
 const canManage = requireRol("admin","auxiliar","profesor_guia");
 
@@ -99,6 +100,8 @@ router.post("/", canManage, async (req, res) => {
     INSERT INTO boletas_conducta (estudiante_id, infraccion_id, asignacion_id, usuario_apoyo_id, registrado_por, fecha, observacion)
     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
   `, [estudiante_id, infraccion_id, asigFinal, apoyoFinal, req.session.usuario.id, fecha, observacion||""]);
+  const anioBoleta=Number(String(fecha).slice(0,4))||await obtenerAnioActivo();
+  await sincronizarExpedienteConductaAbierto(estudiante_id,anioBoleta);
   await notificarEstudiante(estudiante_id, {
     title: "Nueva boleta de conducta",
     body: "Se registró una boleta de conducta para {estudiante}. Ingrese al portal para revisar la información.",
@@ -110,7 +113,11 @@ router.post("/", canManage, async (req, res) => {
 
 // ── ELIMINAR BOLETA ───────────────────────────────────────────────────────────
 router.delete("/:id", canManage, async (req, res) => {
-  await pool.query("DELETE FROM boletas_conducta WHERE id=$1", [req.params.id]);
+  const borrada=await pool.query("DELETE FROM boletas_conducta WHERE id=$1 RETURNING estudiante_id,fecha::text", [req.params.id]);
+  if(borrada.rows.length){
+    const x=borrada.rows[0], anioBoleta=Number(String(x.fecha).slice(0,4))||await obtenerAnioActivo();
+    await sincronizarExpedienteConductaAbierto(x.estudiante_id,anioBoleta);
+  }
   res.json({ ok: true });
 });
 

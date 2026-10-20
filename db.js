@@ -2580,6 +2580,30 @@ async function initDB() {
       aprobado_en TIMESTAMP DEFAULT NOW(),
       UNIQUE(expediente_id,usuario_id)
     )`);
+    // Cuando una corrección o apelación eleva la nota, el expediente que aún
+    // está en curso deja de corresponder. Se libera su consecutivo, pero esta
+    // tabla conserva la fotografía completa para trazabilidad institucional.
+    await client.query(`CREATE TABLE IF NOT EXISTS expedientes_conducta_cancelados (
+      id BIGSERIAL PRIMARY KEY,
+      expediente_id_original INTEGER NOT NULL UNIQUE,
+      numero INTEGER NOT NULL,
+      anio INTEGER NOT NULL,
+      estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE RESTRICT,
+      seccion_id INTEGER REFERENCES secciones(id) ON DELETE SET NULL,
+      guia_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      creado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      nota_anual_previa NUMERIC(5,2),
+      nota_anual_actual NUMERIC(5,2) NOT NULL,
+      minimo NUMERIC(5,2) NOT NULL,
+      estado_original TEXT NOT NULL,
+      expediente_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+      pasos_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+      aprobaciones_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+      motivo TEXT NOT NULL,
+      cancelado_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_conducta_cancelados_estudiante
+      ON expedientes_conducta_cancelados(estudiante_id,anio)`);
 
     // Comité Técnico Asesor: calendarios de pruebas y cuidos docentes.
     await client.query(`CREATE TABLE IF NOT EXISTS calendarios_pruebas (

@@ -1,0 +1,15 @@
+REPORTES DE ASISTENCIA PARA PROFESOR REGULAR
+Fecha: 20 de octubre de 2026
+
+CAMBIO REALIZADO
+- Se habilita el módulo Reportes para docentes que no son profesores guía.
+- El profesor regular ve únicamente sus propias asignaciones.
+- Cada opción identifica materia, sección y grupo A/B o grupo completo.
+- El informe contiene únicamente la asistencia registrada en la asignación seleccionada.
+- El profesor guía conserva adicionalmente el informe completo de su sección guía.
+- El profesor regular no recibe acceso al módulo general de Estudiantes ni a secciones ajenas.
+- Administración, auxiliares y Orientación conservan sus alcances actuales.
+
+VERIFICACIÓN
+- Pruebas focalizadas: 15 correctas.
+- Suite completa: 323 pruebas correctas, 0 errores.

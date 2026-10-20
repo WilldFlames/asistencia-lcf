@@ -2,6 +2,11 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerCalendario } = require("../utils/lectivo");
+const {
+  calcularNotaAnualConducta,
+  sincronizarExpedienteConductaAbierto,
+  sincronizarExpedientesConductaAbiertos,
+} = require("../utils/sincronizar-expediente-conducta");
 
 const PROYECTOS = ["reparacion_comunitaria","aseo_comunitario","aprendizaje_servicio"];
 const esAdmin = u => u?.rol === "admin";
@@ -53,6 +58,9 @@ router.get("/listado", requireAuth, async (req,res)=>{
   try{
     const u=req.session.usuario;
     const anio=Number(req.query.anio)||await obtenerAnioActivo();
+    // Revalida también cambios provenientes de apelaciones, asistencia,
+    // debidos procesos u otras pantallas antes de construir el listado.
+    await sincronizarExpedientesConductaAbiertos(anio);
     const cal=await obtenerCalendario(anio);
     const desdeI=cal.periodo_i_inicio||`${anio}-01-01`, hastaI=cal.periodo_i_fin||`${anio}-06-30`;
     const desdeII=cal.periodo_ii_inicio||`${anio}-07-01`, hastaII=cal.periodo_ii_fin||`${anio}-12-31`;
@@ -100,10 +108,19 @@ router.post("/abrir", requireAuth, async (req,res)=>{
     const existente=await client.query("SELECT id FROM expedientes_conducta_tes WHERE estudiante_id=$1 AND anio=$2",[estudianteId,anio]);
     if(existente.rows.length){await client.query("ROLLBACK");return res.json({ok:true,id:existente.rows[0].id,existente:true});}
     await client.query("SELECT pg_advisory_xact_lock($1,$2)",[31877,anio]);
-    const nr=await client.query("SELECT COALESCE(MAX(numero),0)+1 AS numero FROM expedientes_conducta_tes WHERE anio=$1",[anio]);
+    // Usa el menor consecutivo positivo libre. Así, si un expediente en curso
+    // fue cancelado por actualización de nota, su número queda disponible.
+    const nr=await client.query(`SELECT n AS numero
+      FROM generate_series(1,
+        COALESCE((SELECT MAX(numero) FROM expedientes_conducta_tes WHERE anio=$1),0)+1) n
+      WHERE NOT EXISTS(SELECT 1 FROM expedientes_conducta_tes e WHERE e.anio=$1 AND e.numero=n)
+      ORDER BY n LIMIT 1`,[anio]);
     const guia=await client.query(`SELECT profesor_id FROM seccion_guia_anio WHERE seccion_id=$1 AND anio=$2
       UNION ALL SELECT profesor_id FROM seccion_guia WHERE seccion_id=$1 LIMIT 1`,[sec.seccion_id,anio]);
-    const notaAnual=Number.isFinite(Number(req.body.nota_anual))?Math.max(0,Math.min(100,Number(req.body.nota_anual))):null;
+    const notaActual=await calcularNotaAnualConducta(estudianteId,anio,client);
+    if(!notaActual || notaActual.nota_anual>=notaActual.minimo)
+      throw new Error("El estudiante ya alcanza la nota mínima de conducta y no requiere abrir un expediente.");
+    const notaAnual=notaActual.nota_anual;
     const r=await client.query(`INSERT INTO expedientes_conducta_tes(numero,anio,estudiante_id,seccion_id,guia_id,creado_por,estado,nota_anual)
       VALUES($1,$2,$3,$4,$5,$6,'en_curso',$7) RETURNING id`,[nr.rows[0].numero,anio,estudianteId,sec.seccion_id,guia.rows[0]?.profesor_id||u.id,u.id,notaAnual]);
     await client.query(`INSERT INTO expedientes_conducta_pasos(expediente_id,paso,contenido)
@@ -116,9 +133,15 @@ router.post("/abrir", requireAuth, async (req,res)=>{
 
 router.get("/:id", requireAuth, async (req,res)=>{
   try{
-    const ec=await cargarExpediente(req.params.id);
+    let ec=await cargarExpediente(req.params.id);
     if(!ec) return res.status(404).json({error:"Expediente no encontrado."});
     if(!await puedeVer(req.session.usuario,ec)) return res.status(403).json({error:"No tiene acceso a este expediente."});
+    const sincronizado=await sincronizarExpedienteConductaAbierto(ec.estudiante_id,ec.anio);
+    if(sincronizado.eliminado) return res.status(409).json({
+      error:`El expediente se canceló automáticamente porque la nota anual cambió. La nota actual es ${sincronizado.nota_anual} y el consecutivo N.° ${sincronizado.numero} quedó disponible nuevamente.`,
+      cancelado_por_nota:true,
+    });
+    ec=await cargarExpediente(req.params.id);
     const pasos=await pool.query(`SELECT p.*,u.nombre AS completado_nombre,u.primer_apellido AS completado_ap1,u.segundo_apellido AS completado_ap2
       FROM expedientes_conducta_pasos p LEFT JOIN usuarios u ON u.id=p.completado_por WHERE p.expediente_id=$1 ORDER BY paso`,[ec.id]);
     const tipoComite=await tipoComiteActivo();

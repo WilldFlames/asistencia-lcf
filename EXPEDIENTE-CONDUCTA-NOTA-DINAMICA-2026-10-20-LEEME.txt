@@ -1,0 +1,33 @@
+EXPEDIENTE DE CONDUCTA: NOTA DINÁMICA Y CONSECUTIVO REUTILIZABLE
+Fecha: 20 de octubre de 2026
+
+Cambios incluidos
+-----------------
+1. Los expedientes de conducta que siguen en curso se revalidan con las
+   boletas actuales cada vez que se consulta el módulo.
+2. Al agregar o eliminar una boleta desde Conducta, la revalidación se hace
+   inmediatamente.
+3. Si la nota no cambió, el expediente permanece intacto.
+4. Si la nota cambia en cualquier dirección, el expediente en curso deja de
+   aparecer automáticamente. Esto incluye tanto nuevas boletas que bajan la
+   nota como apelaciones o correcciones que la suben.
+5. Antes de retirarlo se guarda una instantánea técnica de sus datos, pasos y
+   aprobaciones en expedientes_conducta_cancelados para auditoría.
+6. Los expedientes ya concluidos no se modifican ni eliminan.
+7. El próximo expediente usa el menor consecutivo positivo disponible; por
+   eso el número cancelado puede utilizarse nuevamente. Si el estudiante aún
+   está aplazado, puede abrirse otra vez con la nota actual y ese consecutivo.
+8. Ya no se permite abrir un expediente si el estudiante actualmente alcanza
+   la nota mínima de conducta.
+
+Instalación
+-----------
+Subir el contenido completo del ZIP y desplegar normalmente. Durante el
+arranque, db.js crea automáticamente la tabla de auditoría nueva. No se debe
+ejecutar ningún borrado manual ni restaurar la base de datos.
+
+Verificación realizada
+----------------------
+- Sintaxis de los archivos modificados: correcta.
+- Pruebas específicas de Expedientes de Conducta: correctas.
+- Suite completa: 325 pruebas aprobadas, 0 fallos.

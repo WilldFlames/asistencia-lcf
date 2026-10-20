@@ -33,6 +33,15 @@ test('el reporte distingue claramente guía de profesor de materia',()=>{
   assert.match(front,/asignacion_id=\$\{alcance\.asignacion_id\}/);
 });
 
+test('el profesor regular puede abrir Reportes pero conserva únicamente sus asignaciones',()=>{
+  assert.match(front,/if\(esAdmin\|\|esAuxiliar\|\|esProfesor\|\|esGuia\|\|esOrientador\)\{\s*document\.getElementById\("sec-gestion"\)[\s\S]*?nav-reportes/);
+  assert.doesNotMatch(front,/if\(esAdmin\|\|esAuxiliar\|\|esProfesor\|\|esGuia\|\|esOrientador\)\{[\s\S]{0,180}?nav-estudiantes/);
+  assert.match(rutas,/WHERE a\.profesor_id=\$1 AND \(a\.anio=\$2 OR a\.anio IS NULL\)/);
+  assert.match(rutas,/tipo:'materia'/);
+  assert.match(rutas,/label:`Profesor de \$\{x\.materia_nombre\}/);
+  assert.match(rutas,/Esta asignación no le pertenece/);
+});
+
 test('la materia Guía no duplica la misma sección del profesor guía',()=>{
   assert.match(rutas,/const seccionesGuia=new Set/);
   assert.match(rutas,/materiaNormalizada==='guia' && seccionesGuia\.has/);

@@ -6423,6 +6423,13 @@ async function iniciarApp(){
   if(esAdmin||esAuxiliar||esGuia||esOrientador){
     document.getElementById("sec-gestion").style.display="";
     document.getElementById("nav-estudiantes").style.display="";
+  }
+  // Reportes de asistencia:
+  // - el profesor regular consulta únicamente sus propias asignaciones;
+  // - el profesor guía agrega el informe completo de su sección;
+  // - Orientación, auxiliares y Administración conservan su alcance institucional.
+  if(esAdmin||esAuxiliar||esProfesor||esGuia||esOrientador){
+    document.getElementById("sec-gestion").style.display="";
     document.getElementById("nav-reportes").style.display="";
   }
   // LCF Familias no se hereda por rol ni por pertenecer a Matrícula.
