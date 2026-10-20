@@ -342,6 +342,12 @@ router.get("/listado", staff, async (req,res) => {
         WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true AND ca.confirmada_docente=true
           AND ca.profesor_id=cm.profesor_id
           AND (ca.asignacion_id=cm.asignacion_id OR LOWER(ca.materia)=LOWER(cm.materia_nombre))) AS sin_derecho_esta_materia,
+      EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
+        WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true AND ca.confirmada_docente=true
+          -- El profesor que confirmó la exclusión reconoce al estudiante en
+          -- todo su registro, aunque cambie el id de asignación entre períodos.
+          -- Para cualquier otro docente la identidad continúa siendo anónima.
+          AND COALESCE(ca.confirmada_por,ca.profesor_id)=cm.profesor_id) AS sin_derecho_marcada_por_docente,
       COALESCE((SELECT jsonb_agg(jsonb_build_object(
           'profesor_id',COALESCE(ca.confirmada_por,ca.profesor_id),
           'profesor_nombre',TRIM(CONCAT_WS(' ',um.nombre,um.primer_apellido,um.segundo_apellido)),

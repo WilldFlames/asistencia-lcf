@@ -35,8 +35,10 @@ test('una exclusión por ausentismo se propaga sin revelar otra materia al docen
   assert.match(route,/bloqueado_ausentismo/);
   assert.match(route,/sin_derecho_ausentismo/);
   assert.match(route,/sin_derecho_esta_materia/);
-  assert.match(ui,/Esta asignatura originó una marca sin derecho por ausentismo/);
-  assert.match(ui,/Por confidencialidad, al docente solo se le muestra el asterisco/);
+  assert.match(route,/COALESCE\(ca\.confirmada_por,ca\.profesor_id\)=cm\.profesor_id\) AS sin_derecho_marcada_por_docente/);
+  assert.match(ui,/Usted confirmó una marca sin derecho por ausentismo/);
+  assert.match(ui,/Por confidencialidad, solo se muestra el asterisco/);
+  assert.match(ui,/const nombreRojo=x\.sin_derecho_marcada_por_docente\?'color:#b91c1c;':''/);
 });
 
 test('2026 es informativo y desde 2027 matrícula obedece la condición final',()=>{
@@ -70,6 +72,9 @@ test('administración y auxiliares ven una fila por estudiante y despliegan sus 
   assert.match(ui,/<strong>Marcó:<\/strong>/);
   assert.match(ui,/m\.profesor_nombre/);
   assert.match(ui,/Trazabilidad de la marca/);
+  assert.match(ui,/const marcadoSinDerecho=Boolean\(x\.sin_derecho_ausentismo\)\|\|marcas\.length>0/);
+  assert.match(ui,/marcadoSinDerecho\?'background:#fff1f2;':''/);
+  assert.match(ui,/Sin derecho a convocatoria<\/small>/);
 });
 
 test('la interfaz identifica el modo prueba y no revela materias ajenas al docente',()=>{

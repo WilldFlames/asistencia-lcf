@@ -27233,7 +27233,7 @@ function convRender(){
     <h3 style="margin:0;padding:10px 12px;background:#eaf2fb;color:var(--azul);border:1px solid #d4e1ef;border-radius:9px 9px 0 0;">Sección ${htmlSeguro(seccion)} · ${new Set(registros.map(x=>x.estudiante_id)).size} estudiante(s)</h3>
     <div class="table-wrap" style="border-radius:0 0 9px 9px;"><table><thead><tr><th>Estudiante</th><th>Materia</th><th>Nota anual</th><th>Aplazadas</th><th>Estado</th><th>Resultados</th><th></th></tr></thead><tbody>${registros.map(x=>{
     const alerta=Number(x.total_aplazadas)>Number(x.limite_institucional)||x.sin_derecho_ausentismo;
-    const nombreRojo=x.sin_derecho_esta_materia?'color:#b91c1c;':'';
+    const nombreRojo=x.sin_derecho_marcada_por_docente?'color:#b91c1c;':'';
     const asterisco=x.sin_derecho_ausentismo?` <span style="color:#b91c1c;font-weight:900;" title="Existe una marca institucional sin derecho por ausentismo">*</span>`:'';
     const detalle=convData.ve_detalle?`<br><small>Docente: ${htmlSeguro(x.profesor_nombre||'—')}</small>`:'';
     const resultados=[x.primera_nota!=null?`1.ª: ${Number(x.primera_nota).toFixed(1)}`:'',x.segunda_nota!=null?`2.ª: ${Number(x.segunda_nota).toFixed(1)}`:'',x.estrategia_nota!=null?`Estrategia: ${Number(x.estrategia_nota).toFixed(1)}`:''].filter(Boolean).join('<br>')||'—';
@@ -27257,14 +27257,15 @@ function convRenderGestion(filas,estadoFiltro=''){
   cont.innerHTML=[...porSeccion.entries()].map(([seccion,grupos])=>`<section style="margin:0 0 18px;">
     <h3 style="margin:0;padding:10px 12px;background:#eaf2fb;color:var(--azul);border:1px solid #d4e1ef;border-radius:9px 9px 0 0;">Sección ${htmlSeguro(seccion)} · ${grupos.length} estudiante(s)</h3>
     <div class="table-wrap" style="border-radius:0 0 9px 9px;"><table><thead><tr><th>Estudiante</th><th style="width:125px;text-align:center;">Aplazadas</th><th>Condición institucional</th><th style="width:210px;">Materias</th></tr></thead><tbody>${grupos.map(g=>{
-      const x=g.base,alerta=Number(x.total_aplazadas)>Number(x.limite_institucional)||x.sin_derecho_ausentismo;
+      const x=g.base,marcas=Array.isArray(x.marcas_ausentismo)?x.marcas_ausentismo:[];
+      const marcadoSinDerecho=Boolean(x.sin_derecho_ausentismo)||marcas.length>0;
+      const alerta=Number(x.total_aplazadas)>Number(x.limite_institucional)||marcadoSinDerecho;
       const asterisco=alerta?' <span style="color:#b91c1c;font-weight:900;" title="Requiere atención institucional">*</span>':'';
-      const condicion=x.sin_derecho_ausentismo
+      const condicion=marcadoSinDerecho
         ? '<span class="badge danger">Repite · Sin derecho por ausentismo</span>'
         : Number(x.total_aplazadas)>Number(x.limite_institucional)
           ? '<span class="badge danger">Repite · Supera el límite</span>'
           : `<span class="badge warning">Con derecho · Máximo ${x.limite_institucional}</span>`;
-      const marcas=Array.isArray(x.marcas_ausentismo)?x.marcas_ausentismo:[];
       const trazabilidad=marcas.length?`<div style="margin-top:7px;font-size:11px;line-height:1.45;color:#7f1d1d;">${marcas.map(m=>`<div><strong>Marcó:</strong> ${htmlSeguro(m.profesor_nombre||'Funcionario no identificado')} · ${htmlSeguro(m.materia||'Materia no indicada')}${m.confirmada_at?` · ${fmtF(m.confirmada_at)} ${String(m.confirmada_at).slice(11,16)}`:''}</div>`).join('')}</div>`:'';
       const detalleMaterias=g.materias.map(m=>{
         const resultados=[m.primera_nota!=null?`1.ª: ${Number(m.primera_nota).toFixed(1)}`:'',m.segunda_nota!=null?`2.ª: ${Number(m.segunda_nota).toFixed(1)}`:'',m.estrategia_nota!=null?`Estrategia: ${Number(m.estrategia_nota).toFixed(1)}`:''].filter(Boolean).join(' · ')||'Sin resultados';
@@ -27273,13 +27274,13 @@ function convRenderGestion(filas,estadoFiltro=''){
         return `<tr><td><strong>${htmlSeguro(m.materia_nombre)}</strong>${m.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(m.periodo_origen)}</small>`:''}</td><td>${Number(m.nota_origen).toFixed(2)} / ${Number(m.nota_minima).toFixed(0)}</td><td>${htmlSeguro(m.profesor_nombre||'—')}</td><td><span class="badge ${convClase(m.sin_derecho_esta_materia?'bloqueada':m.estado)}">${htmlSeguro(estado)}</span><br><small>${htmlSeguro(resultados)}</small></td><td>${boton}</td></tr>`;
       }).join('');
       const conducta=x.conducta_incluida?'<div style="font-size:11px;color:var(--muted);margin-top:7px;">Conducta está incluida una sola vez en el total y se consulta en su módulo propio.</div>':'';
-      return `<tr><td><strong style="${alerta?'color:#b91c1c;':''}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong></td><td style="text-align:center;"><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong></button></td><td>${condicion}${trazabilidad}</td><td><details><summary class="btn btn-outline btn-xs" style="cursor:pointer;display:inline-block;">Ver materias (${g.materias.length})</summary><div style="margin-top:8px;min-width:650px;"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Nota</th><th>Docente</th><th>Estado / resultados</th><th></th></tr></thead><tbody>${detalleMaterias}</tbody></table>${conducta}</div></details></td></tr>`;
+      return `<tr style="${marcadoSinDerecho?'background:#fff1f2;':''}"><td><strong style="${marcadoSinDerecho?'color:#b91c1c;font-weight:900;':alerta?'color:#b91c1c;':''}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong>${marcadoSinDerecho?'<br><small style="color:#b91c1c;font-weight:700;">Sin derecho a convocatoria</small>':''}</td><td style="text-align:center;"><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong></button></td><td>${condicion}${trazabilidad}</td><td><details><summary class="btn btn-outline btn-xs" style="cursor:pointer;display:inline-block;">Ver materias (${g.materias.length})</summary><div style="margin-top:8px;min-width:650px;"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Nota</th><th>Docente</th><th>Estado / resultados</th><th></th></tr></thead><tbody>${detalleMaterias}</tbody></table>${conducta}</div></details></td></tr>`;
     }).join('')}</tbody></table></div></section>`).join('');
 }
 function convExplicarConteo(expedienteId){
   const filas=(convData.filas||[]).filter(x=>String(x.expediente_id)===String(expedienteId)),x=filas[0];if(!x)return;
   const conducta=x.conducta_incluida?' Conducta está incluida una sola vez en ese total, pero se consulta y resuelve desde Expedientes de Conducta.':'';
-  const ausentismo=x.sin_derecho_ausentismo?(x.sin_derecho_esta_materia?'\n\nEsta asignatura originó una marca sin derecho por ausentismo. El estudiante debe repetir el curso lectivo completo.':'\n\nExiste una marca institucional sin derecho por ausentismo en otra asignatura. Por confidencialidad, al docente solo se le muestra el asterisco. El estudiante debe repetir el curso lectivo completo.') : '';
+  const ausentismo=x.sin_derecho_ausentismo?(x.sin_derecho_marcada_por_docente?'\n\nUsted confirmó una marca sin derecho por ausentismo para este estudiante. Por eso su nombre aparece en rojo en su registro. El estudiante debe repetir el curso lectivo completo.':'\n\nExiste una marca institucional sin derecho por ausentismo registrada por otro docente. Por confidencialidad, solo se muestra el asterisco. El estudiante debe repetir el curso lectivo completo.') : '';
   const marcas=convData.ve_detalle&&Array.isArray(x.marcas_ausentismo)?x.marcas_ausentismo:[];
   const auditoria=marcas.length?`\n\nTrazabilidad de la marca:\n${marcas.map(m=>`• ${m.profesor_nombre||'Funcionario no identificado'} · ${m.materia||'Materia no indicada'}${m.confirmada_at?' · '+fmtF(m.confirmada_at):''}`).join('\n')}`:'';
   const base=`El estudiante registra ${x.total_aplazadas} materia(s) contabilizada(s). Para su nivel puede presentar hasta ${x.limite_institucional}; con ${Number(x.limite_institucional)+1} o más debe repetir el curso lectivo.${conducta}${ausentismo}`;

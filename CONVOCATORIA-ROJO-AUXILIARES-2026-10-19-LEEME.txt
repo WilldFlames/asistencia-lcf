@@ -1,0 +1,15 @@
+CONVOCATORIA - MARCAS VISIBLES PARA AUXILIARES Y ADMINISTRACIÓN
+Fecha: 19 de octubre de 2026
+
+CAMBIO REALIZADO
+- Auxiliares y Administración ven en rojo a todo estudiante con una marca activa y confirmada de “sin derecho a convocatoria”.
+- El nombre aparece rojo y en negrita.
+- Toda la fila recibe un fondo rojo claro.
+- Se muestra la leyenda “Sin derecho a convocatoria”.
+- Se mantiene la trazabilidad con funcionario, materia y fecha.
+- La identificación ya no depende del orden en que aparezcan las materias del estudiante.
+- Los docentes ajenos a la marca continúan viendo únicamente el asterisco institucional.
+
+VERIFICACIÓN
+- Prueba específica de Convocatoria: correcta.
+- Suite completa: 322 pruebas correctas, 0 errores.

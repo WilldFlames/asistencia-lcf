@@ -1,0 +1,15 @@
+CONVOCATORIA - IDENTIFICACIÓN EN ROJO DE LA MARCA PROPIA
+Fecha: 19 de octubre de 2026
+
+CAMBIO REALIZADO
+- El profesor que confirmó que un estudiante no tiene derecho a convocatoria vuelve a ver su nombre en rojo dentro de su propio registro.
+- La identificación se conserva aunque cambie el identificador de la asignación entre períodos o por una reorganización del horario.
+- Los demás profesores continúan viendo únicamente el asterisco institucional, sin conocer quién colocó la marca ni en cuál materia.
+- Administración y auxiliares mantienen visible la trazabilidad completa: funcionario, materia y fecha.
+
+VERIFICACIÓN
+- Prueba específica de Convocatoria: correcta.
+- Suite completa: 322 pruebas correctas, 0 errores.
+
+INSTALACIÓN
+Subir el contenido completo de este paquete y desplegar normalmente. No elimina ni modifica las marcas existentes.
