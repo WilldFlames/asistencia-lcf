@@ -27173,7 +27173,7 @@ async function atDescargarExcel(){
 // ══════════════════════════════════════════════════════════════════════
 // CONVOCATORIA / PRUEBAS DE AMPLIACIÓN
 // ══════════════════════════════════════════════════════════════════════
-let convData={filas:[],ve_detalle:false,puede_sincronizar:false,modo_informativo:true,limites:{basica:6,diversificada:7}};
+let convData={filas:[],ve_detalle:false,puede_sincronizar:false,modo_informativo:true,limites:{basica:7,diversificada:8}};
 let convSincronizacionEnCurso=false;
 const CONV_ESTADOS={primera_pendiente:'1.ª ampliación pendiente',segunda_pendiente:'2.ª ampliación pendiente',estrategia_pendiente:'Estrategia de Promoción',tes_pendiente:'Pendiente de TES',aprobada:'Aprobada',reprobada:'Reprobada',bloqueada:'Sin derecho'};
 function convClase(estado){return estado==='aprobada'?'success':estado==='reprobada'||estado==='bloqueada'?'danger':estado==='estrategia_pendiente'?'purple':'warning';}
@@ -27195,7 +27195,7 @@ async function convCargar(){
     document.getElementById('conv-sync').style.display=convData.puede_sincronizar?'':'none';
     document.getElementById('conv-modo').innerHTML=convData.modo_informativo
       ? `<div class="alert warning show"><strong>🧪 ${anio}: modo informativo.</strong> Permite probar y registrar resultados, pero no bloquea automáticamente convocatorias ni matrícula. Las restricciones obligatorias comienzan con el curso lectivo 2027.</div>`
-      : `<div class="alert info show"><strong>Reglas vigentes:</strong> de 7.º a 9.º puede presentar hasta 6 materias (con 7 repite); en 10.º y 11.º puede presentar hasta 7 (con 8 repite). Conducta cuenta una sola vez. Una marca sin derecho por ausentismo implica repetir el curso completo.</div>`;
+      : `<div class="alert info show"><strong>Reglas vigentes:</strong> de 7.º a 9.º puede presentar hasta 7 materias (con 8 o más repite); en 10.º y 11.º puede presentar hasta 8 (con 9 o más repite). Conducta no forma parte de este conteo y se gestiona en su módulo propio. Una marca sin derecho por ausentismo implica repetir el curso completo.</div>`;
     const secciones=(convData.secciones||[]).map(x=>x.nombre).filter(Boolean);
     const sel=document.getElementById('conv-filtro-seccion'),actual=sel.value;
     sel.innerHTML=`<option value="">${convData.ve_detalle?'Todas las secciones':'Todas mis secciones'}</option>`+secciones.map(x=>`<option>${htmlSeguro(x)}</option>`).join('');
@@ -27280,17 +27280,15 @@ function convRenderGestion(filas,estadoFiltro=''){
         const boton=ME.rol==='admin'&&!m.sin_derecho_ausentismo&&['primera_pendiente','segunda_pendiente','estrategia_pendiente'].includes(m.estado)?`<button class="btn btn-primary btn-xs" onclick="convRegistrar(${m.id},'${m.estado==='primera_pendiente'?'primera':m.estado==='segunda_pendiente'?'segunda':'estrategia'}')">Registrar</button>`:'';
         return `<tr><td><strong>${htmlSeguro(m.materia_nombre)}</strong>${m.periodo_origen!=='Anual'?`<br><small>${htmlSeguro(m.periodo_origen)}</small>`:''}</td><td>${Number(m.nota_origen).toFixed(2)} / ${Number(m.nota_minima).toFixed(0)}</td><td>${htmlSeguro(m.profesor_nombre||'—')}</td><td><span class="badge ${convClase(m.sin_derecho_esta_materia?'bloqueada':m.estado)}">${htmlSeguro(estado)}</span><br><small>${htmlSeguro(resultados)}</small></td><td>${boton}</td></tr>`;
       }).join('');
-      const conducta=x.conducta_incluida?'<div style="font-size:11px;color:var(--muted);margin-top:7px;">Conducta está incluida una sola vez en el total y se consulta en su módulo propio.</div>':'';
-      return `<tr style="${marcadoSinDerecho?'background:#fff1f2;':''}"><td><strong style="${marcadoSinDerecho?'color:#b91c1c;font-weight:900;':alerta?'color:#b91c1c;':''}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong>${marcadoSinDerecho?'<br><small style="color:#b91c1c;font-weight:700;">Sin derecho a convocatoria</small>':''}</td><td style="text-align:center;"><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong></button></td><td>${condicion}${trazabilidad}</td><td><details><summary class="btn btn-outline btn-xs" style="cursor:pointer;display:inline-block;">Ver materias (${g.materias.length})</summary><div style="margin-top:8px;min-width:650px;"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Nota</th><th>Docente</th><th>Estado / resultados</th><th></th></tr></thead><tbody>${detalleMaterias}</tbody></table>${conducta}</div></details></td></tr>`;
+      return `<tr style="${marcadoSinDerecho?'background:#fff1f2;':''}"><td><strong style="${marcadoSinDerecho?'color:#b91c1c;font-weight:900;':alerta?'color:#b91c1c;':''}">${htmlSeguro(x.estudiante_nombre)}${asterisco}</strong>${marcadoSinDerecho?'<br><small style="color:#b91c1c;font-weight:700;">Sin derecho a convocatoria</small>':''}</td><td style="text-align:center;"><button class="btn btn-outline btn-xs" onclick="convExplicarConteo(${x.expediente_id})"><strong>${x.total_aplazadas}</strong></button></td><td>${condicion}${trazabilidad}</td><td><details><summary class="btn btn-outline btn-xs" style="cursor:pointer;display:inline-block;">Ver materias (${g.materias.length})</summary><div style="margin-top:8px;min-width:650px;"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Nota</th><th>Docente</th><th>Estado / resultados</th><th></th></tr></thead><tbody>${detalleMaterias}</tbody></table></div></details></td></tr>`;
     }).join('')}</tbody></table></div></section>`).join('');
 }
 function convExplicarConteo(expedienteId){
   const filas=(convData.filas||[]).filter(x=>String(x.expediente_id)===String(expedienteId)),x=filas[0];if(!x)return;
-  const conducta=x.conducta_incluida?' Conducta está incluida una sola vez en ese total, pero se consulta y resuelve desde Expedientes de Conducta.':'';
   const ausentismo=x.sin_derecho_ausentismo?(x.sin_derecho_marcada_por_docente?'\n\nUsted confirmó una marca sin derecho por ausentismo para este estudiante. Por eso su nombre aparece en rojo en su registro. El estudiante debe repetir el curso lectivo completo.':'\n\nExiste una marca institucional sin derecho por ausentismo registrada por otro docente. Por confidencialidad, solo se muestra el asterisco. El estudiante debe repetir el curso lectivo completo.') : '';
   const marcas=convData.ve_detalle&&Array.isArray(x.marcas_ausentismo)?x.marcas_ausentismo:[];
   const auditoria=marcas.length?`\n\nTrazabilidad de la marca:\n${marcas.map(m=>`• ${m.profesor_nombre||'Funcionario no identificado'} · ${m.materia||'Materia no indicada'}${m.confirmada_at?' · '+fmtF(m.confirmada_at):''}`).join('\n')}`:'';
-  const base=`El estudiante registra ${x.total_aplazadas} materia(s) contabilizada(s). Para su nivel puede presentar hasta ${x.limite_institucional}; con ${Number(x.limite_institucional)+1} o más debe repetir el curso lectivo.${conducta}${ausentismo}`;
+  const base=`El estudiante registra ${x.total_aplazadas} materia(s) académica(s) contabilizada(s). Para su nivel puede presentar hasta ${x.limite_institucional}; con ${Number(x.limite_institucional)+1} o más debe repetir el curso lectivo. Conducta no se incluye en este conteo y se gestiona desde Expedientes de Conducta.${ausentismo}`;
   alert(convData.ve_detalle?`${base}${auditoria}\n\nMaterias académicas visibles en Convocatoria:\n${filas.map(y=>`• ${y.materia_nombre}${y.periodo_origen!=='Anual'?' — '+y.periodo_origen:''}`).join('\n')}`:base);
 }
 async function convRegistrar(id,etapa){

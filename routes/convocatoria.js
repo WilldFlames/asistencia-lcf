@@ -4,7 +4,9 @@ const { requireRol } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 const { calcularPromediosInstitucional } = require("./calificaciones");
 
-const limitePorNivel = nivel => Number(nivel) <= 9 ? 6 : 7;
+// Límite definitivo de materias académicas aplazadas. Conducta mantiene su
+// proceso TES independiente, pero nunca forma parte de este conteo.
+const limitePorNivel = nivel => Number(nivel) <= 9 ? 7 : 8;
 const INICIO_REGLAS = 2027;
 const staff = requireRol("admin", "auxiliar", "profesor", "profesor_guia", "orientador");
 // Sincronizar no altera calificaciones: únicamente reconstruye el control
@@ -189,7 +191,8 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
     if (nota != null && redondearAnual(nota) < minima(x.nivel)) fallos.push({ ...x, nota_origen:nota, nota_minima:minima(x.nivel) });
   }
 
-  // Conducta se contabiliza una sola vez. Guía nunca se suma por separado.
+  // Conducta conserva su estado TES para el control de promoción, pero no se
+  // suma al límite de materias académicas. Guía nunca se agrega por separado.
   const conducta = (await pool.query(`
     SELECT DISTINCT ON (ec.estudiante_id) ec.estudiante_id,ec.nota_anual AS nota_origen,
       ec.guia_id AS profesor_id,e.seccion_id,s.nivel,ec.resultado_tes
@@ -227,7 +230,7 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
     for (const [estudianteId, materias] of estudiantesOrdenados) {
       const info = await client.query(`SELECT e.seccion_id,s.nivel FROM estudiantes e LEFT JOIN secciones s ON s.id=e.seccion_id WHERE e.id=$1`, [estudianteId]);
       if (!info.rows.length || !info.rows[0].nivel) continue;
-      const total = materias.length;
+      const total = materias.filter(m=>m.materia_nombre!=="Conducta").length;
       const informativo = Number(anio) < INICIO_REGLAS;
       const limite = limitePorNivel(info.rows[0].nivel);
       const sinDerechoAusentismo = exclusiones.has(Number(estudianteId));
@@ -273,16 +276,18 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
         AND cm.primera_nota IS NULL AND cm.segunda_nota IS NULL AND cm.estrategia_nota IS NULL
         AND NOT ((ce.estudiante_id::text||'|'||cm.materia_nombre||'|'||cm.periodo_origen)=ANY($3::text[]))`,
       [anio,profesorFiltro||null,clavesVigentes]);
-    // El total siempre se deriva de las materias conservadas. Así una
-    // sincronización parcial no reemplaza el conteo institucional.
+    // El total siempre se deriva solo de materias académicas conservadas.
+    // Conducta puede conservar su fila TES interna, pero jamás altera el límite.
     await client.query(`UPDATE convocatoria_expedientes ce SET
-        total_aplazadas=(SELECT COUNT(*)::integer FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id),
-        limite_institucional=CASE WHEN ce.nivel<=9 THEN 6 ELSE 7 END,
+        total_aplazadas=(SELECT COUNT(*)::integer FROM convocatoria_materias cm
+          WHERE cm.expediente_id=ce.id AND cm.materia_nombre<>'Conducta'),
+        limite_institucional=CASE WHEN ce.nivel<=9 THEN 7 ELSE 8 END,
         conducta_incluida=EXISTS(SELECT 1 FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id AND cm.materia_nombre='Conducta'),
         condicion=CASE
           WHEN ce.condicion IN ('aprobado','repite') THEN ce.condicion
           WHEN EXISTS(SELECT 1 FROM convocatoria_ausentismo ca WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio AND ca.activa=true AND ca.confirmada_docente=true) THEN 'bloqueado_ausentismo'
-          WHEN (SELECT COUNT(*) FROM convocatoria_materias cm WHERE cm.expediente_id=ce.id) > CASE WHEN ce.nivel<=9 THEN 6 ELSE 7 END THEN 'bloqueado_limite'
+          WHEN (SELECT COUNT(*) FROM convocatoria_materias cm
+            WHERE cm.expediente_id=ce.id AND cm.materia_nombre<>'Conducta') > CASE WHEN ce.nivel<=9 THEN 7 ELSE 8 END THEN 'bloqueado_limite'
           ELSE 'con_derecho' END
       WHERE ce.anio=$1`,[anio]);
     await client.query(`UPDATE convocatoria_materias cm SET estado=CASE
@@ -295,7 +300,7 @@ async function sincronizar(anio, usuarioId, profesorFiltro=null) {
     console.info(`[CONVOCATORIA] sincronización ${anio} completada: ${estudiantes.size} estudiantes, ${fallos.length} materias, ${Date.now()-inicio} ms.`);
     return {
       expedientes:estudiantes.size, materias:fallos.length,
-      modo_informativo:Number(anio)<INICIO_REGLAS, limites:{basica:6,diversificada:7},
+      modo_informativo:Number(anio)<INICIO_REGLAS, limites:{basica:7,diversificada:8},
       grupos_revisados:grupos.length, periodos_revisados:trabajos.length,
       incidencias:incidencias.length,
       detalle_incidencias:incidencias.slice(0,20)
@@ -370,7 +375,7 @@ router.get("/listado", staff, async (req,res) => {
       }
       return x;
     });
-    res.json({anio,modo_informativo:anio<INICIO_REGLAS,limites:{basica:6,diversificada:7},puede_sincronizar:true,ve_detalle:esGestion(u),secciones,filas});
+    res.json({anio,modo_informativo:anio<INICIO_REGLAS,limites:{basica:7,diversificada:8},puede_sincronizar:true,ve_detalle:esGestion(u),secciones,filas});
   }catch(e){console.error("convocatoria listado",e);res.status(500).json({error:e.message});}
 });
 

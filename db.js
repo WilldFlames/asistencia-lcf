@@ -3272,7 +3272,7 @@ async function initDB() {
         nivel                 INTEGER NOT NULL,
         seccion_id            INTEGER REFERENCES secciones(id) ON DELETE SET NULL,
         total_aplazadas       INTEGER NOT NULL DEFAULT 0,
-        limite_institucional  INTEGER NOT NULL DEFAULT 6,
+        limite_institucional  INTEGER NOT NULL DEFAULT 7,
         conducta_incluida     BOOLEAN NOT NULL DEFAULT false,
         modo_informativo      BOOLEAN NOT NULL DEFAULT true,
         condicion             TEXT NOT NULL DEFAULT 'sincronizado'
@@ -3329,6 +3329,24 @@ async function initDB() {
     await client.query(`ALTER TABLE convocatoria_materias DROP CONSTRAINT IF EXISTS convocatoria_materias_estado_check`);
     await client.query(`ALTER TABLE convocatoria_materias ADD CONSTRAINT convocatoria_materias_estado_check
       CHECK(estado IN ('bloqueada','primera_pendiente','segunda_pendiente','estrategia_pendiente','tes_pendiente','aprobada','reprobada'))`);
+    // Regla institucional definitiva: Conducta se gestiona mediante TES y no
+    // cuenta dentro del máximo de materias académicas (7 en 7.º-9.º y 8 en
+    // 10.º-11.º). Se corrigen también expedientes calculados con reglas viejas,
+    // sin esperar a que alguien presione Recalcular.
+    await client.query(`UPDATE convocatoria_expedientes ce SET
+        total_aplazadas=(SELECT COUNT(*)::integer FROM convocatoria_materias cm
+          WHERE cm.expediente_id=ce.id AND cm.materia_nombre<>'Conducta'),
+        limite_institucional=CASE WHEN ce.nivel<=9 THEN 7 ELSE 8 END,
+        conducta_incluida=EXISTS(SELECT 1 FROM convocatoria_materias cm
+          WHERE cm.expediente_id=ce.id AND cm.materia_nombre='Conducta')`);
+    await client.query(`UPDATE convocatoria_expedientes ce SET condicion=CASE
+        WHEN EXISTS(SELECT 1 FROM convocatoria_ausentismo ca
+          WHERE ca.estudiante_id=ce.estudiante_id AND ca.anio=ce.anio
+            AND ca.activa=true AND ca.confirmada_docente=true) THEN 'bloqueado_ausentismo'
+        WHEN ce.total_aplazadas>ce.limite_institucional THEN 'bloqueado_limite'
+        ELSE 'con_derecho' END
+      WHERE ce.condicion IN ('sincronizado','con_derecho','bloqueado_limite','bloqueado_ausentismo')`);
+
     // Retirar bloqueos heredados que no tienen confirmación expresa del
     // profesor. Se conserva el registro histórico para auditoría, pero deja de
     // afectar Convocatoria y Matrícula hasta que el docente vuelva a marcarlo.

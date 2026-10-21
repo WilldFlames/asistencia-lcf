@@ -14,9 +14,9 @@ test('convocatoria conserva expediente, materias y auditoría aun después del c
   assert.match(db,/UNIQUE\(estudiante_id,anio\)/);
 });
 
-test('la regla institucional usa seis en 7-9 y siete en 10-11, ignora materias sin nota y separa las semestrales',()=>{
+test('la regla institucional usa siete en 7-9 y ocho en 10-11, ignora materias sin nota y separa las semestrales',()=>{
   const route=read('routes/convocatoria.js');
-  assert.match(route,/const limitePorNivel = nivel => Number\(nivel\) <= 9 \? 6 : 7/);
+  assert.match(route,/const limitePorNivel = nivel => Number\(nivel\) <= 9 \? 7 : 8/);
   assert.match(route,/const INICIO_REGLAS = 2027/);
   assert.match(route,/nota == null \|\| !Number\.isFinite/);
   assert.match(route,/Educación para el Hogar/);
@@ -68,7 +68,7 @@ test('administración y auxiliares ven una fila por estudiante y despliegan sus 
   assert.match(ui,/const porSeccion=new Map/);
   assert.match(ui,/Sección \$\{htmlSeguro\(seccion\)\} · \$\{grupos\.length\} estudiante\(s\)/);
   assert.match(ui,/Ver materias \(\$\{g\.materias\.length\}\)/);
-  assert.match(ui,/Conducta está incluida una sola vez en el total/);
+  assert.match(ui,/Conducta no forma parte de este conteo/);
   assert.match(ui,/<strong>Marcó:<\/strong>/);
   assert.match(ui,/m\.profesor_nombre/);
   assert.match(ui,/Trazabilidad de la marca/);
@@ -144,12 +144,12 @@ test('las secciones existen aunque todavía no haya expedientes y la carga es au
   assert.match(ui,/convData\.secciones\|\|\[\]/);
 });
 
-test('Conducta cuenta para el límite pero se consulta únicamente en su propio módulo',()=>{
+test('Conducta conserva su proceso TES pero no cuenta para el límite académico',()=>{
   const route=read('routes/convocatoria.js');
   const ui=read('public/index.html');
   assert.match(route,/materia_nombre:"Conducta"/);
-  assert.match(route,/total_aplazadas=\(SELECT COUNT\(\*\)::integer FROM convocatoria_materias/);
+  assert.match(route,/total_aplazadas=\(SELECT COUNT\(\*\)::integer FROM convocatoria_materias cm[\s\S]*cm\.materia_nombre<>'Conducta'/);
   assert.match(route,/cm\.materia_nombre<>'Conducta'/);
-  assert.match(ui,/Conducta está incluida una sola vez en ese total/);
-  assert.match(ui,/se consulta y resuelve desde Expedientes de Conducta/);
+  assert.match(ui,/Conducta no se incluye en este conteo/);
+  assert.match(ui,/se gestiona desde Expedientes de Conducta/);
 });

@@ -1,0 +1,20 @@
+CONVOCATORIA: LÍMITES DEFINITIVOS
+Fecha: 20 de octubre de 2026
+
+Reglas configuradas
+-------------------
+- 7.º, 8.º y 9.º: derecho a convocatoria con un máximo de 7 materias
+  académicas. Con 8 o más debe repetir el curso lectivo.
+- 10.º y 11.º: derecho a convocatoria con un máximo de 8 materias
+  académicas. Con 9 o más debe repetir el curso lectivo.
+- Conducta no se suma al conteo en ningún nivel.
+- Guía equivale a Conducta y tampoco se suma como materia académica.
+- Orientación continúa sin nota y sin convocatoria.
+- El resultado del TES de Conducta mantiene su efecto independiente conforme
+  al REAC, pero se consulta y gestiona en Expedientes de Conducta.
+
+Actualización de datos existentes
+---------------------------------
+Al iniciar el servidor se recalculan el total académico, el límite aplicable y
+los bloqueos de expedientes que todavía no tienen condición final. No es
+necesario editar PostgreSQL ni presionar Recalcular para retirar la regla vieja.
