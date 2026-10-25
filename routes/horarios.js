@@ -3,6 +3,10 @@ const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 const asyncRoute=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+// Todos los cambios masivos o por sección de un mismo curso lectivo comparten
+// este candado. Evita que un guardado concurrente vuelva a insertar filas
+// mientras Administración está vaciando el horario completo de ese año.
+const HORARIO_LOCK_NAMESPACE=74815;
 
 // ── HORAS OFICIALES DE LECCIÓN POR CURSO LECTIVO ─────────────────────────
 // En 2027 cambian las dos últimas lecciones. Se conservan ambos catálogos para
@@ -94,7 +98,7 @@ async function horarioCompletoDocente(profesorId,anio){
   return {celdas:clases.rows,bloques:bloques.rows,resumen:resumenDocente(clases.rows,bloques.rows)};
 }
 
-async function validarBloque(body,idExcluir=null){
+async function validarBloque(body,idExcluir=null,db=pool){
   const profesorId=enteroRango(body?.profesor_id,1,2147483647);
   const anio=enteroRango(body?.anio,2000,2100);
   const dia=enteroRango(body?.dia,1,5),leccion=enteroRango(body?.leccion,1,12);
@@ -103,16 +107,16 @@ async function validarBloque(body,idExcluir=null){
   if(!profesorId||!anio||!dia||!leccion||!Object.hasOwn(TIPOS_BLOQUE,tipo))
     return {error:'Complete docente, año, día, lección y tipo de bloque.'};
   if(detalle.length>120||lugar.length>80) return {error:'El nombre o lugar del bloque es demasiado extenso.'};
-  const docente=await pool.query(`SELECT id FROM usuarios WHERE id=$1 AND activo=true`,[profesorId]);
+  const docente=await db.query(`SELECT id FROM usuarios WHERE id=$1 AND activo=true`,[profesorId]);
   if(!docente.rows.length) return {error:'El docente seleccionado no está activo.'};
-  const clase=await pool.query(`SELECT s.nombre AS seccion,m.nombre AS materia
+  const clase=await db.query(`SELECT s.nombre AS seccion,m.nombre AS materia
     FROM horarios h JOIN asignaciones a ON a.id=h.asignacion_id
     JOIN secciones s ON s.id=h.seccion_id JOIN materias m ON m.id=a.materia_id
     WHERE a.profesor_id=$1 AND h.anio=$2 AND h.dia=$3 AND h.leccion=$4 LIMIT 1`,[profesorId,anio,dia,leccion]);
   if(clase.rows.length) return {error:`El docente ya tiene ${clase.rows[0].materia} con la sección ${clase.rows[0].seccion} en esa lección.`};
   const params=[profesorId,anio,dia,leccion];let excluir='';
   if(idExcluir){params.push(idExcluir);excluir=' AND id<>$5';}
-  const ocupado=await pool.query(`SELECT tipo FROM horario_bloques_docente
+  const ocupado=await db.query(`SELECT tipo FROM horario_bloques_docente
     WHERE profesor_id=$1 AND anio=$2 AND dia=$3 AND leccion=$4${excluir} LIMIT 1`,params);
   if(ocupado.rows.length) return {error:'El docente ya tiene un bloque adicional en esa lección.'};
   return {profesorId,anio,dia,leccion,tipo,detalle,lugar};
@@ -202,38 +206,67 @@ router.get("/aulas", requireRol("admin","secretaria"), asyncRoute(async (req,res
 }));
 
 router.post("/bloques", requireRol("admin"), asyncRoute(async (req,res)=>{
-  const datos=await validarBloque(req.body);
-  if(datos.error) return res.status(409).json({error:datos.error});
+  const anio=enteroRango(req.body?.anio,2000,2100);
+  if(!anio) return res.status(400).json({error:'Año lectivo inválido.'});
+  const client=await pool.connect();
   try{
-    const r=await pool.query(`INSERT INTO horario_bloques_docente
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock($1,$2)",[HORARIO_LOCK_NAMESPACE,anio]);
+    const datos=await validarBloque(req.body,null,client);
+    if(datos.error){await client.query('ROLLBACK');return res.status(409).json({error:datos.error});}
+    const r=await client.query(`INSERT INTO horario_bloques_docente
       (profesor_id,anio,dia,leccion,tipo,detalle,lugar,creado_por)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
       [datos.profesorId,datos.anio,datos.dia,datos.leccion,datos.tipo,datos.detalle,datos.lugar,req.session.usuario.id]);
+    await client.query('COMMIT');
     res.json({ok:true,id:r.rows[0].id});
-  }catch(e){if(e.code==='23505') return res.status(409).json({error:'El docente ya tiene un bloque en esa lección.'});throw e;}
+  }catch(e){
+    await client.query('ROLLBACK');
+    if(e.code==='23505') return res.status(409).json({error:'El docente ya tiene un bloque en esa lección.'});
+    throw e;
+  }finally{client.release();}
 }));
 
 router.put("/bloques/:id", requireRol("admin"), asyncRoute(async (req,res)=>{
   const id=enteroRango(req.params.id,1,2147483647);
   if(!id) return res.status(400).json({error:'Bloque inválido.'});
-  const existe=await pool.query('SELECT id FROM horario_bloques_docente WHERE id=$1',[id]);
-  if(!existe.rows.length) return res.status(404).json({error:'Bloque no encontrado.'});
-  const datos=await validarBloque(req.body,id);
-  if(datos.error) return res.status(409).json({error:datos.error});
+  const anio=enteroRango(req.body?.anio,2000,2100);
+  if(!anio) return res.status(400).json({error:'Año lectivo inválido.'});
+  const client=await pool.connect();
   try{
-    await pool.query(`UPDATE horario_bloques_docente SET profesor_id=$1,anio=$2,dia=$3,leccion=$4,
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock($1,$2)",[HORARIO_LOCK_NAMESPACE,anio]);
+    const existe=await client.query('SELECT id FROM horario_bloques_docente WHERE id=$1',[id]);
+    if(!existe.rows.length){await client.query('ROLLBACK');return res.status(404).json({error:'Bloque no encontrado.'});}
+    const datos=await validarBloque(req.body,id,client);
+    if(datos.error){await client.query('ROLLBACK');return res.status(409).json({error:datos.error});}
+    await client.query(`UPDATE horario_bloques_docente SET profesor_id=$1,anio=$2,dia=$3,leccion=$4,
       tipo=$5,detalle=$6,lugar=$7,updated_at=NOW() WHERE id=$8`,
       [datos.profesorId,datos.anio,datos.dia,datos.leccion,datos.tipo,datos.detalle,datos.lugar,id]);
+    await client.query('COMMIT');
     res.json({ok:true});
-  }catch(e){if(e.code==='23505') return res.status(409).json({error:'El docente ya tiene un bloque en esa lección.'});throw e;}
+  }catch(e){
+    await client.query('ROLLBACK');
+    if(e.code==='23505') return res.status(409).json({error:'El docente ya tiene un bloque en esa lección.'});
+    throw e;
+  }finally{client.release();}
 }));
 
 router.delete("/bloques/:id", requireRol("admin"), asyncRoute(async (req,res)=>{
   const id=enteroRango(req.params.id,1,2147483647);
   if(!id) return res.status(400).json({error:'Bloque inválido.'});
-  const r=await pool.query('DELETE FROM horario_bloques_docente WHERE id=$1 RETURNING id',[id]);
-  if(!r.rows.length) return res.status(404).json({error:'Bloque no encontrado.'});
-  res.json({ok:true});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const existe=await client.query('SELECT anio FROM horario_bloques_docente WHERE id=$1',[id]);
+    if(!existe.rows.length){await client.query('ROLLBACK');return res.status(404).json({error:'Bloque no encontrado.'});}
+    await client.query("SELECT pg_advisory_xact_lock($1,$2)",[HORARIO_LOCK_NAMESPACE,Number(existe.rows[0].anio)]);
+    const r=await client.query('DELETE FROM horario_bloques_docente WHERE id=$1 RETURNING id',[id]);
+    if(!r.rows.length){await client.query('ROLLBACK');return res.status(404).json({error:'Bloque no encontrado.'});}
+    await client.query('COMMIT');
+    res.json({ok:true});
+  }catch(e){await client.query('ROLLBACK');throw e;}
+  finally{client.release();}
 }));
 
 // ── ASIGNACIONES DE UNA SECCIÓN (para llenar el editor — solo admin) ──────
@@ -263,6 +296,44 @@ router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) =>
   `, [req.params.seccion_id, anio]);
   res.json(r.rows);
 });
+
+// ── VACIAR TODO EL HORARIO DE UN CURSO LECTIVO (solo admin) ─────────────
+// Incluye la grilla de secciones y los bloques adicionales de docentes. No
+// elimina asignaciones, secciones ni información de ningún otro año.
+router.get("/borrado/resumen", requireRol("admin"), asyncRoute(async (req,res)=>{
+  const anio=enteroRango(req.query.anio,2000,2200);
+  if(!anio) return res.status(400).json({error:"Año lectivo inválido."});
+  const [horarios,bloques]=await Promise.all([
+    pool.query("SELECT COUNT(*)::int AS cantidad FROM horarios WHERE anio=$1",[anio]),
+    pool.query("SELECT COUNT(*)::int AS cantidad FROM horario_bloques_docente WHERE anio=$1",[anio])
+  ]);
+  const celdas=Number(horarios.rows[0]?.cantidad||0);
+  const adicionales=Number(bloques.rows[0]?.cantidad||0);
+  res.json({anio,horarios:celdas,bloques:adicionales,total:celdas+adicionales});
+}));
+
+router.delete("/anio/:anio", requireRol("admin"), asyncRoute(async (req,res)=>{
+  const anio=enteroRango(req.params.anio,2000,2200);
+  if(!anio) return res.status(400).json({error:"Año lectivo inválido."});
+  if(String(req.body?.confirmar_anio||"").trim()!==String(anio)){
+    return res.status(400).json({error:`Para confirmar, escriba el año ${anio}.`});
+  }
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock($1,$2)",[HORARIO_LOCK_NAMESPACE,anio]);
+    const horarios=await client.query("DELETE FROM horarios WHERE anio=$1 RETURNING id",[anio]);
+    const bloques=await client.query("DELETE FROM horario_bloques_docente WHERE anio=$1 RETURNING id",[anio]);
+    await client.query(`INSERT INTO horario_borrados_auditoria
+      (anio,horarios_borrados,bloques_borrados,borrado_por)
+      VALUES($1,$2,$3,$4)`,[anio,horarios.rowCount,bloques.rowCount,req.session.usuario.id]);
+    await client.query("COMMIT");
+    res.json({ok:true,anio,horarios_borrados:horarios.rowCount,bloques_borrados:bloques.rowCount});
+  }catch(e){
+    await client.query("ROLLBACK");
+    throw e;
+  }finally{client.release();}
+}));
 
 // ── HORARIO DE UNA SECCIÓN ─────────────────────────────────────────────────
 // Cualquier usuario autenticado del personal puede VERLO (profes ven horarios
@@ -327,8 +398,9 @@ router.put("/:seccion_id", requireRol("admin"), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    // Serializa los guardados de la misma sección/año. Así un doble envío no
-    // puede intercalar DELETE e INSERT con otra solicitud concurrente.
+    // Primero serializa cualquier mutación del año y luego los guardados de la
+    // misma sección. El orden fijo evita carreras con el borrado anual.
+    await client.query("SELECT pg_advisory_xact_lock($1,$2)",[HORARIO_LOCK_NAMESPACE,a]);
     await client.query("SELECT pg_advisory_xact_lock($1,$2)",[seccionId,a]);
     const existeSeccion=await client.query("SELECT id FROM secciones WHERE id=$1",[seccionId]);
     if(!existeSeccion.rows.length){await client.query("ROLLBACK");return res.status(404).json({error:"Sección no encontrada."});}

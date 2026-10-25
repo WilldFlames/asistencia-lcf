@@ -1,0 +1,20 @@
+BORRADO COMPLETO DEL HORARIO POR CURSO LECTIVO
+Fecha: 25 de octubre de 2026
+
+CAMBIO REALIZADO
+- Administración dispone del botón "Borrar horario del año" en el módulo Horario.
+- La acción trabaja únicamente con el curso lectivo seleccionado.
+- Elimina la grilla de clases y los bloques docentes de ese año:
+  Club, C. Departamento, CTA y C. Académica.
+- No elimina asignaciones académicas, secciones, horarios especiales ni horarios
+  de otros cursos lectivos.
+
+SEGURIDAD
+- Antes de borrar se muestra la cantidad exacta de registros afectados.
+- Se solicita una primera confirmación y luego escribir el año exacto.
+- El proceso es transaccional y bloquea guardados simultáneos del mismo año.
+- Queda auditoría del año, fecha, usuario y cantidades eliminadas.
+
+VERIFICACIÓN
+- 329 pruebas automáticas aprobadas.
+- 0 errores.

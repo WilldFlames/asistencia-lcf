@@ -2321,6 +2321,21 @@ async function initDB() {
       END IF;
     END $$`);
 
+    // Auditoría recuperable del vaciado completo de horarios por año. No se
+    // guardan las filas eliminadas, pero sí quién lo hizo, cuándo y el alcance.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS horario_borrados_auditoria (
+        id                 BIGSERIAL PRIMARY KEY,
+        anio               INTEGER NOT NULL,
+        horarios_borrados  INTEGER NOT NULL DEFAULT 0,
+        bloques_borrados   INTEGER NOT NULL DEFAULT 0,
+        borrado_por        INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        borrado_at         TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_horario_borrados_auditoria_anio
+      ON horario_borrados_auditoria(anio,borrado_at DESC)`);
+
     // ── PERMISOS DE SALIDA (auxiliares) ──────────────────────────────────
     // Consecutivo interno por año (numero + anio). Individual o por sección.
     // Un solo uso POR ESTUDIANTE para la fecha indicada (tabla de usos).

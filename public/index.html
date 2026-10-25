@@ -2632,6 +2632,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" id="hor-btn-secciones" onclick="horVolverSecciones()" style="display:none;">← Horarios de secciones</button>
         <button class="btn btn-success btn-sm" onclick="horImprimir()" id="hor-btn-imprimir" style="display:none;">🖨️ Imprimir</button>
         <button class="btn btn-primary btn-sm" onclick="horGuardar()" id="hor-btn-guardar" style="display:none;">💾 Guardar Horario</button>
+        <button class="btn btn-danger btn-sm" onclick="horBorrarHorarioAnio()" id="hor-btn-borrar-anio" style="display:none;">🗑️ Borrar horario del año</button>
       </div>
     </div>
     <div id="alert-horario" class="alert"></div>
@@ -18819,7 +18820,47 @@ function horControlesModo(modo){
   document.getElementById('hor-btn-aulas').style.display=institucional&&modo!=='aulas'?'':'none';
   document.getElementById('hor-btn-docentes').style.display=institucional&&modo!=='docente-admin'?'':'none';
   document.getElementById('hor-btn-secciones').style.display=ME.rol==='admin'&&!seccion?'':'none';
+  document.getElementById('hor-btn-borrar-anio').style.display=ME.rol==='admin'?'':'none';
   if(!docenteAdmin) document.getElementById('modal-hor-bloque')?.classList.remove('show');
+}
+
+async function horBorrarHorarioAnio(){
+  if(ME.rol!=='admin') return;
+  const anio=Number(document.getElementById('hor-anio').value)||0;
+  const btn=document.getElementById('hor-btn-borrar-anio');
+  if(!anio||btn?.dataset.borrando==='1') return;
+  const textoOriginal=btn.textContent;
+  try{
+    btn.dataset.borrando='1';btn.disabled=true;btn.textContent='Consultando...';
+    const resumen=await api(`/api/horarios/borrado/resumen?anio=${anio}`);
+    if(!resumen.total){
+      sa('alert-horario',`El horario del ${anio} ya está vacío.`,'warning');
+      return;
+    }
+    const continuar=confirm(
+      `Se eliminará TODO el horario del curso lectivo ${anio}:\n\n`+
+      `• ${resumen.horarios} registros de clases\n`+
+      `• ${resumen.bloques} bloques docentes (Club, coordinaciones y CTA)\n\n`+
+      `Los demás años y las asignaciones académicas no se modificarán. ¿Desea continuar?`
+    );
+    if(!continuar) return;
+    const escrito=prompt(`Esta acción no se puede deshacer desde la pantalla. Para confirmar, escriba ${anio}:`);
+    if(escrito===null) return;
+    if(escrito.trim()!==String(anio)){
+      sa('alert-horario',`No se borró nada: la confirmación debía ser ${anio}.`,'danger');
+      return;
+    }
+    btn.textContent='Borrando...';
+    const resultado=await api(`/api/horarios/anio/${anio}`,'DELETE',{confirmar_anio:anio});
+    sa('alert-horario',`Horario ${anio} borrado: ${resultado.horarios_borrados} registros de clases y ${resultado.bloques_borrados} bloques docentes.`,'success');
+    if(horModo==='docente-admin') await horVerDocentes(true);
+    else if(horModo==='aulas') await horVerAulas();
+    else if(horModo==='mio') await horVerMiHorario();
+    else await horCargarSeccion();
+  }catch(e){sa('alert-horario',e.message||'No fue posible borrar el horario.','danger');}
+  finally{
+    btn.dataset.borrando='';btn.disabled=false;btn.textContent=textoOriginal;
+  }
 }
 
 async function iniciarHorario(){
@@ -26288,7 +26329,9 @@ async function prom_confirmarReapertura(){
 //   - Delimitador: punto y coma (;)
 //   - Todos los campos entre comillas dobles
 //   - BOM UTF-8 al inicio (para que Excel lo abra bien con acentos)
-//   - Columnas: Id, Nombre, Trabajo cotidiano, Tareas, Prueba, Asistencia
+//   - Columnas base: Id, Nombre, Trabajo cotidiano, Tareas y Asistencia
+//   - Entre Tareas y Asistencia se agrega Prueba, Proyecto o ambas según la
+//     regla REAC real de la materia. SEA exige que el encabezado coincida.
 //   - Id: cédula sin guiones (solo dígitos)
 //   - Nombre: "APELLIDOS NOMBRE" todo en mayúsculas, sin coma
 //   - Notas: números ENTEROS (redondeados), sin decimales ni comas
@@ -26305,8 +26348,20 @@ function prom_descargarSEA(){
     return;
   }
 
-  // Encabezado del CSV con delimitador ; y campos entrecomillados
-  const encabezado = '"Id";"Nombre";"Trabajo cotidiano";"Tareas";"Prueba";"Asistencia"';
+  const regla = promDataActual.regla || {};
+  const columnasEvaluacion = [];
+  if(Number(regla.porc_pruebas) > 0){
+    columnasEvaluacion.push({ encabezado:'Prueba', rubro:'examen' });
+  }
+  if(Number(regla.porc_proyectos) > 0){
+    columnasEvaluacion.push({ encabezado:'Proyecto', rubro:'proyecto' });
+  }
+
+  // El formato oficial es dinámico: las materias de proyecto no pueden llevar
+  // la palabra "Prueba", porque SEA rechaza esa estructura al importarla.
+  const encabezados = ['Id','Nombre','Trabajo cotidiano','Tareas',
+    ...columnasEvaluacion.map(c=>c.encabezado),'Asistencia'];
+  const encabezado = encabezados.map(c=>`"${c}"`).join(';');
 
   const filas = est.map(e => {
     // Id: solo dígitos (elimina guiones, espacios y cualquier otro carácter)
@@ -26320,12 +26375,15 @@ function prom_descargarSEA(){
     // usamos 0 (la plataforma SEA requiere números, no vacíos).
     const cotid = Math.round(Number(e.rubros?.cotidiano?.pct || 0));
     const tarea = Math.round(Number(e.rubros?.tarea?.pct || 0));
-    const prueb = Math.round(Number(e.rubros?.examen?.pct || 0));
     const asist = Math.round(Number(e.asistencia?.pct || 0));
+    const evaluacion = columnasEvaluacion.map(c=>
+      Math.round(Number(e.rubros?.[c.rubro]?.pct || 0))
+    );
 
     // Escapamos cualquier comilla dentro del nombre (raro pero por seguridad)
     const nombreEsc = nombre.replace(/"/g, '""');
-    return `"${id}";"${nombreEsc}";"${cotid}";"${tarea}";"${prueb}";"${asist}"`;
+    return [id,nombreEsc,cotid,tarea,...evaluacion,asist]
+      .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';');
   });
 
   // BOM UTF-8 para que Excel lo abra correctamente con acentos

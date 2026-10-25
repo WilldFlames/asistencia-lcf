@@ -1,0 +1,21 @@
+CORRECCIÓN DEL ARCHIVO SEA: PRUEBA Y PROYECTO
+Fecha: 25 de octubre de 2026
+
+PROBLEMA CORREGIDO
+El archivo CSV de SEA siempre generaba la columna "Prueba" y tomaba el aporte
+de exámenes, incluso cuando la regla REAC de la materia utilizaba Proyecto.
+La plataforma SEA rechazaba o no interpretaba correctamente ese archivo.
+
+COMPORTAMIENTO NUEVO
+- Materia con prueba: genera la columna "Prueba".
+- Materia con proyecto: genera la columna "Proyecto".
+- Materia con prueba y proyecto: genera ambas columnas, cada una con su aporte.
+- Materia sin esos rubros: no inventa una columna de evaluación.
+- Se conservan Id, Nombre, Trabajo cotidiano, Tareas y Asistencia.
+- Los datos se mantienen enteros, entre comillas, separados por punto y coma y
+  con BOM UTF-8, conforme al formato que utiliza SEA.
+
+VERIFICACIÓN
+- Se comparó la estructura con el CSV suministrado por la institución.
+- 332 pruebas automáticas aprobadas.
+- 0 errores.
