@@ -1,0 +1,30 @@
+OPTIMIZACIÓN DE CARGA DE MATRÍCULA — 26/10/2026
+
+Objetivo
+Reducir el tiempo de apertura de Expedientes de Matrícula y eliminar la
+sensación de recargas repetidas, sin cambiar datos ni reglas institucionales.
+
+Cambios realizados
+- Se impiden cargas completas simultáneas del mismo año.
+- Las respuestas anteriores se descartan si el usuario ya cambió de año.
+- Se conserva en memoria durante 60 segundos la última carga; al volver al
+  módulo no se descarga inmediatamente todo el padrón otra vez.
+- Se agregó el botón "Actualizar" para solicitar una sincronización completa
+  cuando el usuario lo necesite.
+- La tabla muestra 60 estudiantes por página, conservando el orden
+  institucional por apellidos y nombre.
+- Después de asignar una sección, resolver convocatoria, completar o eliminar
+  una matrícula, se refresca solamente el estudiante afectado, los cupos y las
+  restricciones; ya no se reconstruyen cientos de filas.
+- La consulta inicial ya trae la asignación anual en la misma respuesta, por
+  lo que se eliminó una descarga completa redundante.
+
+Seguridad de los datos
+- No hay migraciones ni cambios de estructura en PostgreSQL.
+- No se modificaron reglas de cupos, convocatoria, restricciones, niveles,
+  permisos, documentos ni cierre anual.
+- La actualización completa permanece disponible como respaldo.
+
+Verificación
+- 334 pruebas automáticas aprobadas.
+- Sintaxis del servidor y de todos los bloques JavaScript validada.

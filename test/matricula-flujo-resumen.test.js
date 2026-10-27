@@ -39,6 +39,23 @@ test("los conteos de matrícula y cupos descuentan retirados y matrículas elimi
   assert.match(expediente,/COALESCE\(m\.estado,''\) <> 'eliminada'/);
 });
 
+test("la lista de matrícula evita recargas superpuestas y pagina el padrón",()=>{
+  assert.match(frontend,/let matCargaPromesa = null/);
+  assert.match(frontend,/token!==matCargaToken \|\| anioSolicitado!==matAnio/);
+  assert.match(frontend,/const MAT_POR_PAGINA = 60/);
+  assert.match(frontend,/listaCompleta\.slice\(inicio,fin\)/);
+  assert.match(frontend,/id="mat-paginacion"/);
+  assert.match(frontend,/MAT_CACHE_MS = 60000/);
+});
+
+test("guardar matrícula refresca solo el estudiante afectado",()=>{
+  assert.match(matricula,/router\.get\("\/estudiante\/:id"/);
+  assert.match(frontend,/async function matRefrescarEstudiante/);
+  assert.match(frontend,/api\(`\/api\/matricula\/estudiante\/\$\{id\}\?anio=\$\{matAnio\}`\)/);
+  assert.match(frontend,/await matRefrescarEstudiante\(id\)/);
+  assert.match(frontend,/await matRefrescarEstudiante\(id,\{eliminado:true\}\)/);
+});
+
 test("el panel cuenta solo asignaciones vigentes de personal activo",()=>{
   assert.match(admin,/JOIN usuarios u ON u\.id=a\.profesor_id AND u\.activo=true AND COALESCE\(u\.eliminado,false\)=false/);
   assert.match(admin,/COALESCE\(a\.activa,true\)=true/);

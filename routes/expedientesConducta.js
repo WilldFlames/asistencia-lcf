@@ -254,10 +254,56 @@ router.post("/:id/aprobar-proyecto", requireAuth, async (req,res)=>{
     if(!await esComite(req.session.usuario.id)) return res.status(403).json({error:"Solo un miembro designado del Comité de Evaluación puede aprobar."});
     const paso=await pool.query("SELECT completado FROM expedientes_conducta_pasos WHERE expediente_id=$1 AND paso=3",[ec.id]);
     if(ec.estado!=="en_curso"||!ec.proyecto||!paso.rows[0]?.completado) return res.status(409).json({error:"El profesor guía debe completar el paso 3 antes de solicitar las aprobaciones."});
-    await pool.query(`INSERT INTO expedientes_conducta_aprobaciones(expediente_id,usuario_id)
-      VALUES($1,$2) ON CONFLICT(expediente_id,usuario_id) DO NOTHING`,[ec.id,req.session.usuario.id]);
+    const guardada=await pool.query(`INSERT INTO expedientes_conducta_aprobaciones(expediente_id,usuario_id)
+      VALUES($1,$2) ON CONFLICT(expediente_id,usuario_id) DO NOTHING RETURNING id`,[ec.id,req.session.usuario.id]);
+    if(guardada.rows.length){
+      await pool.query(`INSERT INTO expedientes_conducta_aprobaciones_historial
+        (expediente_id,usuario_id,accion,ejecutado_por,motivo)
+        VALUES($1,$2,'aprobada',$2,'Aprobación del proyecto TES')`,[ec.id,req.session.usuario.id]);
+    }
     res.json({ok:true});
   }catch(e){res.status(500).json({error:e.message});}
+});
+
+router.post("/:id/revertir-aprobacion", requireAuth, async (req,res)=>{
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const u=req.session.usuario;
+    const ec=await cargarExpediente(req.params.id,client);
+    if(!ec) throw Object.assign(new Error("Expediente no encontrado."),{status:404});
+    if(ec.estado!=="en_curso") throw Object.assign(new Error("No se puede revertir una aprobación de un expediente cerrado."),{status:409});
+    const usuarioId=Number(req.body.usuario_id)||Number(u.id);
+    const puedeRevertir=esAdmin(u)||await esComite(u.id,client);
+    if(!puedeRevertir) throw Object.assign(new Error("Solo el Comité de Evaluación o Administración puede revertir una aprobación."),{status:403});
+    if(!esAdmin(u)&&usuarioId!==Number(u.id))
+      throw Object.assign(new Error("Cada integrante solamente puede revertir su propia aprobación."),{status:403});
+    const motivo=String(req.body.motivo||"").trim();
+    if(motivo.length<5) throw Object.assign(new Error("Indique el motivo de la reversión."),{status:400});
+    const aprobaciones=await client.query(`SELECT usuario_id FROM expedientes_conducta_aprobaciones
+      WHERE expediente_id=$1 FOR UPDATE`,[ec.id]);
+    if(!aprobaciones.rows.some(a=>Number(a.usuario_id)===usuarioId))
+      throw Object.assign(new Error("Esa aprobación ya no está registrada."),{status:404});
+    const posteriores=await client.query(`SELECT 1 FROM expedientes_conducta_pasos
+      WHERE expediente_id=$1 AND paso>=4 AND completado=true LIMIT 1`,[ec.id]);
+    if(aprobaciones.rows.length===1&&posteriores.rows.length)
+      throw Object.assign(new Error("No se puede retirar la última aprobación porque el expediente ya tiene pasos posteriores completados. Administración debe revisar primero esos pasos."),{status:409});
+    await client.query(`DELETE FROM expedientes_conducta_aprobaciones
+      WHERE expediente_id=$1 AND usuario_id=$2`,[ec.id,usuarioId]);
+    await client.query(`INSERT INTO expedientes_conducta_aprobaciones_historial
+      (expediente_id,usuario_id,accion,ejecutado_por,motivo)
+      VALUES($1,$2,'revertida',$3,$4)`,[ec.id,usuarioId,u.id,motivo]);
+    if(ec.guia_id&&Number(ec.guia_id)!==Number(u.id)){
+      await client.query(`INSERT INTO notificaciones(usuario_id,tipo,mensaje)
+        VALUES($1,'tes_aprobacion',$2)`,[ec.guia_id,`📘 Se revirtió una aprobación del proyecto TES del expediente N°${ec.numero}-${ec.anio}. Motivo: ${motivo}`]);
+    }
+    await client.query("COMMIT");
+    res.json({ok:true});
+  }catch(e){
+    await client.query("ROLLBACK");
+    console.error("revertir aprobación TES",e);
+    res.status(e.status||500).json({error:e.message});
+  }finally{client.release();}
 });
 
 router.post("/:id/cerrar-causal", requireAuth, async (req,res)=>{

@@ -41,6 +41,11 @@ router.get("/", canAccess, async (req, res) => {
       COALESCE(ma.convocatoria,false) AS convocatoria,
       ma.convocatoria_estado, ma.nivel_solicitado, ma.nivel_origen,
       ma.convocatoria_resuelta_at,
+      ma.seccion_id AS matricula_seccion_id,
+      ma.seccion_nombre AS matricula_seccion_nombre,
+      ma.idioma AS matricula_idioma,
+      ma.tecnologia AS matricula_tecnologia,
+      ma.subgrupo AS matricula_subgrupo,
       e.idioma, e.tecnologia,
       e.boleta_entregada,
       e.seccion_id, s.nombre AS seccion_nombre, e.created_at
@@ -52,6 +57,39 @@ router.get("/", canAccess, async (req, res) => {
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
   `, [anio, anio === anioActivo]);
   res.json(r.rows);
+});
+
+// Refresco liviano de una sola fila. La pantalla de matrícula usa este
+// endpoint después de guardar para no volver a descargar y dibujar todo el
+// padrón institucional.
+router.get("/estudiante/:id", canAccess, async (req, res) => {
+  const estudianteId = parseInt(req.params.id);
+  const anioActivo = await obtenerAnioActivo();
+  const anio = parseInt(req.query.anio) || anioActivo;
+  if(!estudianteId) return res.status(400).json({ error:"Estudiante inválido" });
+  const r = await pool.query(`
+    SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
+      e.tipo_ingreso, e.nivel_matricula,
+      COALESCE(ma.completada, CASE WHEN $3 THEN e.matricula_completada ELSE false END) AS matricula_completada,
+      COALESCE(ma.estado, CASE WHEN $3 AND e.matricula_completada THEN 'completa' ELSE 'pendiente' END) AS matricula_estado,
+      COALESCE(ma.convocatoria,false) AS convocatoria,
+      ma.convocatoria_estado, ma.nivel_solicitado, ma.nivel_origen,
+      ma.convocatoria_resuelta_at,
+      ma.seccion_id AS matricula_seccion_id,
+      ma.seccion_nombre AS matricula_seccion_nombre,
+      ma.idioma AS matricula_idioma,
+      ma.tecnologia AS matricula_tecnologia,
+      ma.subgrupo AS matricula_subgrupo,
+      e.idioma, e.tecnologia,
+      e.boleta_entregada,
+      e.seccion_id, s.nombre AS seccion_nombre, e.created_at
+    FROM estudiantes e
+    LEFT JOIN secciones s ON s.id=e.seccion_id
+    LEFT JOIN matricula ma ON ma.estudiante_id=e.id AND ma.anio=$2
+    WHERE e.id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false
+      AND COALESCE(ma.estado,'') <> 'eliminada'
+  `, [estudianteId, anio, anio === anioActivo]);
+  res.json(r.rows[0] || null);
 });
 
 // ── CARGAR POR CÉDULA (busca en estudiantes y prematrícula) ──────────

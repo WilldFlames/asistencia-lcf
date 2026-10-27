@@ -30,6 +30,16 @@ test("el profesor guía ve aplazados y una aprobación del comité habilita el T
   assert.match(front,/se requiere 1/);
 });
 
+test("el comité puede revertir una aprobación sin borrar su trazabilidad",()=>{
+  assert.match(db,/CREATE TABLE IF NOT EXISTS expedientes_conducta_aprobaciones_historial/);
+  assert.match(routes,/router\.post\("\/:id\/revertir-aprobacion"/);
+  assert.match(routes,/Cada integrante solamente puede revertir su propia aprobación/);
+  assert.match(routes,/paso>=4 AND completado=true/);
+  assert.match(routes,/accion,ejecutado_por,motivo/);
+  assert.match(front,/ectRevertirAprobacion/);
+  assert.match(front,/La acción quedará registrada en el historial/);
+});
+
 test("el flujo guarda e imprime todos los pasos en formato institucional",()=>{
   assert.match(front,/const ECT_PASOS=\[/);
   assert.match(front,/Notificación de condición aplazada en conducta/);

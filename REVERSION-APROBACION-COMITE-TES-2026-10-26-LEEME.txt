@@ -1,0 +1,26 @@
+REVERSIÓN DE APROBACIÓN DEL COMITÉ EN EXPEDIENTES DE CONDUCTA
+26/10/2026
+
+Nombre y compatibilidad
+- El módulo utiliza el Comité de Evaluación cuando está configurado.
+- Si todavía no existe ese grupo, utiliza como respaldo a los integrantes del
+  Comité Técnico Asesor, conservando la compatibilidad anterior.
+
+Funcionamiento
+- Cada integrante puede revertir solamente su propia aprobación.
+- Administración puede revertir la aprobación de cualquier integrante.
+- Se exige indicar el motivo y confirmar la acción.
+- La aprobación y su reversión quedan registradas en un historial con usuario,
+  ejecutor, motivo y fecha.
+- El docente guía recibe una notificación cuando se revierte una aprobación.
+- Si deja de existir al menos una aprobación, los pasos siguientes vuelven a
+  quedar bloqueados.
+
+Protección
+- No se puede retirar la última aprobación cuando ya existen pasos 4 a 7
+  completados. Esto evita invalidar silenciosamente documentos ya emitidos.
+- No se puede modificar la aprobación de un expediente cerrado.
+
+Verificación
+- 335 pruebas automáticas aprobadas.
+- Sintaxis del servidor y del navegador validada.

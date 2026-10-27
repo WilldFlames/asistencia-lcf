@@ -2595,6 +2595,17 @@ async function initDB() {
       aprobado_en TIMESTAMP DEFAULT NOW(),
       UNIQUE(expediente_id,usuario_id)
     )`);
+    await client.query(`CREATE TABLE IF NOT EXISTS expedientes_conducta_aprobaciones_historial (
+      id BIGSERIAL PRIMARY KEY,
+      expediente_id INTEGER NOT NULL REFERENCES expedientes_conducta_tes(id) ON DELETE CASCADE,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+      accion TEXT NOT NULL CHECK(accion IN ('aprobada','revertida')),
+      ejecutado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      motivo TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ect_aprob_hist_expediente
+      ON expedientes_conducta_aprobaciones_historial(expediente_id,created_at)`);
     // Cuando una corrección o apelación eleva la nota, el expediente que aún
     // está en curso deja de corresponder. Se libera su consecutivo, pero esta
     // tabla conserva la fotografía completa para trazabilidad institucional.

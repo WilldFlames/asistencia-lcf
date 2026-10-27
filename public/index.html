@@ -3112,10 +3112,12 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" id="mat-btn-frances" onclick="abrirSeccionesFrances()" style="display:none;">🇫🇷 Secciones Francés</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-restricciones" onclick="abrirRestriccionesMatricula()">🚫 Restricciones</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-bloqueos" onclick="abrirBloqueosMatricula()">🔒 Matrícula restringida</button>
+        <button class="btn btn-outline btn-sm" id="mat-btn-actualizar" onclick="iniciarMatricula(true)">↻ Actualizar</button>
         <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
       </div>
     </div>
     <p style="font-size:12px;color:var(--muted);margin-top:6px;" id="mat-anio-nota"></p>
+    <div id="mat-carga-estado" style="display:none;font-size:12px;color:var(--azul);font-weight:bold;margin-top:7px;">⏳ Actualizando expedientes…</div>
     <div id="alert-mat" class="alert" style="margin-top:10px;"></div>
 
     <!-- Resumen por nivel -->
@@ -3165,6 +3167,7 @@ tr:hover td{background:#f8fafc;}
         <tbody id="mat-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
       </table>
     </div>
+    <div id="mat-paginacion" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;"></div>
   </div>
 </div>
 
@@ -11288,6 +11291,14 @@ let matEncsPage = []; // encargados en memoria antes de guardar
 //  MATRÍCULA — VISTA Y SECCIÓN
 // ════════════════════════════════════
 let matData = [], matNivelFiltro = 0;
+let matPagina = 1;
+const MAT_POR_PAGINA = 60;
+let matCargaPromesa = null;
+let matCargaAnio = null;
+let matCargaToken = 0;
+let matUltimaCargaAnio = null;
+let matUltimaCargaAt = 0;
+const MAT_CACHE_MS = 60000;
 
 // ── Estado de matrícula por año ──────────────────────────────────
 let matAnio = null;          // año de matrícula seleccionado
@@ -11298,7 +11309,7 @@ let rmEstudiantes = [];      // lista institucional completa para restricciones
 
 function matAnioActual(){ return ANIO_LECTIVO_ACTIVO; }
 
-async function iniciarMatricula(){
+async function iniciarMatricula(forzar=false){
   // Selector de año: actual y siguiente. Default: el siguiente a partir de setiembre.
   const selA = document.getElementById("mat-anio");
   const actual = matAnioActual();
@@ -11308,6 +11319,14 @@ async function iniciarMatricula(){
     selA.value = mes >= 9 ? String(actual+1) : String(actual);
   }
   matAnio = parseInt(selA?.value || actual);
+  const anioSolicitado = matAnio;
+  if(matCargaPromesa && matCargaAnio===anioSolicitado && !forzar) return matCargaPromesa;
+  if(!forzar && matData.length && matUltimaCargaAnio===anioSolicitado && Date.now()-matUltimaCargaAt<MAT_CACHE_MS){
+    renderCuposWidget();
+    renderMatricula();
+    renderResumenNiveles();
+    return;
+  }
   document.getElementById("mat-anio-label").textContent = matAnio;
   const nota = document.getElementById("mat-anio-nota");
   const esFuturo = matAnio > actual;
@@ -11321,20 +11340,65 @@ async function iniciarMatricula(){
   const btnBloq=document.getElementById('mat-btn-bloqueos');
   if(btnBloq) btnBloq.style.display=['admin','administrativo','orientador'].includes(ME.rol)?'':'none';
 
-  const [data, cupos, futuras, restricciones] = await Promise.all([
-    api(`/api/matricula?anio=${matAnio}`),
-    api(`/api/matricula/cupos/${matAnio}`).catch(()=>[]),
-    esFuturo ? api(`/api/matricula/asignaciones/${matAnio}`).catch(()=>[]) : Promise.resolve([]),
-    api(`/api/matricula/restricciones/${matAnio}`).catch(()=>[])
-  ]);
-  matData = ordenarEstudiantes(data);
-  matCupos = cupos || [];
-  matAsigFuturas = {};
-  (futuras||[]).forEach(f => { matAsigFuturas[f.estudiante_id] = f; });
-  matRestricciones = restricciones || [];
-  renderCuposWidget();
-  renderMatricula();
-  renderResumenNiveles();
+  const token = ++matCargaToken;
+  const estadoCarga=document.getElementById('mat-carga-estado');
+  const btnActualizar=document.getElementById('mat-btn-actualizar');
+  if(estadoCarga) estadoCarga.style.display='';
+  if(btnActualizar) btnActualizar.disabled=true;
+  if(!matData.length){
+    const tbody=document.getElementById('mat-tbody');
+    if(tbody) tbody.innerHTML='<tr><td colspan="8" class="empty">⏳ Cargando expedientes…</td></tr>';
+  }
+  const carga=(async()=>{
+    const [data, cupos, restricciones] = await Promise.all([
+      api(`/api/matricula?anio=${anioSolicitado}`),
+      api(`/api/matricula/cupos/${anioSolicitado}`).catch(()=>[]),
+      api(`/api/matricula/restricciones/${anioSolicitado}`).catch(()=>[])
+    ]);
+    // Si el usuario cambió de año mientras llegaba la respuesta, se descarta
+    // esta carga anterior para que no vuelva a pintar datos viejos.
+    if(token!==matCargaToken || anioSolicitado!==matAnio) return;
+    matData = ordenarEstudiantes(data);
+    matCupos = cupos || [];
+    matAsigFuturas = {};
+    matData.forEach(e=>{
+      if(e.matricula_seccion_id){
+        matAsigFuturas[e.id]={
+          estudiante_id:e.id,
+          seccion_id:e.matricula_seccion_id,
+          seccion_nombre:e.matricula_seccion_nombre,
+          idioma:e.matricula_idioma,
+          tecnologia:e.matricula_tecnologia,
+          subgrupo:e.matricula_subgrupo,
+          convocatoria:e.convocatoria,
+          convocatoria_estado:e.convocatoria_estado,
+          nivel_solicitado:e.nivel_solicitado,
+          nivel_origen:e.nivel_origen
+        };
+      }
+    });
+    matRestricciones = restricciones || [];
+    matUltimaCargaAnio=anioSolicitado;
+    matUltimaCargaAt=Date.now();
+    matPagina=1;
+    renderCuposWidget();
+    renderMatricula();
+    renderResumenNiveles();
+  })();
+  matCargaPromesa=carga;
+  matCargaAnio=anioSolicitado;
+  try{
+    await carga;
+  }catch(e){
+    if(token===matCargaToken) sa('alert-mat','No se pudieron cargar los expedientes: '+e.message,'danger');
+  }finally{
+    if(token===matCargaToken){
+      matCargaPromesa=null;
+      matCargaAnio=null;
+      if(estadoCarga) estadoCarga.style.display='none';
+      if(btnActualizar) btnActualizar.disabled=false;
+    }
+  }
 }
 
 function colorDisponibles(disp, max){
@@ -11384,7 +11448,7 @@ function renderCuposWidget(){
   }).join("");
 }
 
-function matCambioAnio(){ iniciarMatricula(); }
+function matCambioAnio(){ matPagina=1; iniciarMatricula(true); }
 
 let bmEstudiantes=[];
 function bmFiltrar(){
@@ -11623,7 +11687,7 @@ async function matAplicarAnio(){
     ANIO_LECTIVO_ACTIVO = matAnio;
     try{ const vig=await api('/api/config-anio/vigente'); CALENDARIO_LECTIVO=vig.calendario||CALENDARIO_LECTIVO; }catch{}
     document.getElementById('mat-anio').innerHTML='';
-    await iniciarMatricula();
+    await iniciarMatricula(true);
   }catch(e){ sa("alert-mat", e.message, "danger"); }
 }
 
@@ -11647,16 +11711,41 @@ function renderResumenNiveles(){
 
 function filtrarNivel(nivel){
   matNivelFiltro = nivel;
+  matPagina = 1;
   document.querySelectorAll(".mat-nivel-tab").forEach(btn=>btn.classList.remove("active"));
   const tab = document.getElementById(nivel===0?"mat-tab-todos":`mat-tab-${nivel}`);
   if(tab) tab.classList.add("active");
   renderMatricula();
 }
 
+function matCambiarPagina(pagina){
+  matPagina=Math.max(1,parseInt(pagina)||1);
+  renderMatricula();
+  document.getElementById('mat-tabla')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderMatPaginacion(total,totalPaginas,inicio,fin){
+  const cont=document.getElementById('mat-paginacion');
+  if(!cont) return;
+  if(!total){ cont.innerHTML=''; return; }
+  cont.innerHTML=`
+    <div style="font-size:12px;color:var(--muted);">Mostrando <strong>${inicio+1}–${fin}</strong> de <strong>${total}</strong> estudiantes</div>
+    <div style="display:flex;align-items:center;gap:7px;">
+      <button class="btn btn-outline btn-sm" onclick="matCambiarPagina(${matPagina-1})" ${matPagina<=1?'disabled':''}>← Anterior</button>
+      <span style="font-size:12px;font-weight:bold;">Página ${matPagina} de ${totalPaginas}</span>
+      <button class="btn btn-outline btn-sm" onclick="matCambiarPagina(${matPagina+1})" ${matPagina>=totalPaginas?'disabled':''}>Siguiente →</button>
+    </div>`;
+}
+
 function renderMatricula(){
   const tipos = {regular:"Regular",prematricula:"Prematrícula",nuevo:"Nuevo ingreso"};
   const COLORES_TIPO = {regular:"#e0f2fe",prematricula:"#fef9c3",nuevo:"#dcfce7"};
-  const lista = matNivelFiltro===0 ? matData : matData.filter(e=>e.nivel_matricula==matNivelFiltro);
+  const listaCompleta = matNivelFiltro===0 ? matData : matData.filter(e=>e.nivel_matricula==matNivelFiltro);
+  const totalPaginas=Math.max(1,Math.ceil(listaCompleta.length/MAT_POR_PAGINA));
+  matPagina=Math.min(Math.max(1,matPagina),totalPaginas);
+  const inicio=(matPagina-1)*MAT_POR_PAGINA;
+  const fin=Math.min(inicio+MAT_POR_PAGINA,listaCompleta.length);
+  const lista=listaCompleta.slice(inicio,fin);
   const tbody = document.getElementById("mat-tbody");
   if(!tbody) return;
   tbody.innerHTML = lista.length ? lista.map((e,i)=>{
@@ -11671,7 +11760,7 @@ function renderMatricula(){
           : '<div style="font-size:11px;color:#ea580c;font-weight:bold;margin-top:2px;">📄 ⏳ No ha entregado boleta</div>')
       : '';
     return `<tr>
-    <td style="color:var(--muted)">${i+1}</td>
+    <td style="color:var(--muted)">${inicio+i+1}</td>
     <td><code>${e.cedula}</code></td>
       <td><strong>${nombreEstudianteLista(e)}</strong>${badgeBoleta}</td>
     <td><span class="badge" style="background:${COLORES_TIPO[e.tipo_ingreso]||'#e0f2fe'};color:#374151;">${tipos[e.tipo_ingreso]||e.tipo_ingreso}</span></td>
@@ -11689,6 +11778,54 @@ function renderMatricula(){
   </tr>`;
   }).join("")
   : `<tr><td colspan="8" class="empty">No hay matrículas${matNivelFiltro?' en '+NIVELES_MAT[matNivelFiltro]:''} registradas.</td></tr>`;
+  renderMatPaginacion(listaCompleta.length,totalPaginas,inicio,fin);
+}
+
+function matAsignacionDesdeFila(e){
+  if(!e?.matricula_seccion_id) return null;
+  return {
+    estudiante_id:e.id,
+    seccion_id:e.matricula_seccion_id,
+    seccion_nombre:e.matricula_seccion_nombre,
+    idioma:e.matricula_idioma,
+    tecnologia:e.matricula_tecnologia,
+    subgrupo:e.matricula_subgrupo,
+    convocatoria:e.convocatoria,
+    convocatoria_estado:e.convocatoria_estado,
+    nivel_solicitado:e.nivel_solicitado,
+    nivel_origen:e.nivel_origen
+  };
+}
+
+// Actualiza solamente el expediente que cambió y los conteos pequeños
+// relacionados. Evita volver a descargar y reconstruir cientos de filas.
+async function matRefrescarEstudiante(estudianteId,{eliminado=false}={}){
+  const id=Number(estudianteId);
+  const peticiones=[
+    eliminado ? Promise.resolve(null) : api(`/api/matricula/estudiante/${id}?anio=${matAnio}`),
+    api(`/api/matricula/cupos/${matAnio}`).catch(()=>matCupos),
+    api(`/api/matricula/restricciones/${matAnio}`).catch(()=>matRestricciones)
+  ];
+  const [fila,cupos,restricciones]=await Promise.all(peticiones);
+  const indice=matData.findIndex(e=>Number(e.id)===id);
+  if(!fila || eliminado){
+    if(indice>=0) matData.splice(indice,1);
+    delete matAsigFuturas[id];
+  }else{
+    if(indice>=0) matData[indice]=fila;
+    else matData.push(fila);
+    matData=ordenarEstudiantes(matData);
+    const asignacion=matAsignacionDesdeFila(fila);
+    if(asignacion) matAsigFuturas[id]=asignacion;
+    else delete matAsigFuturas[id];
+  }
+  matCupos=cupos||matCupos;
+  matRestricciones=restricciones||matRestricciones;
+  matUltimaCargaAnio=matAnio;
+  matUltimaCargaAt=Date.now();
+  renderCuposWidget();
+  renderMatricula();
+  renderResumenNiveles();
 }
 
 function matEstadoHTML(e){
@@ -11933,7 +12070,7 @@ async function confirmarAsignarSeccion(){
     sa("alert-mat", r.aplicado_directo
       ? `✅ Sección ${r.seccion_nombre} asignada (año en curso).`
       : `✅ Sección ${r.seccion_nombre} reservada para el ${matAnio}. Se aplica al arrancar el año.`, "success");
-    iniciarMatricula();
+    await matRefrescarEstudiante(id);
     if(confirm(`La sección ${r.seccion_nombre} quedó asignada.\n\n¿Deseás generar ahora la carta de bienvenida con el horario?`)){
       await imprimirCartaHorarioMatricula(+id, matAnio);
     }
@@ -12004,7 +12141,7 @@ async function confirmarResolverConvocatoria(){
     });
     cerrarModal("modal-resolver-convocatoria");
     sa("alert-mat",`✅ Convocatoria marcada como ${resultado}. Se asignó la sección ${r.seccion_nombre}.`,"success");
-    await iniciarMatricula();
+    await matRefrescarEstudiante(id);
     if(confirm(`La convocatoria quedó resuelta y el estudiante fue asignado a ${r.seccion_nombre}.\n\n¿Deseás generar ahora la carta de bienvenida con el horario?`)){
       await imprimirCartaHorarioMatricula(id,matAnio);
     }
@@ -12018,7 +12155,7 @@ async function eliminarMatricula(id, nombre){
   try{
     await api(`/api/matricula/${id}`,"DELETE",{justificacion:just,anio:matAnio});
     sa("alert-mat","✅ Matrícula eliminada.","success");
-    iniciarMatricula();
+    await matRefrescarEstudiante(id,{eliminado:true});
   }catch(e){ sa("alert-mat",e.message,"danger"); }
 }
 
@@ -21238,7 +21375,7 @@ async function finalizarMatricula(){
     sa("alert-mat",matDatosGuardados.convocatoria
       ? "📝 Matrícula guardada en espera por convocatoria. El estudiante queda sin sección hasta resolverla en febrero."
       : "✅ Matrícula finalizada y guardada exitosamente.","success");
-    iniciarMatricula();
+    await matRefrescarEstudiante(matEstId);
   }catch(e){
     sa("alert-mat-modal","Error al guardar: "+e.message,"danger");
   }
@@ -21906,7 +22043,7 @@ function ectRenderPasos(){
       cuerpo+=`<div class="form-grid">${ectCampo("ect-2-fecha-rev","Fecha de revisión",c.fecha_revision,"date")}${ectCampo("ect-2-registro","Registro o documentos consultados",c.registro_consultado)}</div>${ectCampo("ect-2-obs","Observaciones",c.observaciones)}`;
       if(acciones.length) cuerpo+=`<button class="btn btn-danger btn-sm" onclick="ectCerrarCausal('accion_pendiente')">Cerrar por acción correctiva pendiente e imprimir carta</button>`;
     }
-    if(n===3) cuerpo=`<div class="fg"><label>Trabajo Educativo Sustitutivo *</label><select id="ect-3-proyecto"><option value="">— Seleccionar —</option>${Object.entries(ECT_PROYECTOS).map(([v,l])=>`<option value="${v}" ${c.proyecto===v?'selected':''}>${l}</option>`).join('')}</select></div>${ectCampo("ect-3-just","Justificación y observaciones del diseño",c.justificacion)}<div style="margin-top:10px;background:#f8fafc;padding:10px;border-radius:7px;"><strong>Aprobación del Comité: ${aprobados} registrada(s) · se requiere 1</strong>${d.miembros.length?d.miembros.map(m=>`<div style="padding:5px 0;">${m.aprobado?'✅':'⏳'} ${htmlSeguro(nombrePersona(m))}</div>`).join(''):'<div class="empty">Administración aún no ha asignado miembros.</div>'}${d.es_comite&&!d.aprobaciones.some(a=>Number(a.usuario_id)===Number(ME.id))?`<button class="btn btn-success btn-sm" onclick="ectAprobarProyecto()">✅ Dar mi aprobación</button>`:''}</div>`;
+    if(n===3) cuerpo=`<div class="fg"><label>Trabajo Educativo Sustitutivo *</label><select id="ect-3-proyecto"><option value="">— Seleccionar —</option>${Object.entries(ECT_PROYECTOS).map(([v,l])=>`<option value="${v}" ${c.proyecto===v?'selected':''}>${l}</option>`).join('')}</select></div>${ectCampo("ect-3-just","Justificación y observaciones del diseño",c.justificacion)}<div style="margin-top:10px;background:#f8fafc;padding:10px;border-radius:7px;"><strong>Aprobación del Comité: ${aprobados} registrada(s) · se requiere 1</strong>${d.miembros.length?d.miembros.map(m=>`<div style="padding:5px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;"><span>${m.aprobado?'✅':'⏳'} ${htmlSeguro(nombrePersona(m))}</span>${!cerrado&&m.aprobado&&(d.es_admin||Number(m.id)===Number(ME.id))?`<button class="btn btn-danger btn-xs" onclick="ectRevertirAprobacion(${m.id},'${nombrePersona(m).replace(/'/g,"\\'")}')">↩ Revertir</button>`:''}</div>`).join(''):'<div class="empty">Administración aún no ha asignado miembros.</div>'}${d.es_comite&&!d.aprobaciones.some(a=>Number(a.usuario_id)===Number(ME.id))?`<button class="btn btn-success btn-sm" onclick="ectAprobarProyecto()">✅ Dar mi aprobación</button>`:''}</div>`;
     if(n===4){const pl=ECT_DOCUMENTOS[e.proyecto]||{};cuerpo=`<div class="alert show alert-info">Se usará íntegramente la plantilla oficial de <strong>${htmlSeguro(pl.titulo||'TES')}</strong>; aquí solo se individualizan los datos variables.</div><div class="form-grid">${ectCampo("ect-4-asig","Fecha de asignación",c.fecha_asignacion,"date")}${ectCampo("ect-4-entrega","Fecha prevista de entrega",c.fecha_entrega,"date")}</div>${ectCampo("ect-4-indiv","Antecedentes pertinentes, fortalezas, necesidades y relación con las habilidades",c.individualizacion)}${ectCampo("ect-4-apoyos","Apoyos y ajustes acordados",c.apoyos)}${ectCampo("ect-4-crono","Cronograma: fecha, hora, lugar y responsable de cada una de las cinco actividades",c.cronograma)}${ectCampo("ect-4-obs","Observaciones del diseño",c.observaciones)}`;}
     if(n===5) cuerpo=`<div class="form-grid">${ectCampo("ect-5-fecha","Fecha de comunicación y entrega",c.fecha_entrega,"date")}<div class="fg"><label>Hora</label><input type="time" id="ect-5-hora" value="${htmlSeguro(c.hora||'')}"></div></div>${ectSelectorEncargado(c,"ect-5-encargado")}${ectCampo("ect-5-medio","Medio de comunicación y referencia del acta",c.medio)}${ectCampo("ect-5-obs","Observaciones de la entrega",c.observaciones)}`;
     if(n===6) cuerpo=`<div class="form-grid">${ectCampo("ect-6-fin","Fecha de finalización",c.fecha_finalizacion,"date")}${ectCampo("ect-6-com","Fecha de comunicación",c.fecha_comunicacion,"date")}</div>${ectSelectorEncargado(c,"ect-6-encargado")}<div class="form-grid"><div class="fg"><label>Resultado del TES</label><select id="ect-6-resultado"><option value="">— Seleccionar —</option><option value="aprobado" ${c.resultado==='aprobado'?'selected':''}>Aprobó</option><option value="no_aprobado" ${c.resultado==='no_aprobado'?'selected':''}>No aprobó</option></select></div><div class="fg"><label>Calificación TES (0–100)</label><input id="ect-6-nota" type="number" min="0" max="100" step="0.01" value="${htmlSeguro(c.calificacion??'')}"></div></div>${ectCampo("ect-6-obs","Motivación, evidencias y observaciones",c.observaciones)}`;
@@ -21944,6 +22081,17 @@ async function ectGuardarPaso(n,completado,btn=null){
   finally{if(btn?.isConnected){btn.disabled=false;btn.textContent=texto;}}
 }
 async function ectAprobarProyecto(){try{await api(`/api/expedientes-conducta/${ectActual.expediente.id}/aprobar-proyecto`,"POST",{});await ectAbrirDetalle(ectActual.expediente.id);sa("alert-ect-detalle","Su aprobación quedó registrada.","success");}catch(e){sa("alert-ect-detalle",e.message,"danger");}}
+async function ectRevertirAprobacion(usuarioId,nombre){
+  const motivo=prompt(`Motivo para revertir la aprobación de ${nombre}:`,"Aprobación registrada por error");
+  if(motivo===null)return;
+  if(motivo.trim().length<5)return sa("alert-ect-detalle","Indique el motivo de la reversión.","warning");
+  if(!confirm(`¿Revertir la aprobación de ${nombre}?\n\nLa acción quedará registrada en el historial.`))return;
+  try{
+    await api(`/api/expedientes-conducta/${ectActual.expediente.id}/revertir-aprobacion`,"POST",{usuario_id:usuarioId,motivo:motivo.trim()});
+    await ectAbrirDetalle(ectActual.expediente.id);
+    sa("alert-ect-detalle","La aprobación fue revertida y quedó registrada.","success");
+  }catch(e){sa("alert-ect-detalle",e.message,"danger");}
+}
 async function ectConcluir(){
   const c=ectContenidoPaso(7);if(!c.resultado)return sa("alert-ect-detalle","Seleccione el resultado final.","warning");
   if(!confirm("¿Concluir y cerrar este expediente?"))return;
