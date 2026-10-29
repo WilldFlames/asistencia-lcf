@@ -17,6 +17,7 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
   const periodo = req.query.periodo || "I Período";
 
   try {
+    const anioActivo = await obtenerAnioActivo();
     const r = await pool.query(`
       SELECT
         a.id              AS asignacion_id,
@@ -41,6 +42,23 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
         COALESCE(m.modo_simplificado, false) AS materia_modo_simplificado,
         a.subgrupo,
         a.periodo         AS asig_periodo,
+        -- Conteo de seguridad por sección y período. En Hogar/Industriales
+        -- el subgrupo cambia entre semestres, por eso deliberadamente se
+        -- resume por profesor+sección+materia y no por la letra A/B. Así la
+        -- docente puede comprobar que lo registrado en el otro semestre
+        -- sigue guardado aunque esté viendo el grupo que cursa actualmente.
+        (SELECT COUNT(*)::int
+           FROM evaluaciones ev
+          WHERE ev.profesor_id=a.profesor_id
+            AND ev.seccion_id=a.seccion_id
+            AND ev.materia_id=a.materia_id
+            AND ev.periodo='I Período') AS evaluaciones_i,
+        (SELECT COUNT(*)::int
+           FROM evaluaciones ev
+          WHERE ev.profesor_id=a.profesor_id
+            AND ev.seccion_id=a.seccion_id
+            AND ev.materia_id=a.materia_id
+            AND ev.periodo='II Período') AS evaluaciones_ii,
         regla.id           AS regla_id,
         regla.codigo       AS regla_codigo,
         regla.descripcion  AS regla_descripcion,
@@ -88,9 +106,77 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
         )
         AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
       ORDER BY s.nombre, m.nombre, a.subgrupo NULLS FIRST
-    `, [u.id, periodo, await obtenerAnioActivo()]);
+    `, [u.id, periodo, anioActivo]);
 
-    res.json(r.rows);
+    // Compatibilidad con Hogar/Industriales configurados manualmente antes
+    // de existir la rotación automática A/B. Al reemplazar aquellas
+    // asignaciones podía quedar una evaluación perfectamente válida cuyo
+    // subgrupo ya no coincide con ninguna asignación actual. No se mueve ni
+    // se renombra: se ofrece como un registro anterior consultable.
+    const anteriores = await pool.query(`
+      SELECT
+        (-MIN(ev.id))::int AS asignacion_id,
+        ev.profesor_id,
+        ev.seccion_id,
+        s.nombre AS seccion_nombre,
+        s.nivel AS seccion_nivel,
+        ev.materia_id,
+        m.nombre AS materia_nombre,
+        false AS modo_simplificado,
+        false AS asig_modo_simplificado,
+        ARRAY[]::TEXT[] AS simplificado_periodos,
+        false AS materia_modo_simplificado,
+        ev.subgrupo,
+        ev.periodo AS asig_periodo,
+        true AS legacy_evaluaciones,
+        COUNT(*)::int FILTER (WHERE ev.periodo='I Período') AS evaluaciones_i,
+        COUNT(*)::int FILTER (WHERE ev.periodo='II Período') AS evaluaciones_ii,
+        regla.id AS regla_id,
+        regla.codigo AS regla_codigo,
+        regla.descripcion AS regla_descripcion,
+        regla.porc_cotidiano,
+        regla.porc_tareas,
+        regla.porc_pruebas,
+        regla.porc_proyectos,
+        regla.porc_asistencia,
+        regla.cantidad_pruebas,
+        regla.cantidad_proyectos,
+        regla.proyecto_o_prueba,
+        regla.notas AS regla_notas
+      FROM evaluaciones ev
+      JOIN secciones s ON s.id=ev.seccion_id
+      JOIN materias m ON m.id=ev.materia_id
+      LEFT JOIN materia_regla_evaluacion mre
+        ON mre.materia_id=ev.materia_id
+       AND s.nivel BETWEEN mre.nivel_min AND mre.nivel_max
+      LEFT JOIN materia_evaluacion_oficial regla ON regla.id=mre.regla_id
+      WHERE ev.profesor_id=$1
+        AND ev.periodo=$2
+        AND m.nombre IN ('Educación para el Hogar','Artes Industriales')
+        AND ev.created_at >= make_date($3,1,1)
+        AND ev.created_at < make_date($3+1,1,1)
+        AND NOT EXISTS (
+          SELECT 1 FROM asignaciones a
+          WHERE a.profesor_id=ev.profesor_id
+            AND a.seccion_id=ev.seccion_id
+            AND a.materia_id=ev.materia_id
+            AND COALESCE(a.subgrupo,'')=COALESCE(ev.subgrupo,'')
+            AND COALESCE(a.periodo,'I Período')=ev.periodo
+            AND COALESCE(a.anio,$3)=$3
+        )
+      GROUP BY ev.profesor_id,ev.seccion_id,s.nombre,s.nivel,
+        ev.materia_id,m.nombre,ev.subgrupo,ev.periodo,
+        regla.id,regla.codigo,regla.descripcion,regla.porc_cotidiano,
+        regla.porc_tareas,regla.porc_pruebas,regla.porc_proyectos,
+        regla.porc_asistencia,regla.cantidad_pruebas,
+        regla.cantidad_proyectos,regla.proyecto_o_prueba,regla.notas
+    `,[u.id,periodo,anioActivo]);
+
+    const filas=[...r.rows,...anteriores.rows].sort((a,b)=>
+      String(a.seccion_nombre).localeCompare(String(b.seccion_nombre),'es',{numeric:true}) ||
+      String(a.materia_nombre).localeCompare(String(b.materia_nombre),'es') ||
+      Number(!!a.legacy_evaluaciones)-Number(!!b.legacy_evaluaciones));
+    res.json(filas);
   } catch (e) {
     console.error("calificaciones/mis-asignaciones:", e);
     res.status(500).json({ error: "Error al cargar asignaciones." });
@@ -130,6 +216,7 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
   //   2º intento: asignación del I Período (que hereda automáticamente al II
   //               cuando no existe una versión específica del II)
   // Prioriza siempre la más específica (por eso el ORDER BY).
+  const anioActivo = await obtenerAnioActivo();
   const r = await pool.query(`
     SELECT a.id, a.profesor_id, a.seccion_id, a.materia_id, a.subgrupo, a.anio,
            m.nombre AS materia_nombre, s.nombre AS seccion_nombre,
@@ -153,7 +240,11 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
     WHERE a.profesor_id = $1
       AND a.seccion_id  = $2
       AND a.materia_id  = $3
-      AND a.anio = $6
+      -- Las asignaciones antiguas no siempre tenían año almacenado. El
+      -- listado ya las interpreta como pertenecientes al año activo; la
+      -- verificación al abrir/editar debe aplicar exactamente la misma regla
+      -- para no ocultar evaluaciones que sí existen.
+      AND COALESCE(a.anio,$6) = $6
       AND (($4::text IS NULL AND a.subgrupo IS NULL) OR a.subgrupo = $4)
       AND (
         COALESCE(a.periodo,'I Período') = $5
@@ -168,14 +259,42 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
               AND a2.materia_id = a.materia_id
               AND (($4::text IS NULL AND a2.subgrupo IS NULL) OR a2.subgrupo = $4)
               AND COALESCE(a2.periodo,'I Período') = $5
-              AND a2.anio = $6
+              AND COALESCE(a2.anio,$6) = $6
           )
         )
       )
     ORDER BY CASE WHEN COALESCE(a.periodo,'I Período')=$5 THEN 0 ELSE 1 END
     LIMIT 1
-  `, [profesor_id, seccion_id, materia_id, subgrupo || null, periodo, await obtenerAnioActivo()]);
-  return r.rows[0] || null;
+  `, [profesor_id, seccion_id, materia_id, subgrupo || null, periodo, anioActivo]);
+  if(r.rows[0]) return r.rows[0];
+
+  // Una evaluación heredada acredita el acceso de su propio profesor aunque
+  // la asignación manual original haya sido sustituida por la rotación A/B.
+  // Esto es deliberadamente solo para los dos talleres y para registros
+  // creados en el año lectivo activo.
+  const anterior = await pool.query(`
+    SELECT NULL::integer AS id, ev.profesor_id,ev.seccion_id,ev.materia_id,
+      ev.subgrupo,$5::text AS periodo,s.nombre AS seccion_nombre,s.nivel AS seccion_nivel,
+      m.nombre AS materia_nombre,false AS modo_simplificado,true AS legacy_evaluaciones,
+      mre.regla_id,reg.codigo AS regla_codigo,reg.cantidad_pruebas,
+      reg.cantidad_proyectos,reg.proyecto_o_prueba,
+      reg.porc_cotidiano,reg.porc_tareas,reg.porc_pruebas,
+      reg.porc_proyectos,reg.porc_asistencia
+    FROM evaluaciones ev
+    JOIN materias m ON m.id=ev.materia_id
+    JOIN secciones s ON s.id=ev.seccion_id
+    LEFT JOIN materia_regla_evaluacion mre
+      ON mre.materia_id=ev.materia_id AND s.nivel BETWEEN mre.nivel_min AND mre.nivel_max
+    LEFT JOIN materia_evaluacion_oficial reg ON reg.id=mre.regla_id
+    WHERE ev.profesor_id=$1 AND ev.seccion_id=$2 AND ev.materia_id=$3
+      AND (($4::text IS NULL AND ev.subgrupo IS NULL) OR ev.subgrupo=$4)
+      AND ev.periodo=$5
+      AND m.nombre IN ('Educación para el Hogar','Artes Industriales')
+      AND ev.created_at >= make_date($6,1,1)
+      AND ev.created_at < make_date($6+1,1,1)
+    LIMIT 1
+  `,[profesor_id,seccion_id,materia_id,subgrupo||null,periodo,anioActivo]);
+  return anterior.rows[0] || null;
 }
 
 // Helper: verifica que la evaluación exista Y pertenezca al usuario logueado.
@@ -304,6 +423,9 @@ router.post("/evaluaciones", requireAuth, async (req, res) => {
   // Verificar asignación
   const asig = await verificarAsignacion(u.id, seccion_id, materia_id, subgrupo, periodo);
   if (!asig) return res.status(403).json({ error: "Sin acceso a esta asignación." });
+  if (asig.legacy_evaluaciones) {
+    return res.status(409).json({ error: "Este es un registro anterior recuperado. Podés consultar y completar sus evaluaciones existentes, pero las nuevas deben crearse desde la asignación vigente." });
+  }
 
   // Si el período está cerrado, no se permiten cambios
   const cierre = await getEstadoPeriodo(u.id, seccion_id, materia_id, subgrupo, periodo);

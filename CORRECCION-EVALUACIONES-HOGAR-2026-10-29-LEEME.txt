@@ -1,0 +1,12 @@
+CORRECCIÓN DE EVALUACIONES DE HOGAR — 29/10/2026
+
+- Se unificó la validación del año lectivo al listar y abrir una asignación.
+- Las asignaciones antiguas del año activo ya no quedan visibles pero bloqueadas al abrir.
+- Hogar y Artes Industriales muestran el total de evaluaciones guardadas en I y II período.
+- Si el período visible no tiene evaluaciones, pero el otro sí, se indica cambiar el filtro.
+- Las evaluaciones hechas con las asignaciones manuales anteriores aparecen como
+  "Registro anterior recuperado", aun si la asignación original fue sustituida.
+- Estos registros no se mezclan ni se cambian automáticamente de grupo A/B.
+- No se elimina, traslada ni modifica ninguna evaluación existente.
+
+Validación: 349 pruebas automatizadas aprobadas.

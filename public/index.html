@@ -24886,8 +24886,21 @@ function renderCalifAsig(){
       reglasTxt = `<div style="font-size:12px;">${piezas}</div>` +
                   (a.regla_notas ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${a.regla_notas}</div>` : '');
     }
+    const periodoVisible = document.getElementById("calif-periodo")?.value || 'I Período';
+    const cantI = Number(a.evaluaciones_i || 0);
+    const cantII = Number(a.evaluaciones_ii || 0);
+    const cantVisible = periodoVisible === 'II Período' ? cantII : cantI;
+    const cantAnterior = periodoVisible === 'II Período' ? cantI : cantII;
+    const periodoAnterior = periodoVisible === 'II Período' ? 'I Período' : 'II Período';
     const avisoSemestral = esTaller
-      ? '<br/><span style="font-size:11px;color:var(--azul);">📌 Materia semestral — nota única</span>'
+      ? `<br/><span style="font-size:11px;color:var(--azul);">📌 Materia semestral — nota única</span>
+         <br/><span style="font-size:11px;color:var(--muted);">Evaluaciones guardadas: I período ${cantI} · II período ${cantII}</span>
+         ${cantVisible===0 && cantAnterior>0
+           ? `<br/><span style="font-size:11px;color:#9a6700;background:#fff7d6;padding:2px 6px;border-radius:4px;">⚠️ Hay ${cantAnterior} evaluación${cantAnterior===1?'':'es'} en ${periodoAnterior}; cambiá el filtro para verla${cantAnterior===1?'':'s'}.</span>`
+           : ''}`
+      : '';
+    const avisoAnterior = a.legacy_evaluaciones
+      ? '<br/><span style="font-size:11px;color:#7c2d12;background:#ffedd5;padding:2px 6px;border-radius:4px;">🗂️ Registro anterior recuperado de la configuración manual</span>'
       : '';
     const avisoSimplificada = a.modo_simplificado
       ? '<br/><span style="font-size:11px;color:#15803d;background:#dcfce7;padding:1px 6px;border-radius:4px;">🎓 Modo simplificado (solo % por rubro)</span>'
@@ -24897,7 +24910,7 @@ function renderCalifAsig(){
       : `<button class="btn btn-primary btn-xs" onclick="abrirEvaluaciones(${a.asignacion_id})">📝 Evaluaciones</button>`;
     return `<tr ${sinRegla?'style="background:#fef3c7;"':''}>
       <td><strong>${a.seccion_nombre}</strong></td>
-      <td>${a.materia_nombre}${avisoSemestral}${avisoSimplificada}</td>
+      <td>${a.materia_nombre}${avisoSemestral}${avisoAnterior}${avisoSimplificada}</td>
       <td>${a.subgrupo ? `<span class="badge b-guia">${a.subgrupo}</span>` : '<span style="color:var(--muted);">—</span>'}</td>
       <td style="text-align:center;">${fmt(a.porc_cotidiano)}</td>
       <td style="text-align:center;">${fmt(a.porc_tareas)}</td>

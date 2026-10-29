@@ -40,3 +40,19 @@ test('Asistencia, Calificaciones y Promedio filtran el período sin duplicar el 
   assert.match(html,/const \[i,ii\]=await Promise\.all/);
   assert.match(html,/unicas\.set\(Number\(a\.asignacion_id\),a\)/);
 });
+
+test('Calificaciones conserva acceso a asignaciones antiguas y muestra dónde están las evaluaciones de talleres',()=>{
+  assert.match(calificaciones,/COALESCE\(a\.anio,\$6\) = \$6/);
+  assert.match(calificaciones,/COALESCE\(a2\.anio,\$6\) = \$6/);
+  assert.match(calificaciones,/AS evaluaciones_i/);
+  assert.match(calificaciones,/AS evaluaciones_ii/);
+  assert.match(html,/Evaluaciones guardadas: I período/);
+  assert.match(html,/cambiá el filtro para verla/);
+});
+
+test('las evaluaciones creadas con asignaciones manuales anteriores siguen consultables sin mezclarlas',()=>{
+  assert.match(calificaciones,/true AS legacy_evaluaciones/);
+  assert.match(calificaciones,/Una evaluación heredada acredita el acceso/);
+  assert.match(calificaciones,/Este es un registro anterior recuperado/);
+  assert.match(html,/Registro anterior recuperado de la configuración manual/);
+});
