@@ -1,0 +1,31 @@
+ARCHIVO DIVIDIDO: RETIRADOS Y TRASLADOS DE SECCION
+Fecha: 28 de octubre de 2026
+
+1. Dos apartados independientes
+- Estudiantes retirados: conserva el expediente completo del retiro, como antes.
+- Traslados de seccion: conserva un respaldo academico parcial sin retirar ni
+  desactivar al estudiante.
+
+2. Regla al cambiar de seccion
+- El sistema compara cada materia de la seccion anterior con la nueva.
+- Si la materia sigue con el mismo docente, no crea una copia en Archivo.
+- Si cambia el docente, registra esa materia en Traslados de seccion.
+- Se conservan los porcentajes alcanzados en cada rubro hasta la fecha:
+  trabajo cotidiano, tareas, pruebas, proyecto, asistencia y total.
+- Tambien se identifica el docente anterior y el docente nuevo.
+- Si cambia el docente pero aun no existen porcentajes, el traslado queda
+  registrado y se indica que todavia no habia calificaciones.
+
+3. Seguridad de la operacion
+- El cambio de seccion y el archivo parcial se guardan en una sola transaccion.
+- Si alguno falla, ninguno de los dos cambios queda aplicado a medias.
+- El estudiante continua activo en la nueva seccion.
+
+4. Consulta e impresion
+- Archivo muestra botones separados para Retirados y Traslados de seccion.
+- Los traslados se pueden buscar por nombre o cedula.
+- Cada traslado permite consultar e imprimir el resumen con formato institucional.
+
+Verificacion
+- Sintaxis del servidor validada.
+- Suite completa: 348 pruebas aprobadas, 0 fallidas.

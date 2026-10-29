@@ -151,6 +151,70 @@ router.get("/matricula/stats/:anio", canManage, async (req, res) => {
   });
 });
 
+// ── ARCHIVO DE TRASLADOS DE SECCIÓN ──────────────────────────────────
+// Es independiente del archivo de retirados: la persona continúa activa y
+// aquí solo aparecen las materias en las que cambió el docente responsable.
+router.get("/traslados", canReadAcademic, async (req,res)=>{
+  const soloDocente=esDocenteArchivo(req.session.usuario);
+  const r=await pool.query(`
+    SELECT t.id,t.estudiante_id,t.anio,t.fecha,t.seccion_origen_nombre,
+      t.seccion_destino_nombre,t.justificacion,t.materias_cambiadas,t.created_at,
+      e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,
+      TRIM(CONCAT_WS(' ',u.nombre,u.primer_apellido,u.segundo_apellido)) AS realizado_por_nombre,
+      COUNT(d.id)::int AS registros_academicos
+    FROM expediente_traslados t
+    JOIN estudiantes e ON e.id=t.estudiante_id
+    LEFT JOIN usuarios u ON u.id=t.realizado_por
+    LEFT JOIN expediente_traslado_academico d ON d.traslado_id=t.id
+    WHERE ($1::boolean=false OR EXISTS (
+      SELECT 1 FROM expediente_traslado_academico permiso
+      WHERE permiso.traslado_id=t.id
+        AND (permiso.profesor_origen_id=$2 OR permiso.profesor_destino_id=$2)
+    ))
+    GROUP BY t.id,e.id,u.id
+    ORDER BY t.fecha DESC,t.created_at DESC,e.primer_apellido,e.segundo_apellido,e.nombre
+  `,[soloDocente,req.session.usuario.id]);
+  res.json(r.rows);
+});
+
+router.get("/traslados/:trasladoId", canReadAcademic, async (req,res)=>{
+  const soloDocente=esDocenteArchivo(req.session.usuario);
+  const cab=await pool.query(`
+    SELECT t.*,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.subgrupo,
+      TRIM(CONCAT_WS(' ',u.nombre,u.primer_apellido,u.segundo_apellido)) AS realizado_por_nombre
+    FROM expediente_traslados t
+    JOIN estudiantes e ON e.id=t.estudiante_id
+    LEFT JOIN usuarios u ON u.id=t.realizado_por
+    WHERE t.id=$1 AND ($2::boolean=false OR EXISTS (
+      SELECT 1 FROM expediente_traslado_academico permiso
+      WHERE permiso.traslado_id=t.id
+        AND (permiso.profesor_origen_id=$3 OR permiso.profesor_destino_id=$3)
+    ))
+  `,[req.params.trasladoId,soloDocente,req.session.usuario.id]);
+  if(!cab.rows.length) return res.status(404).json({error:"Traslado no encontrado o sin permiso de consulta."});
+  const det=await pool.query(`
+    SELECT d.*,regla.porc_cotidiano,regla.porc_tareas,regla.porc_pruebas,
+      regla.porc_proyectos,regla.porc_asistencia
+    FROM expediente_traslado_academico d
+    JOIN expediente_traslados t ON t.id=d.traslado_id
+    LEFT JOIN secciones sec ON sec.id=t.seccion_origen_id
+    LEFT JOIN materia_regla_evaluacion mre ON mre.materia_id=d.materia_id
+      AND sec.nivel BETWEEN mre.nivel_min AND mre.nivel_max
+    LEFT JOIN materia_evaluacion_oficial regla ON regla.id=mre.regla_id
+    WHERE d.traslado_id=$1
+      AND ($2::boolean=false OR d.profesor_origen_id=$3 OR d.profesor_destino_id=$3)
+    ORDER BY d.periodo,d.materia_nombre
+  `,[req.params.trasladoId,soloDocente,req.session.usuario.id]);
+  const detalle=det.rows.map(x=>({
+    ...x,
+    nota_cotidiano:aportePonderado(x.nota_cotidiano,x.porc_cotidiano),
+    nota_tareas:aportePonderado(x.nota_tareas,x.porc_tareas),
+    nota_pruebas:aportePonderado(x.nota_pruebas,x.porc_pruebas),
+    nota_proyecto:aportePonderado(x.nota_proyecto,x.porc_proyectos)
+  }));
+  res.json({traslado:cab.rows[0],detalle});
+});
+
 // ── HISTORIAL ACADÉMICO (auxiliares/admin) ──────────────────────────────
 // Devuelve las notas archivadas por año/período/materia de un estudiante,
 // con totales de asistencia (ausencias, tardías, justificadas).

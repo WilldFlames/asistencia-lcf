@@ -110,6 +110,9 @@ test('la constancia de retiro agrega el acta legal para personas menores de edad
   assert.match(html,/cfgCentro=await api\('\/api\/protocolos\/config-centro'\)/);
   assert.match(html,/const contenidoHTML=constanciaHTML\+actaMenorHTML/);
   assert.match(html,/constancia_retiro_\$\{est\.cedula\}\.pdf`,\{bloquesPagina:true\}/);
+  assert.match(html,/class="retiro-firmas-amplias"/);
+  assert.match(html,/margin-top:76px;page-break-inside:avoid/);
+  assert.match(html,/margin-top:38px;text-align:center;page-break-inside:avoid/);
 });
 
 test('el autoguardado de asistencia serializa peticiones y reintenta errores',()=>{

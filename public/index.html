@@ -3071,12 +3071,16 @@ tr:hover td{background:#f8fafc;}
       <h2 style="margin:0">🗄️ Archivo de Estudiantes</h2>
     </div>
     <div id="alert-archivo" class="alert"></div>
+    <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:12px;">
+      <button id="archivo-tab-retirados" class="btn btn-primary btn-sm" onclick="archivoCambiarTipo('retirados')">📦 Estudiantes retirados</button>
+      <button id="archivo-tab-traslados" class="btn btn-outline btn-sm" onclick="archivoCambiarTipo('traslados')">🔄 Traslados de sección</button>
+    </div>
     <div style="margin-bottom:10px;">
       <input type="text" id="buscar-archivo" placeholder="Buscar por nombre o cédula..." oninput="filtrarArchivo()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;"/>
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección anterior</th><th>Fecha retiro</th><th>Debido proceso</th><th>Motivo</th><th></th></tr></thead>
+        <thead id="archivo-thead"><tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección anterior</th><th>Fecha retiro</th><th>Debido proceso</th><th>Motivo</th><th></th></tr></thead>
         <tbody id="archivo-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
       </table>
     </div>
@@ -8467,11 +8471,14 @@ async function confirmarCambioSeccion(){
   const justificacion=document.getElementById("mcs-justificacion").value.trim();
   if(!justificacion){sa("alert-mcs","La justificación del cambio es obligatoria.","danger");return;}
   try{
-    await api(`/api/estudiantes/${cambSecEstId}/seccion`,"PUT",{seccion_id:sid?+sid:null,justificacion});
+    const r=await api(`/api/estudiantes/${cambSecEstId}/seccion`,"PUT",{seccion_id:sid?+sid:null,justificacion});
     cerrarModal("modal-cambiar-seccion");
     document.getElementById("mcs-justificacion").value="";
     cargarEstudiantes();
-    sa("alert-est","✅ Traslado registrado. Profesores de ambas secciones fueron notificados.","success");
+    const archivo=Number(r.materias_archivadas||0)>0
+      ? ` Se archivaron los porcentajes de ${r.materias_archivadas} materia(s) cuyo docente cambió.`
+      : ' No se creó archivo académico porque el docente se mantiene o no había materias que trasladar.';
+    sa("alert-est","✅ Traslado registrado. Profesores de ambas secciones fueron notificados."+archivo,"success");
   }catch(e){sa("alert-mcs",e.message,"danger");}
 }
 
@@ -20327,12 +20334,12 @@ async function generarConstanciaRetiro(){
         <li style="margin-bottom:4px;">Se me informa que, conforme a los artículos 65, 66 y 130 del Código de la Niñez y la Adolescencia, el centro educativo podrá comunicar la situación al Patronato Nacional de la Infancia y a las autoridades competentes del Ministerio de Educación Pública cuando corresponda.</li>
         <li>Esta declaración no implica renuncia a los derechos de la persona menor de edad ni exime al centro educativo de sus deberes legales de protección y seguimiento.</li>
       </ol>
-      <p style="margin:7px 0 4px;">Firmo voluntariamente y declaro que he leído y comprendido el contenido de este documento.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:34px;margin-top:27px;">
-        <div style="text-align:center;border-top:1px solid #333;padding-top:4px;"><strong>${encNombreSeguro}</strong><br>Cédula: ${encCedulaSeguro}<br>Persona encargada legal</div>
-        <div style="text-align:center;border-top:1px solid #333;padding-top:4px;"><strong>${directorSeguro}</strong>${directorCedulaSeguro?`<br>Cédula: ${directorCedulaSeguro}`:''}<br>Dirección</div>
+      <p style="margin:9px 0 4px;">Firmo voluntariamente y declaro que he leído y comprendido el contenido de este documento.</p>
+      <div class="retiro-firmas-amplias" style="display:grid;grid-template-columns:1fr 1fr;gap:46px;margin-top:76px;page-break-inside:avoid;">
+        <div style="text-align:center;border-top:1px solid #333;padding-top:7px;"><strong>${encNombreSeguro}</strong><br>Cédula: ${encCedulaSeguro}<br>Persona encargada legal</div>
+        <div style="text-align:center;border-top:1px solid #333;padding-top:7px;"><strong>${directorSeguro}</strong>${directorCedulaSeguro?`<br>Cédula: ${directorCedulaSeguro}`:''}<br>Dirección</div>
       </div>
-      <div style="margin-top:18px;text-align:center;">Sello institucional: ______________________________</div>
+      <div style="margin-top:38px;text-align:center;page-break-inside:avoid;">Sello institucional: ______________________________</div>
     </section>`:'';
   const contenidoHTML=constanciaHTML+actaMenorHTML;
   cerrarModal("modal-retiro");
@@ -20362,16 +20369,50 @@ async function archivarTrasRetiro(){
 //  ARCHIVO DE ESTUDIANTES
 // ════════════════════════════════════
 let archivoData=[];
+let archivoTraslados=[];
+let archivoTipo='retirados';
 let archivoImpresionActual=null;
 
 async function iniciarArchivo(){
-  archivoData=ordenarEstudiantes(await api("/api/estudiantes/archivados"));
+  const [retirados,traslados]=await Promise.all([
+    api("/api/estudiantes/archivados"),
+    api("/api/expediente/traslados")
+  ]);
+  archivoData=ordenarEstudiantes(retirados||[]);
+  archivoTraslados=traslados||[];
+  renderArchivo();
+}
+
+function archivoCambiarTipo(tipo){
+  archivoTipo=tipo==='traslados'?'traslados':'retirados';
+  const retirados=document.getElementById('archivo-tab-retirados');
+  const traslados=document.getElementById('archivo-tab-traslados');
+  if(retirados)retirados.className=`btn ${archivoTipo==='retirados'?'btn-primary':'btn-outline'} btn-sm`;
+  if(traslados)traslados.className=`btn ${archivoTipo==='traslados'?'btn-primary':'btn-outline'} btn-sm`;
   renderArchivo();
 }
 
 function renderArchivo(){
   const q=(document.getElementById("buscar-archivo")?.value||"").toLowerCase();
   const tbody=document.getElementById("archivo-tbody");
+  const thead=document.getElementById('archivo-thead');
+  if(archivoTipo==='traslados'){
+    const lista=q?archivoTraslados.filter(e=>`${e.primer_apellido} ${e.segundo_apellido||''} ${e.nombre} ${e.cedula||''}`.toLowerCase().includes(q)):archivoTraslados;
+    if(thead)thead.innerHTML='<tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Traslado</th><th>Fecha</th><th>Materias con cambio de docente</th><th>Registrado por</th><th></th></tr>';
+    if(!lista.length){if(tbody)tbody.innerHTML='<tr><td colspan="8" class="empty">No hay traslados de sección con cambio de docente.</td></tr>';return;}
+    if(tbody)tbody.innerHTML=lista.map((e,i)=>`<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><strong>${htmlSeguro(nombreEstudianteLista(e))}</strong></td>
+      <td>${htmlSeguro(e.cedula||'—')}</td>
+      <td><strong>${htmlSeguro(e.seccion_origen_nombre||'—')}</strong> → <strong>${htmlSeguro(e.seccion_destino_nombre||'—')}</strong></td>
+      <td>${e.fecha?fmtF(e.fecha):'—'}</td>
+      <td style="font-size:12px;max-width:300px;">${htmlSeguro(e.materias_cambiadas||'Sin porcentajes registrados')}</td>
+      <td style="font-size:12px;">${htmlSeguro(e.realizado_por_nombre||'—')}</td>
+      <td><button class="btn btn-outline btn-xs" onclick="verDetalleTraslado(${e.id})">👁️ Ver porcentajes</button></td>
+    </tr>`).join('');
+    return;
+  }
+  if(thead)thead.innerHTML='<tr><th>#</th><th>Apellidos, Nombre</th><th>Cédula</th><th>Sección anterior</th><th>Fecha retiro</th><th>Debido proceso</th><th>Motivo</th><th></th></tr>';
   const lista=q?archivoData.filter(e=>`${e.primer_apellido} ${e.segundo_apellido||''} ${e.nombre}`.toLowerCase().includes(q)||(e.cedula||"").includes(q)):archivoData;
   if(!lista.length){if(tbody) tbody.innerHTML=`<tr><td colspan="8" class="empty">No hay estudiantes archivados.</td></tr>`;return;}
   if(tbody) tbody.innerHTML=lista.map((e,i)=>{
@@ -20423,7 +20464,7 @@ async function confirmarReactivar(){
     sa('alert-archivo',
       r.seccion ? `✅ Estudiante reactivado y asignado a ${r.seccion.nombre}.` : '✅ Estudiante reactivado (sin sección asignada).',
       'success');
-    await cargarArchivo();
+    await iniciarArchivo();
   } catch(e){
     sa('alert-reactivar', e.message, 'danger');
   }
@@ -20431,12 +20472,38 @@ async function confirmarReactivar(){
 
 function filtrarArchivo(){renderArchivo();}
 
+async function verDetalleTraslado(id){
+  archivoImpresionActual=null;
+  const btn=document.getElementById('btn-imprimir-archivo-retirado');
+  if(btn)btn.disabled=true;
+  document.getElementById('darch-titulo').textContent='🔄 Archivo académico por traslado';
+  document.getElementById('darch-contenido').innerHTML='<div style="padding:30px;text-align:center;color:var(--muted);">Cargando...</div>';
+  document.getElementById('modal-detalle-archivado').classList.add('show');
+  try{
+    const r=await api(`/api/expediente/traslados/${id}`),t=r.traslado,detalle=r.detalle||[];
+    const pct=v=>(v===null||v===undefined||v==='')?'<span style="color:#cbd5e1;">—</span>':`${Number(v).toFixed(1)}%`;
+    const total=v=>(v===null||v===undefined||v==='')?'—':Number(v).toFixed(1);
+    const periodos=['I Período','II Período'].map(periodo=>({periodo,filas:detalle.filter(x=>x.periodo===periodo)})).filter(x=>x.filas.length);
+    let tablas='';
+    periodos.forEach(p=>{
+      tablas+=`<div style="font-weight:bold;color:#475569;margin:12px 0 5px;">${htmlSeguro(p.periodo)}</div><div class="table-wrap"><table style="font-size:11px;"><thead><tr><th>Materia</th><th>Docente anterior</th><th>Docente nuevo</th><th>Cot.</th><th>Tar.</th><th>Prue.</th><th>Proy.</th><th>Asist.</th><th>Total</th></tr></thead><tbody>${p.filas.map(m=>`<tr><td><strong>${htmlSeguro(m.materia_nombre)}</strong></td><td>${htmlSeguro(m.profesor_origen_nombre||'—')}</td><td>${htmlSeguro(m.profesor_destino_nombre||'Sin docente asignado')}</td><td>${pct(m.nota_cotidiano)}</td><td>${pct(m.nota_tareas)}</td><td>${pct(m.nota_pruebas)}</td><td>${pct(m.nota_proyecto)}</td><td>${pct(m.nota_asistencia)}</td><td><strong>${total(m.nota_total)}</strong></td></tr>`).join('')}</tbody></table></div>`;
+    });
+    const nombre=nombreEstudianteLista(t);
+    const html=`<div style="background:#eff6ff;border-left:4px solid #2563eb;padding:11px 14px;border-radius:7px;margin-bottom:12px;font-size:13px;line-height:1.55;"><strong>${htmlSeguro(nombre)}</strong> · ${htmlSeguro(t.cedula||'—')}<br><strong>Traslado:</strong> ${htmlSeguro(t.seccion_origen_nombre||'—')} → ${htmlSeguro(t.seccion_destino_nombre||'—')}<br><strong>Fecha:</strong> ${t.fecha?fmtF(t.fecha):'—'} · <strong>Curso lectivo:</strong> ${htmlSeguro(t.anio)}<br><strong>Registrado por:</strong> ${htmlSeguro(t.realizado_por_nombre||'—')}<br><strong>Justificación:</strong> ${htmlSeguro(t.justificacion||'—')}</div><div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Se conservan únicamente las materias cuyo docente cambió. Los porcentajes corresponden al aporte alcanzado en cada rubro hasta la fecha del traslado.</div>${tablas||`<div class="empty" style="padding:20px;">Cambiaron las asignaciones de ${htmlSeguro(t.materias_cambiadas||'materias del estudiante')}, pero todavía no había porcentajes registrados.</div>`}`;
+    document.getElementById('darch-contenido').innerHTML=html;
+    archivoImpresionActual={tipo:'traslado',traslado:t,html,soloAcademico:true};
+    if(btn){btn.disabled=false;btn.textContent='🖨️ Imprimir traslado';}
+  }catch(e){
+    document.getElementById('darch-contenido').innerHTML=`<div style="padding:20px;color:var(--rojo);">${htmlSeguro(e.message)}</div>`;
+  }
+}
+
 async function verDetalleArchivado(id){
   const e = archivoData.find(x => x.id === id);
   if(!e) return;
   archivoImpresionActual=null;
   const btnImprimir=document.getElementById('btn-imprimir-archivo-retirado');
-  if(btnImprimir)btnImprimir.disabled=true;
+  if(btnImprimir){btnImprimir.disabled=true;btnImprimir.textContent='🖨️ Imprimir expediente';}
   const nombre = nombrePersona(e);
   document.getElementById('darch-titulo').textContent = `📁 ${nombre}`;
   document.getElementById('darch-contenido').innerHTML =
@@ -20614,7 +20681,7 @@ async function verDetalleArchivado(id){
     }
 
     document.getElementById('darch-contenido').innerHTML = html;
-    archivoImpresionActual={estudiante:e,html,soloAcademico:archivoSoloAcademico};
+    archivoImpresionActual={tipo:'retirado',estudiante:e,html,soloAcademico:archivoSoloAcademico};
     if(btnImprimir)btnImprimir.disabled=false;
   } catch(err){
     document.getElementById('darch-contenido').innerHTML =
@@ -20625,6 +20692,12 @@ async function verDetalleArchivado(id){
 async function imprimirArchivoRetirado(){
   const actual=archivoImpresionActual;
   if(!actual){sa('alert-archivo','Espere a que termine de cargar el expediente.','danger');return;}
+  if(actual.tipo==='traslado'){
+    const t=actual.traslado,nombre=nombreEstudianteLista(t);
+    const portada=`<div style="font-size:11px;line-height:1.5;margin-bottom:12px;"><strong>Estudiante:</strong> ${htmlSeguro(nombre)}<br><strong>Cédula:</strong> ${htmlSeguro(t.cedula||'—')}<br><strong>Traslado:</strong> ${htmlSeguro(t.seccion_origen_nombre||'—')} → ${htmlSeguro(t.seccion_destino_nombre||'—')}<br><strong>Fecha:</strong> ${t.fecha?fmtF(t.fecha):'—'} &nbsp; <strong>Curso lectivo:</strong> ${htmlSeguro(t.anio)}</div>`;
+    await imprimirPDFMEP('ARCHIVO ACADÉMICO POR TRASLADO DE SECCIÓN',portada+actual.html,`traslado_seccion_${String(t.cedula||t.estudiante_id).replace(/[^0-9A-Za-z_-]/g,'_')}_${t.id}.pdf`);
+    return;
+  }
   const e=actual.estudiante;
   const nombre=nombrePersona(e);
   const portada=`<div style="font-size:11px;line-height:1.45;margin-bottom:12px;">

@@ -1,0 +1,12 @@
+ESPACIOS DE FIRMA EN LA SEGUNDA CARTA DE RETIRO
+Fecha: 28 de octubre de 2026
+
+- Se amplio a 76 pixeles el espacio libre antes de las lineas de firma.
+- Se aumento la separacion horizontal entre la firma de la persona encargada
+  legal y la firma de Direccion.
+- Se aumento el espacio entre las firmas y el sello institucional.
+- El bloque de firmas y el sello no se dividen entre paginas al generar el PDF.
+- La segunda carta se conserva como una pagina independiente dentro del PDF de
+  la Constancia de Retiro.
+
+Verificacion: 348 pruebas aprobadas, 0 fallidas.

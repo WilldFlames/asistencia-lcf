@@ -83,6 +83,112 @@ async function archivarResumenAcademicoEstudiante(est,anio){
   return guardados;
 }
 
+const MATERIAS_SEMESTRALES_TRASLADO = new Set(['Educación para el Hogar','Artes Industriales']);
+
+function nombreUsuarioArchivo(a,prefijo=''){
+  return [a[`${prefijo}nombre`],a[`${prefijo}primer_apellido`],a[`${prefijo}segundo_apellido`]]
+    .filter(Boolean).join(' ');
+}
+
+function asignacionEfectivaTraslado(asignaciones,materiaId,periodo,semestral){
+  const materia=asignaciones.filter(a=>Number(a.materia_id)===Number(materiaId));
+  const exacta=materia.find(a=>a.periodo===periodo);
+  if(exacta) return exacta;
+  if(!semestral && periodo==='II Período') return materia.find(a=>a.periodo==='I Período')||null;
+  return null;
+}
+
+// Calcula la fotografía académica ANTES de mover al estudiante. Una materia
+// solo se incluye cuando el profesor efectivo de destino es diferente. Si el
+// mismo docente atiende ambas secciones no se crea una copia innecesaria.
+async function prepararArchivoTraslado(est,seccionDestinoId,anio){
+  if(!est?.seccion_id||!seccionDestinoId||Number(est.seccion_id)===Number(seccionDestinoId))
+    return { materias:[], filas:[] };
+  const r=await pool.query(`
+    SELECT a.id,a.profesor_id,a.seccion_id,a.materia_id,a.subgrupo,
+      COALESCE(a.periodo,'I Período') AS periodo,
+      m.nombre AS materia_nombre,s.nombre AS seccion_nombre,
+      u.nombre,u.primer_apellido,u.segundo_apellido
+    FROM asignaciones a
+    JOIN materias m ON m.id=a.materia_id
+    JOIN secciones s ON s.id=a.seccion_id
+    JOIN usuarios u ON u.id=a.profesor_id
+    WHERE a.anio=$1 AND a.seccion_id=ANY($2::int[])
+      AND (a.subgrupo IS NULL OR UPPER(a.subgrupo)=UPPER($3))
+      AND m.nombre NOT IN ('Guía','Orientación','Fortalecimiento Matemático')
+    ORDER BY a.materia_id,a.periodo,a.id
+  `,[anio,[Number(est.seccion_id),Number(seccionDestinoId)],String(est.subgrupo||'')]);
+  const origen=r.rows.filter(a=>Number(a.seccion_id)===Number(est.seccion_id));
+  const destino=r.rows.filter(a=>Number(a.seccion_id)===Number(seccionDestinoId));
+  const materias=[...new Map(origen.map(a=>[Number(a.materia_id),a])).values()];
+  const cambiadas=new Map();
+  const filas=[];
+  for(const materia of materias){
+    const semestral=MATERIAS_SEMESTRALES_TRASLADO.has(materia.materia_nombre);
+    const periodos=semestral
+      ? [...new Set(origen.filter(a=>Number(a.materia_id)===Number(materia.materia_id)).map(a=>a.periodo))]
+      : ['I Período','II Período'];
+    for(const periodo of periodos){
+      const aOrigen=asignacionEfectivaTraslado(origen,materia.materia_id,periodo,semestral);
+      if(!aOrigen) continue;
+      const aDestino=asignacionEfectivaTraslado(destino,materia.materia_id,periodo,semestral);
+      if(aDestino&&Number(aDestino.profesor_id)===Number(aOrigen.profesor_id)) continue;
+      cambiadas.set(Number(materia.materia_id),materia.materia_nombre);
+      let nota=null;
+      try{
+        const data=await calcularPromedioEstudianteArchivado(
+          aOrigen.profesor_id,aOrigen.seccion_id,aOrigen.materia_id,aOrigen.subgrupo,periodo,est.id
+        );
+        nota=data?.estudiantes?.find(x=>Number(x.estudiante_id)===Number(est.id))||null;
+      }catch(error){
+        console.warn(`Archivo por traslado ${est.id}, ${materia.materia_nombre}, ${periodo}:`,error.message);
+      }
+      if(!nota||!promedioArchivadoTieneDatos(nota)) continue;
+      const rb=nota.rubros||{};
+      filas.push({
+        periodo,materia_id:materia.materia_id,materia_nombre:materia.materia_nombre,
+        profesor_origen_id:aOrigen.profesor_id,
+        profesor_origen_nombre:nombreUsuarioArchivo(aOrigen),
+        profesor_destino_id:aDestino?.profesor_id||null,
+        profesor_destino_nombre:aDestino?nombreUsuarioArchivo(aDestino):'Sin docente asignado',
+        nota_cotidiano:rb.cotidiano?.nota_100??null,
+        nota_tareas:rb.tarea?.nota_100??null,
+        nota_pruebas:rb.examen?.nota_100??null,
+        nota_proyecto:rb.proyecto?.nota_100??null,
+        nota_asistencia:nota.asistencia?.puntos_mep??nota.asistencia?.pct??null,
+        nota_total:nota.total??null,
+        ausencias:nota.asistencia?.lecciones_ausentes_injust||0,
+        ausencias_just:0,tardias:0
+      });
+    }
+  }
+  return {materias:[...cambiadas.values()].sort((a,b)=>a.localeCompare(b,'es')),filas};
+}
+
+async function guardarArchivoTraslado(client,{est,anio,seccionDestino,seccionOrigenNombre,justificacion,usuarioId,archivo}){
+  if(!archivo.materias.length) return null;
+  const cab=await client.query(`
+    INSERT INTO expediente_traslados
+      (estudiante_id,anio,seccion_origen_id,seccion_origen_nombre,
+       seccion_destino_id,seccion_destino_nombre,justificacion,materias_cambiadas,realizado_por)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id
+  `,[est.id,anio,est.seccion_id,seccionOrigenNombre,seccionDestino.id,seccionDestino.nombre,
+     justificacion||'',archivo.materias.join(', '),usuarioId||null]);
+  for(const f of archivo.filas){
+    await client.query(`
+      INSERT INTO expediente_traslado_academico
+        (traslado_id,periodo,materia_id,materia_nombre,profesor_origen_id,profesor_origen_nombre,
+         profesor_destino_id,profesor_destino_nombre,nota_cotidiano,nota_tareas,nota_pruebas,
+         nota_proyecto,nota_asistencia,nota_total,ausencias,ausencias_just,tardias)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+    `,[cab.rows[0].id,f.periodo,f.materia_id,f.materia_nombre,f.profesor_origen_id,
+       f.profesor_origen_nombre,f.profesor_destino_id,f.profesor_destino_nombre,
+       f.nota_cotidiano,f.nota_tareas,f.nota_pruebas,f.nota_proyecto,f.nota_asistencia,
+       f.nota_total,f.ausencias,f.ausencias_just,f.tardias]);
+  }
+  return cab.rows[0].id;
+}
+
 async function validarRestriccionSeccionActual(estudianteId, seccionId, db = pool){
   if(!estudianteId || !seccionId) return null;
   const r = await db.query(`
@@ -514,15 +620,39 @@ router.put("/:id/seccion", canManage, async (req, res) => {
   const conflicto = await validarRestriccionSeccionActual(estId,seccion_id);
   if(conflicto) return res.status(409).json({ error:mensajeRestriccionSeccion(conflicto),restriccion:true });
 
-  // Actualizar sección y guardar justificación
-  await pool.query(
-    "UPDATE estudiantes SET seccion_id=$1, justificacion_cambio_seccion=$2 WHERE id=$3",
-    [seccion_id||null, justificacion||null, estId]
-  );
+  const secR=seccion_id
+    ? await pool.query("SELECT id,nombre FROM secciones WHERE id=$1",[seccion_id])
+    : {rows:[]};
+  if(seccion_id&&!secR.rows.length) return res.status(400).json({error:"Sección destino inválida."});
+  const seccionDestino=secR.rows[0]||{id:null,nombre:"Sin sección"};
+  const secNombreNueva=seccionDestino.nombre;
+  if(Number(seccionAnteriorId)===Number(seccion_id))
+    return res.json({ok:true,archivo_traslado:null,materias_archivadas:0});
 
-  const secNombreNueva = seccion_id
-    ? (await pool.query("SELECT nombre FROM secciones WHERE id=$1", [seccion_id])).rows[0]?.nombre
-    : "Sin sección";
+  // Preparar el resumen mientras el estudiante todavía pertenece a la sección
+  // de origen. El cambio y su archivo parcial se confirman en una transacción.
+  const anio=await obtenerAnioActivo();
+  const archivoTraslado=seccionAnteriorId&&seccion_id
+    ? await prepararArchivoTraslado(est,seccion_id,anio)
+    : {materias:[],filas:[]};
+  const client=await pool.connect();
+  let trasladoId=null;
+  try{
+    await client.query('BEGIN');
+    trasladoId=await guardarArchivoTraslado(client,{
+      est,anio,seccionDestino,seccionOrigenNombre:seccionAnteriorNombre,
+      justificacion,usuarioId:req.session.usuario?.id,archivo:archivoTraslado
+    });
+    await client.query(
+      "UPDATE estudiantes SET seccion_id=$1, justificacion_cambio_seccion=$2 WHERE id=$3",
+      [seccion_id||null,justificacion||null,estId]
+    );
+    await logHistorial(estId,'cambio_seccion',seccionAnteriorNombre,secNombreNueva,justificacion,req.session.usuario?.id,client);
+    await client.query('COMMIT');
+  }catch(error){
+    await client.query('ROLLBACK');
+    throw error;
+  }finally{client.release();}
 
   const nombreTraslado = `${est.nombre||''} ${est.primer_apellido||''} ${est.segundo_apellido||''}`.replace(/\s+/g,' ').trim();
   const msgAnterior = `🔄 El estudiante ${nombreTraslado} fue trasladado FUERA de la sección ${seccionAnteriorNombre}${justificacion ? ` — Motivo: ${justificacion}` : ""}.`;
@@ -538,10 +668,12 @@ router.put("/:id/seccion", canManage, async (req, res) => {
     await notificarMovimientoEstudiante(seccion_id, est.subgrupo, msgNueva, 'cambio_seccion');
   }
 
-  // Historial
-  await logHistorial(estId, 'cambio_seccion', seccionAnteriorNombre, secNombreNueva, justificacion, req.session.usuario?.id);
-
-  res.json({ ok: true });
+  res.json({
+    ok:true,
+    archivo_traslado:trasladoId,
+    materias_archivadas:archivoTraslado.materias.length,
+    materias:archivoTraslado.materias
+  });
 });
 
 // ── ELIMINAR (baja lógica) ─────────────────────────────────────

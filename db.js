@@ -384,6 +384,54 @@ async function initDB() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_acad_estudiante ON expediente_academico(estudiante_id, anio)`);
 
+    // Archivo parcial creado cuando una persona estudiante cambia de sección
+    // durante el curso. Solo conserva las asignaturas cuyo docente cambia;
+    // el estudiante permanece activo y su expediente de retiro no se altera.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS expediente_traslados (
+        id                    BIGSERIAL PRIMARY KEY,
+        estudiante_id         INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        anio                  INTEGER NOT NULL,
+        fecha                 DATE NOT NULL DEFAULT CURRENT_DATE,
+        seccion_origen_id     INTEGER REFERENCES secciones(id) ON DELETE SET NULL,
+        seccion_origen_nombre TEXT NOT NULL DEFAULT '',
+        seccion_destino_id    INTEGER REFERENCES secciones(id) ON DELETE SET NULL,
+        seccion_destino_nombre TEXT NOT NULL DEFAULT '',
+        justificacion         TEXT DEFAULT '',
+        materias_cambiadas    TEXT DEFAULT '',
+        realizado_por         INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at            TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_traslados_estudiante
+      ON expediente_traslados(estudiante_id,anio,fecha)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS expediente_traslado_academico (
+        id                    BIGSERIAL PRIMARY KEY,
+        traslado_id           BIGINT NOT NULL REFERENCES expediente_traslados(id) ON DELETE CASCADE,
+        periodo               TEXT NOT NULL,
+        materia_id            INTEGER REFERENCES materias(id) ON DELETE SET NULL,
+        materia_nombre        TEXT NOT NULL,
+        profesor_origen_id    INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        profesor_origen_nombre TEXT,
+        profesor_destino_id   INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        profesor_destino_nombre TEXT,
+        nota_cotidiano        NUMERIC,
+        nota_tareas           NUMERIC,
+        nota_pruebas          NUMERIC,
+        nota_proyecto         NUMERIC,
+        nota_asistencia       NUMERIC,
+        nota_total            NUMERIC,
+        ausencias             INTEGER DEFAULT 0,
+        ausencias_just        INTEGER DEFAULT 0,
+        tardias               INTEGER DEFAULT 0,
+        created_at            TIMESTAMP DEFAULT NOW(),
+        UNIQUE(traslado_id,periodo,materia_nombre)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_exp_traslado_acad
+      ON expediente_traslado_academico(traslado_id,materia_nombre,periodo)`);
+
     // Detalle histórico de conducta. Conserva cada boleta antes de que el
     // cierre anual limpie los datos operativos, de modo que el Archivo pueda
     // mostrar no solo la nota, sino también fecha, falta, puntos y responsables.
