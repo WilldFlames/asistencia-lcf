@@ -40,6 +40,29 @@ test("el comité puede revertir una aprobación sin borrar su trazabilidad",()=>
   assert.match(front,/La acción quedará registrada en el historial/);
 });
 
+test("volver del expediente reutiliza la lista y solo recalcula al actualizar",()=>{
+  assert.match(front,/const ECT_LISTADO_CACHE_MS=60000/);
+  assert.match(front,/function ectRenderListado\(d\)/);
+  assert.match(front,/function ectActualizarFilaCache\(\)/);
+  assert.match(front,/onclick="ectCargarListado\(true\)">↻ Actualizar/);
+  assert.match(front,/if\(ectListadoActual&&ectListadoAnio===/);
+  const volver=front.match(/function ectVolver\(\)\{[\s\S]*?\n\}/)?.[0]||"";
+  assert.match(volver,/ectRenderListado\(ectListadoActual\)/);
+  assert.doesNotMatch(volver,/ectCargarListado\(true\)/);
+});
+
+test("el guía o administración pueden corregir un cierre equivocado del paso 2",()=>{
+  assert.match(routes,/router\.post\("\/:id\/revertir-paso-2"/);
+  assert.match(routes,/Solo el docente guía asignado o administración/);
+  assert.match(routes,/ec\.estado!=="cerrado_accion_pendiente"/);
+  assert.match(routes,/paso>=3 AND completado=true/);
+  assert.match(routes,/Corrección del Paso 2:/);
+  assert.match(routes,/WHERE expediente_id=\$1 AND paso=2/);
+  assert.match(front,/Corregir revisión del Paso 2/);
+  assert.match(front,/function ectRevertirPaso2\(\)/);
+  assert.match(front,/la información ya escrita no se borrará/);
+});
+
 test("el flujo guarda e imprime todos los pasos en formato institucional",()=>{
   assert.match(front,/const ECT_PASOS=\[/);
   assert.match(front,/Notificación de condición aplazada en conducta/);

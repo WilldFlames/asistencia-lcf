@@ -1,0 +1,26 @@
+ACTUALIZACIÓN: PORTERÍA, CALENDARIO DE PRUEBAS Y COMEDOR
+Fecha: 28 de octubre de 2026
+
+1. Entrada anticipada
+- Si el estudiante tiene jornada ese día, la entrada se registra aunque llegue con más de 20 minutos de anticipación.
+- La pantalla de Portería muestra la alarma roja parpadeante e indica expresamente que la entrada anticipada sí quedó registrada.
+- El movimiento cuenta como entrada permitida y el siguiente escaneo se interpreta como salida.
+- Si no tiene jornada, la entrada continúa denegada y no cuenta como ingreso.
+
+2. Calendario de pruebas publicado
+- Durante las fechas de un calendario de pruebas publicado, Portería utiliza el cronograma de pruebas en lugar del horario ordinario.
+- El ingreso se calcula desde la primera prueba de la sección ese día.
+- Si la sección no tiene ninguna prueba ese día, no se registra el ingreso.
+- La salida se habilita 40 minutos después de la hora de inicio de la última prueba de la sección.
+- Ejemplos:
+  * Última prueba a las 07:00: salida mínima a las 07:40.
+  * Pruebas a las 07:00 y 09:15: salida mínima a las 09:55.
+- Antes de esa hora la salida queda denegada, incluso si existe un permiso ordinario.
+
+3. Comedor
+- Si un estudiante intenta marcar por segunda vez el mismo día, no se duplica la ración.
+- La pantalla muestra una advertencia amarilla durante más tiempo para que el personal la vea claramente.
+
+4. Verificación
+- Sintaxis de Portería y Comedor validada.
+- Suite completa ejecutada: 341 pruebas aprobadas, 0 fallos.

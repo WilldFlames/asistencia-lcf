@@ -119,7 +119,11 @@ router.post("/escaneo", canRegistrar, async (req, res) => {
     `, [est.id, fecha, est.becado ? 'becado' : 'regular', req.session.usuario.id]);
   }
 
-  res.json({ ok:true, nuevo, hora, estudiante: est });
+  res.json({
+    ok:true,nuevo,hora,estudiante:est,
+    repetido:!nuevo,
+    alerta:!nuevo?"El estudiante ya había sido registrado hoy. No se agregó una segunda ración.":null
+  });
 });
 
 // ── ESTADÍSTICAS DEL ESCÁNER (cocinera/admin) ───────────────────────

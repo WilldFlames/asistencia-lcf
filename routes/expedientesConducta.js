@@ -173,9 +173,11 @@ router.get("/:id", requireAuth, async (req,res)=>{
         cedula,telefono,celular,es_principal
       FROM encargados WHERE estudiante_id=$1
       ORDER BY es_principal DESC,primer_apellido,segundo_apellido,nombre,id`,[ec.estudiante_id]);
+    const u=req.session.usuario;
+    const puedeRevertirPaso2=esAdmin(u)||Number(ec.guia_id)===Number(u.id);
     res.json({expediente:ec,pasos:pasos.rows,aprobaciones:aprobaciones.rows,miembros:miembros.rows,
       procedimientos_debidos:procedimientos.rows,acciones_correctivas:acciones,encargados:encargados.rows,
-      es_admin:esAdmin(req.session.usuario),es_comite:await esComite(req.session.usuario.id)});
+      es_admin:esAdmin(u),es_comite:await esComite(u.id),puede_revertir_paso2:puedeRevertirPaso2});
   }catch(e){console.error("detalle expediente conducta",e);res.status(500).json({error:e.message});}
 });
 
@@ -321,6 +323,39 @@ router.post("/:id/cerrar-causal", requireAuth, async (req,res)=>{
       [causal,String(req.body.detalle||"Remitido al Comité de Evaluación"),ec.id]);
     res.json({ok:true,cerrado:false,mensaje:"El documento quedó registrado y el caso fue remitido al Comité. No se cierra automáticamente."});
   }catch(e){res.status(500).json({error:e.message});}
+});
+
+router.post("/:id/revertir-paso-2", requireAuth, async (req,res)=>{
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const ec=await cargarExpediente(req.params.id,client);
+    if(!ec) throw Object.assign(new Error("Expediente no encontrado."),{status:404});
+    const u=req.session.usuario;
+    if(!esAdmin(u)&&Number(ec.guia_id)!==Number(u.id))
+      throw Object.assign(new Error("Solo el docente guía asignado o administración pueden corregir la revisión del Paso 2."),{status:403});
+    if(ec.estado!=="cerrado_accion_pendiente")
+      throw Object.assign(new Error("Este expediente no está cerrado por una acción correctiva pendiente."),{status:409});
+    const motivo=String(req.body.motivo||"").trim();
+    if(motivo.length<5) throw Object.assign(new Error("Indique el motivo de la corrección."),{status:400});
+    const posteriores=await client.query(`SELECT paso FROM expedientes_conducta_pasos
+      WHERE expediente_id=$1 AND paso>=3 AND completado=true ORDER BY paso`,[ec.id]);
+    if(posteriores.rowCount)
+      throw Object.assign(new Error("Hay pasos posteriores completados. Administración debe revisar el expediente antes de revertir el Paso 2."),{status:409});
+    await client.query(`UPDATE expedientes_conducta_tes SET estado='en_curso',
+      reabierto_por=$1,reabierto_en=NOW(),motivo_reapertura=$2,
+      cerrado_por=NULL,cerrado_en=NULL,updated_at=NOW()
+      WHERE id=$3 AND estado='cerrado_accion_pendiente'`,[u.id,`Corrección del Paso 2: ${motivo}`,ec.id]);
+    await client.query(`UPDATE expedientes_conducta_pasos SET completado=false,
+      completado_por=NULL,completado_en=NULL,updated_at=NOW()
+      WHERE expediente_id=$1 AND paso=2`,[ec.id]);
+    await client.query("COMMIT");
+    res.json({ok:true,mensaje:"La revisión del Paso 2 fue revertida y el expediente quedó habilitado."});
+  }catch(e){
+    await client.query("ROLLBACK");
+    console.error("revertir paso 2 TES",e);
+    res.status(e.status||500).json({error:e.message});
+  }finally{client.release();}
 });
 
 router.post("/:id/concluir", requireAuth, async (req,res)=>{

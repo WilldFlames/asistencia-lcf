@@ -1,0 +1,21 @@
+ACTUALIZACIÓN: EXPEDIENTES DE CONDUCTA / TES
+Fecha: 28 de octubre de 2026
+
+1. Carga rápida al volver de un expediente
+- La lista se conserva durante la navegación y ya no recalcula toda la conducta al pulsar Volver.
+- La fila del expediente visitado se actualiza en la lista sin volver a consultar toda la institución.
+- Se evita iniciar más de una carga de la lista al mismo tiempo.
+- La lista se renueva automáticamente después de 60 segundos o manualmente con el botón Actualizar.
+
+2. Corrección de la revisión del Paso 2
+- Cuando un expediente fue cerrado por error como acción correctiva pendiente, aparece el botón:
+  "Corregir revisión del Paso 2".
+- Puede usarlo el docente guía asignado o Administración.
+- Solicita y conserva el motivo de la corrección.
+- Reabre únicamente el expediente afectado y vuelve a dejar pendiente el Paso 2.
+- No borra los datos ni observaciones que ya se habían escrito.
+- Por seguridad, no permite la reversión si existen pasos posteriores completados.
+
+3. Verificación
+- Sintaxis del servidor validada.
+- Suite completa ejecutada: 337 pruebas aprobadas, 0 fallos.

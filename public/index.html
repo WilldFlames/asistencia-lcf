@@ -2269,7 +2269,10 @@ tr:hover td{background:#f8fafc;}
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
         <div><h2 style="margin:0 0 4px;">📘 Expedientes de Conducta</h2><p style="margin:0;color:var(--muted);font-size:12.5px;">Estudiantes que no alcanzaron la nota anual de conducta y seguimiento del Trabajo Educativo Sustitutivo.</p></div>
-        <div class="fg" style="margin:0;min-width:130px;"><label>Curso lectivo</label><input id="ect-anio" type="number" min="2020" max="2100" onchange="ectCargarListado()"/></div>
+        <div style="display:flex;align-items:flex-end;gap:7px;flex-wrap:wrap;">
+          <div class="fg" style="margin:0;min-width:130px;"><label>Curso lectivo</label><input id="ect-anio" type="number" min="2020" max="2100" onchange="ectCargarListado(true)"/></div>
+          <button class="btn btn-outline btn-sm" onclick="ectCargarListado(true)">↻ Actualizar</button>
+        </div>
       </div>
       <div id="alert-ect" class="alert"></div>
       <div id="ect-aviso-comite"></div>
@@ -2282,6 +2285,7 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" onclick="ectVolver()">← Volver</button>
         <h2 id="ect-titulo" style="margin:0;flex:1;"></h2>
         <button class="btn btn-outline btn-sm" onclick="ectImprimirPortada()">🖨️ Portada Expediente de Conducta</button>
+        <button class="btn btn-warning btn-sm" id="ect-revertir-paso2" style="display:none" onclick="ectRevertirPaso2()">↩ Corregir revisión del Paso 2</button>
         <button class="btn btn-danger btn-sm" id="ect-reabrir" style="display:none" onclick="ectReabrir()">🔓 Reabrir</button>
       </div>
       <div id="alert-ect-detalle" class="alert"></div>
@@ -17728,17 +17732,20 @@ async function escanearComedor(){
       : `⚠️ Ya había sido registrado hoy`;
     if(result){
       result.style.display='';
-      result.style.background = tipo==='becado' ? '#dcfce7' : '#e0f2fe';
+      result.style.background = r.repetido ? '#fef9c3' : (tipo==='becado' ? '#dcfce7' : '#e0f2fe');
+      result.style.border = r.repetido ? '4px solid #eab308' : '2px solid transparent';
   document.getElementById('csr-nombre').textContent = nombrePersona(est);
       document.getElementById('csr-cedula').textContent = est.cedula || cedula;
       document.getElementById('csr-tipo').innerHTML = tipo==='becado'
         ?'<span style="color:#166534;font-weight:bold;">🎓 BECADO</span>'
         :'<span style="color:#0369a1;font-weight:bold;">💳 REGULAR</span>';
-      document.getElementById('csr-msg').textContent = mensaje;
+      document.getElementById('csr-msg').textContent = r.repetido
+        ? `⚠️ ${r.alerta||'Ya había sido registrado hoy'}`
+        : mensaje;
     }
     if(input) input.value='';
     await cargarStatsComedor();
-    setTimeout(()=>{ if(result) result.style.display='none'; },3000);
+    setTimeout(()=>{ if(result) result.style.display='none'; },r.repetido?6500:3000);
   }catch(e){
     if(result){
       result.style.display='';
@@ -19820,7 +19827,9 @@ async function ptEscanear(){
     const ok = r.resultado === 'permitido';
     box.style.display='';box.classList.toggle('pt-critical-flash',!!r.alerta_critica);
     if(r.alerta_critica){
-      document.getElementById('ptr-estado').innerHTML='<span>🚨 ALERTA DE PORTERÍA 🚨</span>';
+      document.getElementById('ptr-estado').innerHTML=r.codigo==='entrada_temprana'
+        ?'<span>🚨 ENTRADA ANTICIPADA REGISTRADA 🚨</span>'
+        :'<span>🚨 ALERTA DE PORTERÍA 🚨</span>';
     } else if(r.tipo==='entrada'){
       box.style.background='#dcfce7'; box.style.border='3px solid #16a34a';
       document.getElementById('ptr-estado').innerHTML='<span style="color:#166534;">✅ ENTRADA REGISTRADA</span>';
@@ -21888,7 +21897,8 @@ function piePaginaMEP(){
 // ═══════════════════════════════════════════════════════════════════════
 // EXPEDIENTES DE CONDUCTA / TRABAJO EDUCATIVO SUSTITUTIVO (TES)
 // ═══════════════════════════════════════════════════════════════════════
-let ectActual=null,ectListadoActual=null;
+let ectActual=null,ectListadoActual=null,ectListadoAnio=null,ectListadoCargadoEn=0,ectCargaListadoPromesa=null;
+const ECT_LISTADO_CACHE_MS=60000;
 const ECT_PROYECTOS={
   reparacion_comunitaria:"Proyecto de reparación comunitaria",
   aseo_comunitario:"Proyecto de aseo comunitario",
@@ -21977,19 +21987,33 @@ function iniciarExpedientesConducta(){
   document.getElementById("ect-detalle-vista").style.display="none";
   const anio=document.getElementById("ect-anio");
   if(!anio.value) anio.value=ANIO_LECTIVO_ACTIVO;
-  ectCargarListado();
+  ectCargarListado(false);
 }
 
-async function ectCargarListado(){
+function ectRenderListado(d){
   const anio=Number(document.getElementById("ect-anio").value)||ANIO_LECTIVO_ACTIVO;
-  const cont=document.getElementById("ect-listado");cont.innerHTML='<div class="empty">Calculando notas anuales de conducta...</div>';
+  const cont=document.getElementById("ect-listado");
+  document.getElementById("ect-aviso-comite").innerHTML=d.miembros_comite>=1?"":`<div class="alert show alert-warning" style="margin-bottom:12px;">⚠️ Administración debe asignar al menos un miembro al Comité de Evaluación para aprobar el proyecto TES.</div>`;
+  if(!d.estudiantes.length){cont.innerHTML='<div class="empty">No hay estudiantes aplazados en conducta dentro de las secciones autorizadas.</div>';return;}
+  const grupos={};d.estudiantes.forEach(e=>(grupos[e.seccion_nombre]??=[]).push(e));
+  cont.innerHTML=Object.entries(grupos).map(([sec,lista])=>`<section style="margin-bottom:16px;"><h3 style="color:var(--azul);margin:0 0 8px;">Sección ${htmlSeguro(sec)}</h3><div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>I</th><th>II</th><th>Anual</th><th>Mínimo</th><th>Expediente</th><th></th></tr></thead><tbody>${lista.map(e=>`<tr><td><strong>${htmlSeguro(nombreEstudianteLista(e))}</strong><br><small>${htmlSeguro(e.cedula)}${e.activo?'':' · Retirado'}</small></td><td>${Number(e.nota_i).toFixed(1)}</td><td>${Number(e.nota_ii).toFixed(1)}</td><td style="font-weight:bold;color:var(--rojo);">${Number(e.nota_anual).toFixed(1)}</td><td>${e.minimo}</td><td>${e.expediente_id?`N°${e.numero}-${anio}<br><small>${htmlSeguro(ectEstado(e.estado))}</small>`:'—'}</td><td>${e.expediente_id?`<button class="btn btn-primary btn-xs" onclick="ectAbrirDetalle(${e.expediente_id})">Ver expediente</button>`:(d.puede_abrir?`<button class="btn btn-success btn-xs" onclick="ectAbrirExpediente(${e.estudiante_id},${Number(e.nota_anual)})">Abrir expediente</button>`:'')}</td></tr>`).join('')}</tbody></table></div></section>`).join('');
+}
+
+async function ectCargarListado(forzar=false){
+  const anio=Number(document.getElementById("ect-anio").value)||ANIO_LECTIVO_ACTIVO;
+  const cont=document.getElementById("ect-listado");
+  const cacheVigente=ectListadoActual&&ectListadoAnio===anio&&(Date.now()-ectListadoCargadoEn)<ECT_LISTADO_CACHE_MS;
+  if(!forzar&&cacheVigente){ectRenderListado(ectListadoActual);return ectListadoActual;}
+  if(ectCargaListadoPromesa)return ectCargaListadoPromesa;
+  cont.innerHTML='<div class="empty">Calculando notas anuales de conducta...</div>';
   try{
-    const d=await api(`/api/expedientes-conducta/listado?anio=${anio}`);ectListadoActual=d;
-    document.getElementById("ect-aviso-comite").innerHTML=d.miembros_comite>=1?"":`<div class="alert show alert-warning" style="margin-bottom:12px;">⚠️ Administración debe asignar al menos un miembro al Comité de Evaluación para aprobar el proyecto TES.</div>`;
-    if(!d.estudiantes.length){cont.innerHTML='<div class="empty">No hay estudiantes aplazados en conducta dentro de las secciones autorizadas.</div>';return;}
-    const grupos={};d.estudiantes.forEach(e=>(grupos[e.seccion_nombre]??=[]).push(e));
-    cont.innerHTML=Object.entries(grupos).map(([sec,lista])=>`<section style="margin-bottom:16px;"><h3 style="color:var(--azul);margin:0 0 8px;">Sección ${htmlSeguro(sec)}</h3><div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>I</th><th>II</th><th>Anual</th><th>Mínimo</th><th>Expediente</th><th></th></tr></thead><tbody>${lista.map(e=>`<tr><td><strong>${htmlSeguro(nombreEstudianteLista(e))}</strong><br><small>${htmlSeguro(e.cedula)}${e.activo?'':' · Retirado'}</small></td><td>${Number(e.nota_i).toFixed(1)}</td><td>${Number(e.nota_ii).toFixed(1)}</td><td style="font-weight:bold;color:var(--rojo);">${Number(e.nota_anual).toFixed(1)}</td><td>${e.minimo}</td><td>${e.expediente_id?`N°${e.numero}-${anio}<br><small>${htmlSeguro(ectEstado(e.estado))}</small>`:'—'}</td><td>${e.expediente_id?`<button class="btn btn-primary btn-xs" onclick="ectAbrirDetalle(${e.expediente_id})">Ver expediente</button>`:(d.puede_abrir?`<button class="btn btn-success btn-xs" onclick="ectAbrirExpediente(${e.estudiante_id},${Number(e.nota_anual)})">Abrir expediente</button>`:'')}</td></tr>`).join('')}</tbody></table></div></section>`).join('');
+    ectCargaListadoPromesa=api(`/api/expedientes-conducta/listado?anio=${anio}`);
+    const d=await ectCargaListadoPromesa;
+    ectListadoActual=d;ectListadoAnio=anio;ectListadoCargadoEn=Date.now();
+    ectRenderListado(d);
+    return d;
   }catch(e){cont.innerHTML=`<div class="alert show alert-danger">${htmlSeguro(e.message)}</div>`;}
+  finally{ectCargaListadoPromesa=null;}
 }
 
 function ectEstado(e){return ({en_curso:"En curso",cerrado_aprobado:"Cerrado · aprobó",cerrado_no_aprobado:"Cerrado · no aprobó",cerrado_accion_pendiente:"Cerrado · acción pendiente"})[e]||e||"—";}
@@ -21997,14 +22021,28 @@ async function ectAbrirExpediente(estudiante_id,nota_anual){
   if(!confirm("¿Abrir el expediente y asignar su consecutivo?"))return;
   try{const r=await api("/api/expedientes-conducta/abrir","POST",{estudiante_id,anio:Number(document.getElementById("ect-anio").value),nota_anual});await ectAbrirDetalle(r.id);}catch(e){sa("alert-ect",e.message,"danger");}
 }
-function ectVolver(){ectActual=null;document.getElementById("ect-detalle-vista").style.display="none";document.getElementById("ect-lista-vista").style.display="";ectCargarListado();}
+function ectActualizarFilaCache(){
+  const e=ectActual?.expediente;
+  if(!e||!ectListadoActual?.estudiantes)return;
+  const fila=ectListadoActual.estudiantes.find(x=>Number(x.estudiante_id)===Number(e.estudiante_id));
+  if(fila)Object.assign(fila,{expediente_id:e.id,numero:e.numero,estado:e.estado,proyecto:e.proyecto,nota_final_conducta:e.nota_final_conducta});
+}
+function ectVolver(){
+  ectActualizarFilaCache();
+  ectActual=null;
+  document.getElementById("ect-detalle-vista").style.display="none";
+  document.getElementById("ect-lista-vista").style.display="";
+  if(ectListadoActual&&ectListadoAnio===(Number(document.getElementById("ect-anio").value)||ANIO_LECTIVO_ACTIVO))ectRenderListado(ectListadoActual);
+  else ectCargarListado(false);
+}
 
 async function ectAbrirDetalle(id){
   try{
     ectActual=await api(`/api/expedientes-conducta/${id}`);const e=ectActual.expediente;
     document.getElementById("ect-lista-vista").style.display="none";document.getElementById("ect-detalle-vista").style.display="";
     document.getElementById("ect-titulo").textContent=`Expediente N°${e.numero}-${e.anio} — ${nombreDesdeCampos(e.nombre,e.primer_apellido,e.segundo_apellido,{mayusculas:true})}`;
-    document.getElementById("ect-reabrir").style.display=ectActual.es_admin&&e.estado!=="en_curso"?"":"none";
+    document.getElementById("ect-reabrir").style.display=ectActual.es_admin&&e.estado!=="en_curso"&&e.estado!=="cerrado_accion_pendiente"?"":"none";
+    document.getElementById("ect-revertir-paso2").style.display=ectActual.puede_revertir_paso2&&e.estado==="cerrado_accion_pendiente"?"":"none";
     document.getElementById("ect-resumen").innerHTML=`<div style="background:#eef5ff;border-left:4px solid var(--azul);padding:10px 12px;border-radius:7px;margin-bottom:12px;font-size:13px;"><strong>${htmlSeguro(e.seccion_nombre)}</strong> · Nota anual inicial: <strong>${e.nota_anual??'—'}</strong> · Estado: <strong>${htmlSeguro(ectEstado(e.estado))}</strong>${e.proyecto?` · TES: <strong>${htmlSeguro(ECT_PROYECTOS[e.proyecto])}</strong>`:''}${e.nota_final_conducta!=null?` · Nota final: <strong>${e.nota_final_conducta}</strong>`:''}</div>`;
     ectRenderPasos();
   }catch(e){sa("alert-ect",e.message,"danger");}
@@ -22107,6 +22145,17 @@ async function ectCerrarCausal(causal){
   try{const r=await api(`/api/expedientes-conducta/${ectActual.expediente.id}/cerrar-causal`,"POST",{causal,detalle});await ectAbrirDetalle(ectActual.expediente.id);await ectImprimirCausal(causal,detalle);sa("alert-ect-detalle",r.mensaje||(r.cerrado?'Expediente cerrado.':'Informe registrado.'),r.cerrado?'success':'warning');}catch(e){sa("alert-ect-detalle",e.message,"danger");}
 }
 async function ectReabrir(){const motivo=prompt("Motivo de la reapertura administrativa:","");if(!motivo)return;try{await api(`/api/expedientes-conducta/${ectActual.expediente.id}/reabrir`,"POST",{motivo});await ectAbrirDetalle(ectActual.expediente.id);}catch(e){sa("alert-ect-detalle",e.message,"danger");}}
+async function ectRevertirPaso2(){
+  const motivo=prompt("Indique por qué se corrige la revisión del Paso 2:","Se marcó por error que la persona estudiante no podía realizar el TES.");
+  if(motivo===null)return;
+  if(motivo.trim().length<5)return sa("alert-ect-detalle","Escriba un motivo breve para dejar constancia de la corrección.","warning");
+  if(!confirm("¿Revertir el cierre del Paso 2 y habilitar nuevamente el expediente?\n\nEl motivo quedará registrado y la información ya escrita no se borrará."))return;
+  try{
+    await api(`/api/expedientes-conducta/${ectActual.expediente.id}/revertir-paso-2`,"POST",{motivo:motivo.trim()});
+    await ectAbrirDetalle(ectActual.expediente.id);
+    sa("alert-ect-detalle","La revisión del Paso 2 fue revertida. Ya puede corregirse y continuar el TES.","success");
+  }catch(e){sa("alert-ect-detalle",e.message,"danger");}
+}
 
 function ectDatosDoc(){const e=ectActual.expediente;return{e,nombre:nombreDesdeCampos(e.nombre,e.primer_apellido,e.segundo_apellido,{mayusculas:true}),guia:nombreDesdeCampos(e.guia_nombre,e.guia_ap1,e.guia_ap2),folio:`TES-${String(e.numero).padStart(3,'0')}-${e.anio}`};}
 function ectFirmaGuia(nombre){return `<div style="margin-top:78px;width:330px;text-align:center;page-break-inside:avoid;"><div style="border-top:1px solid #111;padding-top:7px;"><strong>${htmlSeguro(nombre||'Docente guía')}</strong><br>Docente guía</div></div>`;}

@@ -268,6 +268,12 @@ function restarMinutos(hora, cantidad){
   const total=Math.max(0,h*60+m-cantidad);
   return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
 }
+function sumarMinutos(hora, cantidad){
+  const [h,m]=String(hora||"00:00").split(":").map(Number);
+  const total=Math.min(23*60+59,h*60+m+cantidad);
+  return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
+}
+function horaHM(hora){return hora?String(hora).slice(0,5):null;}
 
 // Jornada efectiva del estudiante: parte del horario general y sustituye la
 // entrada o salida cuando Administración programó un horario especial.
@@ -286,9 +292,34 @@ async function jornadaHoy(seccionId, fecha){
   const inicioGeneral=primera?lecciones.find(l=>l.n===Number(primera))?.ini:null;
   const finGeneral=ultima?lecciones.find(l=>l.n===Number(ultima))?.fin:null;
   const esp=especial.rows[0]||null;
-  const horaInicio=esp?.sin_horario?null:(esp?.hora_entrada||inicioGeneral||null);
-  const horaFin=esp?.sin_horario?null:(esp?.hora_salida||finGeneral||null);
-  return {horaInicio,horaFin,tieneHorario:!!(horaInicio||horaFin),especial:esp,
+  if(esp?.sin_horario) return {horaInicio:null,horaFin:null,tieneHorario:false,especial:esp,
+    modoPruebas:false,primeraLeccion:primera?Number(primera):null,ultimaLeccion:ultima?Number(ultima):null};
+
+  // Mientras exista un calendario de pruebas publicado que abarque la fecha,
+  // ese cronograma sustituye la jornada ordinaria. Una sección sin prueba ese
+  // día queda sin jornada; con pruebas, entra para la primera y puede salir 40
+  // minutos después del inicio de la última que tenga programada.
+  const temporadaPruebas=await pool.query(`SELECT id,titulo FROM calendarios_pruebas
+    WHERE estado='publicado' AND $1::date BETWEEN fecha_inicio AND fecha_fin
+    ORDER BY publicado_en DESC NULLS LAST,id DESC LIMIT 1`,[fecha]);
+  if(temporadaPruebas.rows.length){
+    const pruebas=await pool.query(`SELECT MIN(e.hora_inicio)::text AS primera,
+        MAX(e.hora_inicio)::text AS ultima,COUNT(*)::int AS cantidad
+      FROM calendario_pruebas_eventos e
+      JOIN calendarios_pruebas c ON c.id=e.calendario_id
+      WHERE c.estado='publicado' AND $1::date BETWEEN c.fecha_inicio AND c.fecha_fin
+        AND e.fecha=$1::date AND e.seccion_id=$2`,[fecha,seccionId]);
+    const primeraPrueba=horaHM(pruebas.rows[0]?.primera);
+    const ultimaPrueba=horaHM(pruebas.rows[0]?.ultima);
+    const cantidad=Number(pruebas.rows[0]?.cantidad||0);
+    return {horaInicio:primeraPrueba,horaFin:ultimaPrueba?sumarMinutos(ultimaPrueba,40):null,
+      tieneHorario:cantidad>0,especial:null,modoPruebas:true,cantidadPruebas:cantidad,
+      calendarioPruebas:temporadaPruebas.rows[0],primeraLeccion:null,ultimaLeccion:null};
+  }
+
+  const horaInicio=horaHM(esp?.hora_entrada||inicioGeneral||null);
+  const horaFin=horaHM(esp?.hora_salida||finGeneral||null);
+  return {horaInicio,horaFin,tieneHorario:!!(horaInicio||horaFin),especial:esp,modoPruebas:false,
     primeraLeccion:primera?Number(primera):null,ultimaLeccion:ultima?Number(ultima):null};
 }
 
@@ -338,7 +369,9 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     if(!jornada.horaInicio){
       const detalle=jornada.especial?.sin_horario
         ? `La sección no tiene jornada programada hoy${jornada.especial.motivo?`: ${jornada.especial.motivo}`:""}`
-        : "No tiene horario de ingreso configurado para hoy";
+        : jornada.modoPruebas
+          ? "La sección no tiene pruebas programadas hoy en el calendario publicado"
+          : "No tiene horario de ingreso configurado para hoy";
       await pool.query(`INSERT INTO porteria_registros (estudiante_id,fecha,hora,tipo,resultado,detalle,registrado_por)
         VALUES($1,$2,$3,'entrada','denegado',$4,$5)`,[est.id,fecha,hora,detalle,uid]);
       await notificarMovimientoPorteria(est.id,"entrada",hora,"denegado",detalle);
@@ -347,16 +380,18 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     }
     const ingresoDesde=restarMinutos(jornada.horaInicio,20);
     if(hora<ingresoDesde){
-      const detalle=`Ingreso demasiado temprano. Su jornada inicia a las ${jornada.horaInicio}; puede ingresar desde las ${ingresoDesde}.`;
+      const detalle=`Entrada registrada con anticipación. ${jornada.modoPruebas?'Su primera prueba':'Su jornada'} inicia a las ${jornada.horaInicio}; el ingreso recomendado es desde las ${ingresoDesde}.`;
       await pool.query(`INSERT INTO porteria_registros (estudiante_id,fecha,hora,tipo,resultado,detalle,registrado_por)
-        VALUES($1,$2,$3,'entrada','denegado',$4,$5)`,[est.id,fecha,hora,detalle,uid]);
-      await notificarMovimientoPorteria(est.id,"entrada",hora,"denegado",detalle);
-      return res.json({ok:true,resultado:"denegado",tipo:"entrada",hora,estudiante:est,detalle,
-        alerta_critica:true,codigo:"entrada_temprana"});
+        VALUES($1,$2,$3,'entrada','permitido',$4,$5)`,[est.id,fecha,hora,detalle,uid]);
+      await notificarMovimientoPorteria(est.id,"entrada",hora,"permitido",detalle);
+      return res.json({ok:true,resultado:"permitido",tipo:"entrada",hora,estudiante:est,detalle,
+        aviso:true,alerta_critica:true,codigo:"entrada_temprana",entrada_registrada:true});
     }
-    const detalle=jornada.especial
-      ? `Ingreso registrado · Horario especial (${jornada.horaInicio})`
-      : `Ingreso registrado · Jornada inicia a las ${jornada.horaInicio}`;
+    const detalle=jornada.modoPruebas
+      ? `Ingreso registrado · Primera prueba a las ${jornada.horaInicio}`
+      : jornada.especial
+        ? `Ingreso registrado · Horario especial (${jornada.horaInicio})`
+        : `Ingreso registrado · Jornada inicia a las ${jornada.horaInicio}`;
     await pool.query(`
       INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
       VALUES ($1,$2,$3,'entrada','permitido',$4,$5)
@@ -384,10 +419,21 @@ router.post("/escaneo", canEscanear, async (req, res) => {
     await pool.query(`
       INSERT INTO porteria_registros (estudiante_id, fecha, hora, tipo, resultado, detalle, registrado_por)
       VALUES ($1,$2,$3,'salida','permitido',$4,$5)
-    `, [est.id, fecha, hora, `${fin.especial?'Horario especial':'Fin de lecciones'} (salida a las ${fin.horaFin})`, uid]);
-    await notificarMovimientoPorteria(est.id,"salida",hora,"permitido",`Finalizó sus lecciones a las ${fin.horaFin}.`);
+    `, [est.id, fecha, hora, `${fin.modoPruebas?'Calendario de pruebas':fin.especial?'Horario especial':'Fin de lecciones'} (salida a las ${fin.horaFin})`, uid]);
+    await notificarMovimientoPorteria(est.id,"salida",hora,"permitido",`${fin.modoPruebas?'Cumplió la permanencia mínima posterior a su última prueba':'Finalizó sus lecciones'} a las ${fin.horaFin}.`);
     return res.json({ ok: true, resultado: "permitido", tipo: "salida", hora, estudiante: est,
-      detalle: `${fin.especial?'Horario especial':'Fin de lecciones'} (salida a las ${fin.horaFin})` });
+      detalle: `${fin.modoPruebas?'Calendario de pruebas':fin.especial?'Horario especial':'Fin de lecciones'} (salida a las ${fin.horaFin})` });
+  }
+
+  // En jornada de pruebas la permanencia mínima es obligatoria: un permiso
+  // ordinario no adelanta la salida calculada desde la última prueba del día.
+  if(fin.modoPruebas){
+    const detalle=`Salida denegada. Tiene pruebas programadas y puede salir a partir de las ${fin.horaFin} (40 minutos después del inicio de su última prueba).`;
+    await pool.query(`INSERT INTO porteria_registros (estudiante_id,fecha,hora,tipo,resultado,detalle,registrado_por)
+      VALUES($1,$2,$3,'salida','denegado',$4,$5)`,[est.id,fecha,hora,detalle,uid]);
+    await notificarMovimientoPorteria(est.id,"salida",hora,"denegado",detalle);
+    return res.json({ok:true,resultado:"denegado",tipo:"salida",hora,estudiante:est,detalle,
+      codigo:"salida_antes_fin_pruebas"});
   }
 
   // 2. Todavía en horario lectivo → buscar permiso vigente sin usar por este estudiante
