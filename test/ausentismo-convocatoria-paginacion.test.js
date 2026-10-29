@@ -54,7 +54,8 @@ test('el porcentaje solo propone revisión y únicamente el profesor confirma la
 test('restricciones usa la lista institucional completa',()=>{
   assert.match(matricula,/router\.get\("\/restricciones-estudiantes\/:anio"/);
   assert.match(matricula,/FROM estudiantes e/);
-  assert.match(frontend,/rmEstudiantes=await api\(`\/api\/matricula\/restricciones-estudiantes/);
+  assert.match(frontend,/api\(`\/api\/matricula\/restricciones-estudiantes\/\$\{matAnio\}`\)/);
+  assert.match(frontend,/api\(`\/api\/matricula\/restricciones-secciones\/\$\{matAnio\}`\)/);
   assert.match(frontend,/const lista = \(rmEstudiantes\|\|\[\]\)/);
 });
 

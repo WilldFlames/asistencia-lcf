@@ -1,0 +1,30 @@
+FILTROS POR PERIODO Y ROTACION DE HOGAR / INDUSTRIALES
+Fecha: 28 de octubre de 2026
+
+1. Asistencia
+- Se agrego un selector visible de I Periodo y II Periodo.
+- Las tarjetas se cargan segun el periodo seleccionado.
+
+2. Calificaciones
+- Mantiene el selector de I Periodo y II Periodo.
+- La consulta fue corregida para no mezclar simultaneamente los grupos A y B.
+
+3. Promedio
+- Mantiene las vistas I Periodo, II Periodo y Anual.
+- Al cambiar la vista se vuelven a cargar las asignaciones correspondientes.
+- La vista anual incluye correctamente las asignaciones semestrales de ambos periodos.
+
+4. Rotacion de talleres (niveles 7, 8 y 9)
+- Hogar: el docente asignado al grupo A en el I Periodo recibe el grupo B en el II Periodo.
+- Industriales: el docente asignado al grupo B en el I Periodo recibe el grupo A en el II Periodo.
+- Se conserva el mismo docente en la pareja de asignaciones.
+- En el II Periodo se muestra solamente el grupo que corresponde; no se conserva por error la tarjeta del I Periodo.
+- Cada estudiante mantiene su subgrupo. Lo que rota es el taller que recibe durante el semestre.
+
+5. Promedio anual
+- Hogar e Industriales son materias semestrales.
+- El promedio anual usa la unica nota del semestre que corresponde al estudiante; no promedia dos notas inexistentes.
+
+Verificacion realizada
+- Revision de sintaxis de las rutas de Asistencia y Calificaciones.
+- Suite completa: 342 pruebas aprobadas, 0 fallidas.

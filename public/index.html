@@ -1511,7 +1511,13 @@ tr:hover td{background:#f8fafc;}
 <!-- ASISTENCIA -->
 <div class="page" id="page-asistencia">
   <div id="asis-view-lista">
-    <div class="card"><h2>✅ Mis Asignaciones</h2><div id="mis-asig-body"></div></div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <h2 style="margin:0;">✅ Mis Asignaciones</h2>
+        <div class="fg" style="margin:0;min-width:150px;"><label>Período</label><select id="asis-periodo" onchange="cargarMisAsig()"><option value="I Período">I Período</option><option value="II Período">II Período</option></select></div>
+      </div>
+      <div id="mis-asig-body"></div>
+    </div>
   </div>
   <div id="asis-view-dia" style="display:none;">
     <div class="card no-print">
@@ -1855,7 +1861,7 @@ tr:hover td{background:#f8fafc;}
       </div>
       <div class="fg" style="min-width:120px;">
         <label>Vista</label>
-        <select id="prom-vista" onchange="prom_recargar()">
+        <select id="prom-vista" onchange="iniciarPromedio()">
           <option value="I Período">I Período</option>
           <option value="II Período">II Período</option>
           <option value="anual">Anual (I + II)</option>
@@ -3114,7 +3120,7 @@ tr:hover td{background:#f8fafc;}
         <select id="mat-anio" onchange="matCambioAnio()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-weight:bold;"></select>
         <button class="btn btn-orange btn-sm" id="mat-btn-aplicar" onclick="matAplicarAnio()" style="display:none;">▶️ Aplicar Matrículas</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-frances" onclick="abrirSeccionesFrances()" style="display:none;">🇫🇷 Secciones Francés</button>
-        <button class="btn btn-outline btn-sm" id="mat-btn-restricciones" onclick="abrirRestriccionesMatricula()">🚫 Restricciones</button>
+        <button class="btn btn-outline btn-sm" id="mat-btn-restricciones" onclick="abrirRestriccionesMatricula()" style="display:none;">🚫 Restricciones</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-bloqueos" onclick="abrirBloqueosMatricula()">🔒 Matrícula restringida</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-actualizar" onclick="iniciarMatricula(true)">↻ Actualizar</button>
         <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
@@ -8788,7 +8794,10 @@ async function buscarEstudianteConsulta(){
 async function cargarMisAsig(){
   document.getElementById("asis-view-lista").style.display="";
   document.getElementById("asis-view-dia").style.display="none";
-  const rows=await api("/api/asistencia/mis-asignaciones");if(!rows)return;
+  const selPeriodo=document.getElementById("asis-periodo");
+  if(selPeriodo&&!selPeriodo.dataset.init){selPeriodo.value=periodoActualODefault();selPeriodo.dataset.init="1";}
+  const periodo=selPeriodo?.value||periodoActualODefault();
+  const rows=await api(`/api/asistencia/mis-asignaciones?periodo=${encodeURIComponent(periodo)}`);if(!rows)return;
   const div=document.getElementById("mis-asig-body");
   if(!rows.length){div.innerHTML='<div class="empty">Sin asignaciones registradas. Contactá al administrador.</div>';return;}
   const noms=["Sétimo","Octavo","Noveno","Décimo","Undécimo"];
@@ -8823,7 +8832,8 @@ async function abrirAsistencia(id,titulo){
 
   // Cargar info de guía y orientador de la sección
   try{
-    const asig = (await api("/api/asistencia/mis-asignaciones"))?.find(a=>a.id===id);
+    const periodo=document.getElementById("asis-periodo")?.value||periodoActualODefault();
+    const asig = (await api(`/api/asistencia/mis-asignaciones?periodo=${encodeURIComponent(periodo)}`))?.find(a=>a.id===id);
     if(asig){
       // Preseleccionar lecciones según la asignación (antes de ver si hay sesión)
       if(asig.lecciones_semana){
@@ -9019,7 +9029,8 @@ async function prepararEImprimirAsistencia(fecha, lecc, registros){
   // Reunir info de la asignación (profesor, materia, sección)
   let asigInfo = {};
   try {
-    const misAsigs = await api("/api/asistencia/mis-asignaciones") || [];
+    const periodo=document.getElementById("asis-periodo")?.value||periodoActualODefault();
+    const misAsigs = await api(`/api/asistencia/mis-asignaciones?periodo=${encodeURIComponent(periodo)}`) || [];
     asigInfo = misAsigs.find(a => a.id === asigActiva) || {};
   } catch(_){}
   const profNombre = nombrePersona(ME);
@@ -11343,6 +11354,9 @@ async function iniciarMatricula(forzar=false){
   if(btnFr) btnFr.style.display = ME.rol === "admin" ? "" : "none";
   const btnBloq=document.getElementById('mat-btn-bloqueos');
   if(btnBloq) btnBloq.style.display=['admin','administrativo','orientador'].includes(ME.rol)?'':'none';
+  const btnRestr=document.getElementById('mat-btn-restricciones');
+  const puedeRestricciones=ME.rol==='admin'||(window.esComiteMatricula&&tieneAlgunRol('orientador','auxiliar'));
+  if(btnRestr) btnRestr.style.display=puedeRestricciones?'':'none';
 
   const token = ++matCargaToken;
   const estadoCarga=document.getElementById('mat-carga-estado');
@@ -11522,6 +11536,11 @@ function rmFiltrar(lado){
 }
 
 async function abrirRestriccionesMatricula(){
+  const puede=ME.rol==='admin'||(window.esComiteMatricula&&tieneAlgunRol('orientador','auxiliar'));
+  if(!puede){
+    sa('alert-mat','Solo Dirección, Orientación o Auxiliares asignados al Comité de Matrícula pueden gestionar restricciones.','danger');
+    return;
+  }
   document.getElementById('rm-anio').textContent=matAnio;
   document.getElementById('rm-buscar-a').value='';
   document.getElementById('rm-buscar-b').value='';
@@ -11529,9 +11548,15 @@ async function abrirRestriccionesMatricula(){
   document.getElementById('alert-rm').className='alert';
   try{
     // Endpoint institucional: no depende de los grupos asignados al usuario.
-    rmEstudiantes=await api(`/api/matricula/restricciones-estudiantes/${matAnio}`)||[];
+    const [estudiantes,seccionesCatalogo]=await Promise.all([
+      api(`/api/matricula/restricciones-estudiantes/${matAnio}`),
+      api(`/api/matricula/restricciones-secciones/${matAnio}`)
+    ]);
+    rmEstudiantes=estudiantes||[];
     rmEstudiantes=ordenarEstudiantes(rmEstudiantes);
-    const secciones=[...new Map(rmEstudiantes.filter(e=>e.seccion_id).map(e=>[String(e.seccion_id),e.seccion_nombre||e.seccion||'Sin nombre'])).entries()]
+    const mapaSecciones=new Map((seccionesCatalogo||[]).map(s=>[String(s.seccion_id||s.id),s.nombre]));
+    rmEstudiantes.filter(e=>e.seccion_id).forEach(e=>mapaSecciones.set(String(e.seccion_id),e.seccion_nombre||e.seccion||'Sin nombre'));
+    const secciones=[...mapaSecciones.entries()]
       .sort((a,b)=>a[1].localeCompare(b[1],'es',{numeric:true}));
     ['a','b'].forEach(lado=>{
       const sel=document.getElementById(`rm-seccion-${lado}`);
@@ -26153,8 +26178,18 @@ async function iniciarPromedio(){
 
   // Cargar asignaciones (mismo endpoint que Calificaciones)
   try{
-    const periodoListado = selV.value === 'anual' ? 'I Período' : selV.value;
-    const rows = await api(`/api/calificaciones/mis-asignaciones?periodo=${encodeURIComponent(periodoListado)}`) || [];
+    let rows=[];
+    if(selV.value==='anual'){
+      const [i,ii]=await Promise.all([
+        api('/api/calificaciones/mis-asignaciones?periodo=I%20Per%C3%ADodo'),
+        api('/api/calificaciones/mis-asignaciones?periodo=II%20Per%C3%ADodo')
+      ]);
+      const unicas=new Map();
+      [...(i||[]),...(ii||[])].forEach(a=>unicas.set(Number(a.asignacion_id),a));
+      rows=[...unicas.values()];
+    }else{
+      rows=await api(`/api/calificaciones/mis-asignaciones?periodo=${encodeURIComponent(selV.value)}`)||[];
+    }
     // Filtrar las que tengan regla REAC (no tiene sentido promediar sin regla)
     promAsignaciones = rows.filter(r => r.regla_id);
     const sel = document.getElementById("prom-asig");

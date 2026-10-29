@@ -16,6 +16,26 @@ async function canAccess(req, res, next) {
   return res.status(403).json({ error:"Sin permisos" });
 }
 
+// Pertenecer al Comité de Matrícula permite colaborar con el módulo, pero no
+// concede por sí solo acceso a datos sensibles de convivencia. Dirección puede
+// administrarlos siempre; Orientación y Auxiliares únicamente cuando además
+// forman parte del comité.
+async function canManageRestrictions(req, res, next) {
+  const u = req.session.usuario;
+  if(!u) return res.status(401).json({ error:"No autorizado" });
+  if(u.rol === "admin") return next();
+  const funciones = u.funciones_extra || [];
+  const rolAutorizado = ["orientador","auxiliar"].includes(u.rol) ||
+    funciones.some(f => ["orientador","auxiliar"].includes(f));
+  if(!rolAutorizado)
+    return res.status(403).json({ error:"Solo Dirección, Orientación o Auxiliares asignados al Comité de Matrícula pueden gestionar restricciones." });
+  try {
+    const miembro = await pool.query("SELECT 1 FROM matricula_comite WHERE usuario_id=$1", [u.id]);
+    if(miembro.rows.length) return next();
+  } catch(e) { console.error("canManageRestrictions matricula:", e.message); }
+  return res.status(403).json({ error:"Debe estar asignado al Comité de Matrícula para gestionar restricciones." });
+}
+
 function puedeGestionarBloqueos(req, res, next){
   const u=req.session.usuario;
   if(u && ["admin","administrativo","orientador"].includes(u.rol)) return next();
@@ -560,7 +580,7 @@ async function listarRestricciones(anio, estudianteId = null){
 // Lista institucional, sin limitarla a los grupos del usuario. Se usa solo
 // dentro del módulo autorizado de restricciones para poder relacionar a dos
 // estudiantes de cualquier sección del colegio.
-router.get("/restricciones-estudiantes/:anio", canAccess, async (req, res) => {
+router.get("/restricciones-estudiantes/:anio", canManageRestrictions, async (req, res) => {
   const anio = parseInt(req.params.anio);
   if(!anio) return res.status(400).json({ error:"Año inválido" });
   const activo = await obtenerAnioActivo();
@@ -568,14 +588,30 @@ router.get("/restricciones-estudiantes/:anio", canAccess, async (req, res) => {
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
       e.subgrupo,
-      CASE WHEN $2::boolean THEN e.seccion_id ELSE m.seccion_id END AS seccion_id,
+      CASE WHEN $2::boolean THEN e.seccion_id ELSE COALESCE(m.seccion_id,e.seccion_id) END AS seccion_id,
       s.nombre AS seccion_nombre
     FROM estudiantes e
     LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$1
-    LEFT JOIN secciones s ON s.id=CASE WHEN $2::boolean THEN e.seccion_id ELSE m.seccion_id END
+    LEFT JOIN secciones s ON s.id=CASE WHEN $2::boolean THEN e.seccion_id ELSE COALESCE(m.seccion_id,e.seccion_id) END
     WHERE e.activo=true AND COALESCE(e.archivado,false)=false
     ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre
   `, [anio, esActual]);
+  res.json(r.rows);
+});
+
+// Catálogo completo para el filtro. No depende de que una sección ya tenga
+// estudiantes matriculados, por lo que también aparecen las secciones vacías.
+router.get("/restricciones-secciones/:anio", canManageRestrictions, async (req, res) => {
+  const anio = parseInt(req.params.anio);
+  if(!anio) return res.status(400).json({ error:"Año inválido" });
+  const r = await pool.query(`
+    SELECT s.id AS seccion_id,s.nombre,s.nivel
+    FROM secciones s
+    WHERE NOT EXISTS (SELECT 1 FROM secciones_anio WHERE anio=$1)
+       OR EXISTS (SELECT 1 FROM secciones_anio sa
+                  WHERE sa.anio=$1 AND sa.seccion_id=s.id AND sa.activa=true)
+    ORDER BY s.nivel,s.nombre
+  `,[anio]);
   res.json(r.rows);
 });
 
@@ -585,7 +621,7 @@ router.get("/restricciones/:anio", canAccess, async (req, res) => {
   res.json(await listarRestricciones(anio, req.query.estudiante_id));
 });
 
-router.post("/restricciones", canAccess, async (req, res) => {
+router.post("/restricciones", canManageRestrictions, async (req, res) => {
   const anio = parseInt(req.body.anio);
   const est1 = parseInt(req.body.estudiante_a_id);
   const est2 = parseInt(req.body.estudiante_b_id);
@@ -613,7 +649,7 @@ router.post("/restricciones", canAccess, async (req, res) => {
   res.json({ ok:true, restriccion:fila, conflicto_actual:!!fila?.conflicto_actual });
 });
 
-router.delete("/restricciones/:id", canAccess, async (req, res) => {
+router.delete("/restricciones/:id", canManageRestrictions, async (req, res) => {
   const r = await pool.query(`UPDATE restricciones_matricula
     SET activa=false,eliminada_por=$1,eliminada_at=NOW()
     WHERE id=$2 AND activa=true RETURNING id`, [req.session.usuario.id,req.params.id]);

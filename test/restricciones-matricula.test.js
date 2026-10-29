@@ -50,3 +50,21 @@ test("la interfaz permite buscar parejas y señala secciones incompatibles", () 
   assert.match(frontend,/id="asignar-restricciones-info"/);
 });
 
+test("solo perfiles autorizados del comité gestionan restricciones", () => {
+  assert.match(matricula,/async function canManageRestrictions/);
+  assert.match(matricula,/u\.rol === "admin"/);
+  assert.match(matricula,/\["orientador","auxiliar"\]/);
+  assert.match(matricula,/SELECT 1 FROM matricula_comite WHERE usuario_id=\$1/);
+  assert.match(matricula,/router\.post\("\/restricciones", canManageRestrictions/);
+  assert.match(matricula,/router\.delete\("\/restricciones\/:id", canManageRestrictions/);
+  assert.match(frontend,/window\.esComiteMatricula&&tieneAlgunRol\('orientador','auxiliar'\)/);
+});
+
+test("el filtro de restricciones carga todas las secciones activas", () => {
+  assert.match(matricula,/router\.get\("\/restricciones-secciones\/:anio", canManageRestrictions/);
+  assert.match(matricula,/FROM secciones_anio sa/);
+  assert.match(matricula,/COALESCE\(m\.seccion_id,e\.seccion_id\)/);
+  assert.match(frontend,/api\(`\/api\/matricula\/restricciones-secciones\/\$\{matAnio\}`\)/);
+  assert.match(frontend,/const mapaSecciones=new Map/);
+});
+

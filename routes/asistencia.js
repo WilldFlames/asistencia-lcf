@@ -52,7 +52,10 @@ async function permitirSesion(req,res,next){
 // Antes del 4-jul-2026 = I Período. Después = II Período.
 router.get("/mis-asignaciones", requireDocente, async (req, res) => {
   const uid = req.session.usuario.id;
-  const periodo = (await obtenerPeriodoActual()).nombre;
+  const periodoSolicitado=String(req.query.periodo||"");
+  const periodo=["I Período","II Período"].includes(periodoSolicitado)
+    ? periodoSolicitado
+    : (await obtenerPeriodoActual()).nombre;
   // Año en curso: los profes solo ven asignaciones del año actual. Las del
   // año siguiente (preparadas por adelantado) no se cargan hasta que se
   // aplique "Aplicar Matrículas" y las viejas se borren.
@@ -67,8 +70,24 @@ router.get("/mis-asignaciones", requireDocente, async (req, res) => {
       JOIN secciones s ON s.id=a.seccion_id
       JOIN materias m ON m.id=a.materia_id
       WHERE a.profesor_id=$1
-        AND COALESCE(a.periodo,'I Período') IN ('I Período', $2)
         AND COALESCE(a.anio, $3) = $3
+        AND (
+          COALESCE(a.periodo,'I Período')=$2
+          OR (
+            $2='II Período'
+            AND COALESCE(a.periodo,'I Período')='I Período'
+            AND NOT EXISTS (
+              SELECT 1 FROM asignaciones a2
+              WHERE a2.profesor_id=a.profesor_id AND a2.seccion_id=a.seccion_id
+                AND a2.materia_id=a.materia_id AND COALESCE(a2.anio,$3)=$3
+                AND COALESCE(a2.periodo,'I Período')=$2
+                AND (
+                  m.nombre IN ('Educación para el Hogar','Artes Industriales')
+                  OR COALESCE(a2.subgrupo,'')=COALESCE(a.subgrupo,'')
+                )
+            )
+          )
+        )
     ),
     -- Para cada sección+materia, priorizamos la del período actual.
     -- ROW_NUMBER con ORDER BY (periodo actual primero) permite quedarnos

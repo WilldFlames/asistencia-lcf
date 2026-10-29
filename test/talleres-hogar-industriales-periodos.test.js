@@ -6,6 +6,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const admin = fs.readFileSync(path.join(root, 'routes', 'admin.js'), 'utf8');
 const calificaciones = fs.readFileSync(path.join(root, 'routes', 'calificaciones.js'), 'utf8');
+const asistencia = fs.readFileSync(path.join(root, 'routes', 'asistencia.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
 
 test('Hogar e Industriales crean automáticamente sus dos asignaciones semestrales', () => {
@@ -26,4 +27,16 @@ test('Hogar e Industriales usan como nota final el único período cursado', () 
   assert.match(calificaciones, /esTallerRotativo/);
   assert.match(calificaciones, /periodoEsperado/);
   assert.match(html, /corresponde al único período cursado; no se promedia/);
+});
+
+test('Asistencia, Calificaciones y Promedio filtran el período sin duplicar el taller anterior',()=>{
+  assert.match(html,/id="asis-periodo"[\s\S]*I Período[\s\S]*II Período/);
+  assert.match(html,/id="calif-periodo"[\s\S]*I Período[\s\S]*II Período/);
+  assert.match(html,/id="prom-vista" onchange="iniciarPromedio\(\)"/);
+  assert.match(asistencia,/const periodoSolicitado=String\(req\.query\.periodo/);
+  assert.match(asistencia,/m\.nombre IN \('Educación para el Hogar','Artes Industriales'\)/);
+  assert.match(calificaciones,/m\.nombre IN \('Educación para el Hogar','Artes Industriales'\)/);
+  assert.match(calificaciones,/m\.nombre NOT IN \('Educación para el Hogar','Artes Industriales'\)/);
+  assert.match(html,/const \[i,ii\]=await Promise\.all/);
+  assert.match(html,/unicas\.set\(Number\(a\.asignacion_id\),a\)/);
 });

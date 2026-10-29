@@ -68,17 +68,21 @@ router.get("/mis-asignaciones", requireAuth, async (req, res) => {
         -- automática — la mayoría de materias son anuales y no cambian
         -- entre períodos, solo algunas como los talleres rotan).
         AND (
-          a.periodo = $2
+          COALESCE(a.periodo,'I Período') = $2
           OR (
             COALESCE(a.periodo,'I Período') = 'I Período'
+            AND $2 = 'II Período'
             AND NOT EXISTS (
               SELECT 1 FROM asignaciones a2
               WHERE a2.profesor_id = a.profesor_id
                 AND a2.seccion_id = a.seccion_id
                 AND a2.materia_id = a.materia_id
-                AND COALESCE(a2.subgrupo,'') = COALESCE(a.subgrupo,'')
                 AND a2.periodo = $2
                 AND COALESCE(a2.anio, $3) = $3
+                AND (
+                  m.nombre IN ('Educación para el Hogar','Artes Industriales')
+                  OR COALESCE(a2.subgrupo,'') = COALESCE(a.subgrupo,'')
+                )
             )
           )
         )
@@ -155,6 +159,8 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
         COALESCE(a.periodo,'I Período') = $5
         OR (
           COALESCE(a.periodo,'I Período') = 'I Período'
+          AND $5 = 'II Período'
+          AND m.nombre NOT IN ('Educación para el Hogar','Artes Industriales')
           AND NOT EXISTS (
             SELECT 1 FROM asignaciones a2
             WHERE a2.profesor_id = a.profesor_id

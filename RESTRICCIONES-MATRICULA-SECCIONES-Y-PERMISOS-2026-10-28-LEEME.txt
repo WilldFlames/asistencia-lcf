@@ -1,0 +1,25 @@
+RESTRICCIONES DE MATRICULA: SECCIONES Y PERMISOS
+Fecha: 28 de octubre de 2026
+
+Correcciones realizadas
+
+1. Filtro de secciones
+- El selector carga el catalogo completo de secciones activas del curso lectivo.
+- Tambien aparecen secciones que todavia no tienen estudiantes matriculados.
+- Para un curso futuro, mientras el estudiante no tenga una seccion nueva asignada,
+  se utiliza su seccion actual para localizarlo en el filtro.
+
+2. Permisos para gestionar restricciones
+- Administrador: puede crear y eliminar restricciones.
+- Orientador: puede hacerlo solamente si esta asignado al Comite de Matricula.
+- Auxiliar: puede hacerlo solamente si esta asignada al Comite de Matricula.
+- Ser miembro del Comite de Matricula con cualquier otro rol no concede este permiso.
+- El permiso se valida tanto en la pantalla como en el servidor.
+
+3. Consulta interna
+- Las restricciones ya registradas continúan aplicandose al conformar secciones.
+- Los miembros del comite que no pueden administrarlas no reciben el boton de gestion.
+
+Verificacion
+- Sintaxis del servidor validada.
+- Suite completa: 344 pruebas aprobadas, 0 fallidas.
