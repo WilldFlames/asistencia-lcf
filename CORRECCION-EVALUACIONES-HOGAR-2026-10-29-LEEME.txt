@@ -10,3 +10,8 @@ CORRECCIÓN DE EVALUACIONES DE HOGAR — 29/10/2026
 - No se elimina, traslada ni modifica ninguna evaluación existente.
 
 Validación: 349 pruebas automatizadas aprobadas.
+
+CORRECCIÓN DE EMERGENCIA:
+- Se corrigió la sintaxis SQL del conteo por período que impedía cargar la
+  pantalla completa de Calificaciones para todos los docentes.
+- El error era únicamente de lectura; no eliminó evaluaciones ni notas.

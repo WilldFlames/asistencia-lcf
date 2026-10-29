@@ -54,5 +54,7 @@ test('las evaluaciones creadas con asignaciones manuales anteriores siguen consu
   assert.match(calificaciones,/true AS legacy_evaluaciones/);
   assert.match(calificaciones,/Una evaluación heredada acredita el acceso/);
   assert.match(calificaciones,/Este es un registro anterior recuperado/);
+  assert.match(calificaciones,/\(COUNT\(\*\) FILTER \(WHERE ev\.periodo='I Período'\)\)::int AS evaluaciones_i/);
+  assert.doesNotMatch(calificaciones,/COUNT\(\*\)::int FILTER/);
   assert.match(html,/Registro anterior recuperado de la configuración manual/);
 });
