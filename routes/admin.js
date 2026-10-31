@@ -717,7 +717,10 @@ router.post("/asignaciones", onlyAdmin, async (req, res) => {
       WHERE m.id=$1 AND s.id=$2`, [materia_id, seccion_id]);
     const materiaNombre = meta.rows[0]?.materia;
     const nivel = Number(meta.rows[0]?.nivel);
-    const esTallerRotativo = nivel >= 7 && nivel <= 9 &&
+    // La creación automática A/B por ambos períodos comienza en 2027.
+    // En 2026 las asignaciones ya existían y fueron organizadas manualmente;
+    // deben seguir pudiendo crearse y editarse con esa configuración real.
+    const esTallerRotativo = anioFinal >= 2027 && nivel >= 7 && nivel <= 9 &&
       ['Educación para el Hogar','Artes Industriales'].includes(materiaNombre);
 
     if (esTallerRotativo) {
@@ -779,7 +782,7 @@ router.put("/asignaciones/:id", onlyAdmin, async (req, res) => {
     WHERE a.id=$1`, [req.params.id]);
   if(!actual.rows.length) return res.status(404).json({ error: "Asignación no encontrada." });
   const a0 = actual.rows[0];
-  const esTallerRotativo = Number(a0.nivel) >= 7 && Number(a0.nivel) <= 9 &&
+  const esTallerRotativo = Number(a0.anio) >= 2027 && Number(a0.nivel) >= 7 && Number(a0.nivel) <= 9 &&
     ['Educación para el Hogar','Artes Industriales'].includes(a0.materia_nombre);
   if(esTallerRotativo) {
     if(Number(seccion_id)!==Number(a0.seccion_id) || Number(materia_id)!==Number(a0.materia_id))

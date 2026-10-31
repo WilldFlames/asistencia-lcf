@@ -9,7 +9,8 @@ const calificaciones = fs.readFileSync(path.join(root, 'routes', 'calificaciones
 const asistencia = fs.readFileSync(path.join(root, 'routes', 'asistencia.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
 
-test('Hogar e Industriales crean automáticamente sus dos asignaciones semestrales', () => {
+test('Hogar e Industriales crean automáticamente sus dos asignaciones semestrales desde 2027', () => {
+  assert.match(admin, /anioFinal >= 2027/);
   assert.match(admin, /materiaNombre === 'Educación para el Hogar' \? 'A' : 'B'/);
   assert.match(admin, /subgrupoII = subgrupoI === 'A' \? 'B' : 'A'/);
   assert.match(admin, /'I Período'/);
@@ -53,8 +54,9 @@ test('Calificaciones conserva acceso a asignaciones antiguas y muestra dónde es
 test('las evaluaciones creadas con asignaciones manuales anteriores siguen consultables sin mezclarlas',()=>{
   assert.match(calificaciones,/true AS legacy_evaluaciones/);
   assert.match(calificaciones,/Una evaluación heredada acredita el acceso/);
-  assert.match(calificaciones,/Este es un registro anterior recuperado/);
+  assert.doesNotMatch(calificaciones,/Este es un registro anterior recuperado\. Podés consultar y completar/);
+  assert.match(calificaciones,/\$6 < 2027 OR m\.nombre NOT IN/);
   assert.match(calificaciones,/\(COUNT\(\*\) FILTER \(WHERE ev\.periodo='I Período'\)\)::int AS evaluaciones_i/);
   assert.doesNotMatch(calificaciones,/COUNT\(\*\)::int FILTER/);
-  assert.match(html,/Registro anterior recuperado de la configuración manual/);
+  assert.match(html,/Asignación manual 2026 recuperada — podés continuar editándola/);
 });

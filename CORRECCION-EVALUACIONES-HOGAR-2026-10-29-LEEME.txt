@@ -15,3 +15,8 @@ CORRECCIÓN DE EMERGENCIA:
 - Se corrigió la sintaxis SQL del conteo por período que impedía cargar la
   pantalla completa de Calificaciones para todos los docentes.
 - El error era únicamente de lectura; no eliminó evaluaciones ni notas.
+
+ACLARACIÓN POR CURSO LECTIVO:
+- Durante 2026 Hogar e Industriales conservan las asignaciones manuales y se
+  pueden crear, editar y calificar con normalidad.
+- La rotación automática A/B por período se aplica únicamente desde 2027.

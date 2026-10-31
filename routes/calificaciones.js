@@ -251,7 +251,10 @@ async function verificarAsignacion(profesor_id, seccion_id, materia_id, subgrupo
         OR (
           COALESCE(a.periodo,'I Período') = 'I Período'
           AND $5 = 'II Período'
-          AND m.nombre NOT IN ('Educación para el Hogar','Artes Industriales')
+          -- En 2026 los talleres se administraron manualmente y una
+          -- asignación del I período puede seguir respaldando el II. La
+          -- rotación estricta A/B comienza con el curso lectivo 2027.
+          AND ($6 < 2027 OR m.nombre NOT IN ('Educación para el Hogar','Artes Industriales'))
           AND NOT EXISTS (
             SELECT 1 FROM asignaciones a2
             WHERE a2.profesor_id = a.profesor_id
@@ -423,9 +426,6 @@ router.post("/evaluaciones", requireAuth, async (req, res) => {
   // Verificar asignación
   const asig = await verificarAsignacion(u.id, seccion_id, materia_id, subgrupo, periodo);
   if (!asig) return res.status(403).json({ error: "Sin acceso a esta asignación." });
-  if (asig.legacy_evaluaciones) {
-    return res.status(409).json({ error: "Este es un registro anterior recuperado. Podés consultar y completar sus evaluaciones existentes, pero las nuevas deben crearse desde la asignación vigente." });
-  }
 
   // Si el período está cerrado, no se permiten cambios
   const cierre = await getEstadoPeriodo(u.id, seccion_id, materia_id, subgrupo, periodo);
