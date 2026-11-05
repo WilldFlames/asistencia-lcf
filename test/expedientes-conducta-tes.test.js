@@ -40,6 +40,20 @@ test("el comité puede revertir una aprobación sin borrar su trazabilidad",()=>
   assert.match(front,/La acción quedará registrada en el historial/);
 });
 
+test("el TES avisa al comité activo y luego al docente guía",()=>{
+  const push=read("utils/push-personal.js");
+  assert.match(routes,/fi\.tipo='comite_evaluacion' AND u\.activo=true/);
+  assert.match(routes,/INSERT INTO notificaciones[\s\S]*referencia_id,destino/);
+  assert.match(routes,/requiere su aprobación del proyecto TES/);
+  assert.match(routes,/aprobó el proyecto TES del expediente de conducta/);
+  assert.match(routes,/Ya puede continuar con el Paso 4/);
+  assert.match(routes,/expediente-conducta:\$\{expedienteId\}/);
+  assert.match(front,/destino\.startsWith\("expediente-conducta:"\)/);
+  assert.match(front,/ectAbrirDetalle\(expedienteId\)/);
+  assert.match(push,/tes_aprobacion:"expedientes-conducta"/);
+  assert.match(push,/abrir=expedientes-conducta&ref=/);
+});
+
 test("volver del expediente reutiliza la lista y solo recalcula al actualizar",()=>{
   assert.match(front,/const ECT_LISTADO_CACHE_MS=60000/);
   assert.match(front,/function ectRenderListado\(d\)/);
@@ -49,6 +63,15 @@ test("volver del expediente reutiliza la lista y solo recalcula al actualizar",(
   const volver=front.match(/function ectVolver\(\)\{[\s\S]*?\n\}/)?.[0]||"";
   assert.match(volver,/ectRenderListado\(ectListadoActual\)/);
   assert.doesNotMatch(volver,/ectCargarListado\(true\)/);
+});
+
+test("administración y comité filtran expedientes de conducta por sección sin recalcular",()=>{
+  assert.match(routes,/alcance_institucional:esAdmin\(u\)\|\|comite/);
+  assert.match(front,/id="ect-filtro-seccion"/);
+  assert.match(front,/Todas las secciones/);
+  assert.match(front,/d\.alcance_institucional&&secciones\.length>1/);
+  assert.match(front,/String\(e\.seccion_id\)===filtro\.value/);
+  assert.match(front,/onchange="ectRenderListado\(ectListadoActual\)"/);
 });
 
 test("el guía o administración pueden corregir un cierre equivocado del paso 2",()=>{

@@ -2276,6 +2276,7 @@ tr:hover td{background:#f8fafc;}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
         <div><h2 style="margin:0 0 4px;">📘 Expedientes de Conducta</h2><p style="margin:0;color:var(--muted);font-size:12.5px;">Estudiantes que no alcanzaron la nota anual de conducta y seguimiento del Trabajo Educativo Sustitutivo.</p></div>
         <div style="display:flex;align-items:flex-end;gap:7px;flex-wrap:wrap;">
+          <div class="fg" id="ect-filtro-seccion-wrap" style="margin:0;min-width:180px;display:none;"><label>Sección</label><select id="ect-filtro-seccion" onchange="ectRenderListado(ectListadoActual)"><option value="">Todas las secciones</option></select></div>
           <div class="fg" style="margin:0;min-width:130px;"><label>Curso lectivo</label><input id="ect-anio" type="number" min="2020" max="2100" onchange="ectCargarListado(true)"/></div>
           <button class="btn btn-outline btn-sm" onclick="ectCargarListado(true)">↻ Actualizar</button>
         </div>
@@ -6791,6 +6792,11 @@ async function leerNotif(id,el){
     document.getElementById("notif-dropdown")?.classList.remove("show");
     goTo("alerta-temprana");
     setTimeout(()=>atVerDetalle(alertaId),250);
+  }else if(destino.startsWith("expediente-conducta:")){
+    const expedienteId=Number(destino.split(":")[1]);
+    document.getElementById("notif-dropdown")?.classList.remove("show");
+    goTo("expedientes-conducta");
+    setTimeout(()=>ectAbrirDetalle(expedienteId),300);
   }
 }
 
@@ -22092,8 +22098,17 @@ function ectRenderListado(d){
   const anio=Number(document.getElementById("ect-anio").value)||ANIO_LECTIVO_ACTIVO;
   const cont=document.getElementById("ect-listado");
   document.getElementById("ect-aviso-comite").innerHTML=d.miembros_comite>=1?"":`<div class="alert show alert-warning" style="margin-bottom:12px;">⚠️ Administración debe asignar al menos un miembro al Comité de Evaluación para aprobar el proyecto TES.</div>`;
-  if(!d.estudiantes.length){cont.innerHTML='<div class="empty">No hay estudiantes aplazados en conducta dentro de las secciones autorizadas.</div>';return;}
-  const grupos={};d.estudiantes.forEach(e=>(grupos[e.seccion_nombre]??=[]).push(e));
+  const filtroWrap=document.getElementById("ect-filtro-seccion-wrap");
+  const filtro=document.getElementById("ect-filtro-seccion");
+  const secciones=[...new Map((d.estudiantes||[]).map(e=>[String(e.seccion_id),{id:String(e.seccion_id),nombre:e.seccion_nombre,nivel:Number(e.nivel)||0}])).values()]
+    .sort((a,b)=>a.nivel-b.nivel||String(a.nombre).localeCompare(String(b.nombre),'es',{numeric:true}));
+  const seleccionAnterior=filtro.value;
+  filtro.innerHTML='<option value="">Todas las secciones</option>'+secciones.map(s=>`<option value="${htmlSeguro(s.id)}">${htmlSeguro(s.nombre)}</option>`).join('');
+  filtro.value=secciones.some(s=>s.id===seleccionAnterior)?seleccionAnterior:"";
+  filtroWrap.style.display=d.alcance_institucional&&secciones.length>1?"":"none";
+  const estudiantes=(d.estudiantes||[]).filter(e=>!filtro.value||String(e.seccion_id)===filtro.value);
+  if(!estudiantes.length){cont.innerHTML=filtro.value?'<div class="empty">No hay estudiantes aplazados en conducta en la sección seleccionada.</div>':'<div class="empty">No hay estudiantes aplazados en conducta dentro de las secciones autorizadas.</div>';return;}
+  const grupos={};estudiantes.forEach(e=>(grupos[e.seccion_nombre]??=[]).push(e));
   cont.innerHTML=Object.entries(grupos).map(([sec,lista])=>`<section style="margin-bottom:16px;"><h3 style="color:var(--azul);margin:0 0 8px;">Sección ${htmlSeguro(sec)}</h3><div class="table-wrap"><table><thead><tr><th>Estudiante</th><th>I</th><th>II</th><th>Anual</th><th>Mínimo</th><th>Expediente</th><th></th></tr></thead><tbody>${lista.map(e=>`<tr><td><strong>${htmlSeguro(nombreEstudianteLista(e))}</strong><br><small>${htmlSeguro(e.cedula)}${e.activo?'':' · Retirado'}</small></td><td>${Number(e.nota_i).toFixed(1)}</td><td>${Number(e.nota_ii).toFixed(1)}</td><td style="font-weight:bold;color:var(--rojo);">${Number(e.nota_anual).toFixed(1)}</td><td>${e.minimo}</td><td>${e.expediente_id?`N°${e.numero}-${anio}<br><small>${htmlSeguro(ectEstado(e.estado))}</small>`:'—'}</td><td>${e.expediente_id?`<button class="btn btn-primary btn-xs" onclick="ectAbrirDetalle(${e.expediente_id})">Ver expediente</button>`:(d.puede_abrir?`<button class="btn btn-success btn-xs" onclick="ectAbrirExpediente(${e.estudiante_id},${Number(e.nota_anual)})">Abrir expediente</button>`:'')}</td></tr>`).join('')}</tbody></table></div></section>`).join('');
 }
 

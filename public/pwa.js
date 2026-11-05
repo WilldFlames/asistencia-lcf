@@ -334,6 +334,9 @@
     if (pagina === "alerta-temprana" && referencia && typeof atVerDetalle === "function") {
       setTimeout(() => atVerDetalle(referencia), 300);
     }
+    if (pagina === "expedientes-conducta" && referencia && typeof ectAbrirDetalle === "function") {
+      setTimeout(() => ectAbrirDetalle(referencia), 300);
+    }
     history.replaceState({}, "", "/personal?app=personal");
     return true;
   }

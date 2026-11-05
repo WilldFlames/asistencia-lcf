@@ -1,0 +1,8 @@
+FILTRO POR SECCIÓN — EXPEDIENTES DE CONDUCTA
+04/11/2026
+
+- Administración y el Comité de Evaluación disponen de un selector de sección.
+- Incluye la opción "Todas las secciones".
+- El selector se forma solamente con las secciones autorizadas y visibles.
+- Cambiar el filtro es inmediato: no recalcula notas ni consulta nuevamente al servidor.
+- El docente guía conserva el alcance limitado a sus propias secciones.

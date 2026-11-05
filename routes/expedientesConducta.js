@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { obtenerAnioActivo, obtenerCalendario } = require("../utils/lectivo");
+const { procesarNotificacionesPersonal } = require("../utils/push-personal");
 const {
   calcularNotaAnualConducta,
   sincronizarExpedienteConductaAbierto,
@@ -17,14 +18,38 @@ const esAdmin = u => u?.rol === "admin";
 // separado, ese grupo explícito tiene prioridad; de lo contrario reutilizamos
 // los tres integrantes actuales sin duplicar asignaciones.
 async function tipoComiteActivo(db=pool){
-  const r=await db.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo='comite_evaluacion'");
+  const r=await db.query(`SELECT COUNT(*)::int AS n
+    FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id
+    WHERE fi.tipo='comite_evaluacion' AND u.activo=true AND COALESCE(u.eliminado,false)=false`);
   return r.rows[0].n>0 ? "comite_evaluacion" : "comite_tecnico_asesor";
 }
 
 async function esComite(usuarioId, db=pool){
   const tipo=await tipoComiteActivo(db);
-  const r=await db.query("SELECT 1 FROM funciones_institucionales WHERE usuario_id=$1 AND tipo=$2",[usuarioId,tipo]);
+  const r=await db.query(`SELECT 1 FROM funciones_institucionales fi
+    JOIN usuarios u ON u.id=fi.usuario_id
+    WHERE fi.usuario_id=$1 AND fi.tipo=$2 AND u.activo=true AND COALESCE(u.eliminado,false)=false`,[usuarioId,tipo]);
   return !!r.rows.length;
+}
+
+function despacharPushTES(){
+  // El trabajador periódico es el respaldo. Este intento inmediato evita que
+  // una aprobación urgente tenga que esperar al siguiente ciclo.
+  setImmediate(()=>procesarNotificacionesPersonal().catch(error=>
+    console.error("Push TES:",error.message)));
+}
+
+async function notificarTES(db, usuarioId, mensaje, expedienteId){
+  if(!Number(usuarioId)) return false;
+  const destino=`expediente-conducta:${expedienteId}`;
+  const r=await db.query(`INSERT INTO notificaciones
+      (usuario_id,tipo,mensaje,referencia_id,destino)
+    SELECT $1,'tes_aprobacion',$2,$3,$4
+    WHERE EXISTS(SELECT 1 FROM usuarios WHERE id=$1 AND activo=true AND COALESCE(eliminado,false)=false)
+      AND NOT EXISTS(SELECT 1 FROM notificaciones
+        WHERE usuario_id=$1 AND tipo='tes_aprobacion' AND referencia_id=$3 AND mensaje=$2)
+    RETURNING id`,[usuarioId,mensaje,expedienteId,destino]);
+  return r.rowCount>0;
 }
 
 async function seccionesGuia(usuarioId, anio, db=pool){
@@ -66,7 +91,7 @@ router.get("/listado", requireAuth, async (req,res)=>{
     const desdeII=cal.periodo_ii_inicio||`${anio}-07-01`, hastaII=cal.periodo_ii_fin||`${anio}-12-31`;
     const comite=await esComite(u.id);
     const ids=(esAdmin(u)||comite)?[]:await seccionesGuia(u.id,anio);
-    if(!esAdmin(u)&&!comite&&!ids.length) return res.json({anio,puede_abrir:false,comite:false,miembros_comite:0,estudiantes:[]});
+    if(!esAdmin(u)&&!comite&&!ids.length) return res.json({anio,puede_abrir:false,comite:false,alcance_institucional:false,miembros_comite:0,estudiantes:[]});
     const params=[anio,desdeI,hastaI,desdeII,hastaII];
     let filtro="";
     if(ids.length){ params.push(ids); filtro=`AND e.seccion_id = ANY($${params.length}::int[])`; }
@@ -89,8 +114,12 @@ router.get("/listado", requireAuth, async (req,res)=>{
         AND (ROUND((n.nota_i+n.nota_ii)/2.0,1) < CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END OR ec.id IS NOT NULL)
       ORDER BY s.nivel,s.nombre,e.primer_apellido,e.segundo_apellido,e.nombre`,params);
     const tipoComite=await tipoComiteActivo();
-    const mc=await pool.query("SELECT COUNT(*)::int AS n FROM funciones_institucionales WHERE tipo=$1",[tipoComite]);
-    res.json({anio,puede_abrir:esAdmin(u)||ids.length>0,comite,miembros_comite:mc.rows[0].n,tipo_comite:tipoComite,estudiantes:r.rows});
+    const mc=await pool.query(`SELECT COUNT(*)::int AS n FROM funciones_institucionales fi
+      JOIN usuarios u ON u.id=fi.usuario_id
+      WHERE fi.tipo=$1 AND u.activo=true AND COALESCE(u.eliminado,false)=false`,[tipoComite]);
+    res.json({anio,puede_abrir:esAdmin(u)||ids.length>0,comite,
+      alcance_institucional:esAdmin(u)||comite,
+      miembros_comite:mc.rows[0].n,tipo_comite:tipoComite,estudiantes:r.rows});
   }catch(e){console.error("GET expedientes conducta listado",e);res.status(500).json({error:e.message});}
 });
 
@@ -151,7 +180,9 @@ router.get("/:id", requireAuth, async (req,res)=>{
       WHERE a.expediente_id=$1 ORDER BY a.aprobado_en`,[ec.id,tipoComite]);
     const miembros=await pool.query(`SELECT u.id,u.nombre,u.primer_apellido,u.segundo_apellido,
       EXISTS(SELECT 1 FROM expedientes_conducta_aprobaciones a WHERE a.expediente_id=$1 AND a.usuario_id=u.id) AS aprobado
-      FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id WHERE fi.tipo=$2 ORDER BY u.nombre,u.primer_apellido`,[ec.id,tipoComite]);
+      FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id
+      WHERE fi.tipo=$2 AND u.activo=true AND COALESCE(u.eliminado,false)=false
+      ORDER BY u.nombre,u.primer_apellido`,[ec.id,tipoComite]);
     // La accion correctiva puede haberse consignado en el acta, el traslado o la
     // resolucion final.  No se limita la consulta a procesos cerrados: la constancia
     // oficial tambien debe mencionar procedimientos abiertos, aunque aun no tengan
@@ -239,11 +270,19 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
     }
     if(paso===3 && completado){
       const tipoComite=await tipoComiteActivo();
-      await pool.query(`INSERT INTO notificaciones(usuario_id,tipo,mensaje)
-        SELECT fi.usuario_id,'tes_aprobacion',$1 FROM funciones_institucionales fi
-        WHERE fi.tipo=$3 AND NOT EXISTS(
-          SELECT 1 FROM expedientes_conducta_aprobaciones a WHERE a.expediente_id=$2 AND a.usuario_id=fi.usuario_id)`,
-        [`📘 El expediente de conducta N°${ec.numero}-${ec.anio} requiere su aprobación del proyecto TES.`,ec.id,tipoComite]);
+      const mensaje=`📘 El expediente de conducta N°${ec.numero}-${ec.anio} requiere su aprobación del proyecto TES (${contenido.proyecto}).`;
+      const avisos=await pool.query(`INSERT INTO notificaciones
+          (usuario_id,tipo,mensaje,referencia_id,destino)
+        SELECT DISTINCT fi.usuario_id,'tes_aprobacion',$1,$2,$4
+        FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id
+        WHERE fi.tipo=$3 AND u.activo=true AND COALESCE(u.eliminado,false)=false
+          AND NOT EXISTS(SELECT 1 FROM expedientes_conducta_aprobaciones a
+            WHERE a.expediente_id=$2 AND a.usuario_id=fi.usuario_id)
+          AND NOT EXISTS(SELECT 1 FROM notificaciones n
+            WHERE n.usuario_id=fi.usuario_id AND n.tipo='tes_aprobacion'
+              AND n.referencia_id=$2 AND n.mensaje=$1)
+        RETURNING id`,[mensaje,ec.id,tipoComite,`expediente-conducta:${ec.id}`]);
+      if(avisos.rowCount) despacharPushTES();
     }
     res.json({ok:true});
   }catch(e){console.error("guardar paso TES",e);res.status(e.status||500).json({error:e.message});}
@@ -262,6 +301,11 @@ router.post("/:id/aprobar-proyecto", requireAuth, async (req,res)=>{
       await pool.query(`INSERT INTO expedientes_conducta_aprobaciones_historial
         (expediente_id,usuario_id,accion,ejecutado_por,motivo)
         VALUES($1,$2,'aprobada',$2,'Aprobación del proyecto TES')`,[ec.id,req.session.usuario.id]);
+      const aprobador=req.session.usuario;
+      const nombre=[aprobador.nombre,aprobador.primer_apellido,aprobador.segundo_apellido].filter(Boolean).join(" ")||"Un integrante del Comité de Evaluación";
+      const aviso=await notificarTES(pool,ec.guia_id,
+        `✅ ${nombre} aprobó el proyecto TES del expediente de conducta N°${ec.numero}-${ec.anio}. Ya puede continuar con el Paso 4.`,ec.id);
+      if(aviso) despacharPushTES();
     }
     res.json({ok:true});
   }catch(e){res.status(500).json({error:e.message});}
@@ -295,11 +339,12 @@ router.post("/:id/revertir-aprobacion", requireAuth, async (req,res)=>{
     await client.query(`INSERT INTO expedientes_conducta_aprobaciones_historial
       (expediente_id,usuario_id,accion,ejecutado_por,motivo)
       VALUES($1,$2,'revertida',$3,$4)`,[ec.id,usuarioId,u.id,motivo]);
-    if(ec.guia_id&&Number(ec.guia_id)!==Number(u.id)){
-      await client.query(`INSERT INTO notificaciones(usuario_id,tipo,mensaje)
-        VALUES($1,'tes_aprobacion',$2)`,[ec.guia_id,`📘 Se revirtió una aprobación del proyecto TES del expediente N°${ec.numero}-${ec.anio}. Motivo: ${motivo}`]);
-    }
+    let avisoGuia=false;
+    if(ec.guia_id&&Number(ec.guia_id)!==Number(u.id))
+      avisoGuia=await notificarTES(client,ec.guia_id,
+        `📘 Se revirtió una aprobación del proyecto TES del expediente N°${ec.numero}-${ec.anio}. Motivo: ${motivo}`,ec.id);
     await client.query("COMMIT");
+    if(avisoGuia) despacharPushTES();
     res.json({ok:true});
   }catch(e){
     await client.query("ROLLBACK");

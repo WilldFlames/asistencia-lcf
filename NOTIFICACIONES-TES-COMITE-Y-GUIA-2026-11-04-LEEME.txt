@@ -1,0 +1,24 @@
+NOTIFICACIONES TES — COMITÉ DE EVALUACIÓN Y DOCENTE GUÍA
+Fecha: 4 de noviembre de 2026
+
+CAMBIOS
+- Al completar el Paso 3 del expediente de conducta, cada integrante activo
+  del Comité de Evaluación recibe una notificación guardada en el sistema.
+- Al aprobar el proyecto TES, el docente guía recibe una notificación que
+  identifica la aprobación y le indica que puede continuar con el Paso 4.
+- La reversión de una aprobación también avisa al docente guía.
+- Los avisos abren directamente el expediente de conducta correspondiente.
+- Se agregó entrega push inmediata, conservando el trabajador periódico como
+  respaldo cuando el teléfono está temporalmente sin conexión.
+- Se excluyen cuentas inactivas o eliminadas y se evitan avisos duplicados al
+  guardar nuevamente el mismo Paso 3.
+- Si no existen integrantes activos bajo Comité de Evaluación, se conserva la
+  compatibilidad con el Comité Técnico Asesor configurado anteriormente.
+
+VERIFICACIÓN
+- Sintaxis de rutas, push y PWA validada.
+- Suite completa: 352 pruebas aprobadas, 0 fallos.
+
+DESPLIEGUE
+Subir el contenido completo de este ZIP como una actualización normal. No se
+eliminan expedientes, aprobaciones ni notificaciones existentes.

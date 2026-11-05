@@ -21,10 +21,14 @@ function destinoNotificacion(n){
     const ref=destino.split(":")[1]||"";
     return `/personal?app=personal&abrir=alerta-temprana&ref=${encodeURIComponent(ref)}`;
   }
+  if(destino.startsWith("expediente-conducta:")){
+    const ref=destino.split(":")[1]||"";
+    return `/personal?app=personal&abrir=expedientes-conducta&ref=${encodeURIComponent(ref)}`;
+  }
   const porTipo={
     informe:"mensajes",informe_respondido:"mensajes",cita:"citas",agenda:"citas",
     boleta:"conducta",conducta:"conducta",adecuacion:"adecuaciones",
-    protocolo:"protocolos",debido_proceso:"debidos"
+    protocolo:"protocolos",debido_proceso:"debidos",tes_aprobacion:"expedientes-conducta"
   };
   const modulo=porTipo[String(n.tipo||"")]||"dashboard";
   return `/personal?app=personal&abrir=${encodeURIComponent(modulo)}`;
@@ -37,7 +41,7 @@ function payload(n){
     body:String(n.mensaje||"Tiene una nueva notificación institucional.").slice(0,500),
     url:destinoNotificacion(n),
     tag:`personal-lcf-${n.id}`,
-    urgency:["alerta_temprana","debido_proceso","protocolo"].includes(String(n.tipo||""))?"high":"normal",
+    urgency:["alerta_temprana","debido_proceso","protocolo","tes_aprobacion"].includes(String(n.tipo||""))?"high":"normal",
     requireInteraction:false
   });
 }

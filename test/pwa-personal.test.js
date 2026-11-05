@@ -53,6 +53,9 @@ test("las notificaciones del personal se entregan aun con la app cerrada", () =>
   assert.match(sw, /datos\.app === "personal"/);
   assert.match(sw, /LCF_OPEN_NOTIFICATION/);
   assert.match(sw, /destinoPersonal/);
+  assert.match(worker, /destino\.startsWith\("expediente-conducta:"\)/);
+  assert.match(worker, /tes_aprobacion:"expedientes-conducta"/);
+  assert.match(leer("public/pwa.js"), /ectAbrirDetalle\(referencia\)/);
 });
 
 test("Personal LCF no guarda datos privados para funcionar sin conexión", () => {
