@@ -17590,6 +17590,44 @@ async function imprimirReporteComedor(){
   const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const fechaLarga = `${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
 
+  // El menú pertenece al encabezado REAL del PDF. Antes estaba dentro del
+  // <thead> de una tabla de impresión que imprimirConEncabezado extraía como
+  // cuerpo; por eso desaparecía al convertir el reporte al PDF institucional.
+  // encabezadoExtraHTML se rasteriza junto al encabezado MEP y se dibuja de
+  // nuevo en cada hoja, sin depender de la paginación de Chrome.
+  const encabezadoComedor=`
+    <div style="display:flex;justify-content:space-between;margin:5px 0 6px;font-size:11px;">
+      <div><strong>Fecha:</strong> ${htmlSeguro(fechaLarga)}</div>
+      <div><strong>Total atendidos:</strong> ${rows.length} estudiantes</div>
+    </div>
+    <div style="border:1px solid #cbd5e1;border-radius:6px;padding:6px 9px;background:#f8fafc;margin-bottom:2px;">
+      <div style="font-weight:bold;color:#1F3864;margin-bottom:3px;font-size:11px;">Menú del día</div>
+      <table style="width:100%;border-collapse:collapse;font-size:10.5px;"><tr>
+        <td style="width:40%;padding-right:8px;vertical-align:top;"><strong>Plato:</strong> ${htmlSeguro(plato)}</td>
+        <td style="width:35%;padding-right:8px;vertical-align:top;"><strong>Ensalada:</strong> ${htmlSeguro(ensalada)}</td>
+        <td style="width:25%;vertical-align:top;"><strong>Fruta:</strong> ${htmlSeguro(fruta)}</td>
+      </tr></table>
+    </div>`;
+
+  const filaReporte=(r,i)=>`<tr><td style="padding:4px 6px;text-align:center;">${i+1}</td><td style="padding:4px 6px;"><strong>${nombreEstudianteLista(r)}</strong></td><td style="padding:4px 6px;">${htmlSeguro(r.cedula||'')}</td><td style="padding:4px 6px;">${htmlSeguro(r.seccion_nombre||'—')}</td><td style="padding:4px 6px;text-align:center;">${htmlSeguro(r.hora||'—')}</td></tr>`;
+
+  const contenidoReporte=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;text-align:center;">
+      <div style="border:1px solid #86efac;border-radius:6px;padding:8px;background:#f0fdf4;"><div style="font-size:22px;font-weight:bold;color:#166534;">${rows.length}</div><div style="font-size:11px;">Total</div></div>
+      <div style="border:1px solid #fde047;border-radius:6px;padding:8px;background:#fefce8;"><div style="font-size:22px;font-weight:bold;color:#854d0e;">${becados.length}</div><div style="font-size:11px;">Becados</div></div>
+      <div style="border:1px solid #bfdbfe;border-radius:6px;padding:8px;background:#eff6ff;"><div style="font-size:22px;font-weight:bold;color:#1d4ed8;">${regulares.length}</div><div style="font-size:11px;">No Becados</div></div>
+    </div>
+    ${becados.length?`<div style="font-weight:bold;font-size:12px;color:#166534;margin-bottom:4px;">Becados (${becados.length})</div><table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;"><thead><tr style="background:#f0fdf4;"><th style="padding:5px 6px;border:1px solid #e2e8f0;width:30px;">#</th><th style="padding:5px 6px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th><th style="padding:5px 6px;border:1px solid #e2e8f0;">Cédula</th><th style="padding:5px 6px;border:1px solid #e2e8f0;">Sección</th><th style="padding:5px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th></tr></thead><tbody>${becados.map(filaReporte).join('')}</tbody></table>`:''}
+    ${regulares.length?`<div style="font-weight:bold;font-size:12px;color:#374151;margin-bottom:4px;">No Becados (${regulares.length})</div><table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:11px;"><thead><tr style="background:#f8fafc;"><th style="padding:5px 6px;border:1px solid #e2e8f0;width:30px;">#</th><th style="padding:5px 6px;border:1px solid #e2e8f0;text-align:left;">Apellidos, Nombre</th><th style="padding:5px 6px;border:1px solid #e2e8f0;">Cédula</th><th style="padding:5px 6px;border:1px solid #e2e8f0;">Sección</th><th style="padding:5px 6px;border:1px solid #e2e8f0;width:50px;">Hora</th></tr></thead><tbody>${regulares.map(filaReporte).join('')}</tbody></table>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;">
+      <div style="text-align:center;border-top:1px solid #374151;padding-top:8px;">Firma Encargada de Comedor<div style="margin-top:4px;">(Sello)</div></div>
+      <div style="text-align:center;border-top:1px solid #374151;padding-top:8px;">Firma Director(a)<div style="margin-top:4px;">(Sello)</div></div>
+    </div>`;
+
+  await imprimirPDFMEP("REPORTE DIARIO DE COMEDOR ESCOLAR",contenidoReporte,
+    `reporte_comedor_${fecha}.pdf`,{encabezadoExtraHTML:encabezadoComedor});
+  return;
+
   let printArea = document.getElementById('print-boleta-area');
   if(!printArea){ printArea=document.createElement('div'); printArea.id='print-boleta-area'; document.body.appendChild(printArea); }
   printArea.style.cssText='position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
@@ -22683,6 +22721,7 @@ async function imprimirPDFMEP(titulo, contenidoHTML, nombreArchivo, opciones={})
         </tr>
       </table>
       ${titulo?`<div style="font-weight:bold;font-size:13px;color:#1F3864;text-align:center;margin-bottom:10px;">${titulo}</div>`:''}
+      ${opciones.encabezadoExtraHTML||''}
     </div>`;
 
   // 2. Crear el elemento oculto que html2pdf va a renderizar.
@@ -26091,10 +26130,30 @@ async function guardarNotas(){
     const observaciones=[...document.querySelectorAll('textarea.calif-observacion-eval')].map(inp=>({
       estudiante_id:Number(inp.dataset.estudiante),observacion:inp.value.trim()
     }));
-    await api(`/api/calificaciones/evaluaciones/${evalActual.id}/notas`,"PUT",{notas,observaciones});
-    sa("alert-calif-notas","✅ Notas guardadas.","success");
+    const payload={notas,observaciones};
+    let respuesta=null, intentos=0;
+    // Este PUT es idempotente: el servidor actualiza la misma combinación de
+    // evaluación, estudiante e indicador. Por eso es seguro repetirlo cuando
+    // la red se corta antes de recibir la respuesta ("Failed to fetch").
+    while(intentos<3){
+      try{
+        respuesta=await api(`/api/calificaciones/evaluaciones/${evalActual.id}/notas`,"PUT",payload);
+        if(respuesta===null) throw Object.assign(new Error("La sesión venció. Inicie sesión nuevamente antes de guardar."),{noReintentar:true});
+        break;
+      }catch(error){
+        intentos++;
+        const falloRed=!error.noReintentar && (error instanceof TypeError || /failed to fetch|networkerror|load failed|request aborted/i.test(String(error.message||'')));
+        if(!falloRed || intentos>=3) throw error;
+        btn.innerHTML=`⏳ Reconectando (${intentos}/2)...`;
+        await new Promise(resolve=>setTimeout(resolve,intentos*800));
+      }
+    }
+    sa("alert-calif-notas",intentos?"✅ Conexión recuperada. Notas guardadas y confirmadas.":"✅ Notas guardadas.","success");
   }catch(e){
-    sa("alert-calif-notas", e.message, "danger");
+    const falloRed=e instanceof TypeError || /failed to fetch|networkerror|load failed|request aborted/i.test(String(e.message||''));
+    sa("alert-calif-notas",falloRed
+      ? "No se pudo confirmar el guardado después de reintentar. Las notas siguen en pantalla: revise la conexión y presione Guardar notas nuevamente; no necesita salir de la evaluación."
+      : e.message,"danger");
   }finally{
     btn.disabled = false;
     btn.innerHTML = txtOrig;

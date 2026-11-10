@@ -44,10 +44,10 @@ async function notificarTES(db, usuarioId, mensaje, expedienteId){
   const destino=`expediente-conducta:${expedienteId}`;
   const r=await db.query(`INSERT INTO notificaciones
       (usuario_id,tipo,mensaje,referencia_id,destino)
-    SELECT $1,'tes_aprobacion',$2,$3,$4
-    WHERE EXISTS(SELECT 1 FROM usuarios WHERE id=$1 AND activo=true AND COALESCE(eliminado,false)=false)
+    SELECT $1::int,'tes_aprobacion',$2::text,$3::int,$4::text
+    WHERE EXISTS(SELECT 1 FROM usuarios WHERE id=$1::int AND activo=true AND COALESCE(eliminado,false)=false)
       AND NOT EXISTS(SELECT 1 FROM notificaciones
-        WHERE usuario_id=$1 AND tipo='tes_aprobacion' AND referencia_id=$3 AND mensaje=$2)
+        WHERE usuario_id=$1::int AND tipo='tes_aprobacion' AND referencia_id=$3::int AND mensaje=$2::text)
     RETURNING id`,[usuarioId,mensaje,expedienteId,destino]);
   return r.rowCount>0;
 }
@@ -273,14 +273,14 @@ router.put("/:id/pasos/:paso", requireAuth, async (req,res)=>{
       const mensaje=`📘 El expediente de conducta N°${ec.numero}-${ec.anio} requiere su aprobación del proyecto TES (${contenido.proyecto}).`;
       const avisos=await pool.query(`INSERT INTO notificaciones
           (usuario_id,tipo,mensaje,referencia_id,destino)
-        SELECT DISTINCT fi.usuario_id,'tes_aprobacion',$1,$2,$4
+        SELECT DISTINCT fi.usuario_id,'tes_aprobacion',$1::text,$2::int,$4::text
         FROM funciones_institucionales fi JOIN usuarios u ON u.id=fi.usuario_id
-        WHERE fi.tipo=$3 AND u.activo=true AND COALESCE(u.eliminado,false)=false
+        WHERE fi.tipo=$3::text AND u.activo=true AND COALESCE(u.eliminado,false)=false
           AND NOT EXISTS(SELECT 1 FROM expedientes_conducta_aprobaciones a
-            WHERE a.expediente_id=$2 AND a.usuario_id=fi.usuario_id)
+            WHERE a.expediente_id=$2::int AND a.usuario_id=fi.usuario_id)
           AND NOT EXISTS(SELECT 1 FROM notificaciones n
             WHERE n.usuario_id=fi.usuario_id AND n.tipo='tes_aprobacion'
-              AND n.referencia_id=$2 AND n.mensaje=$1)
+              AND n.referencia_id=$2::int AND n.mensaje=$1::text)
         RETURNING id`,[mensaje,ec.id,tipoComite,`expediente-conducta:${ec.id}`]);
       if(avisos.rowCount) despacharPushTES();
     }

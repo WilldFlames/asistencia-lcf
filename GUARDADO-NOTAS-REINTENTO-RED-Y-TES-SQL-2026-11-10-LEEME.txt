@@ -1,0 +1,26 @@
+GUARDADO DE NOTAS RESISTENTE A INTERRUPCIONES DE RED
+Fecha: 10 de noviembre de 2026
+
+DIAGNÓSTICO
+- Los logs registraron a las 13:33:51 la interrupción de la petición:
+  PUT /api/calificaciones/evaluaciones/1792/notas: request aborted.
+- No fue una nota inválida ni un rechazo de PostgreSQL. El navegador perdió la
+  conexión antes de recibir la confirmación y mostró "Failed to fetch".
+
+CORRECCIÓN
+- Guardar notas reintenta automáticamente hasta dos veces cuando ocurre una
+  interrupción transitoria de red.
+- El reintento es seguro porque vuelve a escribir las mismas combinaciones de
+  evaluación, estudiante e indicador; no crea notas duplicadas.
+- Si la conexión no se recupera, las notas permanecen visibles y el mensaje
+  indica que se puede presionar Guardar notas otra vez sin salir de la pantalla.
+- Una sesión vencida se distingue de una falla de red y no se reintenta.
+
+CORRECCIÓN ADICIONAL DETECTADA EN LOS LOGS
+- Se fijaron explícitamente los tipos SQL de las notificaciones TES.
+- Esto elimina el error repetitivo "inconsistent types deduced for parameter"
+  que podía impedir avisar al Comité de Evaluación al completar el Paso 3.
+
+VERIFICACIÓN
+- Suite completa: 355 pruebas aprobadas, 0 fallos.
+- No requiere migración manual ni modifica notas existentes.

@@ -1,0 +1,22 @@
+MENÚ DEL DÍA REPETIDO EN EL REPORTE DE COMEDOR
+Fecha: 10 de noviembre de 2026
+
+CORRECCIÓN
+- El reporte diario de comedor vuelve a imprimir el menú del día.
+- La fecha, el total atendido y los campos Plato, Ensalada y Fruta forman
+  ahora parte del encabezado real del PDF.
+- Ese encabezado se dibuja nuevamente en todas las páginas del reporte.
+- Ya no depende de la repetición automática de <thead> del navegador, que era
+  la causa de que el menú desapareciera durante la conversión al PDF oficial.
+- Se conservan sin cambios los registros, conteos, clasificación de becados,
+  clasificación de no becados, firmas y pie institucional.
+- Los textos del menú se escapan antes de incorporarse al documento.
+
+VERIFICACIÓN
+- Se revisó el PDF suministrado y se confirmó la ausencia del menú.
+- Se verificó visualmente el nuevo encabezado en tamaño carta.
+- Suite completa: 353 pruebas aprobadas, 0 fallos.
+
+DESPLIEGUE
+Subir el contenido completo del ZIP como una actualización normal. No requiere
+cambios manuales en PostgreSQL ni modifica información existente.
