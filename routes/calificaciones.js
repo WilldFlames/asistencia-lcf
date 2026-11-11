@@ -1159,6 +1159,25 @@ async function calcularPromediosAsignacion(profesor_id, seccion_id, materia_id, 
   return { asignacion: asig, regla, estudiantes: resultado };
 }
 
+// Una nota certificada por el centro de procedencia reemplaza únicamente el
+// resultado del período y materia indicados. No se fabrican evaluaciones ni se
+// alteran porcentajes; se conserva el cálculo local para trazabilidad.
+async function aplicarNotasTraslado(data,materiaId,periodo,anio){
+  if(!data?.estudiantes?.length||periodo!=='I Período') return data;
+  const ids=data.estudiantes.map(x=>Number(x.estudiante_id));
+  const r=await pool.query(`SELECT n.estudiante_id,n.nota,t.centro_procedencia,t.fecha_ingreso
+    FROM notas_traslado n JOIN traslados_ingreso t ON t.id=n.traslado_id
+    WHERE n.activa=true AND n.materia_id=$1 AND n.periodo=$2 AND n.anio=$3
+      AND n.estudiante_id=ANY($4::int[])`,[materiaId,periodo,anio,ids]);
+  const mapa=new Map(r.rows.map(x=>[Number(x.estudiante_id),x]));
+  data.estudiantes=data.estudiantes.map(e=>{
+    const n=mapa.get(Number(e.estudiante_id));
+    return n?{...e,total_calculado_sistema:e.total,total:Number(n.nota),nota_traslado:true,
+      centro_procedencia:n.centro_procedencia,fecha_ingreso:n.fecha_ingreso}:e;
+  });
+  return data;
+}
+
 // ── GET /promedio/seccion ─────────────────────────────────────────────
 // Devuelve el desglose por rubro de todos los estudiantes para una asignación.
 router.get("/promedio/seccion", requireAuth, async (req, res) => {
@@ -1168,7 +1187,8 @@ router.get("/promedio/seccion", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Faltan parámetros (seccion_id, materia_id, periodo)." });
   }
   try {
-    const data = await calcularPromediosAsignacion(u.id, seccion_id, materia_id, subgrupo, periodo);
+    let data = await calcularPromediosAsignacion(u.id, seccion_id, materia_id, subgrupo, periodo);
+    data=await aplicarNotasTraslado(data,Number(materia_id),periodo,Number(data.asignacion.anio));
     const cierre = await getEstadoPeriodo(u.id, seccion_id, materia_id, subgrupo, periodo);
     res.json({ ...data, cierre });
   } catch (e) {
@@ -1239,12 +1259,24 @@ router.get("/promedio/anual", requireAuth, async (req, res) => {
     const mapI  = new Map((dataI?.estudiantes||[]).map(s => [s.estudiante_id, s]));
     const mapII = new Map((dataII?.estudiantes||[]).map(s => [s.estudiante_id, s]));
 
-    const todosIds = new Set([...mapI.keys(), ...mapII.keys()]);
+    // Importaciones externas del I período. También se incorporan cuando el
+    // estudiante ingresó en II período y por ello no existe en la lista local
+    // del I período de esta sección.
+    const anioCalculo=Number((dataII||dataI)?.asignacion?.anio)||await obtenerAnioActivo();
+    const idsActuales=[...new Set([...(dataI?.estudiantes||[]),...(dataII?.estudiantes||[])].map(x=>Number(x.estudiante_id)))];
+    const nt=idsActuales.length?await pool.query(`SELECT n.estudiante_id,n.nota,t.centro_procedencia,t.fecha_ingreso
+      FROM notas_traslado n JOIN traslados_ingreso t ON t.id=n.traslado_id
+      WHERE n.activa=true AND n.materia_id=$1 AND n.anio=$2 AND n.periodo='I Período'
+        AND n.estudiante_id=ANY($3::int[])`,[materia_id,anioCalculo,idsActuales]):{rows:[]};
+    const trasladoI=new Map(nt.rows.map(x=>[Number(x.estudiante_id),x]));
+
+    const todosIds = new Set([...mapI.keys(), ...mapII.keys(),...trasladoI.keys()]);
     const estudiantes = [...todosIds].map(eid => {
       const sI  = mapI.get(eid);
       const sII = mapII.get(eid);
       const ref = sI || sII;
-      const notaI  = sI  ? sI.total  : null;
+      const notaImportada=trasladoI.get(Number(eid));
+      const notaI  = notaImportada ? Number(notaImportada.nota) : (sI ? sI.total : null);
       const notaII = sII ? sII.total : null;
       let anual = null;
       if (esTallerRotativo) {
@@ -1278,6 +1310,8 @@ router.get("/promedio/anual", requireAuth, async (req, res) => {
         adecuacion_acceso:ref.adecuacion_acceso,
         adecuacion_observacion:ref.adecuacion_observacion,
         nota_I: notaI,
+        nota_I_traslado: !!notaImportada,
+        centro_procedencia: notaImportada?.centro_procedencia||null,
         nota_II: notaII,
         promedio_anual: anual,
         estado,

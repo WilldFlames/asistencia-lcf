@@ -86,6 +86,8 @@ app.use("/api/inventario", requireAuth, require("./routes/inventario"));
 app.use("/api/rendimiento",requireAuth, require("./routes/rendimiento"));
 app.use("/api/adecuaciones",requireAuth, require("./routes/adecuaciones"));
 app.use("/api/alerta-temprana",requireAuth, require("./routes/alertaTemprana"));
+app.use("/api/gestion-estudiantil",requireAuth,require("./routes/gestionEstudiantil"));
+app.use("/api/epi",requireAuth,require("./routes/epi"));
 app.use("/api/extramuros",requireAuth, require("./routes/extramuros"));
 app.use("/api/tecnico-asesor",requireAuth,require("./routes/tecnicoAsesor"));
 app.use("/api/biblioteca",requireAuth,require("./routes/biblioteca"));

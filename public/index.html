@@ -1238,6 +1238,7 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="rendimiento" id="nav-rendimiento" onclick="goTo('rendimiento')" style="display:none"><span class="icon">🎯</span><span>Rendimiento</span></button>
   <button class="nav-btn" data-page="adecuaciones" id="nav-adecuaciones" onclick="goTo('adecuaciones')" style="display:none"><span class="icon">🧩</span><span>Adecuaciones</span></button>
   <button class="nav-btn" data-page="alerta-temprana" id="nav-alerta-temprana" onclick="goTo('alerta-temprana')" style="display:none"><span class="icon">🚨</span><span>Alerta Temprana</span></button>
+  <button class="nav-btn" data-page="epi" id="nav-epi" onclick="goTo('epi')" style="display:none"><span class="icon">🧠</span><span>EPI</span></button>
   <button class="nav-btn" data-page="caracterizacion" id="nav-caracterizacion" onclick="goTo('caracterizacion')" style="display:none"><span class="icon">🧭</span><span>Caracterización</span></button>
   <div class="sidebar-section" id="sec-gestion" style="display:none">Gestión</div>
   <button class="nav-btn" data-page="estudiantes" id="nav-estudiantes" onclick="goTo('estudiantes')" style="display:none"><span class="icon">🎒</span><span>Estudiantes</span></button>
@@ -1262,6 +1263,8 @@ tr:hover td{background:#f8fafc;}
   <button class="nav-btn" data-page="carnet" id="nav-carnet" onclick="goTo('carnet')" style="display:none"><span class="icon">🪪</span><span>Carnet</span></button>
   <button class="nav-btn" data-page="consecutivos" id="nav-consecutivos" onclick="goTo('consecutivos')" style="display:none"><span class="icon">🔢</span><span>Consecutivos</span></button>
   <button class="nav-btn" data-page="constancia" id="nav-constancia" onclick="goTo('constancia')" style="display:none"><span class="icon">📄</span><span>Constancia</span></button>
+  <button class="nav-btn" data-page="traslados-ingreso" id="nav-traslados-ingreso" onclick="goTo('traslados-ingreso')" style="display:none"><span class="icon">🔄</span><span>Traslados de ingreso</span></button>
+  <button class="nav-btn" data-page="encargados-temporales" id="nav-encargados-temporales" onclick="goTo('encargados-temporales')" style="display:none"><span class="icon">👤</span><span>Encargados temporales</span></button>
   <button class="nav-btn" data-page="archivo" id="nav-archivo" onclick="goTo('archivo')" style="display:none"><span class="icon">🗄️</span><span>Archivo</span></button>
   <button class="nav-btn" data-page="expediente-integral" id="nav-expediente-integral" onclick="goTo('expediente-integral')" style="display:none"><span class="icon">📚</span><span>Expediente integral</span></button>
   <button class="nav-btn" data-page="cumplimiento" id="nav-cumplimiento" onclick="goTo('cumplimiento')" style="display:none"><span class="icon">📈</span><span>Cumplimiento</span></button>
@@ -3778,8 +3781,32 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-success" onclick="generarConstancia()">🖨️ Constancia</button>
       <button class="btn btn-orange" onclick="abrirConstanciaRetiro()">📁 Constancia de Retiro</button>
     </div>
+    <hr style="border:0;border-top:1px solid var(--border);margin:18px 0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h3 style="margin:0">Informe de constancias emitidas</h3><small>Series independientes CER y RET, con trazabilidad de la persona que emitió cada documento.</small></div><select id="const-informe-tipo" onchange="cargarInformeConstancias()"><option value="">Todas</option><option value="regular">Estudiante regular</option><option value="retiro">Retiro</option></select></div>
+    <div id="const-informe" class="table-wrap" style="margin-top:12px"><div class="empty">Cargando…</div></div>
   </div>
 </div>
+
+<div class="page" id="page-traslados-ingreso"><div class="card">
+  <h2>🔄 Traslado de ingreso</h2><p style="color:var(--muted)">Registre estudiantes que ingresan de otro centro en el II período. La nota certificada del I período se incorpora por materia al cálculo del profesor.</p>
+  <div id="alert-traslado-ingreso" class="alert"></div>
+  <div class="form-grid"><div class="fg full"><label>Estudiante</label><select id="tras-estudiante" onchange="giCargarMateriasTraslado()"></select></div><div class="fg"><label>Fecha de ingreso</label><input type="date" id="tras-fecha"></div><div class="fg"><label>Centro educativo de procedencia</label><input id="tras-centro" maxlength="250"></div><div class="fg full"><label>Observaciones</label><textarea id="tras-observaciones" rows="2"></textarea></div></div>
+  <h3 style="margin:16px 0 8px">Notas certificadas del I período</h3><div id="tras-materias" class="empty">Seleccione un estudiante.</div><div style="margin-top:12px"><button class="btn btn-primary" onclick="giGuardarTraslado()">💾 Guardar traslado y notas</button></div>
+  <h3 style="margin:22px 0 8px">Traslados registrados</h3><div id="tras-lista" class="table-wrap"></div>
+</div></div>
+
+<div class="page" id="page-encargados-temporales"><div class="card">
+  <h2>👤 Encargado temporal</h2><p style="color:var(--muted)">Registro exclusivo de Auxiliares y Administración. Si se marca permanente, sustituye al encargado principal conservando el historial anterior.</p>
+  <div id="alert-enc-temporal" class="alert"></div>
+  <div class="form-grid"><div class="fg full"><label>Estudiante</label><select id="et-estudiante"></select></div><div class="fg"><label>Cédula</label><input id="et-cedula"></div><div class="fg"><label>Nombre</label><input id="et-nombre"></div><div class="fg"><label>Primer apellido</label><input id="et-apellido1"></div><div class="fg"><label>Segundo apellido</label><input id="et-apellido2"></div><div class="fg"><label>Parentesco</label><input id="et-parentesco"></div><div class="fg"><label>Nacionalidad</label><input id="et-nacionalidad"></div><div class="fg"><label>Profesión</label><input id="et-profesion"></div><div class="fg"><label>Teléfono</label><input id="et-telefono"></div><div class="fg"><label>Celular</label><input id="et-celular"></div><div class="fg"><label>Teléfono de trabajo</label><input id="et-telefono-trabajo"></div><div class="fg"><label>Lugar de trabajo</label><input id="et-lugar-trabajo"></div><div class="fg"><label>Correo</label><input id="et-email" type="email"></div><div class="fg full"><label>Dirección</label><textarea id="et-direccion" rows="2"></textarea></div><div class="fg full"><label>Motivo</label><textarea id="et-motivo" rows="2"></textarea></div><div class="fg"><label>Fecha de inicio</label><input type="date" id="et-inicio"></div><div class="fg"><label>Fecha final</label><input type="date" id="et-fin"></div><div class="fg"><label>Entidad que autoriza</label><input id="et-entidad"></div><div class="fg"><label>Número de resolución</label><input id="et-resolucion"></div><label class="fg full" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="et-permanente" style="width:auto" onchange="giCambioPermanente()"> Permanente: sustituir como encargado principal</label></div>
+  <button class="btn btn-primary" onclick="giGuardarEncargado()">💾 Guardar encargado</button><h3 style="margin:22px 0 8px">Historial</h3><div id="et-lista" class="table-wrap"></div>
+</div></div>
+
+<div class="page" id="page-epi"><div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">🧠 EPI</h2><p style="margin:4px 0;color:var(--muted)">Recomendaciones y seguimiento institucional sobre alertas tempranas abiertas.</p></div><select id="epi-nivel" onchange="giCargarEPI()"><option value="">Todos los niveles</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option></select></div>
+  <div id="alert-epi" class="alert"></div><div id="epi-config" style="display:none;margin:14px 0;padding:12px;background:#f8fafc;border:1px solid var(--border);border-radius:8px"></div><div id="epi-lista" class="table-wrap"><div class="empty">Cargando…</div></div>
+</div></div>
+<div class="modal-overlay" id="modal-epi"><div class="modal" style="max-width:760px;max-height:90vh;overflow:auto"><div class="modal-title">🧠 Seguimiento EPI</div><div id="epi-detalle"></div><div id="epi-form-edicion"><div class="form-grid" style="margin-top:12px"><div class="fg"><label>Tipo</label><select id="epi-tipo"><option value="recomendacion">Recomendación</option><option value="seguimiento">Seguimiento</option></select></div><div class="fg full"><label>Contenido</label><textarea id="epi-contenido" rows="4"></textarea></div></div><div id="alert-epi-modal" class="alert"></div><div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-epi')">Cerrar</button><button class="btn btn-primary" onclick="giGuardarSeguimientoEPI()">Guardar seguimiento</button></div></div></div></div>
 
 <!-- CUMPLIMIENTO -->
 <div class="page" id="page-cumplimiento">
@@ -6297,6 +6324,7 @@ function goTo(page){
   if(page==="rendimiento")  iniciarRendimiento();
   if(page==="adecuaciones") iniciarAdecuaciones();
   if(page==="alerta-temprana") iniciarAlertaTemprana();
+  if(page==="epi") giIniciarEPI();
   if(page==="caracterizacion") iniciarCaracterizacion();
   if(page==="extramuros") iniciarExtramuros();
   if(page==="calificar")    iniciarCalificar();
@@ -6330,6 +6358,8 @@ function goTo(page){
   if(page==="biblioteca") iniciarBiblioteca();
   if(page==="consecutivos") iniciarConsecutivos();
   if(page==="constancia")   iniciarConstancia();
+  if(page==="traslados-ingreso") giIniciarTraslados();
+  if(page==="encargados-temporales") giIniciarEncargados();
   if(page==="archivo")      iniciarArchivo();
   if(page==="expediente-integral") iniciarExpedienteIntegral();
   if(page==="prematricula") iniciarPrematricula();
@@ -6694,6 +6724,7 @@ async function iniciarApp(){
     }
   }catch{}
 
+  await configurarGestionEstudiantil();
   await cargarCatalogos();
   // Cargar medidas activas para TODOS los roles (incluye profesores regulares)
   try{ allMedidasActivas = await api('/api/medidas/activas')||[]; }catch{}
@@ -20334,9 +20365,18 @@ async function generarConstanciaRetiro(){
     const mayoria=new Date(`${nacimiento}T12:00:00`);mayoria.setFullYear(mayoria.getFullYear()+18);
     esMenor=hRetiro<mayoria;
   }
+  let registroConstancia;
+  try{
+    registroConstancia=await api('/api/gestion-estudiantil/constancias','POST',{
+      tipo:'retiro',anio:hRetiro.getFullYear(),estudiante_id:Number(eid),fecha_documento:fechaHoyCR(),fecha_retiro:fechaRetiro,motivo,
+      datos:{nivel,encargado_nombre:encNombre,encargado_cedula:encCedula,auxiliar_nombre:auxNombre,auxiliar_cedula:auxCedula,es_menor:esMenor}
+    });
+  }catch(e){sa("alert-retiro-modal","No se pudo reservar el consecutivo: "+e.message,"danger");return;}
+  const consecutivoRetiro=htmlSeguro(registroConstancia.consecutivo);
   const constanciaHTML = `
     <section class="pdf-page-block" style="width:650px;box-sizing:border-box;padding:4px 10px;background:#fff;">
     <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;">CONSTANCIA DE RETIRO DE ESTUDIANTE</h2>
+    <p style="text-align:right;font-size:12px;margin:-16px 20px 20px;"><strong>Consecutivo: ${consecutivoRetiro}</strong></p>
     <div style="font-size:16px;line-height:1.8;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
       <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
     <strong>${nombreEst}</strong>,
@@ -20392,7 +20432,8 @@ async function generarConstanciaRetiro(){
     </section>`:'';
   const contenidoHTML=constanciaHTML+actaMenorHTML;
   cerrarModal("modal-retiro");
-  await imprimirPDFMEP(null, contenidoHTML, `constancia_retiro_${est.cedula}.pdf`,{bloquesPagina:true});
+  await imprimirPDFMEP(null, contenidoHTML, `${registroConstancia.consecutivo}_constancia_retiro_${est.cedula}.pdf`,{bloquesPagina:true});
+  cargarInformeConstancias();
   setTimeout(()=>{
     document.getElementById("archivar-retiro-est-id").value=retiroEstId;
     document.getElementById("archivar-retiro-nombre").textContent=retiroEstNombre;
@@ -21563,6 +21604,7 @@ async function iniciarConstancia(){
     secciones.sort((a,b)=>a.nombre.localeCompare(b.nombre))
              .map(s=>`<option value="${s.id}">${s.nombre}</option>`).join("");
   document.getElementById("const-estudiante").innerHTML='<option value="">— Estudiante —</option>';
+  cargarInformeConstancias();
 }
 
 async function cargarEstudiantesConstancia(){
@@ -21605,10 +21647,18 @@ async function generarConstancia(){
   const anioLetra={2024:"dos mil veinticuatro",2025:"dos mil veinticinco",2026:"dos mil veintiséis",2027:"dos mil veintisiete",2028:"dos mil veintiocho"};
   const diaTexto=dias[hoy.getDate()]||hoy.getDate();
   const mesTexto=meses[hoy.getMonth()];
-  const anio=hoy.getFullYear();
+  const anio=Number(ANIO_LECTIVO_ACTIVO)||hoy.getFullYear();
   const anioTexto=anioLetra[anio]||anio;
+  let registroConstancia;
+  try{
+    registroConstancia=await api('/api/gestion-estudiantil/constancias','POST',{
+      tipo:'regular',anio,estudiante_id:Number(eid),fecha_documento:fechaHoyCR(),
+      datos:{nivel:nivelTexto,ciclo,auxiliar_nombre:auxNombre,auxiliar_cedula:auxCedula}
+    });
+  }catch(e){sa("alert-const","No se pudo reservar el consecutivo: "+e.message,"danger");return;}
   const contenidoHTML = `
       <h2 style="text-align:center;font-size:18px;font-weight:bold;text-transform:uppercase;margin:24px 0 28px;letter-spacing:1px;">CONSTANCIA DE ESTUDIANTE</h2>
+      <p style="text-align:right;font-size:12px;margin:-16px 20px 20px;"><strong>Consecutivo: ${htmlSeguro(registroConstancia.consecutivo)}</strong></p>
       <div style="font-size:16px;line-height:1.8;text-align:justify;font-family:Arial,sans-serif;padding:0 20px;">
         <p style="text-indent:2em;">El suscrito, auxiliar administrativo del Liceo de Calle Fallas, hace constar que el(la) estudiante
         <strong>${nombrePersona(est)}</strong>,
@@ -21630,7 +21680,8 @@ async function generarConstancia(){
         </div>
       </div>
   `;
-  await imprimirPDFMEP(null, contenidoHTML, `constancia_estudiante_${est.cedula}.pdf`);
+  await imprimirPDFMEP(null, contenidoHTML, `${registroConstancia.consecutivo}_constancia_estudiante_${est.cedula}.pdf`);
+  cargarInformeConstancias();
 }
 
 
@@ -26504,7 +26555,7 @@ function renderPromPeriodo(data){
           <br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span>${obsAcademicas}</td>
         ${cels}
         ${celAsist}
-        <td style="text-align:center;font-weight:bold;font-size:15px;color:${colorEst};">${total.toFixed(1)}</td>
+        <td style="text-align:center;font-weight:bold;font-size:15px;color:${colorEst};">${total.toFixed(1)}${e.nota_traslado?`<br><span class="badge info" title="Nota certificada por ${htmlSeguro(e.centro_procedencia||'el centro de procedencia')}">Traslado · I período</span>`:''}</td>
         <td style="text-align:center;color:${colorEst};font-weight:bold;font-size:12px;">${lblEst}</td>
       </tr>`;
     }).join('');
@@ -26568,7 +26619,7 @@ function renderPromAnual(data){
       const lbl = aprob ? '✓ Aprobado' : (aplaz ? '✗ Aplazado' : '—');
       return `<tr>
         <td><strong>${nombreEstudianteLista(e)}</strong>${badgeAdecuacion(e)}<br/><span style="font-size:11px;color:var(--muted);">${e.cedula}</span></td>
-        <td style="text-align:center;">${nI}</td>
+        <td style="text-align:center;">${nI}${e.nota_I_traslado?`<br><span class="badge info" title="Nota certificada por ${htmlSeguro(e.centro_procedencia||'el centro de procedencia')}">Traslado</span>`:''}</td>
         <td style="text-align:center;">${nII}</td>
         <td style="text-align:center;font-weight:bold;font-size:15px;color:${color};">${nA}</td>
         <td style="text-align:center;color:${color};font-weight:bold;font-size:12px;">${lbl}</td>
@@ -27566,13 +27617,14 @@ function atRenderDetalle(d){const a=d.alerta;
   const seguimiento=d.seguimientos.map(s=>`<div class="at-event"><strong>${fmtF(s.fecha)} · <span class="at-status ${s.estado}">${AT_ESTADO[s.estado]}</span></strong><div>${htmlSeguro(s.observaciones)}</div><div>${htmlSeguro(s.registrado_nombre)}</div></div>`).join("");
   const acciones=d.acciones.length?`<div class="table-wrap"><table><thead><tr><th>Acción</th><th>Inicio</th><th>Final</th><th>Responsable</th><th>Observación</th></tr></thead><tbody>${d.acciones.map(x=>`<tr><td>${htmlSeguro(x.accion)}</td><td>${fmtF(x.fecha_inicio)}</td><td>${fmtF(x.fecha_final)}</td><td>${htmlSeguro(x.responsable||'—')}</td><td>${htmlSeguro(x.observaciones||'—')}${x.institucion_referida?`<br/><small>Referido a: ${htmlSeguro(x.institucion_referida)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aún no hay acciones registradas.</div>';
   const contactos=d.contactos.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Vía</th><th>Persona</th><th>Comentarios</th></tr></thead><tbody>${d.contactos.map(x=>`<tr><td>${fmtF(x.fecha)}</td><td>${htmlSeguro(x.via_contacto)}</td><td>${htmlSeguro(x.persona_contactada||'—')}</td><td>${htmlSeguro(x.comentarios||'—')}${x.llamada_id?' <span title="Registro de llamada">📞</span>':''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Aún no hay contactos registrados.</div>';
+  const epi=(d.seguimientos_epi||[]).length?`<section class="at-panel full"><h3>🧠 Recomendaciones y seguimiento EPI</h3>${d.seguimientos_epi.map(x=>`<div class="at-event"><strong>${x.tipo==='recomendacion'?'Recomendación':'Seguimiento'} · ${htmlSeguro(x.registrado_nombre)}</strong><div>${htmlSeguro(x.contenido)}</div><small>${new Date(x.created_at).toLocaleString('es-CR')}</small></div>`).join('')}</section>`:'';
   const caracterizacion=d.puede_ver_caracterizacion?`<section class="at-panel full"><h3>🧭 Caracterización de la población</h3>${d.caracterizacion?.length?`<ul style="columns:2;column-gap:28px;font-size:12px;line-height:1.5">${d.caracterizacion.map(x=>`<li><strong>${String(x.codigo).padStart(2,'0')}.</strong> ${htmlSeguro(x.descripcion)}</li>`).join('')}</ul>`:'<div class="empty">Este estudiante aún no tiene características asignadas para el curso lectivo.</div>'}<button class="btn btn-outline btn-sm" onclick="carAbrirDesdeAlerta(${a.estudiante_id},${a.seccion_id})">Abrir caracterización individual</button></section>`:'';
   document.getElementById("at-detalle-contenido").innerHTML=`<div class="at-detail-head"><h2>${htmlSeguro(a.estudiante_nombre)} ${a.estudiante_retirado?'<span class="badge b-admin">RETIRADO</span>':''}</h2><p>${htmlSeguro(a.cedula)} · Sección ${htmlSeguro(a.seccion_nombre||'—')} · ${htmlSeguro(a.materia_nombre||'Actuación de Auxiliar')} · Responsable: ${htmlSeguro(a.profesor_nombre)}</p></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><span class="at-status ${a.estado}">${AT_ESTADO[a.estado]}</span><button class="btn btn-outline btn-sm" onclick="atImprimirExpediente()">🖨️ Imprimir expediente</button><button class="btn btn-success btn-sm" onclick="atDescargarExcel()">📥 Descargar Excel MEP</button></div>
   <div class="at-detail-grid"><section class="at-panel"><h3>👤 Datos automáticos</h3><div style="font-size:12px;line-height:1.7"><strong>Edad:</strong> ${a.edad??'—'}<br/><strong>Encargado:</strong> ${htmlSeguro(a.encargado_nombre||'—')}<br/><strong>Teléfono:</strong> ${htmlSeguro(a.encargado_telefono||'—')}<br/><strong>Centro:</strong> ${htmlSeguro(d.centro)}<br/><strong>Activación:</strong> ${fmtF(a.fecha_activacion)}</div></section><section class="at-panel"><h3>🚩 Alertas identificadas</h3>${atCategoriasTexto(d)}${a.observacion_inicial?`<p style="font-size:12px;background:#fff8e8;padding:9px;border-radius:8px;margin:9px 0 0"><strong>Observación:</strong> ${htmlSeguro(a.observacion_inicial)}</p>`:''}</section>${caracterizacion}
   <section class="at-panel"><h3>📝 Seguimientos</h3><div class="at-timeline">${seguimiento}</div>${d.editable?`<div class="at-inline-form"><div class="fg"><label>Nuevo estado</label><select id="at-seg-estado"><option value="en_proceso">En proceso</option><option value="en_espera">En espera</option><option value="cerrada">Cerrada</option><option value="eliminada">Eliminada</option></select></div><div class="fg"><label>Fecha</label><input id="at-seg-fecha" type="date" value="${fechaHoyCR()}"/></div><div class="fg full"><label>Seguimiento / justificación</label><textarea id="at-seg-obs" rows="3"></textarea></div><button class="btn btn-primary full" onclick="atAgregarSeguimiento()">＋ Guardar seguimiento</button></div>`:''}</section>
   <section class="at-panel"><h3>🎯 Plan de Atención</h3>${acciones}${d.editable?`<div class="at-inline-form"><div class="fg full"><label>Acción</label><textarea id="at-acc-accion" rows="2"></textarea></div><div class="fg"><label>Inicio</label><input id="at-acc-inicio" type="date"/></div><div class="fg"><label>Final</label><input id="at-acc-final" type="date"/></div><div class="fg"><label>Responsable</label><input id="at-acc-resp"/></div><div class="fg"><label>Institución referida</label><input id="at-acc-inst"/></div><div class="fg full"><label>Observaciones</label><textarea id="at-acc-obs" rows="2"></textarea></div><button class="btn btn-primary full" onclick="atAgregarAccion()">＋ Agregar acción</button></div>`:''}</section>
-  <section class="at-panel full"><h3>☎️ Registro de contactos</h3>${contactos}${d.editable?`<div class="at-inline-form"><div class="fg"><label>Fecha</label><input id="at-con-fecha" type="date" value="${fechaHoyCR()}"/></div><div class="fg"><label>Vía de contacto</label><input id="at-con-via" placeholder="Llamada, reunión, correo…"/></div><div class="fg"><label>Persona contactada</label><input id="at-con-persona"/></div><div class="fg"><label>Comentarios</label><textarea id="at-con-coment" rows="2"></textarea></div><button class="btn btn-primary full" onclick="atAgregarContacto()">＋ Agregar contacto manual</button></div>`:''}</section></div>`;
+  ${epi}<section class="at-panel full"><h3>☎️ Registro de contactos</h3>${contactos}${d.editable?`<div class="at-inline-form"><div class="fg"><label>Fecha</label><input id="at-con-fecha" type="date" value="${fechaHoyCR()}"/></div><div class="fg"><label>Vía de contacto</label><input id="at-con-via" placeholder="Llamada, reunión, correo…"/></div><div class="fg"><label>Persona contactada</label><input id="at-con-persona"/></div><div class="fg"><label>Comentarios</label><textarea id="at-con-coment" rows="2"></textarea></div><button class="btn btn-primary full" onclick="atAgregarContacto()">＋ Agregar contacto manual</button></div>`:''}</section></div>`;
 }
 async function atAgregarSeguimiento(){try{await api(`/api/alerta-temprana/alertas/${atDetalleActual.alerta.id}/seguimientos`,"POST",{estado:document.getElementById("at-seg-estado").value,fecha:document.getElementById("at-seg-fecha").value,observaciones:document.getElementById("at-seg-obs").value.trim()});await atVerDetalle(atDetalleActual.alerta.id);await atCargarAlertas();}catch(e){alert(e.message);}}
 async function atAgregarAccion(){try{await api(`/api/alerta-temprana/alertas/${atDetalleActual.alerta.id}/acciones`,"POST",{accion:document.getElementById("at-acc-accion").value.trim(),fecha_inicio:document.getElementById("at-acc-inicio").value||null,fecha_final:document.getElementById("at-acc-final").value||null,responsable:document.getElementById("at-acc-resp").value.trim(),institucion_referida:document.getElementById("at-acc-inst").value.trim(),observaciones:document.getElementById("at-acc-obs").value.trim()});await atVerDetalle(atDetalleActual.alerta.id);}catch(e){alert(e.message);}}
@@ -27762,6 +27814,7 @@ async function convRegistrar(id,etapa){
 }
 </script>
 <script src="/extramuros.js"></script>
+<script src="/gestion-estudiantil.js"></script>
 <script src="/pwa.js"></script>
 </body>
 </html>

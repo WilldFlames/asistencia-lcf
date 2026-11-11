@@ -2595,6 +2595,114 @@ async function initDB() {
     await client.query(`ALTER TABLE funciones_institucionales DROP CONSTRAINT IF EXISTS funciones_institucionales_tipo_check`);
     await client.query(`ALTER TABLE funciones_institucionales ADD CONSTRAINT funciones_institucionales_tipo_check CHECK(tipo IN ('coordinador','comite_apoyo','lcf_familias','comite_tecnico_asesor','comite_evaluacion'))`);
 
+    // ── GESTIÓN ESTUDIANTIL Y EPI ──────────────────────────────────
+    // Las constancias conservan una instantánea para que una reimpresión
+    // nunca cambie el consecutivo ni los datos que fueron certificados.
+    await client.query(`CREATE TABLE IF NOT EXISTS constancias_estudiantiles (
+      id BIGSERIAL PRIMARY KEY,
+      tipo TEXT NOT NULL CHECK(tipo IN ('regular','retiro')),
+      anio INTEGER NOT NULL,
+      numero INTEGER NOT NULL,
+      estudiante_id INTEGER REFERENCES estudiantes(id) ON DELETE SET NULL,
+      estudiante_nombre TEXT NOT NULL,
+      estudiante_cedula TEXT NOT NULL DEFAULT '',
+      seccion_nombre TEXT NOT NULL DEFAULT '',
+      fecha_documento DATE NOT NULL DEFAULT CURRENT_DATE,
+      fecha_retiro DATE,
+      motivo TEXT NOT NULL DEFAULT '',
+      emitida_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      datos JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(tipo,anio,numero)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_constancias_tipo_anio
+      ON constancias_estudiantiles(tipo,anio,numero DESC)`);
+
+    await client.query(`CREATE TABLE IF NOT EXISTS traslados_ingreso (
+      id BIGSERIAL PRIMARY KEY,
+      estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+      anio INTEGER NOT NULL,
+      fecha_ingreso DATE NOT NULL,
+      centro_procedencia TEXT NOT NULL,
+      periodo_ingreso TEXT NOT NULL DEFAULT 'II Período' CHECK(periodo_ingreso='II Período'),
+      observaciones TEXT NOT NULL DEFAULT '',
+      registrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(estudiante_id,anio)
+    )`);
+    await client.query(`CREATE TABLE IF NOT EXISTS notas_traslado (
+      id BIGSERIAL PRIMARY KEY,
+      traslado_id BIGINT NOT NULL REFERENCES traslados_ingreso(id) ON DELETE CASCADE,
+      estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+      materia_id INTEGER NOT NULL REFERENCES materias(id) ON DELETE RESTRICT,
+      anio INTEGER NOT NULL,
+      periodo TEXT NOT NULL DEFAULT 'I Período' CHECK(periodo='I Período'),
+      nota NUMERIC(5,2) NOT NULL CHECK(nota>=0 AND nota<=100),
+      registrada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      activa BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(estudiante_id,materia_id,anio,periodo)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_notas_traslado_calculo
+      ON notas_traslado(estudiante_id,materia_id,anio,periodo) WHERE activa=true`);
+    await client.query(`CREATE TABLE IF NOT EXISTS notas_traslado_auditoria (
+      id BIGSERIAL PRIMARY KEY,
+      nota_traslado_id BIGINT REFERENCES notas_traslado(id) ON DELETE SET NULL,
+      estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+      materia_id INTEGER NOT NULL REFERENCES materias(id) ON DELETE RESTRICT,
+      anio INTEGER NOT NULL,
+      nota_anterior NUMERIC(5,2),
+      nota_nueva NUMERIC(5,2),
+      accion TEXT NOT NULL CHECK(accion IN ('creada','actualizada','desactivada')),
+      usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`);
+
+    await client.query(`CREATE TABLE IF NOT EXISTS encargados_temporales (
+      id BIGSERIAL PRIMARY KEY,
+      estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+      cedula TEXT NOT NULL DEFAULT '', nombre TEXT NOT NULL,
+      primer_apellido TEXT NOT NULL, segundo_apellido TEXT NOT NULL DEFAULT '',
+      parentesco TEXT NOT NULL DEFAULT '', telefono TEXT NOT NULL DEFAULT '',
+      celular TEXT NOT NULL DEFAULT '', telefono_trabajo TEXT NOT NULL DEFAULT '',
+      lugar_trabajo TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '',
+      direccion TEXT NOT NULL DEFAULT '', nacionalidad TEXT NOT NULL DEFAULT '', profesion TEXT NOT NULL DEFAULT '',
+      motivo TEXT NOT NULL, fecha_inicio DATE NOT NULL, fecha_fin DATE,
+      permanente BOOLEAN NOT NULL DEFAULT false,
+      entidad_autoriza TEXT NOT NULL, numero_resolucion TEXT NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'vigente' CHECK(estado IN ('vigente','finalizado','sustituido')),
+      registrado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      finalizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      encargado_permanente_id INTEGER REFERENCES encargados(id) ON DELETE SET NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`);
+    await client.query(`ALTER TABLE encargados_temporales ADD COLUMN IF NOT EXISTS nacionalidad TEXT NOT NULL DEFAULT ''`);
+    await client.query(`ALTER TABLE encargados_temporales ADD COLUMN IF NOT EXISTS profesion TEXT NOT NULL DEFAULT ''`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_enc_temporal_estudiante
+      ON encargados_temporales(estudiante_id,estado)`);
+
+    await client.query(`CREATE TABLE IF NOT EXISTS epi_miembros (
+      id SERIAL PRIMARY KEY,
+      usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      nivel INTEGER NOT NULL CHECK(nivel BETWEEN 7 AND 11),
+      asignado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      activo BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(usuario_id), UNIQUE(nivel)
+    )`);
+    await client.query(`CREATE TABLE IF NOT EXISTS alerta_temprana_seguimientos_epi (
+      id BIGSERIAL PRIMARY KEY,
+      alerta_id INTEGER NOT NULL,
+      tipo TEXT NOT NULL DEFAULT 'recomendacion' CHECK(tipo IN ('recomendacion','seguimiento')),
+      contenido TEXT NOT NULL,
+      registrado_por INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_seguimiento_epi_alerta
+      ON alerta_temprana_seguimientos_epi(alerta_id,created_at)`);
+
     // ── EXPEDIENTES DE CONDUCTA / TRABAJO EDUCATIVO SUSTITUTIVO ─────
     // El consecutivo es propio del módulo y se asigna transaccionalmente por
     // año. Los pasos almacenan una instantánea JSON para conservar exactamente
@@ -2849,6 +2957,12 @@ async function initDB() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_at_estudiante ON alertas_tempranas(estudiante_id,anio,estado)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_at_profesor ON alertas_tempranas(profesor_id,anio,updated_at DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_at_seguimientos ON alerta_temprana_seguimientos(alerta_id,created_at DESC)`);
+    await client.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='seguimiento_epi_alerta_fk') THEN
+        ALTER TABLE alerta_temprana_seguimientos_epi ADD CONSTRAINT seguimiento_epi_alerta_fk
+          FOREIGN KEY(alerta_id) REFERENCES alertas_tempranas(id) ON DELETE CASCADE;
+      END IF;
+    END $$`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_llamadas_estudiante ON registro_llamadas(estudiante_id,fecha DESC,hora_inicio DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_llamadas_profesor ON registro_llamadas(profesor_id,fecha DESC)`);
     // Las cartas de ausentismo forman parte del historial de contactos de la

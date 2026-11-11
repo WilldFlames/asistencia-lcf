@@ -1,0 +1,35 @@
+GESTIÓN ESTUDIANTIL Y EPI — 11/11/2026
+
+1. CONSTANCIAS
+- Serie CER por año para constancias de estudiante regular.
+- Serie RET por año para constancias de retiro.
+- Consecutivo transaccional, datos históricos y funcionario emisor.
+- Informe institucional visible desde el módulo Constancia.
+
+2. TRASLADOS DE INGRESO
+- Módulo exclusivo de Auxiliares y Administración.
+- Registra ingreso en II período, centro de procedencia y observaciones.
+- La nota certificada del I período se digita por materia.
+- El profesor la ve identificada como "Traslado" en Promedio.
+- No se crean evaluaciones ficticias ni se alteran los porcentajes REAC.
+- Toda creación o corrección de nota queda auditada.
+
+3. ENCARGADOS TEMPORALES
+- Módulo exclusivo de Auxiliares y Administración.
+- Conserva los datos completos de un encargado, motivo, vigencia,
+  entidad que autoriza y número de resolución.
+- Si se marca permanente, se convierte en encargado principal y el
+  encargado anterior queda conservado en el historial.
+
+4. COMITÉ EPI
+- Administración asigna un profesor diferente a cada nivel 7, 8, 9, 10 y 11.
+- Cada integrante ve todas las alertas tempranas abiertas de su nivel.
+- Registra recomendaciones y seguimientos EPI sin sobrescribir el historial.
+- El docente responsable recibe notificación y ve el seguimiento dentro
+  de la Alerta Temprana original.
+- Auxiliares y administrativos consultan toda la institución en solo lectura.
+- Administración conserva consulta, configuración y edición institucional.
+
+VERIFICACIÓN
+- Sintaxis de rutas y JavaScript validada.
+- Suite completa: 360 pruebas aprobadas.

@@ -445,7 +445,7 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
   // Además de hacerlo al crear, reconciliamos al consultar para recuperar
   // registros históricos de instalaciones que ya tenían llamadas o cartas.
   await sincronizarContactosAlerta(pool,acceso.alerta);
-  const [cab,seguimientos,acciones,contactos,cfg]=await Promise.all([
+  const [cab,seguimientos,acciones,contactos,cfg,seguimientosEpi]=await Promise.all([
     pool.query(`SELECT at.*,${nombreCompleto("e")} AS estudiante_nombre,${nombreApellidos("e")} AS estudiante_nombre_ordenado,
       e.cedula,e.fecha_nacimiento,EXTRACT(YEAR FROM AGE(at.fecha_activacion,e.fecha_nacimiento))::int AS edad,
       s.nombre AS seccion_nombre,m.nombre AS materia_nombre,${nombreCompleto("u")} AS profesor_nombre,
@@ -459,7 +459,10 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
     pool.query(`SELECT sg.*,${nombreCompleto("u")} AS registrado_nombre FROM alerta_temprana_seguimientos sg JOIN usuarios u ON u.id=sg.registrado_por WHERE sg.alerta_id=$1 ORDER BY sg.fecha,sg.created_at,sg.id`,[id]),
     pool.query(`SELECT ac.*,${nombreCompleto("u")} AS registrado_nombre FROM alerta_temprana_acciones ac JOIN usuarios u ON u.id=ac.registrado_por WHERE ac.alerta_id=$1 ORDER BY ac.fecha_inicio NULLS LAST,ac.created_at`,[id]),
     pool.query(`SELECT c.*,${nombreCompleto("u")} AS registrado_nombre FROM alerta_temprana_contactos c JOIN usuarios u ON u.id=c.registrado_por WHERE c.alerta_id=$1 ORDER BY c.fecha,c.created_at`,[id]),
-    pool.query("SELECT COALESCE(nombre_centro,'Liceo de Calle Fallas') AS nombre_centro FROM config_centro ORDER BY id LIMIT 1")
+    pool.query("SELECT COALESCE(nombre_centro,'Liceo de Calle Fallas') AS nombre_centro FROM config_centro ORDER BY id LIMIT 1"),
+    pool.query(`SELECT x.*,${nombreCompleto("u")} AS registrado_nombre
+      FROM alerta_temprana_seguimientos_epi x JOIN usuarios u ON u.id=x.registrado_por
+      WHERE x.alerta_id=$1 ORDER BY x.created_at,x.id`,[id])
   ]);
   const alerta=cab.rows[0];
   if(!alerta) return res.status(404).json({error:"Alerta no encontrada."});
@@ -492,7 +495,7 @@ router.get("/alertas/:id",requireAuth,requireParticipante,asyncRoute(async(req,r
     const activos=new Set(seleccion.rows.map(r=>Number(r.codigo)));
     caracterizacion=CARACTERIZACION_CATALOGO.filter(item=>activos.has(item.codigo));
   }
-  res.json({alerta,seguimientos:seguimientos.rows,acciones:acciones.rows,contactos:contactos.rows,
+  res.json({alerta,seguimientos:seguimientos.rows,acciones:acciones.rows,contactos:contactos.rows,seguimientos_epi:seguimientosEpi.rows,
     expediente_materias:materias.rows,
     caracterizacion,puede_ver_caracterizacion:caracterizacion!==null,
     catalogo:CATALOGO,centro:cfg.rows[0]?.nombre_centro||"Liceo de Calle Fallas",
