@@ -7967,6 +7967,11 @@ function renderAsignaciones(){
     const matSimpl = !!a.materia_modo_simplificado;
     const asigSimpl = !!a.modo_simplificado;
     const periodos = a.simplificado_periodos || [];
+    const esTallerSemestral = Number(a.anio)>=2027 &&
+      ['Educación para el Hogar','Artes Industriales'].includes(a.materia_nombre);
+    const distintivoPeriodoTaller = esTallerSemestral
+      ? ` <span class="badge" style="background:${a.periodo==='II Período'?'#ede9fe':'#dbeafe'};color:${a.periodo==='II Período'?'#6d28d9':'#1d4ed8'};white-space:nowrap;">${htmlSeguro(a.periodo||'I Período')}</span>`
+      : '';
     // Estado para mostrar:
     //  - Materia entera simplificada: heredado, no editable acá
     //  - Solo la asignación: muestra qué periodos están marcados
@@ -8004,7 +8009,7 @@ function renderAsignaciones(){
       <td>${nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2)}</td>
       <td><span class="badge ${RBDG[a.prof_rol]}">${RLBL[a.prof_rol]}</span></td>
       <td><strong>${a.seccion_nombre}</strong></td>
-      <td>${a.materia_nombre}${a.subgrupo?` <span class="badge b-guia">Grupo ${a.subgrupo}</span>`:""}</td>
+      <td>${a.materia_nombre}${a.subgrupo?` <span class="badge b-guia">Grupo ${a.subgrupo}</span>`:""}${distintivoPeriodoTaller}</td>
       <td>${a.lecciones_semana}</td>
       <td style="text-align:center;">${colSimpl}</td>
       <td>

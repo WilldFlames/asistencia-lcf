@@ -18,6 +18,14 @@ test('Hogar e Industriales crean automáticamente sus dos asignaciones semestral
   assert.match(admin, /configuracion_taller:true/);
 });
 
+test('la lista administrativa identifica el período solo en Hogar e Industriales', () => {
+  assert.match(html, /const esTallerSemestral = Number\(a\.anio\)>=2027/);
+  assert.match(html, /\['Educación para el Hogar','Artes Industriales'\]\.includes\(a\.materia_nombre\)/);
+  assert.match(html, /distintivoPeriodoTaller/);
+  assert.match(html, /htmlSeguro\(a\.periodo\|\|'I Período'\)/);
+  assert.match(html, /\$\{distintivoPeriodoTaller\}<\/td>/);
+});
+
 test('la configuración de talleres no modifica el subgrupo del estudiante', () => {
   const bloque = admin.slice(admin.indexOf('// Hogar e Industriales son talleres'), admin.indexOf('const dup =', admin.indexOf('// Hogar e Industriales son talleres')));
   assert.doesNotMatch(bloque, /UPDATE\s+estudiantes/i);
