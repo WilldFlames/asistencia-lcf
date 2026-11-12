@@ -1,0 +1,36 @@
+MATRÍCULA 2027: PENDIENTES Y EXCEPCIONES DE SECCIÓN
+Fecha: 11 de noviembre de 2026
+
+1. Al aplicar la matrícula 2027, un estudiante activo que no se matriculó no se
+   retira ni desaparece. Queda en “Pendientes de matrícula”, sin sección.
+
+2. Cuando se matricula después, se activa únicamente ese estudiante al asignarle
+   sección. El movimiento tardío queda fechado y auditado con el funcionario.
+
+3. Los resultados de Convocatoria del curso 2026 son exclusivamente informativos
+   y no bloquean la matrícula 2027. Las reglas académicas obligatorias empiezan
+   con los resultados obtenidos en el curso lectivo 2027.
+
+4. Las restricciones entre dos estudiantes sí se respetan. Si por falta o cambio
+   de grupos no existe una alternativa, el funcionario solicita una excepción
+   para una sección concreta. Solo Dirección puede aprobarla o rechazarla.
+
+5. La excepción no borra la restricción original y no sirve para otros años,
+   secciones o conflictos nuevos.
+
+6. Una marca individual de “no puede matricular” se valida antes de cualquier
+   excepción y permanece bloqueada.
+
+Verificación: 364 pruebas automáticas aprobadas.
+
+7. Idioma/Tecnología es la fuente oficial para 9°→10° y 10°→11°. Matrícula
+   conserva automáticamente idioma, tecnología y grupo del estudiante.
+
+8. Inglés Conversacional se reconoce siempre como Grupo A. Diseño Publicitario
+   se reconoce siempre como Grupo B (y Matem/AMPROSA conserva B donde esté
+   configurado institucionalmente).
+
+9. Cada sección de 10° y 11° admite como máximo 13 estudiantes del Grupo A y
+   13 del Grupo B. Este límite no puede ser forzado ni por Administración.
+
+Verificación final: 366 pruebas automáticas aprobadas.

@@ -1,0 +1,13 @@
+CIRCULARES Y LISTADO DE EXPEDIENTES DE MATRÍCULA
+Fecha: 11 de noviembre de 2026
+
+1. Se agregó una serie independiente llamada Circular, iniciando en 1.
+2. Circular utiliza los mismos campos del Oficio: destinatario, motivo y cargo.
+3. Solo Secretaría y quienes tengan la función Comité de Evaluación o Comité
+   Técnico Asesor pueden ver, reservar, consultar o eliminar circulares.
+4. La serie Circular no consume ni altera números de Oficio.
+5. Matrícula incorpora el botón “Listado de expedientes”. Genera un PDF por
+   curso lectivo con estudiante, cédula, sección, estado, responsable y fecha.
+6. El listado conserva expedientes anulados para mantener la trazabilidad.
+
+Verificación: 369 pruebas automáticas aprobadas.

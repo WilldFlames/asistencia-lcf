@@ -2,7 +2,7 @@ const router = require("express").Router();
 const { pool } = require("../db");
 const { requireAuth } = require("../middleware/auth");
 
-const INICIO = { oficio: 181, minuta: 88, proceso: 50, protocolo: 1 };
+const INICIO = { oficio: 181, circular: 1, minuta: 88, proceso: 50, protocolo: 1 };
 
 const TIPOS_PROTOCOLO = [
   "Pautas generales para protocolos de actuación en situaciones de violencia y riesgo",
@@ -23,9 +23,15 @@ function canUse(req, res, next) {
   const u = req.session.usuario;
   if(!u) return res.status(401).json({ error:"No autorizado" });
   const fx = u.funciones_extra || [];
-  if(ROLES_CONSEC.includes(u.rol) || fx.includes("profesor_guia") || fx.includes("orientador"))
+  if(ROLES_CONSEC.includes(u.rol) || fx.includes("profesor_guia") || fx.includes("orientador") ||
+     fx.includes('comite_evaluacion') || fx.includes('comite_tecnico_asesor'))
     return next();
   return res.status(403).json({ error:"Sin permisos" });
+}
+
+function puedeCircular(u){
+  const fx=u?.funciones_extra||[];
+  return u?.rol==='secretaria' || fx.includes('comite_evaluacion') || fx.includes('comite_tecnico_asesor');
 }
 
 // ── LISTAR ───────────────────────────────────────────────────────────
@@ -33,6 +39,8 @@ router.get("/", requireAuth, canUse, async (req, res) => {
   const u = req.session.usuario;
   const esSecretaria = u.rol === "secretaria" || u.rol === "admin";
   const { tipo } = req.query;
+  if(tipo==='circular' && !puedeCircular(u))
+    return res.status(403).json({error:'Circular está disponible únicamente para Secretaría y el Comité de Evaluación/Técnico Asesor.'});
   let q = `
     SELECT c.*,
       u.nombre AS sol_nombre, u.primer_apellido AS sol_ap1, u.segundo_apellido AS sol_ap2,
@@ -45,6 +53,7 @@ router.get("/", requireAuth, canUse, async (req, res) => {
     WHERE c.eliminado=false
   `;
   const params = [];
+  if(!puedeCircular(u)) q += ` AND c.tipo<>'circular'`;
   if(!esSecretaria){ params.push(u.id); q += ` AND c.solicitante_id=$${params.length}`; }
   if(tipo){ params.push(tipo); q += ` AND c.tipo=$${params.length}`; }
   q += " ORDER BY c.tipo, c.numero";
@@ -62,6 +71,8 @@ router.post("/", requireAuth, canUse, async (req, res) => {
           solicitante_id: sol_id_body } = req.body;
 
   if(!tipo || !INICIO[tipo]) return res.status(400).json({ error:"Tipo inválido" });
+  if(tipo==='circular' && !puedeCircular(u))
+    return res.status(403).json({error:'Solo Secretaría y el Comité de Evaluación/Técnico Asesor pueden reservar circulares.'});
 
   // Bloqueo: los consecutivos de tipo "proceso" y "protocolo" se asignan
   // exclusivamente desde sus módulos correspondientes (Debidos Procesos y
@@ -141,8 +152,10 @@ router.delete("/:id", requireAuth, canUse, async (req, res) => {
   if(!justificacion || !justificacion.trim())
     return res.status(400).json({ error:"La justificación es obligatoria." });
   const u = req.session.usuario;
-  const r = await pool.query("SELECT solicitante_id FROM consecutivos WHERE id=$1", [req.params.id]);
+  const r = await pool.query("SELECT solicitante_id,tipo FROM consecutivos WHERE id=$1", [req.params.id]);
   if(!r.rows.length) return res.status(404).json({ error:"No encontrado" });
+  if(r.rows[0].tipo==='circular' && !puedeCircular(u))
+    return res.status(403).json({error:'Sin permiso para modificar circulares.'});
   const esSecretaria = u.rol === "secretaria" || u.rol === "admin";
   if(!esSecretaria && r.rows[0].solicitante_id !== u.id)
     return res.status(403).json({ error:"Solo podés eliminar tus propios consecutivos" });

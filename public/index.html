@@ -3129,8 +3129,10 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-orange btn-sm" id="mat-btn-aplicar" onclick="matAplicarAnio()" style="display:none;">▶️ Aplicar Matrículas</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-frances" onclick="abrirSeccionesFrances()" style="display:none;">🇫🇷 Secciones Francés</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-restricciones" onclick="abrirRestriccionesMatricula()" style="display:none;">🚫 Restricciones</button>
+        <button class="btn btn-outline btn-sm" id="mat-btn-excepciones" onclick="abrirExcepcionesMatricula()" style="display:none;">⚠️ Excepciones</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-bloqueos" onclick="abrirBloqueosMatricula()">🔒 Matrícula restringida</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-actualizar" onclick="iniciarMatricula(true)">↻ Actualizar</button>
+        <button class="btn btn-outline btn-sm" onclick="imprimirListadoExpedientesMatricula()">🖨️ Listado de expedientes</button>
         <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
       </div>
     </div>
@@ -3166,6 +3168,7 @@ tr:hover td{background:#f8fafc;}
       <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarNivel(9)"  id="mat-tab-9">Noveno</button>
       <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarNivel(10)" id="mat-tab-10">Décimo</button>
       <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarNivel(11)" id="mat-tab-11">Undécimo</button>
+      <button class="btn btn-outline btn-sm mat-nivel-tab" onclick="filtrarPendientesMatricula()" id="mat-tab-pendientes">⏳ Pendientes de matrícula</button>
     </div>
 
     <div class="table-wrap">
@@ -3186,6 +3189,16 @@ tr:hover td{background:#f8fafc;}
       </table>
     </div>
     <div id="mat-paginacion" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-excepciones-matricula">
+  <div class="modal" style="max-width:850px;">
+    <h3>⚠️ Excepciones a restricciones de sección — <span id="exm-anio"></span></h3>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Dirección puede autorizar una sección concreta sin eliminar la restricción. Esta aprobación nunca permite matricular a un estudiante marcado expresamente como “no puede matricular”.</p>
+    <div id="alert-exm" class="alert"></div>
+    <div id="exm-lista" class="table-wrap"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-excepciones-matricula')">Cerrar</button></div>
   </div>
 </div>
 
@@ -3755,6 +3768,7 @@ tr:hover td{background:#f8fafc;}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
       <button class="btn btn-outline btn-sm consec-tab active" onclick="filtrarConsecutivos('todos')">Todos</button>
       <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('oficio')">📨 Oficios</button>
+      <button class="btn btn-outline btn-sm consec-tab" id="consec-tab-circular" onclick="filtrarConsecutivos('circular')" style="display:none;">📢 Circulares</button>
       <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('minuta')">📝 Minutas</button>
       <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('proceso')">⚖️ Procesos</button>
       <button class="btn btn-outline btn-sm consec-tab" onclick="filtrarConsecutivos('protocolo')">🛡️ Pautas</button>
@@ -5508,6 +5522,7 @@ tr:hover td{background:#f8fafc;}
       <select id="consec-tipo" onchange="cambiarTipoConsecutivo()">
         <option value="">— Seleccionar —</option>
         <option value="oficio">📨 Oficio</option>
+        <option value="circular" id="consec-opcion-circular" style="display:none;">📢 Circular</option>
       </select>
       <div style="margin-top:6px;padding:6px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:11.5px;color:#78350f;">
         ℹ️ Los consecutivos de <strong>Debido Proceso</strong>, <strong>Pauta</strong> y <strong>Minuta</strong> se generan automáticamente desde sus módulos respectivos (⚖️ Debidos Procesos, 🛡️ Pautas y 📝 Minutas) al iniciar el expediente o registro. Los expedientes viejos siguen visibles en la lista de abajo a modo de consulta.
@@ -6535,7 +6550,7 @@ async function iniciarApp(){
 
   // ── CONSECUTIVOS ─────────────────────────────────────────────
   const rolesConsec=["secretaria","auxiliar","orientador","profesor","administrativo","profesor_guia"];
-  if(rolesConsec.includes(ME.rol)||fx.includes("profesor_guia")||fx.includes("orientador")||esAdmin){
+  if(rolesConsec.includes(ME.rol)||fx.includes("profesor_guia")||fx.includes("orientador")||esAdmin||esComiteTecnico||esComiteEvaluacion){
     document.getElementById("nav-consecutivos").style.display="";
   }
 
@@ -11354,7 +11369,7 @@ let matEncsPage = []; // encargados en memoria antes de guardar
 // ════════════════════════════════════
 //  MATRÍCULA — VISTA Y SECCIÓN
 // ════════════════════════════════════
-let matData = [], matNivelFiltro = 0;
+let matData = [], matNivelFiltro = 0, matSoloPendientes = false;
 let matPagina = 1;
 const MAT_POR_PAGINA = 60;
 let matCargaPromesa = null;
@@ -11406,6 +11421,8 @@ async function iniciarMatricula(forzar=false){
   const btnRestr=document.getElementById('mat-btn-restricciones');
   const puedeRestricciones=ME.rol==='admin'||(window.esComiteMatricula&&tieneAlgunRol('orientador','auxiliar'));
   if(btnRestr) btnRestr.style.display=puedeRestricciones?'':'none';
+  const btnExm=document.getElementById('mat-btn-excepciones');
+  if(btnExm) btnExm.style.display=(['admin','auxiliar','administrativo'].includes(ME.rol)||window.esComiteMatricula)?'':'none';
 
   const token = ++matCargaToken;
   const estadoCarga=document.getElementById('mat-carga-estado');
@@ -11742,7 +11759,7 @@ async function matAplicarAnio(){
     `   • Horario del ${anioAnt} (el horario ${matAnio} que hayas preparado queda intacto)\n\n` +
     `📋 Cambios:\n` +
     `   • ${conSec} estudiantes pasan a su sección nueva (con idioma, tecnología y subgrupo)\n` +
-    `   • ${revision.sin_matricula} estudiantes activos SIN matrícula ${matAnio} quedan en espera, sin sección\n` +
+    `   • ${revision.sin_matricula} estudiantes activos SIN matrícula ${matAnio} pasan a la lista Pendientes de matrícula, sin sección\n` +
     `   • ${revision.convocatoria_pendiente||0} estudiantes en convocatoria quedan identificados en espera hasta resolver su resultado en febrero\n` +
     `   • ${revision.adecuaciones_por_enviar||0} solicitudes de adecuación se enviarán al Comité de Apoyo\n` +
     `   • Se activan ${revision.guias_destino} guías y ${revision.orientadores_destino} orientadores preparados\n` +
@@ -11756,7 +11773,7 @@ async function matAplicarAnio(){
     sa("alert-mat",
       `✅ Cierre completado. Año ${matAnio} listo para arrancar.\n` +
       `📚 ${r.resumenes_archivados} resúmenes académicos archivados (${r.resumenes_saltados} saltados)\n` +
-      `🎓 ${r.aplicados} estudiantes en sección nueva · ${r.sin_seccion} sin sección\n` +
+      `🎓 ${r.aplicados} estudiantes en sección nueva · ${r.sin_seccion} pendientes de matrícula\n` +
       `🧩 ${r.adecuaciones_enviadas||0} solicitudes de adecuación enviadas al Comité de Apoyo\n` +
       `🗑️ ${r.asignaciones_borradas} asignaciones, ${r.boletas_borradas} boletas, ${r.horarios_borrados||0} celdas de horario borradas\n` +
       `👤 ${r.guias_aplicadas||0} guías y ${r.orientadores_aplicados||0} orientadores activados\n\n` +
@@ -11767,6 +11784,32 @@ async function matAplicarAnio(){
     document.getElementById('mat-anio').innerHTML='';
     await iniciarMatricula(true);
   }catch(e){ sa("alert-mat", e.message, "danger"); }
+}
+
+async function imprimirListadoExpedientesMatricula(){
+  try{
+    const r=await api(`/api/matricula/listado-expedientes/${matAnio}`);
+    const rows=r.expedientes||[];
+    if(!rows.length){sa('alert-mat',`No hay expedientes de matrícula registrados para ${matAnio}.`,'warning');return;}
+    const estados={
+      completa:'Completa',pendiente:'En proceso',pendiente_matricula:'Pendiente de matrícula',
+      convocatoria:'En espera de convocatoria',convocatoria_aprobada:'Convocatoria aprobada',
+      convocatoria_reprobada:'Convocatoria reprobada',eliminada:'Eliminada'
+    };
+    const conteo={}; rows.forEach(x=>{const k=estados[x.estado]||x.estado||'En proceso';conteo[k]=(conteo[k]||0)+1;});
+    const resumen=Object.entries(conteo).map(([k,v])=>`${htmlSeguro(k)}: <strong>${v}</strong>`).join(' · ');
+    const body=`<p><strong>Curso lectivo:</strong> ${matAnio} · <strong>Total:</strong> ${rows.length}</p>
+      <p style="font-size:9px;margin-bottom:10px;">${resumen}</p>
+      <table class="tabla-reporte" style="font-size:8px;table-layout:fixed;width:100%"><thead><tr>
+        <th style="width:4%">#</th><th style="width:13%">Cédula</th><th style="width:24%">Estudiante</th>
+        <th style="width:11%">Sección</th><th style="width:17%">Estado</th><th style="width:21%">Responsable</th><th style="width:10%">Fecha</th>
+      </tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${htmlSeguro(x.cedula||'—')}</td>
+        <td>${htmlSeguro(nombreEstudianteLista(x))}</td><td>${htmlSeguro(x.seccion_reporte||'Sin sección')}</td>
+        <td>${htmlSeguro(estados[x.estado]||x.estado||'En proceso')}</td>
+        <td>${htmlSeguro(nombreDesdeCampos(x.responsable_nombre,x.responsable_ap1,x.responsable_ap2,{vacio:'Sin asignar'}))}</td>
+        <td>${fmtF(x.created_at)}</td></tr>`).join('')}</tbody></table>`;
+    await imprimirPDFMEP(`LISTADO DE EXPEDIENTES DE MATRÍCULA ${matAnio}`,body,`listado_expedientes_matricula_${matAnio}_${fechaHoyCR()}.pdf`);
+  }catch(e){sa('alert-mat',e.message,'danger');}
 }
 
 function renderResumenNiveles(){
@@ -11789,10 +11832,18 @@ function renderResumenNiveles(){
 
 function filtrarNivel(nivel){
   matNivelFiltro = nivel;
+  matSoloPendientes = false;
   matPagina = 1;
   document.querySelectorAll(".mat-nivel-tab").forEach(btn=>btn.classList.remove("active"));
   const tab = document.getElementById(nivel===0?"mat-tab-todos":`mat-tab-${nivel}`);
   if(tab) tab.classList.add("active");
+  renderMatricula();
+}
+
+function filtrarPendientesMatricula(){
+  matNivelFiltro=0; matSoloPendientes=true; matPagina=1;
+  document.querySelectorAll('.mat-nivel-tab').forEach(btn=>btn.classList.remove('active'));
+  document.getElementById('mat-tab-pendientes')?.classList.add('active');
   renderMatricula();
 }
 
@@ -11818,7 +11869,8 @@ function renderMatPaginacion(total,totalPaginas,inicio,fin){
 function renderMatricula(){
   const tipos = {regular:"Regular",prematricula:"Prematrícula",nuevo:"Nuevo ingreso"};
   const COLORES_TIPO = {regular:"#e0f2fe",prematricula:"#fef9c3",nuevo:"#dcfce7"};
-  const listaCompleta = matNivelFiltro===0 ? matData : matData.filter(e=>e.nivel_matricula==matNivelFiltro);
+  let listaCompleta = matNivelFiltro===0 ? matData : matData.filter(e=>e.nivel_matricula==matNivelFiltro);
+  if(matSoloPendientes) listaCompleta=listaCompleta.filter(e=>e.matricula_estado==='pendiente_matricula');
   const totalPaginas=Math.max(1,Math.ceil(listaCompleta.length/MAT_POR_PAGINA));
   matPagina=Math.min(Math.max(1,matPagina),totalPaginas);
   const inicio=(matPagina-1)*MAT_POR_PAGINA;
@@ -11907,6 +11959,10 @@ async function matRefrescarEstudiante(estudianteId,{eliminado=false}={}){
 }
 
 function matEstadoHTML(e){
+  if(e.matricula_estado === 'pendiente_matricula'){
+    return `<span class="badge" style="background:#fef3c7;color:#92400e;">⏳ Pendiente de matrícula ${matAnio}</span>`+
+      (e.seccion_origen_nombre?`<div style="font-size:10.5px;color:var(--muted);margin-top:3px;">Procedía de ${htmlSeguro(e.seccion_origen_nombre)}</div>`:'');
+  }
   if(e.convocatoria && e.convocatoria_estado === 'pendiente'){
     return '<span class="badge" style="background:#ffedd5;color:#9a3412;">📝 Convocatoria · En espera</span>';
   }
@@ -11936,7 +11992,7 @@ function asignarCuposInfo(){
   if(tecSel && conSubgrupo){
     const valActual = tecSel.value;
     [...tecSel.options].forEach(opt=>{
-      if(opt.value === '' || opt.value === 'Inglés Conversacional'){
+      if(tecSel.disabled || opt.value === '' || opt.value === 'Inglés Conversacional'){
         opt.disabled = false;
         opt.style.display = '';
       } else {
@@ -11947,7 +12003,7 @@ function asignarCuposInfo(){
       }
     });
     // Si el valor actual ya no es válido, limpiar
-    if(valActual && valActual !== 'Inglés Conversacional' && c.tec_b && valActual !== c.tec_b){
+    if(!tecSel.disabled && valActual && valActual !== 'Inglés Conversacional' && c.tec_b && valActual !== c.tec_b){
       tecSel.value = '';
     }
   }
@@ -12028,7 +12084,7 @@ async function abrirAsignarSeccion(id, nombre, nivel){
       const fr = c && c.idioma === 'Francés' ? ' · 🇫🇷 FRANCÉS' : '';
       const restrTxt=bloqueada?` · 🚫 RESTRICCIÓN: ${restringidos.map(r=>r.nombre).join(', ')}`:'';
       const label = c ? `${s.nombre}${fr} — ${ocupados}/${c.max}${llena?' · LLENA':` · ${c.max-ocupados} campos`}${restrTxt}` : s.nombre+restrTxt;
-      const dis = bloqueada || (llena && !esAdminM) ? 'disabled' : '';
+      const dis = (llena && !esAdminM) ? 'disabled' : '';
       return `<option value="${s.id}" data-llena="${llena?1:0}" data-frances="${c&&c.idioma==='Francés'?1:0}" data-restriccion="${bloqueada?1:0}" ${dis}>${htmlSeguro(label)}</option>`;
     }).join("");
   if(fut.seccion_id) sel.value = String(fut.seccion_id);
@@ -12048,11 +12104,17 @@ async function abrirAsignarSeccion(id, nombre, nivel){
   if(wrapBoleta) wrapBoleta.style.display = (parseInt(nivel) === 10) ? "" : "none";
   if(chkBoleta) chkBoleta.checked = !!est.boleta_entregada;
   fgIdi.style.display = parseInt(nivel)>=10 ? "" : "none";
-  document.getElementById("asignar-sec-idioma").value = fut.idioma || est.idioma || "";
-  document.getElementById("asignar-sec-tec").value = fut.tecnologia || est.tecnologia || "";
+  const idiomaSel=document.getElementById("asignar-sec-idioma");
+  const tecnologiaSel=document.getElementById("asignar-sec-tec");
+  idiomaSel.value = est.idioma || fut.idioma || "";
+  tecnologiaSel.value = est.tecnologia || fut.tecnologia || "";
+  const eleccionRegistrada=!!((est.idioma||fut.idioma)&&(est.tecnologia||fut.tecnologia));
+  idiomaSel.disabled=eleccionRegistrada;
+  tecnologiaSel.disabled=eleccionRegistrada;
   if(parseInt(nivel) === 10){
     fgTec.style.display = "";
-    her.style.display = "none";
+    her.style.display = eleccionRegistrada ? "" : "none";
+    if(eleccionRegistrada) her.innerHTML=`🔒 <strong>Elección registrada en Idioma/Tecnología:</strong> ${htmlSeguro(idiomaSel.value)} · ${htmlSeguro(tecnologiaSel.value)} (Grupo ${subgrupoDeTec(tecnologiaSel.value)}). Se conserva automáticamente; elegí una sección con cupo en ese grupo.`;
   } else if(parseInt(nivel) === 11){
     fgTec.style.display = "none";
     const tec = fut.tecnologia || est.tecnologia;
@@ -12152,7 +12214,41 @@ async function confirmarAsignarSeccion(){
     if(confirm(`La sección ${r.seccion_nombre} quedó asignada.\n\n¿Deseás generar ahora la carta de bienvenida con el horario?`)){
       await imprimirCartaHorarioMatricula(+id, matAnio);
     }
-  }catch(e){ sa("alert-asignar-sec",e.message,"danger"); }
+  }catch(e){
+    if(e.requiere_excepcion){
+      const motivo=prompt('Esta sección tiene una restricción entre estudiantes.\n\nExplique por qué necesita solicitar a Dirección una excepción para usar exactamente esta sección:');
+      if(motivo!==null){
+        try{
+          await api('/api/matricula/restricciones-excepciones','POST',{estudiante_id:+id,anio:matAnio,seccion_id:+sid,motivo});
+          sa('alert-asignar-sec','✅ Solicitud enviada a Dirección. La sección solo podrá asignarse después de su aprobación.','warning');
+        }catch(ex){ sa('alert-asignar-sec',ex.message,'danger'); }
+      }
+    }else sa("alert-asignar-sec",e.message,"danger");
+  }
+}
+
+async function abrirExcepcionesMatricula(){
+  document.getElementById('exm-anio').textContent=matAnio;
+  document.getElementById('modal-excepciones-matricula').classList.add('show');
+  await cargarExcepcionesMatricula();
+}
+async function cargarExcepcionesMatricula(){
+  const cont=document.getElementById('exm-lista');
+  cont.innerHTML='<div class="empty">Cargando…</div>';
+  try{
+    const filas=await api(`/api/matricula/restricciones-excepciones/${matAnio}`)||[];
+    cont.innerHTML=filas.length?`<table><thead><tr><th>Estudiante</th><th>Sección</th><th>Solicitó</th><th>Justificación</th><th>Estado</th><th></th></tr></thead><tbody>${filas.map(x=>`<tr>
+      <td><strong>${htmlSeguro(x.estudiante_nombre)}</strong></td><td>${htmlSeguro(x.seccion_nombre)}</td>
+      <td>${htmlSeguro(x.solicitante_nombre||'—')}</td><td>${htmlSeguro(x.motivo_solicitud)}</td>
+      <td><span class="badge">${htmlSeguro(x.estado)}</span>${x.respuesta?`<div style="font-size:10.5px;">${htmlSeguro(x.respuesta)}</div>`:''}</td>
+      <td>${ME.rol==='admin'&&x.estado==='pendiente'?`<button class="btn btn-success btn-xs" onclick="resolverExcepcionMatricula(${x.id},'aprobada')">Aprobar</button> <button class="btn btn-danger btn-xs" onclick="resolverExcepcionMatricula(${x.id},'rechazada')">Rechazar</button>`:''}</td>
+    </tr>`).join('')}</tbody></table>`:'<div class="empty">No hay solicitudes de excepción para este año.</div>';
+  }catch(e){cont.innerHTML=`<div class="alert show alert-danger">${htmlSeguro(e.message)}</div>`;}
+}
+async function resolverExcepcionMatricula(id,estado){
+  const respuesta=prompt(estado==='aprobada'?'Nota de aprobación (opcional):':'Indique el motivo del rechazo:')||'';
+  try{await api(`/api/matricula/restricciones-excepciones/${id}/resolver`,'POST',{estado,respuesta});await cargarExcepcionesMatricula();sa('alert-exm','Decisión guardada.','success');}
+  catch(e){sa('alert-exm',e.message,'danger');}
 }
 
 async function abrirResolverConvocatoria(id){
@@ -12223,7 +12319,15 @@ async function confirmarResolverConvocatoria(){
     if(confirm(`La convocatoria quedó resuelta y el estudiante fue asignado a ${r.seccion_nombre}.\n\n¿Deseás generar ahora la carta de bienvenida con el horario?`)){
       await imprimirCartaHorarioMatricula(id,matAnio);
     }
-  }catch(e){ sa("alert-conv",e.message,"danger"); }
+  }catch(e){
+    if(e.requiere_excepcion){
+      const motivo=prompt('Explique por qué necesita solicitar a Dirección una excepción para asignar esta sección:');
+      if(motivo!==null){
+        try{await api('/api/matricula/restricciones-excepciones','POST',{estudiante_id:id,anio:matAnio,seccion_id:seccionId,motivo});sa('alert-conv','✅ Solicitud enviada. Resuelva la convocatoria después de la aprobación de Dirección.','warning');}
+        catch(ex){sa('alert-conv',ex.message,'danger');}
+      }
+    }else sa("alert-conv",e.message,"danger");
+  }
 }
 
 async function eliminarMatricula(id, nombre){
@@ -17196,6 +17300,11 @@ function imprimirFormProtocoloDirecto(formId, tipo){
 // consecutivos state (declarado al inicio del script)
 
 async function iniciarConsecutivos(){
+  const puedeCircular=ME.rol==='secretaria'||(ME.funciones_extra||[]).some(f=>f==='comite_evaluacion'||f==='comite_tecnico_asesor');
+  const opCircular=document.getElementById('consec-opcion-circular');
+  const tabCircular=document.getElementById('consec-tab-circular');
+  if(opCircular) opCircular.style.display=puedeCircular?'':'none';
+  if(tabCircular) tabCircular.style.display=puedeCircular?'':'none';
   if(ME.rol==="secretaria"||ME.rol==="admin"){
     try{
       const usuarios=await api("/api/admin/usuarios-activos")||[];
@@ -17254,9 +17363,10 @@ function renderConsecutivos(rows, tipo){
     tbody.innerHTML=`<tr><td colspan="7" class="empty">No hay consecutivos registrados.</td></tr>`;
     return;
   }
-  const tipoLabel={oficio:"📨 Oficio",minuta:"📝 Minuta",proceso:"⚖️ Proceso",protocolo:"🛡️ Pauta"};
+  const tipoLabel={oficio:"📨 Oficio",circular:"📢 Circular",minuta:"📝 Minuta",proceso:"⚖️ Proceso",protocolo:"🛡️ Pauta"};
   const tipoColor={
     oficio:  {bg:"#e0f2fe",color:"#0369a1",border:"#93c5fd"},
+    circular:{bg:"#ede9fe",color:"#6d28d9",border:"#c4b5fd"},
     minuta:  {bg:"#fef9c3",color:"#854d0e",border:"#fde047"},
     proceso: {bg:"#fce7f3",color:"#9d174d",border:"#f9a8d4"},
     protocolo:{bg:"#dcfce7",color:"#166534",border:"#86efac"}
@@ -17264,7 +17374,7 @@ function renderConsecutivos(rows, tipo){
   tbody.innerHTML=rows.map(c=>{
     const sol=nombreDesdeCampos(c.sol_nombre,c.sol_ap1,c.sol_ap2);
     let detalle='';
-    if(c.tipo==='oficio') detalle=c.destinatario||'—';
+    if(c.tipo==='oficio'||c.tipo==='circular') detalle=c.destinatario||'—';
     else if(c.tipo==='minuta'||c.tipo==='proceso')
       detalle=c.est_nombre?nombreDesdeCampos(c.est_nombre,c.est_ap1,c.est_ap2):c.seccion_nombre||'—';
     else if(c.tipo==='protocolo')
@@ -17288,7 +17398,7 @@ function abrirModalConsec(){
   const fd=document.getElementById("consec-fecha");
   if(fd) fd.value=fechaHoyCR();
   document.getElementById("alert-consec-modal").className="alert";
-  ['oficio','minuta','proceso','protocolo'].forEach(t=>{
+  ['oficio','circular','minuta','proceso','protocolo'].forEach(t=>{
     const el=document.getElementById(`consec-campos-${t}`);
     if(el) el.style.display="none";
   });
@@ -17297,9 +17407,9 @@ function abrirModalConsec(){
 
 function cambiarTipoConsecutivo(){
   const tipo=document.getElementById("consec-tipo").value;
-  ['oficio','minuta','proceso','protocolo'].forEach(t=>{
+  ['oficio','circular','minuta','proceso','protocolo'].forEach(t=>{
     const el=document.getElementById(`consec-campos-${t}`);
-    if(el) el.style.display=t===tipo?"":"none";
+    if(el) el.style.display=(t===tipo||(tipo==='circular'&&t==='oficio'))?"":"none";
   });
 }
 
@@ -17322,7 +17432,7 @@ async function guardarConsecutivo(){
   let body={tipo,fecha};
   const solId=document.getElementById("consec-solicitante")?.value;
   if(solId) body.solicitante_id=+solId;
-  if(tipo==='oficio'){
+  if(tipo==='oficio'||tipo==='circular'){
     const dest=document.getElementById("consec-destinatario").value.trim();
     if(!dest){sa("alert-consec-modal","El destinatario es requerido.","danger");return;}
     body.destinatario=dest;
@@ -17347,7 +17457,7 @@ async function guardarConsecutivo(){
   try{
     const r=await api("/api/consecutivos","POST",body);
     cerrarModal("modal-consecutivo");
-    const tipos={oficio:"Oficio",minuta:"Minuta",proceso:"Debido Proceso",protocolo:"Pauta"};
+    const tipos={oficio:"Oficio",circular:"Circular",minuta:"Minuta",proceso:"Debido Proceso",protocolo:"Pauta"};
     alert(`✅ ${tipos[tipo]} N° ${r.numero} asignado correctamente.`);
     await filtrarConsecutivos(tipo);
   }catch(e){sa("alert-consec-modal",e.message,"danger");}

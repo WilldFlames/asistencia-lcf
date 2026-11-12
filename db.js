@@ -169,7 +169,7 @@ async function initDB() {
 
       CREATE TABLE IF NOT EXISTS consecutivos (
         id              SERIAL PRIMARY KEY,
-        tipo            TEXT NOT NULL CHECK(tipo IN ('oficio','minuta','proceso','protocolo')),
+        tipo            TEXT NOT NULL CHECK(tipo IN ('oficio','circular','minuta','proceso','protocolo')),
         numero          INTEGER NOT NULL,
         solicitante_id  INTEGER NOT NULL REFERENCES usuarios(id),
         -- Campos comunes
@@ -708,6 +708,11 @@ async function initDB() {
     try {
       await client.query(`ALTER TABLE consecutivos DROP CONSTRAINT IF EXISTS consecutivos_tipo_numero_key`);
     } catch(e) {}
+    // Circular usa una serie propia y los mismos campos administrativos del
+    // oficio. Reinstalar el CHECK permite actualizar bases ya desplegadas.
+    await client.query(`ALTER TABLE consecutivos DROP CONSTRAINT IF EXISTS consecutivos_tipo_check`);
+    await client.query(`ALTER TABLE consecutivos ADD CONSTRAINT consecutivos_tipo_check
+      CHECK(tipo IN ('oficio','circular','minuta','proceso','protocolo'))`);
     try {
       await client.query(`
         CREATE UNIQUE INDEX IF NOT EXISTS consecutivos_tipo_numero_activo
@@ -833,6 +838,28 @@ async function initDB() {
       ON restricciones_matricula(estudiante_a_id, anio) WHERE activa=true`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_restricciones_matricula_est_b
       ON restricciones_matricula(estudiante_b_id, anio) WHERE activa=true`);
+
+    // Aprobación excepcional para compartir sección. La restricción original
+    // permanece activa y la autorización queda limitada a año/sección/alumno.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS excepciones_restriccion_matricula (
+        id BIGSERIAL PRIMARY KEY,
+        anio INTEGER NOT NULL REFERENCES anios_lectivos(anio) ON DELETE CASCADE,
+        estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+        seccion_id INTEGER NOT NULL REFERENCES secciones(id) ON DELETE CASCADE,
+        restriccion_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+        motivo_solicitud TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'pendiente'
+          CHECK (estado IN ('pendiente','aprobada','rechazada','cancelada')),
+        solicitada_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        solicitada_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        resuelta_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        resuelta_at TIMESTAMP,
+        respuesta TEXT DEFAULT ''
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_excepcion_restriccion_busqueda
+      ON excepciones_restriccion_matricula(anio,estudiante_id,seccion_id,estado)`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS bloqueos_matricula (
@@ -1021,6 +1048,28 @@ async function initDB() {
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS nivel_origen INTEGER DEFAULT NULL`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS convocatoria_resuelta_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS convocatoria_resuelta_at TIMESTAMP DEFAULT NULL`);
+    // Quien no completa matrícula antes del cambio de curso queda en espera
+    // anual; no se retira ni se pierde de los listados institucionales.
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS seccion_origen_nombre TEXT DEFAULT ''`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS pendiente_desde TIMESTAMP DEFAULT NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS matricula_tardia_at TIMESTAMP DEFAULT NULL`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS matricula_tardia_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_matricula_pendiente_anio
+      ON matricula(anio, estado) WHERE estado='pendiente_matricula'`);
+    // Normalizar reservas ya existentes: la letra se deriva siempre de la
+    // tecnología, para que matrículas antiguas también cuenten en el 13/13.
+    await client.query(`UPDATE matricula SET subgrupo=CASE
+      WHEN tecnologia='Inglés Conversacional' THEN 'A'
+      WHEN tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
+      ELSE subgrupo END
+      WHERE tecnologia IN ('Inglés Conversacional','Diseño Publicitario','Matem/AMPROSA')`);
+    await client.query(`UPDATE matricula m SET idioma=e.idioma,tecnologia=e.tecnologia,
+      subgrupo=CASE WHEN e.tecnologia='Inglés Conversacional' THEN 'A'
+        WHEN e.tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B' ELSE m.subgrupo END
+      FROM estudiantes e
+      WHERE m.estudiante_id=e.id AND e.idioma IS NOT NULL AND e.tecnologia IS NOT NULL
+        AND m.anio>(SELECT COALESCE(MAX(anio),2026) FROM anios_lectivos WHERE estado='activo')
+        AND COALESCE(m.estado,'')<>'eliminada'`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_matricula_convocatoria_pendiente
       ON matricula(anio, convocatoria_estado) WHERE convocatoria=true`);
     await client.query(`ALTER TABLE intercambios_periodo ADD COLUMN IF NOT EXISTS anio INTEGER`);
