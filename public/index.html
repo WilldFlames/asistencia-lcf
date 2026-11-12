@@ -2282,6 +2282,7 @@ tr:hover td{background:#f8fafc;}
           <div class="fg" id="ect-filtro-seccion-wrap" style="margin:0;min-width:180px;display:none;"><label>Sección</label><select id="ect-filtro-seccion" onchange="ectRenderListado(ectListadoActual)"><option value="">Todas las secciones</option></select></div>
           <div class="fg" style="margin:0;min-width:130px;"><label>Curso lectivo</label><input id="ect-anio" type="number" min="2020" max="2100" onchange="ectCargarListado(true)"/></div>
           <button class="btn btn-outline btn-sm" onclick="ectCargarListado(true)">↻ Actualizar</button>
+          <button class="btn btn-outline btn-sm" onclick="ectImprimirListado()">🖨️ Imprimir listado</button>
         </div>
       </div>
       <div id="alert-ect" class="alert"></div>
@@ -3132,7 +3133,6 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" id="mat-btn-excepciones" onclick="abrirExcepcionesMatricula()" style="display:none;">⚠️ Excepciones</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-bloqueos" onclick="abrirBloqueosMatricula()">🔒 Matrícula restringida</button>
         <button class="btn btn-outline btn-sm" id="mat-btn-actualizar" onclick="iniciarMatricula(true)">↻ Actualizar</button>
-        <button class="btn btn-outline btn-sm" onclick="imprimirListadoExpedientesMatricula()">🖨️ Listado de expedientes</button>
         <button class="btn btn-primary" onclick="abrirNuevaMatricula()">+ Nueva Matrícula</button>
       </div>
     </div>
@@ -11784,32 +11784,6 @@ async function matAplicarAnio(){
     document.getElementById('mat-anio').innerHTML='';
     await iniciarMatricula(true);
   }catch(e){ sa("alert-mat", e.message, "danger"); }
-}
-
-async function imprimirListadoExpedientesMatricula(){
-  try{
-    const r=await api(`/api/matricula/listado-expedientes/${matAnio}`);
-    const rows=r.expedientes||[];
-    if(!rows.length){sa('alert-mat',`No hay expedientes de matrícula registrados para ${matAnio}.`,'warning');return;}
-    const estados={
-      completa:'Completa',pendiente:'En proceso',pendiente_matricula:'Pendiente de matrícula',
-      convocatoria:'En espera de convocatoria',convocatoria_aprobada:'Convocatoria aprobada',
-      convocatoria_reprobada:'Convocatoria reprobada',eliminada:'Eliminada'
-    };
-    const conteo={}; rows.forEach(x=>{const k=estados[x.estado]||x.estado||'En proceso';conteo[k]=(conteo[k]||0)+1;});
-    const resumen=Object.entries(conteo).map(([k,v])=>`${htmlSeguro(k)}: <strong>${v}</strong>`).join(' · ');
-    const body=`<p><strong>Curso lectivo:</strong> ${matAnio} · <strong>Total:</strong> ${rows.length}</p>
-      <p style="font-size:9px;margin-bottom:10px;">${resumen}</p>
-      <table class="tabla-reporte" style="font-size:8px;table-layout:fixed;width:100%"><thead><tr>
-        <th style="width:4%">#</th><th style="width:13%">Cédula</th><th style="width:24%">Estudiante</th>
-        <th style="width:11%">Sección</th><th style="width:17%">Estado</th><th style="width:21%">Responsable</th><th style="width:10%">Fecha</th>
-      </tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td>${htmlSeguro(x.cedula||'—')}</td>
-        <td>${htmlSeguro(nombreEstudianteLista(x))}</td><td>${htmlSeguro(x.seccion_reporte||'Sin sección')}</td>
-        <td>${htmlSeguro(estados[x.estado]||x.estado||'En proceso')}</td>
-        <td>${htmlSeguro(nombreDesdeCampos(x.responsable_nombre,x.responsable_ap1,x.responsable_ap2,{vacio:'Sin asignar'}))}</td>
-        <td>${fmtF(x.created_at)}</td></tr>`).join('')}</tbody></table>`;
-    await imprimirPDFMEP(`LISTADO DE EXPEDIENTES DE MATRÍCULA ${matAnio}`,body,`listado_expedientes_matricula_${matAnio}_${fechaHoyCR()}.pdf`);
-  }catch(e){sa('alert-mat',e.message,'danger');}
 }
 
 function renderResumenNiveles(){
@@ -22334,6 +22308,36 @@ async function ectCargarListado(forzar=false){
 }
 
 function ectEstado(e){return ({en_curso:"En curso",cerrado_aprobado:"Cerrado · aprobó",cerrado_no_aprobado:"Cerrado · no aprobó",cerrado_accion_pendiente:"Cerrado · acción pendiente"})[e]||e||"—";}
+async function ectImprimirListado(){
+  try{
+    const anio=Number(document.getElementById("ect-anio").value)||ANIO_LECTIVO_ACTIVO;
+    const d=await ectCargarListado(false);
+    const seccionId=document.getElementById("ect-filtro-seccion")?.value||"";
+    const rows=(d?.estudiantes||[]).filter(e=>e.expediente_id&&(!seccionId||String(e.seccion_id)===seccionId));
+    if(!rows.length){
+      sa("alert-ect",seccionId?"No hay expedientes de conducta abiertos en la sección seleccionada.":`No hay expedientes de conducta registrados para ${anio}.`,"warning");
+      return;
+    }
+    const conteo={};
+    rows.forEach(x=>{const estado=ectEstado(x.estado);conteo[estado]=(conteo[estado]||0)+1;});
+    const resumen=Object.entries(conteo).map(([estado,total])=>`${htmlSeguro(estado)}: <strong>${total}</strong>`).join(" · ");
+    const alcance=seccionId?` · <strong>Sección:</strong> ${htmlSeguro(rows[0]?.seccion_nombre||"—")}`:"";
+    const body=`<p><strong>Curso lectivo:</strong> ${anio}${alcance} · <strong>Total de expedientes:</strong> ${rows.length}</p>
+      <p style="font-size:9px;margin-bottom:10px;">${resumen}</p>
+      <table class="tabla-reporte" style="font-size:7.5px;table-layout:fixed;width:100%"><thead><tr>
+        <th style="width:10%">Expediente</th><th style="width:11%">Cédula</th><th style="width:20%">Estudiante</th>
+        <th style="width:7%">Sección</th><th style="width:13%">Estado</th><th style="width:15%">Iniciado por</th>
+        <th style="width:15%">Última gestión / cierre</th><th style="width:9%">Fecha</th>
+      </tr></thead><tbody>${rows.map(x=>`<tr>
+        <td>N°${Number(x.numero)||"—"}-${anio}</td><td>${htmlSeguro(x.cedula||"—")}</td>
+        <td>${htmlSeguro(nombreEstudianteLista(x))}</td><td>${htmlSeguro(x.seccion_nombre||"—")}</td>
+        <td>${htmlSeguro(ectEstado(x.estado))}</td>
+        <td>${htmlSeguro(nombreDesdeCampos(x.creador_nombre,x.creador_ap1,x.creador_ap2,{vacio:"Sin registrar"}))}</td>
+        <td>${htmlSeguro(nombreDesdeCampos(x.gestion_nombre,x.gestion_ap1,x.gestion_ap2,{vacio:"Sin gestión registrada"}))}</td>
+        <td>${fmtF(x.ultima_gestion_en||x.expediente_creado_en)}</td></tr>`).join("")}</tbody></table>`;
+    await imprimirPDFMEP(`LISTADO DE EXPEDIENTES DE CONDUCTA ${anio}`,body,`listado_expedientes_conducta_${anio}_${fechaHoyCR()}.pdf`);
+  }catch(e){sa("alert-ect",e.message,"danger");}
+}
 async function ectAbrirExpediente(estudiante_id,nota_anual){
   if(!confirm("¿Abrir el expediente y asignar su consecutivo?"))return;
   try{const r=await api("/api/expedientes-conducta/abrir","POST",{estudiante_id,anio:Number(document.getElementById("ect-anio").value),nota_anual});await ectAbrirDetalle(r.id);}catch(e){sa("alert-ect",e.message,"danger");}

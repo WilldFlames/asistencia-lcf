@@ -107,9 +107,23 @@ router.get("/listado", requireAuth, async (req,res)=>{
         s.id AS seccion_id,s.nombre AS seccion_nombre,s.nivel,n.nota_i,n.nota_ii,
         ROUND((n.nota_i+n.nota_ii)/2.0,1) AS nota_anual,
         CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END AS minimo,
-        ec.id AS expediente_id,ec.numero,ec.estado,ec.proyecto,ec.nota_final_conducta
+        ec.id AS expediente_id,ec.numero,ec.estado,ec.proyecto,ec.nota_final_conducta,
+        ec.created_at AS expediente_creado_en,ec.cerrado_en,
+        uc.nombre AS creador_nombre,uc.primer_apellido AS creador_ap1,uc.segundo_apellido AS creador_ap2,
+        COALESCE(uf.nombre,uc.nombre) AS gestion_nombre,
+        COALESCE(uf.primer_apellido,uc.primer_apellido) AS gestion_ap1,
+        COALESCE(uf.segundo_apellido,uc.segundo_apellido) AS gestion_ap2,
+        COALESCE(ec.cerrado_en,ult.completado_en,ec.updated_at,ec.created_at) AS ultima_gestion_en
       FROM estudiantes e JOIN secciones s ON s.id=e.seccion_id JOIN notas n ON n.id=e.id
       LEFT JOIN expedientes_conducta_tes ec ON ec.estudiante_id=e.id AND ec.anio=$1
+      LEFT JOIN usuarios uc ON uc.id=ec.creado_por
+      LEFT JOIN LATERAL (
+        SELECT p.completado_por,p.completado_en
+        FROM expedientes_conducta_pasos p
+        WHERE p.expediente_id=ec.id AND p.completado=true
+        ORDER BY p.paso DESC,p.completado_en DESC NULLS LAST LIMIT 1
+      ) ult ON true
+      LEFT JOIN usuarios uf ON uf.id=COALESCE(ec.cerrado_por,ult.completado_por)
       WHERE (e.activo=true OR ec.id IS NOT NULL) ${filtro}
         AND (ROUND((n.nota_i+n.nota_ii)/2.0,1) < CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END OR ec.id IS NOT NULL)
       ORDER BY s.nivel,s.nombre,e.primer_apellido,e.segundo_apellido,e.nombre`,params);

@@ -1,0 +1,942 @@
+
+====================================================================================================
+05_Constancia_acciones_correctivas_cumplidas.docx
+====================================================================================================
+[FOOTER 1] Liceo de Calle Fallas  |  TES  |
+[P:Title] Constancia de verificaci�n para acceso al TES
+[P:Normal] Liceo de Calle Fallas
+[TABLE 5x2]
+  R1: Datos de la persona estudiante || Informaci�n
+  R2: Nombre completo || [________________________________]
+  R3: Identificaci�n y secci�n || [________________]   [________]
+  R4: Curso lectivo || [________]
+  R5: N�mero de expediente del estudiante || [________________________________]
+[P:Heading 1] Verificaci�n del docente gu�a
+[P:Normal] Yo, [nombre completo del docente gu�a], docente gu�a de la secci�n [____], dejo constancia de que revis� el expediente de la persona estudiante indicada y verifiqu� el cumplimiento de las acciones correctivas impuestas que se detallan a continuaci�n.
+[TABLE 3x3]
+  R1: N.� de expediente del procedimiento || Acci�n correctiva || Resultado
+  R2: [________________] || [________________] || [  ] Cumpli�
+[  ] No cumpli�
+  R3: [________________ / no aplica] || [________________] || [  ] Cumpli�
+[  ] No cumpli�
+[P:Normal] Evidencia revisada y fecha de cumplimiento, si corresponde:
+[____________________________________________________________]
+[____________________________________________________________]
+[P:Normal] Resultado del requisito previo al TES (marcar una opci�n):
+[  ] Cumpli� todas las acciones correctivas impuestas verificadas.
+[  ] No cumpli�; queda pendiente: [________________________________].
+[P:Normal] Observaciones: [________________________________________________]
+[____________________________________________________________]
+[P:Heading 1] Datos y firma del docente gu�a
+[P:Normal] Nombre completo: [_____________________________________________]
+Identificaci�n: [________________]   Secci�n a cargo: [________________]
+Fecha de revisi�n: [____________]   Firma: __________________________
+[P:Normal] Se incorpora esta constancia al expediente y se remite copia al Comit� de Evaluaci�n de los Aprendizajes.
+[P:Normal] Fundamento: apartado 5 del Lineamiento para el trabajo con enfoque socioeducativo y la promoci�n de la conducta, p�ginas 7 y 8. Un procedimiento abierto sin acci�n correctiva impuesta no equivale a incumplimiento. Esta constancia verifica el requisito previo; no acredita aprobaci�n del TES.
+
+====================================================================================================
+06_Constancia_sin_acciones_correctivas.docx
+====================================================================================================
+[FOOTER 1] Liceo de Calle Fallas  |  TES  |
+[P:Title] Constancia de verificaci�n para acceso al TES
+[P:Normal] Liceo de Calle Fallas
+[TABLE 5x2]
+  R1: Datos de la persona estudiante || Informaci�n
+  R2: Nombre completo || [________________________________]
+  R3: Identificaci�n y secci�n || [________________]   [________]
+  R4: Curso lectivo || [________]
+  R5: N�mero de expediente del estudiante || [________________________________]
+[P:Heading 1] Verificaci�n del docente gu�a
+[P:Normal] Yo, [nombre completo del docente gu�a], docente gu�a de la secci�n [____], dejo constancia de que revis� el expediente de la persona estudiante indicada y verifiqu� que durante el curso lectivo se�alado no se le impuso ninguna acci�n correctiva cuyo cumplimiento deba verificarse para acceder al TES.
+[P:Normal] Procedimientos abiertos o pendientes, seg�n la revisi�n:
+[  ] No se identifican.
+[  ] Se identifican, sin acci�n correctiva impuesta: expediente n.� [________].
+[P:Normal] Resultado: se tiene por cumplido el requisito previo al TES relativo a las acciones correctivas, conforme al apartado 5 del lineamiento.
+[P:Normal] Registro o documentaci�n consultada:
+[____________________________________________________________]
+[P:Normal] Observaciones: [________________________________________________]
+[____________________________________________________________]
+[P:Heading 1] Datos y firma del docente gu�a
+[P:Normal] Nombre completo: [_____________________________________________]
+Identificaci�n: [________________]   Secci�n a cargo: [________________]
+Fecha de revisi�n: [____________]   Firma: __________________________
+[P:Normal] Se incorpora esta constancia al expediente y se remite copia al Comit� de Evaluaci�n de los Aprendizajes.
+[P:Normal] Fundamento: apartado 5 del Lineamiento para el trabajo con enfoque socioeducativo y la promoci�n de la conducta, p�ginas 7 y 8. Un procedimiento abierto sin acci�n correctiva impuesta no equivale a incumplimiento. Esta constancia verifica el requisito previo; no acredita aprobaci�n del TES.
+
+====================================================================================================
+01_Reparacion_comunitaria.docx
+====================================================================================================
+[FOOTER 1] Liceo de Calle Fallas  |  TES  |
+[P:Title] Proyecto de reparaci�n comunitaria
+[P:Normal] Liceo de Calle Fallas | Secundaria
+[P:Normal] Reparaci�n simb�lica y fortalecimiento de la convivencia
+[P:Heading 1] Anexo 1
+[P:Normal] Instrumento de evaluaci�n con los criterios e indicadores de valoraci�n para el trabajo con enfoque socioeducativo
+[P:Heading 1] 1 Parte administrativa
+[TABLE 11x2]
+  R1: Dato || Informaci�n editable
+  R2: Centro educativo || Liceo de Calle Fallas
+  R3: Estudiante e identificaci�n || [Nombre completo] | [Identificaci�n]
+  R4: Secci�n y nivel || [Secci�n] | [Nivel] | [III Ciclo / Diversificada]
+  R5: Encargado legal o estudiante mayor de edad || [Nombre] | [Contacto institucional de comunicaci�n]
+  R6: Asignaci�n y entrega || [Fecha de asignaci�n] | [Fecha de entrega]
+  R7: Puntuaci�n total y obtenida || 30 puntos | [____] puntos
+  R8: Calificaci�n obtenida || [____] sobre 100
+  R9: Firma del encargado legal o estudiante mayor de edad || ________________________________
+  R10: Equipo dise�ador del art�culo 141 || [Docente gu�a o designado] | [Docente 2] | [Docente 3]
+  R11: Seguimiento del Comit� de Evaluaci�n || [Nombre y contacto institucional]
+[P:Heading 1] Justificaci�n individual y acceso
+[P:Normal] Finalidad del proyecto: Reconocer efectos de las decisiones sobre la comunidad y proponer acciones de convivencia que prevengan su repetici�n.
+[P:Normal] Completar antes de comunicar: [antecedentes pertinentes del expediente, fortalezas, necesidades, apoyos y relaci�n entre la situaci�n individual y las habilidades seleccionadas]. No incluir datos sensibles en productos de difusi�n.
+[P:Normal] Constancia de verificaci�n de acciones correctivas previas por docente gu�a o designado: [cumplidas / no impuestas / situaci�n resuelta conforme al apartado 5]. Referencia y fecha: [____]. Firma: [____]. El TES no sustituye acciones correctivas pendientes.
+[P:Heading 1] 2 Parte t�cnica
+[P:Heading 1] 2 1 Instrucciones generales
+[P:Normal] Elaborar y poner a prueba una gu�a de acuerdos para cuidar las relaciones y los espacios compartidos. La reparaci�n es simb�lica y educativa: no exige reponer bienes, pagar da�os, retractarse p�blicamente ni encontrarse con personas afectadas.
+[P:Normal] Este TES se realiza una �nica vez. Se individualiza antes de su entrega y se desarrolla dentro del centro educativo. No exige trabajo remunerado, compra de materiales, confesiones ni exposici�n p�blica. Los productos y el acompa�amiento se ajustan a la edad, contexto y necesidades de la persona estudiante.
+[P:Heading 1] Objetivos formativos
+[P:Normal] 1. Reconocer efectos de las decisiones sobre la comunidad y proponer acciones de convivencia que prevengan su repetici�n.
+[P:Normal] 2. Planificar y desarrollar una actividad educativa verificable con acompa�amiento.
+[P:Normal] 3. Reflexionar sobre lo aprendido y definir compromisos concretos de convivencia.
+[P:Heading 1] Habilidades por fortalecer
+[P:Normal] Empat�a, responsabilidad personal, comunicaci�n asertiva y resoluci�n pac�fica de conflictos.
+[P:Normal] Selecci�n individual y evidencia esperada de cada habilidad: [____].
+[P:Heading 1] Seguridad y dignidad
+[P:Normal] No se asignan reparaciones materiales ni reposici�n de bienes. No se exigen confesiones, disculpas p�blicas, mediaci�n, contacto con v�ctimas ni exposici�n del expediente. Se utilizan situaciones ficticias o an�nimas.
+[P:Normal] La persona adulta revisa espacio, materiales y accesibilidad antes de cada sesi�n. Ante riesgo, dolor, fatiga o malestar emocional, se detiene la actividad y se avisa al supervisor. Se documenta el ajuste y se ofrece una alternativa equivalente; informar un riesgo o solicitar apoyos no reduce la puntuaci�n. No se eval�a fuerza, rapidez, cantidad de trabajo f�sico, obediencia silenciosa ni expresi�n de arrepentimiento.
+[P:Heading 1] Apoyos educativos y alternativas
+[P:Normal] Mantener los apoyos y ajustes que ya recibe la persona estudiante. Seg�n corresponda: lectura acompa�ada, instrucciones por pasos, pictogramas, respuesta oral transcrita, dibujos, letra ampliada, pausas, espacio tranquilo y acompa�amiento de Orientaci�n o Educaci�n Especial. No exigir internet ni equipo propio. El centro facilita materiales o una alternativa sin costo. Los apoyos no disminuyen la nota.
+[TABLE 3x2]
+  R1: Apoyo o ajuste acordado || Responsable y momento
+  R2: [Apoyo y formato de evidencia] || [Nombre / sesiones]
+  R3: [Alternativa equivalente y raz�n] || [Nombre / fecha]
+[P:Heading 1] 2 2 Instrucciones espec�ficas
+[P:Normal] Trabaje las cinco actividades en el orden acordado. Revise las instrucciones con la persona supervisora, conserve las evidencias y solicite explicaci�n cuando la necesite. Puede usar los apoyos establecidos en todas las actividades.
+[P:Heading 2] Actividad 1 Diagn�stico de convivencia
+[P:Normal] Analice un caso ficticio sobre uso de un espacio compartido. Identifique necesidad, dos efectos sobre otras personas y dos perspectivas. No identifique a personas reales.
+[P:Normal] Producto esperado: Ficha de diagn�stico.
+[P:Heading 2] Actividad 2 Propuesta simb�lica
+[P:Normal] Prepare una gu�a con tres acuerdos, una acci�n de beneficio colectivo y una explicaci�n de su utilidad. Revise con la persona supervisora que no reproduzca una acci�n correctiva.
+[P:Normal] Producto esperado: Gu�a de acuerdos y plan.
+[P:Heading 2] Actividad 3 Ensayo acompa�ado
+[P:Normal] Ensaye la aplicaci�n de los acuerdos en una simulaci�n con la persona supervisora. Practique escuchar, expresar una necesidad y proponer una soluci�n. No se exige intervenci�n p�blica.
+[P:Normal] Producto esperado: Registro del ensayo.
+[P:Heading 2] Actividad 4 Revisi�n del producto
+[P:Normal] Recoja una observaci�n de la persona supervisora; ajuste la gu�a y explique el cambio. La difusi�n institucional es opcional y requiere revisi�n previa.
+[P:Normal] Producto esperado: Gu�a final y cambio explicado.
+[P:Heading 2] Actividad 5 Reflexi�n y entrega
+[P:Normal] Explique una decisi�n, sus efectos y una alternativa. Formule dos compromisos personales indicando cu�ndo los aplicar� y c�mo comprobar� su cumplimiento. Entregue el portafolio.
+[P:Normal] Producto esperado: Reflexi�n y compromisos.
+[P:Heading 1] Cronograma editable
+[P:Normal] Propuesta orientadora de cinco sesiones de 30 a 40 minutos, con pausas y ajuste individual; no es una duraci�n exigida por el MEP. Complete fechas, horario exacto y seguimiento antes de comunicar.
+[TABLE 6x4]
+  R1: Actividad || Fecha y horario || Lugar || Seguimiento del Comit�
+  R2: 1 Diagn�stico de convivencia || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R3: 2 Propuesta simb�lica || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R4: 3 Ensayo acompa�ado || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R5: 4 Revisi�n del producto || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R6: 5 Reflexi�n y entrega || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+[P:Heading 1] Condiciones del cronograma
+[P:Normal] Comunicar y entregar con al menos cinco d�as h�biles de antelaci�n al inicio. Ejecutar en la semana de la primera convocatoria de ampliaci�n; la segunda convocatoria requiere causa justificada y documentada por el Comit�. Las pruebas de ampliaci�n tienen prioridad; no programar TES en d�as con dos pruebas. La ausencia justificada conforme al art�culo 36 se reprograma dentro del per�odo del TES y no constituye otro trabajo.
+[P:Normal] Fecha de comunicaci�n: [____]. Inicio: [____]. Fin: [____]. Pruebas y ajustes: [____]. Verificaci�n del Comit� dentro de los tres d�as h�biles posteriores a la finalizaci�n y entrega de evidencias: [____]. Prever resoluci�n de recursos antes de certificados, graduaci�n o inicio del siguiente curso, seg�n corresponda.
+[P:Heading 1] Productos y evidencias esperadas
+[P:Normal] E1. Ficha de diagn�stico. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E2. Gu�a de acuerdos y plan. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E3. Registro del ensayo. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E4. Gu�a final y cambio explicado. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E5. Reflexi�n y compromisos. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E6. Registro de acompa�amiento y valoraci�n del Comit�. No se requieren fotograf�as, audio o video de personas. La supervisi�n registra fecha, actividad, apoyo brindado y evidencia observada; la falta de registro del adulto no se atribuye autom�ticamente al estudiante.
+[TABLE 3x4]
+  R1: Fecha y actividad || Evidencia y observaci�n || Apoyo o ajuste || Responsable
+  R2: [____] || [____] || [____] || [____]
+  R3: [____] || [____] || [____] || [____]
+[P:Heading 1] Compromisos
+[P:Normal] Estudiante: realizar las actividades y aportar evidencias con los apoyos acordados; comunicar dificultades y detenerse ante riesgos. Compromiso personal 1: [conducta, situaci�n y seguimiento]. Compromiso personal 2: [conducta, situaci�n y seguimiento].
+[P:Normal] Centro educativo: proporcionar instrucciones, materiales, supervisi�n, apoyos y trato digno; proteger la confidencialidad y documentar ajustes. Familia, cuando corresponda: apoyar la organizaci�n y comunicar dificultades, sin sustituir la autor�a del estudiante. Estos compromisos no implican renuncia a recursos ni admisi�n de hechos.
+[P:Normal] Firma estudiante: __________________  Fecha: __________
+Firma encargado legal, si corresponde: __________________
+Firma responsable del Comit�: __________________
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 1 de 3
+[P:Normal] Seis indicadores de 0 a 5 puntos, con igual peso. En cada indicador se verifican cinco componentes observables A a E. Se asigna el nivel que corresponde al n�mero exacto de componentes demostrados; no se exige orden entre ellos. El apoyo acordado puede utilizarse en cualquier nivel. No se punt�a la actuaci�n material de terceras personas.
+[P:Heading 2] Indicador 1 An�lisis de la necesidad
+[P:Normal] A. Identifica una necesidad de convivencia.
+B. Describe un efecto sobre otras personas.
+C. Describe un segundo efecto distinto.
+D. Explica una perspectiva diferente de la propia.
+E. Relaciona la necesidad con una habilidad por fortalecer.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 2 Plan de reparaci�n simb�lica
+[P:Normal] A. Propone una acci�n simb�lica concreta.
+B. Identifica a la comunidad beneficiaria sin nombres.
+C. Explica el beneficio para la convivencia.
+D. Define los pasos de la acci�n.
+E. Distingue la propuesta de pagar o reponer da�os.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 2 de 3
+[P:Heading 2] Indicador 3 Gu�a de acuerdos
+[P:Normal] A. Incluye un acuerdo observable.
+B. Incluye un segundo acuerdo observable.
+C. Incluye un tercer acuerdo observable.
+D. Explica c�mo aplicar los acuerdos.
+E. Incluye una v�a de di�logo ante desacuerdos.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 4 Comunicaci�n en el ensayo
+[P:Normal] A. Expresa una necesidad sin insultos.
+B. Escucha o recoge la perspectiva presentada.
+C. Parafrasea la perspectiva de la otra persona.
+D. Propone una soluci�n pac�fica.
+E. Verifica si la soluci�n atiende la necesidad.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 3 de 3
+[P:Heading 2] Indicador 5 Revisi�n y evidencias
+[P:Normal] A. Aporta ficha de diagn�stico.
+B. Aporta propuesta y gu�a inicial.
+C. Aporta registro del ensayo.
+D. Aporta gu�a final con un cambio identificado.
+E. Explica la raz�n del cambio con la observaci�n recibida.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 6 Reflexi�n y prevenci�n
+[P:Normal] A. Describe una decisi�n analizada.
+B. Explica una consecuencia de esa decisi�n.
+C. Propone una alternativa de actuaci�n.
+D. Formula un compromiso con situaci�n de aplicaci�n.
+E. Formula otro compromiso con forma de seguimiento.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] Resultado de la valoraci�n
+[P:Normal] La persona estudiante deber� adjuntar las evidencias correspondientes a las actividades realizadas. El Comit� utiliza la r�brica y las evidencias aportadas y recabadas para verificar el cumplimiento.
+[TABLE 9x2]
+  R1: Indicador || Puntaje
+  R2: 1 An�lisis de la necesidad || [__] / 5
+  R3: 2 Plan de reparaci�n simb�lica || [__] / 5
+  R4: 3 Gu�a de acuerdos || [__] / 5
+  R5: 4 Comunicaci�n en el ensayo || [__] / 5
+  R6: 5 Revisi�n y evidencias || [__] / 5
+  R7: 6 Reflexi�n y prevenci�n || [__] / 5
+  R8: Puntuaci�n obtenida || [__] / 30
+  R9: Calificaci�n TES || (Puntaje obtenido � 30) � 100 = [____]
+[P:Normal] Umbrales: 65 para I, II y III Ciclos de Educaci�n General B�sica; 70 para Educaci�n Diversificada. En secundaria, seleccionar III Ciclo o Diversificada. Con esta escala entera de 30 puntos, 20 puntos equivalen a 66,67 y superan 65; 21 puntos equivalen a 70. Comparar el resultado sin redondeo previo; los decimales mostrados son informativos.
+[P:Normal] Nivel aplicable: [____]. Umbral: [____]. Resultado del TES: [aprobado / reprobado]. Motivaci�n y evidencias: [________________________________________________].
+[P:Normal] La calificaci�n del TES se distingue de la nota final de conducta. Si aprueba, se registra como nota final de conducta la m�nima de aprobaci�n, 65 o 70 seg�n nivel; si no aprueba, se mantiene la nota de conducta obtenida y se consigna la condici�n de reprobado. Corresponde al Comit� comunicar el resultado mediante Anexo 3 y la condici�n a la persona docente mediante Anexo 4; estos documentos de cierre se emiten al finalizar la verificaci�n.
+[P:Heading 1] Recursos y firmas de recibido
+[P:Normal] Contra la asignaci�n y contra el resultado proceden revocatoria ante el Comit� de Evaluaci�n de los Aprendizajes y apelaci�n ante la direcci�n, dentro de los tres d�as h�biles siguientes a la comunicaci�n respectiva, por aplicaci�n anal�gica del art�culo 171. El Comit� resuelve revocatoria en tres d�as h�biles y la direcci�n apelaci�n en ocho d�as h�biles desde su recepci�n o remisi�n. Si se presentan juntos y la revocatoria se declara sin lugar, el Comit� remite inmediatamente la apelaci�n.
+[P:Normal] Firma de recibido de estudiante: __________________________
+Firma de recibido de encargado legal, si corresponde: __________________
+Firma de integrante del Comit�: __________________  Fecha: __________
+[P:Normal] Dise�o: equipo del art�culo 141, con consulta a Orientaci�n cuando exista. Supervisi�n y verificaci�n: Comit�. Si el docente gu�a, a cargo o designado integra el Comit�, se abstiene de supervisar y verificar el TES del estudiantado a su cargo.
+[P:Normal] Referencia institucional: MEP, Lineamiento para el trabajo con enfoque socioeducativo y la promoci�n de la conducta, apartados 5 a 12 y 13.3; Anexo 1, p�ginas 25 y 26; Anexo 2, p�ginas 27 y 28. Las actividades, componentes y r�brica de este documento son concreciones pedag�gicas institucionales sujetas a individualizaci�n.
+[P:Heading 1] Anexo 2
+[P:Normal] Constancia de comunicaci�n y entrega del TES dirigida a la persona representante legal de la persona estudiante menor de edad o a la persona estudiante mayor de edad
+[P:Normal] Liceo de Calle Fallas
+Fecha: [________________]
+Se�or o se�ora: [________________________________]
+Persona encargada legal / Persona estudiante mayor de edad
+[P:Normal] Asunto: Comunicaci�n y entrega del Trabajo con Enfoque Socioeducativo (TES)
+[P:Normal] El Comit� de Evaluaci�n de los Aprendizajes comunica formalmente que la persona estudiante [________________________________], de la secci�n [________], se encuentra en condici�n de aplazada en conducta y, de conformidad con el art�culo 146 del Reglamento de Evaluaci�n de los Aprendizajes y de la Conducta (REAC), debe realizar un Trabajo con Enfoque Socioeducativo (TES).
+[P:Normal] Modalidad asignada: Proyecto de reparaci�n comunitaria.
+[P:Normal] Para tal efecto, se hace entrega del documento correspondiente (adjunto a esta constancia), en el cual se establecen:
+[P:Normal] � La justificaci�n.
+[P:Normal] � Los objetivos formativos del TES.
+[P:Normal] � Las habilidades que se pretenden fortalecer.
+[P:Normal] � Los apoyos educativos que correspondan.
+[P:Normal] � Las actividades que deber� realizar la persona estudiante.
+[P:Normal] � El cronograma de ejecuci�n con las fechas, horarios, lugares de ejecuci�n, entre otros.
+[P:Normal] � El instrumento, criterios e indicadores para la verificaci�n.
+[P:Normal] � Las evidencias requeridas.
+[P:Normal] � Los compromisos establecidos para el fortalecimiento de la convivencia y la prevenci�n de nuevas situaciones relacionadas con la conducta.
+[P:Normal] La persona estudiante deber� realizar las actividades establecidas en el TES y aportar las evidencias requeridas, conforme al cronograma y las condiciones se�aladas en el documento entregado.
+[P:Normal] De conformidad con el art�culo 146 del REAC, el cambio de condici�n de la persona estudiante respecto de la conducta estar� sujeto a la verificaci�n del cumplimiento del TES. Para que la persona estudiante tenga la condici�n de aprobada y pueda matricular el siguiente nivel, deber� aprobar dicho trabajo.
+[P:Heading 1] Anexo 2 continuaci�n
+[P:Normal] En caso de que la persona estudiante no apruebe el TES con la nota m�nima (65 en I, II y III Ciclos de la Educaci�n General B�sica y 70 en Educaci�n Diversificada), tendr� la condici�n de reprobada en conducta y deber� repetir integralmente el curso o periodo lectivo, conforme a lo dispuesto en el art�culo 146 del REAC.
+[P:Normal] Cuando se presente una ausencia justificada a una actividad del TES, esta ser� reprogramada dentro del per�odo establecido, de conformidad con las disposiciones del lineamiento t�cnico.
+[P:Normal] Contra la comunicaci�n y asignaci�n del TES proceden los recursos de revocatoria ante el Comit� de Evaluaci�n de los Aprendizajes y de apelaci�n ante la persona directora del centro educativo, los cuales deber�n interponerse dentro de los tres d�as h�biles siguientes a su comunicaci�n, conforme al r�gimen establecido en el lineamiento mediante aplicaci�n anal�gica del art�culo 171 del REAC.
+[P:Heading 1] Constancia de recibido
+[P:Normal] Por medio de la presente, se deja constancia de que la persona encargada legal de la persona estudiante menor de edad o la persona estudiante mayor de edad recibe la comunicaci�n y el documento correspondiente al TES y conoce su contenido.
+[P:Normal] La firma de esta constancia acredita �nicamente la recepci�n de la comunicaci�n y del TES y no implica aceptaci�n de su contenido.
+[TABLE 8x2]
+  R1: Dato || Informaci�n
+  R2: Nombre de la persona estudiante || [________________________________]
+  R3: N�mero de identificaci�n de la persona estudiante || [________________________________]
+  R4: Nombre de la persona encargada legal || [________________________________]
+  R5: N�mero de identificaci�n de la persona encargada legal || [________________________________]
+  R6: Firma || ________________________________
+  R7: Fecha de recepci�n || [________________________________]
+  R8: Nombre y firma de la persona representante del Comit� de Evaluaci�n de los Aprendizajes || [________________________________]
+________________________________
+[P:Normal] Sello del centro educativo
+
+Observaciones: __________________________________________________
+________________________________________________________________
+________________________________________________________________
+[P:Normal] Control de entrega institucional: [medio de comunicaci�n] | [fecha y hora] | [referencia del acta]. Documento entregado: Anexo 1 completo con r�brica de esta modalidad. Si se recibe y no se firma, documentar la entrega y la negativa por el mecanismo de constancia correspondiente; no constituye renuncia a derechos.
+
+====================================================================================================
+02_Aseo_comunitario.docx
+====================================================================================================
+[FOOTER 1] Liceo de Calle Fallas  |  TES  |
+[P:Title] Proyecto de aseo comunitario
+[P:Normal] Liceo de Calle Fallas | Secundaria
+[P:Normal] Cuidado ligero del entorno y educaci�n ambiental
+[P:Heading 1] Anexo 1
+[P:Normal] Instrumento de evaluaci�n con los criterios e indicadores de valoraci�n para el trabajo con enfoque socioeducativo
+[P:Heading 1] 1 Parte administrativa
+[TABLE 11x2]
+  R1: Dato || Informaci�n editable
+  R2: Centro educativo || Liceo de Calle Fallas
+  R3: Estudiante e identificaci�n || [Nombre completo] | [Identificaci�n]
+  R4: Secci�n y nivel || [Secci�n] | [Nivel] | [III Ciclo / Diversificada]
+  R5: Encargado legal o estudiante mayor de edad || [Nombre] | [Contacto institucional de comunicaci�n]
+  R6: Asignaci�n y entrega || [Fecha de asignaci�n] | [Fecha de entrega]
+  R7: Puntuaci�n total y obtenida || 30 puntos | [____] puntos
+  R8: Calificaci�n obtenida || [____] sobre 100
+  R9: Firma del encargado legal o estudiante mayor de edad || ________________________________
+  R10: Equipo dise�ador del art�culo 141 || [Docente gu�a o designado] | [Docente 2] | [Docente 3]
+  R11: Seguimiento del Comit� de Evaluaci�n || [Nombre y contacto institucional]
+[P:Heading 1] Justificaci�n individual y acceso
+[P:Normal] Finalidad del proyecto: Comprender la relaci�n entre cuidado del entorno, responsabilidad compartida y bienestar de las personas, y practicar una acci�n segura de mejora.
+[P:Normal] Completar antes de comunicar: [antecedentes pertinentes del expediente, fortalezas, necesidades, apoyos y relaci�n entre la situaci�n individual y las habilidades seleccionadas]. No incluir datos sensibles en productos de difusi�n.
+[P:Normal] Constancia de verificaci�n de acciones correctivas previas por docente gu�a o designado: [cumplidas / no impuestas / situaci�n resuelta conforme al apartado 5]. Referencia y fecha: [____]. Firma: [____]. El TES no sustituye acciones correctivas pendientes.
+[P:Heading 1] 2 Parte t�cnica
+[P:Heading 1] 2 1 Instrucciones generales
+[P:Normal] Identificar una necesidad de cuidado del aula y desarrollar una acci�n breve de orden y educaci�n ambiental en un espacio previamente revisado. El prop�sito es aprender corresponsabilidad; no sustituye el servicio de limpieza ni exige limpiar el colegio.
+[P:Normal] Este TES se realiza una �nica vez. Se individualiza antes de su entrega y se desarrolla dentro del centro educativo. No exige trabajo remunerado, compra de materiales, confesiones ni exposici�n p�blica. Los productos y el acompa�amiento se ajustan a la edad, contexto y necesidades de la persona estudiante.
+[P:Heading 1] Objetivos formativos
+[P:Normal] 1. Comprender la relaci�n entre cuidado del entorno, responsabilidad compartida y bienestar de las personas, y practicar una acci�n segura de mejora.
+[P:Normal] 2. Planificar y desarrollar una actividad educativa verificable con acompa�amiento.
+[P:Normal] 3. Reflexionar sobre lo aprendido y definir compromisos concretos de convivencia.
+[P:Heading 1] Habilidades por fortalecer
+[P:Normal] Responsabilidad, colaboraci�n, respeto de normas y autorregulaci�n.
+[P:Normal] Selecci�n individual y evidencia esperada de cada habilidad: [____].
+[P:Heading 1] Seguridad y dignidad
+[P:Normal] Solo ordenar papeler�a propia o materiales livianos y limpios, y retirar papel limpio sobre una mesa accesible previamente revisada por una persona adulta. No se asignan ba�os, basura mezclada, contenedores, vidrios, objetos punzantes, fluidos, moho, polvo acumulado, productos de limpieza, barrido que levante polvo, cargas, alturas ni superficies resbalosas. No se recogen residuos desconocidos. Ante un hallazgo, detenerse y avisar; el personal competente lo atiende. Alternativa equivalente: mapa de cuidado del aula, clasificaci�n simulada con tarjetas y gu�a preventiva, sin contacto con residuos.
+[P:Normal] La persona adulta revisa espacio, materiales y accesibilidad antes de cada sesi�n. Ante riesgo, dolor, fatiga o malestar emocional, se detiene la actividad y se avisa al supervisor. Se documenta el ajuste y se ofrece una alternativa equivalente; informar un riesgo o solicitar apoyos no reduce la puntuaci�n. No se eval�a fuerza, rapidez, cantidad de trabajo f�sico, obediencia silenciosa ni expresi�n de arrepentimiento.
+[P:Heading 1] Apoyos educativos y alternativas
+[P:Normal] Mantener los apoyos y ajustes que ya recibe la persona estudiante. Seg�n corresponda: lectura acompa�ada, instrucciones por pasos, pictogramas, respuesta oral transcrita, dibujos, letra ampliada, pausas, espacio tranquilo y acompa�amiento de Orientaci�n o Educaci�n Especial. No exigir internet ni equipo propio. El centro facilita materiales o una alternativa sin costo. Los apoyos no disminuyen la nota.
+[TABLE 3x2]
+  R1: Apoyo o ajuste acordado || Responsable y momento
+  R2: [Apoyo y formato de evidencia] || [Nombre / sesiones]
+  R3: [Alternativa equivalente y raz�n] || [Nombre / fecha]
+[P:Heading 1] 2 2 Instrucciones espec�ficas
+[P:Normal] Trabaje las cinco actividades en el orden acordado. Revise las instrucciones con la persona supervisora, conserve las evidencias y solicite explicaci�n cuando la necesite. Puede usar los apoyos establecidos en todas las actividades.
+[P:Heading 2] Actividad 1 Observaci�n guiada
+[P:Normal] Desde un sitio accesible, observe un aula revisada por la persona adulta. Registre una necesidad, dos efectos sobre el bienestar y una posible causa; no toque residuos.
+[P:Normal] Producto esperado: Mapa o ficha del entorno.
+[P:Heading 2] Actividad 2 Plan seguro
+[P:Normal] Elija con la persona supervisora orden ligero o la alternativa con tarjetas. Delimite una mesa o conjunto peque�o de materiales limpios, recursos, pasos y se�al de detenci�n.
+[P:Normal] Producto esperado: Plan de cuidado.
+[P:Heading 2] Actividad 3 Acci�n educativa
+[P:Normal] Realice �nicamente la tarea delimitada y supervisada, con pausas acordadas. En la alternativa, organice tarjetas de residuos simulados y explique las decisiones. No hay cuota de basura ni �rea m�nima.
+[P:Normal] Producto esperado: Registro de acci�n o simulaci�n.
+[P:Heading 2] Actividad 4 Gu�a de prevenci�n
+[P:Normal] Elabore una gu�a con tres medidas para mantener el espacio cuidado, indicando responsables compartidos y c�mo evitar riesgos. Rev�sela con la persona supervisora.
+[P:Normal] Producto esperado: Gu�a de cuidado.
+[P:Heading 2] Actividad 5 Reflexi�n y entrega
+[P:Normal] Compare la situaci�n inicial y el resultado mediante notas o dibujos, explique un aprendizaje y establezca dos compromisos comprobables. Entregue evidencias sin fotograf�as de personas.
+[P:Normal] Producto esperado: Comparaci�n y reflexi�n.
+[P:Heading 1] Cronograma editable
+[P:Normal] Propuesta orientadora de cinco sesiones de 30 a 40 minutos, con pausas y ajuste individual; no es una duraci�n exigida por el MEP. Complete fechas, horario exacto y seguimiento antes de comunicar.
+[TABLE 6x4]
+  R1: Actividad || Fecha y horario || Lugar || Seguimiento del Comit�
+  R2: 1 Observaci�n guiada || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R3: 2 Plan seguro || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R4: 3 Acci�n educativa || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R5: 4 Gu�a de prevenci�n || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R6: 5 Reflexi�n y entrega || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+[P:Heading 1] Condiciones del cronograma
+[P:Normal] Comunicar y entregar con al menos cinco d�as h�biles de antelaci�n al inicio. Ejecutar en la semana de la primera convocatoria de ampliaci�n; la segunda convocatoria requiere causa justificada y documentada por el Comit�. Las pruebas de ampliaci�n tienen prioridad; no programar TES en d�as con dos pruebas. La ausencia justificada conforme al art�culo 36 se reprograma dentro del per�odo del TES y no constituye otro trabajo.
+[P:Normal] Fecha de comunicaci�n: [____]. Inicio: [____]. Fin: [____]. Pruebas y ajustes: [____]. Verificaci�n del Comit� dentro de los tres d�as h�biles posteriores a la finalizaci�n y entrega de evidencias: [____]. Prever resoluci�n de recursos antes de certificados, graduaci�n o inicio del siguiente curso, seg�n corresponda.
+[P:Heading 1] Productos y evidencias esperadas
+[P:Normal] E1. Mapa o ficha del entorno. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E2. Plan de cuidado. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E3. Registro de acci�n o simulaci�n. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E4. Gu�a de cuidado. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E5. Comparaci�n y reflexi�n. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E6. Registro de acompa�amiento y valoraci�n del Comit�. No se requieren fotograf�as, audio o video de personas. La supervisi�n registra fecha, actividad, apoyo brindado y evidencia observada; la falta de registro del adulto no se atribuye autom�ticamente al estudiante.
+[TABLE 3x4]
+  R1: Fecha y actividad || Evidencia y observaci�n || Apoyo o ajuste || Responsable
+  R2: [____] || [____] || [____] || [____]
+  R3: [____] || [____] || [____] || [____]
+[P:Heading 1] Compromisos
+[P:Normal] Estudiante: realizar las actividades y aportar evidencias con los apoyos acordados; comunicar dificultades y detenerse ante riesgos. Compromiso personal 1: [conducta, situaci�n y seguimiento]. Compromiso personal 2: [conducta, situaci�n y seguimiento].
+[P:Normal] Centro educativo: proporcionar instrucciones, materiales, supervisi�n, apoyos y trato digno; proteger la confidencialidad y documentar ajustes. Familia, cuando corresponda: apoyar la organizaci�n y comunicar dificultades, sin sustituir la autor�a del estudiante. Estos compromisos no implican renuncia a recursos ni admisi�n de hechos.
+[P:Normal] Firma estudiante: __________________  Fecha: __________
+Firma encargado legal, si corresponde: __________________
+Firma responsable del Comit�: __________________
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 1 de 3
+[P:Normal] Seis indicadores de 0 a 5 puntos, con igual peso. En cada indicador se verifican cinco componentes observables A a E. Se asigna el nivel que corresponde al n�mero exacto de componentes demostrados; no se exige orden entre ellos. El apoyo acordado puede utilizarse en cualquier nivel. No se punt�a la actuaci�n material de terceras personas.
+[P:Heading 2] Indicador 1 Diagn�stico del entorno
+[P:Normal] A. Identifica el espacio observado.
+B. Describe una necesidad de cuidado.
+C. Explica un efecto sobre el bienestar.
+D. Explica un segundo efecto distinto.
+E. Se�ala una posible causa sin culpabilizar a personas.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 2 Plan de cuidado seguro
+[P:Normal] A. Delimita la tarea o simulaci�n.
+B. Enumera materiales permitidos.
+C. Ordena los pasos de ejecuci�n.
+D. Identifica un riesgo que debe evitar.
+E. Indica a qui�n avisar y cu�ndo detenerse.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 2 de 3
+[P:Heading 2] Indicador 3 Acci�n o simulaci�n de cuidado
+[P:Normal] A. Reconoce los materiales permitidos antes de actuar.
+B. Sigue el primer paso del plan.
+C. Completa la secuencia acordada dentro de la tarea delimitada.
+D. Explica el destino de los materiales o tarjetas.
+E. Registra el resultado de la tarea o simulaci�n.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 4 Gu�a de prevenci�n
+[P:Normal] A. Propone una medida de cuidado observable.
+B. Propone una segunda medida distinta.
+C. Propone una tercera medida distinta.
+D. Distribuye responsabilidades de cuidado compartido.
+E. Incluye una advertencia sobre residuos que no se deben tocar.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 3 de 3
+[P:Heading 2] Indicador 5 Evidencias y comparaci�n
+[P:Normal] A. Aporta ficha o mapa inicial.
+B. Aporta plan seguro.
+C. Aporta registro de acci�n o simulaci�n.
+D. Describe el resultado final.
+E. Compara un aspecto inicial con el resultado sin inventar datos.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 6 Reflexi�n y corresponsabilidad
+[P:Normal] A. Explica una relaci�n entre entorno y bienestar.
+B. Reconoce una responsabilidad personal.
+C. Reconoce una responsabilidad compartida.
+D. Formula un compromiso con momento de aplicaci�n.
+E. Formula otro compromiso con forma de seguimiento.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] Resultado de la valoraci�n
+[P:Normal] La persona estudiante deber� adjuntar las evidencias correspondientes a las actividades realizadas. El Comit� utiliza la r�brica y las evidencias aportadas y recabadas para verificar el cumplimiento.
+[TABLE 9x2]
+  R1: Indicador || Puntaje
+  R2: 1 Diagn�stico del entorno || [__] / 5
+  R3: 2 Plan de cuidado seguro || [__] / 5
+  R4: 3 Acci�n o simulaci�n de cuidado || [__] / 5
+  R5: 4 Gu�a de prevenci�n || [__] / 5
+  R6: 5 Evidencias y comparaci�n || [__] / 5
+  R7: 6 Reflexi�n y corresponsabilidad || [__] / 5
+  R8: Puntuaci�n obtenida || [__] / 30
+  R9: Calificaci�n TES || (Puntaje obtenido � 30) � 100 = [____]
+[P:Normal] Umbrales: 65 para I, II y III Ciclos de Educaci�n General B�sica; 70 para Educaci�n Diversificada. En secundaria, seleccionar III Ciclo o Diversificada. Con esta escala entera de 30 puntos, 20 puntos equivalen a 66,67 y superan 65; 21 puntos equivalen a 70. Comparar el resultado sin redondeo previo; los decimales mostrados son informativos.
+[P:Normal] Nivel aplicable: [____]. Umbral: [____]. Resultado del TES: [aprobado / reprobado]. Motivaci�n y evidencias: [________________________________________________].
+[P:Normal] La calificaci�n del TES se distingue de la nota final de conducta. Si aprueba, se registra como nota final de conducta la m�nima de aprobaci�n, 65 o 70 seg�n nivel; si no aprueba, se mantiene la nota de conducta obtenida y se consigna la condici�n de reprobado. Corresponde al Comit� comunicar el resultado mediante Anexo 3 y la condici�n a la persona docente mediante Anexo 4; estos documentos de cierre se emiten al finalizar la verificaci�n.
+[P:Heading 1] Recursos y firmas de recibido
+[P:Normal] Contra la asignaci�n y contra el resultado proceden revocatoria ante el Comit� de Evaluaci�n de los Aprendizajes y apelaci�n ante la direcci�n, dentro de los tres d�as h�biles siguientes a la comunicaci�n respectiva, por aplicaci�n anal�gica del art�culo 171. El Comit� resuelve revocatoria en tres d�as h�biles y la direcci�n apelaci�n en ocho d�as h�biles desde su recepci�n o remisi�n. Si se presentan juntos y la revocatoria se declara sin lugar, el Comit� remite inmediatamente la apelaci�n.
+[P:Normal] Firma de recibido de estudiante: __________________________
+Firma de recibido de encargado legal, si corresponde: __________________
+Firma de integrante del Comit�: __________________  Fecha: __________
+[P:Normal] Dise�o: equipo del art�culo 141, con consulta a Orientaci�n cuando exista. Supervisi�n y verificaci�n: Comit�. Si el docente gu�a, a cargo o designado integra el Comit�, se abstiene de supervisar y verificar el TES del estudiantado a su cargo.
+[P:Normal] Referencia institucional: MEP, Lineamiento para el trabajo con enfoque socioeducativo y la promoci�n de la conducta, apartados 5 a 12 y 13.3; Anexo 1, p�ginas 25 y 26; Anexo 2, p�ginas 27 y 28. Las actividades, componentes y r�brica de este documento son concreciones pedag�gicas institucionales sujetas a individualizaci�n.
+[P:Heading 1] Anexo 2
+[P:Normal] Constancia de comunicaci�n y entrega del TES dirigida a la persona representante legal de la persona estudiante menor de edad o a la persona estudiante mayor de edad
+[P:Normal] Liceo de Calle Fallas
+Fecha: [________________]
+Se�or o se�ora: [________________________________]
+Persona encargada legal / Persona estudiante mayor de edad
+[P:Normal] Asunto: Comunicaci�n y entrega del Trabajo con Enfoque Socioeducativo (TES)
+[P:Normal] El Comit� de Evaluaci�n de los Aprendizajes comunica formalmente que la persona estudiante [________________________________], de la secci�n [________], se encuentra en condici�n de aplazada en conducta y, de conformidad con el art�culo 146 del Reglamento de Evaluaci�n de los Aprendizajes y de la Conducta (REAC), debe realizar un Trabajo con Enfoque Socioeducativo (TES).
+[P:Normal] Modalidad asignada: Proyecto de aseo comunitario.
+[P:Normal] Para tal efecto, se hace entrega del documento correspondiente (adjunto a esta constancia), en el cual se establecen:
+[P:Normal] � La justificaci�n.
+[P:Normal] � Los objetivos formativos del TES.
+[P:Normal] � Las habilidades que se pretenden fortalecer.
+[P:Normal] � Los apoyos educativos que correspondan.
+[P:Normal] � Las actividades que deber� realizar la persona estudiante.
+[P:Normal] � El cronograma de ejecuci�n con las fechas, horarios, lugares de ejecuci�n, entre otros.
+[P:Normal] � El instrumento, criterios e indicadores para la verificaci�n.
+[P:Normal] � Las evidencias requeridas.
+[P:Normal] � Los compromisos establecidos para el fortalecimiento de la convivencia y la prevenci�n de nuevas situaciones relacionadas con la conducta.
+[P:Normal] La persona estudiante deber� realizar las actividades establecidas en el TES y aportar las evidencias requeridas, conforme al cronograma y las condiciones se�aladas en el documento entregado.
+[P:Normal] De conformidad con el art�culo 146 del REAC, el cambio de condici�n de la persona estudiante respecto de la conducta estar� sujeto a la verificaci�n del cumplimiento del TES. Para que la persona estudiante tenga la condici�n de aprobada y pueda matricular el siguiente nivel, deber� aprobar dicho trabajo.
+[P:Heading 1] Anexo 2 continuaci�n
+[P:Normal] En caso de que la persona estudiante no apruebe el TES con la nota m�nima (65 en I, II y III Ciclos de la Educaci�n General B�sica y 70 en Educaci�n Diversificada), tendr� la condici�n de reprobada en conducta y deber� repetir integralmente el curso o periodo lectivo, conforme a lo dispuesto en el art�culo 146 del REAC.
+[P:Normal] Cuando se presente una ausencia justificada a una actividad del TES, esta ser� reprogramada dentro del per�odo establecido, de conformidad con las disposiciones del lineamiento t�cnico.
+[P:Normal] Contra la comunicaci�n y asignaci�n del TES proceden los recursos de revocatoria ante el Comit� de Evaluaci�n de los Aprendizajes y de apelaci�n ante la persona directora del centro educativo, los cuales deber�n interponerse dentro de los tres d�as h�biles siguientes a su comunicaci�n, conforme al r�gimen establecido en el lineamiento mediante aplicaci�n anal�gica del art�culo 171 del REAC.
+[P:Heading 1] Constancia de recibido
+[P:Normal] Por medio de la presente, se deja constancia de que la persona encargada legal de la persona estudiante menor de edad o la persona estudiante mayor de edad recibe la comunicaci�n y el documento correspondiente al TES y conoce su contenido.
+[P:Normal] La firma de esta constancia acredita �nicamente la recepci�n de la comunicaci�n y del TES y no implica aceptaci�n de su contenido.
+[TABLE 8x2]
+  R1: Dato || Informaci�n
+  R2: Nombre de la persona estudiante || [________________________________]
+  R3: N�mero de identificaci�n de la persona estudiante || [________________________________]
+  R4: Nombre de la persona encargada legal || [________________________________]
+  R5: N�mero de identificaci�n de la persona encargada legal || [________________________________]
+  R6: Firma || ________________________________
+  R7: Fecha de recepci�n || [________________________________]
+  R8: Nombre y firma de la persona representante del Comit� de Evaluaci�n de los Aprendizajes || [________________________________]
+________________________________
+[P:Normal] Sello del centro educativo
+
+Observaciones: __________________________________________________
+________________________________________________________________
+________________________________________________________________
+[P:Normal] Control de entrega institucional: [medio de comunicaci�n] | [fecha y hora] | [referencia del acta]. Documento entregado: Anexo 1 completo con r�brica de esta modalidad. Si se recibe y no se firma, documentar la entrega y la negativa por el mecanismo de constancia correspondiente; no constituye renuncia a derechos.
+
+====================================================================================================
+03_Aprendizaje_servicio.docx
+====================================================================================================
+[FOOTER 1] Liceo de Calle Fallas  |  TES  |
+[P:Title] Proyecto de aprendizaje servicio
+[P:Normal] Liceo de Calle Fallas | Secundaria
+[P:Normal] Diagn�stico y organizaci�n segura del cuidado de pupitres y paredes
+[P:Heading 1] Anexo 1
+[P:Normal] Instrumento de evaluaci�n con los criterios e indicadores de valoraci�n para el trabajo con enfoque socioeducativo
+[P:Heading 1] 1 Parte administrativa
+[TABLE 11x2]
+  R1: Dato || Informaci�n editable
+  R2: Centro educativo || Liceo de Calle Fallas
+  R3: Estudiante e identificaci�n || [Nombre completo] | [Identificaci�n]
+  R4: Secci�n y nivel || [Secci�n] | [Nivel] | [III Ciclo / Diversificada]
+  R5: Encargado legal o estudiante mayor de edad || [Nombre] | [Contacto institucional de comunicaci�n]
+  R6: Asignaci�n y entrega || [Fecha de asignaci�n] | [Fecha de entrega]
+  R7: Puntuaci�n total y obtenida || 30 puntos | [____] puntos
+  R8: Calificaci�n obtenida || [____] sobre 100
+  R9: Firma del encargado legal o estudiante mayor de edad || ________________________________
+  R10: Equipo dise�ador del art�culo 141 || [Docente gu�a o designado] | [Docente 2] | [Docente 3]
+  R11: Seguimiento del Comit� de Evaluaci�n || [Nombre y contacto institucional]
+[P:Heading 1] Justificaci�n individual y acceso
+[P:Normal] Finalidad del proyecto: Vincular una necesidad institucional con un servicio viable y aprender a planificar, colaborar y prevenir riesgos al cuidar bienes comunes.
+[P:Normal] Completar antes de comunicar: [antecedentes pertinentes del expediente, fortalezas, necesidades, apoyos y relaci�n entre la situaci�n individual y las habilidades seleccionadas]. No incluir datos sensibles en productos de difusi�n.
+[P:Normal] Constancia de verificaci�n de acciones correctivas previas por docente gu�a o designado: [cumplidas / no impuestas / situaci�n resuelta conforme al apartado 5]. Referencia y fecha: [____]. Firma: [____]. El TES no sustituye acciones correctivas pendientes.
+[P:Heading 1] 2 Parte t�cnica
+[P:Heading 1] 2 1 Instrucciones generales
+[P:Normal] Dise�ar un servicio educativo para el cuidado del mobiliario y las paredes mediante observaci�n, inventario visual, bocetos y organizaci�n documental. El lijado, barnizado y pintado reales se sustituyen por estas tareas seguras. La ejecuci�n de mantenimiento por personas adultas no es requisito de cumplimiento del TES.
+[P:Normal] Este TES se realiza una �nica vez. Se individualiza antes de su entrega y se desarrolla dentro del centro educativo. No exige trabajo remunerado, compra de materiales, confesiones ni exposici�n p�blica. Los productos y el acompa�amiento se ajustan a la edad, contexto y necesidades de la persona estudiante.
+[P:Heading 1] Objetivos formativos
+[P:Normal] 1. Vincular una necesidad institucional con un servicio viable y aprender a planificar, colaborar y prevenir riesgos al cuidar bienes comunes.
+[P:Normal] 2. Planificar y desarrollar una actividad educativa verificable con acompa�amiento.
+[P:Normal] 3. Reflexionar sobre lo aprendido y definir compromisos concretos de convivencia.
+[P:Heading 1] Habilidades por fortalecer
+[P:Normal] Pensamiento cr�tico, colaboraci�n, responsabilidad personal y respeto por las normas.
+[P:Normal] Selecci�n individual y evidencia esperada de cada habilidad: [____].
+[P:Heading 1] Seguridad y dignidad
+[P:Normal] La persona estudiante no lija, raspa, barniza ni pinta superficies reales; no manipula lijas, herramientas, solventes, pinturas, barnices ni envases, incluso vac�os. No se expone a polvo, vapores, trabajos en curso, instalaciones el�ctricas, alturas ni traslado de pupitres. La supervisi�n o el equipo de protecci�n no convierten estas tareas excluidas en actividades del proyecto. Toda intervenci�n material corresponde a personal adulto competente fuera del TES estudiantil. Se permite un boceto en papel con l�pices escolares y tarjetas limpias de organizaci�n.
+[P:Normal] La persona adulta revisa espacio, materiales y accesibilidad antes de cada sesi�n. Ante riesgo, dolor, fatiga o malestar emocional, se detiene la actividad y se avisa al supervisor. Se documenta el ajuste y se ofrece una alternativa equivalente; informar un riesgo o solicitar apoyos no reduce la puntuaci�n. No se eval�a fuerza, rapidez, cantidad de trabajo f�sico, obediencia silenciosa ni expresi�n de arrepentimiento.
+[P:Heading 1] Apoyos educativos y alternativas
+[P:Normal] Mantener los apoyos y ajustes que ya recibe la persona estudiante. Seg�n corresponda: lectura acompa�ada, instrucciones por pasos, pictogramas, respuesta oral transcrita, dibujos, letra ampliada, pausas, espacio tranquilo y acompa�amiento de Orientaci�n o Educaci�n Especial. No exigir internet ni equipo propio. El centro facilita materiales o una alternativa sin costo. Los apoyos no disminuyen la nota.
+[TABLE 3x2]
+  R1: Apoyo o ajuste acordado || Responsable y momento
+  R2: [Apoyo y formato de evidencia] || [Nombre / sesiones]
+  R3: [Alternativa equivalente y raz�n] || [Nombre / fecha]
+[P:Heading 1] 2 2 Instrucciones espec�ficas
+[P:Normal] Trabaje las cinco actividades en el orden acordado. Revise las instrucciones con la persona supervisora, conserve las evidencias y solicite explicaci�n cuando la necesite. Puede usar los apoyos establecidos en todas las actividades.
+[P:Heading 2] Actividad 1 Diagn�stico visual
+[P:Normal] Observe desde un lugar seguro, sin tocar superficies da�adas, hasta tres pupitres o un sector de pared. Dibuje o describa su estado y su uso. Si el �rea no es segura, use im�genes o casos preparados por el docente.
+[P:Normal] Producto esperado: Ficha de inventario visual.
+[P:Heading 2] Actividad 2 An�lisis del servicio
+[P:Normal] Explique la necesidad, poblaci�n beneficiaria y utilidad educativa. Distinga tareas documentales del estudiante y mantenimiento reservado a adultos.
+[P:Normal] Producto esperado: Ficha de servicio y roles.
+[P:Heading 2] Actividad 3 Plan y boceto
+[P:Normal] Prepare un boceto en papel y una secuencia documental con responsables, recursos disponibles y restricciones. No calcule ni manipule sustancias.
+[P:Normal] Producto esperado: Boceto y plan seguro.
+[P:Heading 2] Actividad 4 Servicio documental
+[P:Normal] Elabore un inventario, tarjetas de cuidado y una gu�a de conservaci�n. Entregue el paquete al supervisor, quien puede canalizarlo institucionalmente. No acceda a zonas de mantenimiento.
+[P:Normal] Producto esperado: Paquete documental.
+[P:Heading 2] Actividad 5 Evaluaci�n y entrega
+[P:Normal] Revise una observaci�n del supervisor, ajuste el paquete y explique lo aprendido sobre servicio, seguridad y convivencia. Formule dos compromisos.
+[P:Normal] Producto esperado: Paquete final y reflexi�n.
+[P:Heading 1] Cronograma editable
+[P:Normal] Propuesta orientadora de cinco sesiones de 30 a 40 minutos, con pausas y ajuste individual; no es una duraci�n exigida por el MEP. Complete fechas, horario exacto y seguimiento antes de comunicar.
+[TABLE 6x4]
+  R1: Actividad || Fecha y horario || Lugar || Seguimiento del Comit�
+  R2: 1 Diagn�stico visual || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R3: 2 An�lisis del servicio || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R4: 3 Plan y boceto || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R5: 4 Servicio documental || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+  R6: 5 Evaluaci�n y entrega || [Fecha / inicio / fin] || [Aula accesible] || [Nombre]
+[P:Heading 1] Condiciones del cronograma
+[P:Normal] Comunicar y entregar con al menos cinco d�as h�biles de antelaci�n al inicio. Ejecutar en la semana de la primera convocatoria de ampliaci�n; la segunda convocatoria requiere causa justificada y documentada por el Comit�. Las pruebas de ampliaci�n tienen prioridad; no programar TES en d�as con dos pruebas. La ausencia justificada conforme al art�culo 36 se reprograma dentro del per�odo del TES y no constituye otro trabajo.
+[P:Normal] Fecha de comunicaci�n: [____]. Inicio: [____]. Fin: [____]. Pruebas y ajustes: [____]. Verificaci�n del Comit� dentro de los tres d�as h�biles posteriores a la finalizaci�n y entrega de evidencias: [____]. Prever resoluci�n de recursos antes de certificados, graduaci�n o inicio del siguiente curso, seg�n corresponda.
+[P:Heading 1] Productos y evidencias esperadas
+[P:Normal] E1. Ficha de inventario visual. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E2. Ficha de servicio y roles. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E3. Boceto y plan seguro. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E4. Paquete documental. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E5. Paquete final y reflexi�n. Puede presentarse en papel, dibujos o respuesta oral documentada, seg�n los apoyos acordados.
+[P:Normal] E6. Registro de acompa�amiento y valoraci�n del Comit�. No se requieren fotograf�as, audio o video de personas. La supervisi�n registra fecha, actividad, apoyo brindado y evidencia observada; la falta de registro del adulto no se atribuye autom�ticamente al estudiante.
+[TABLE 3x4]
+  R1: Fecha y actividad || Evidencia y observaci�n || Apoyo o ajuste || Responsable
+  R2: [____] || [____] || [____] || [____]
+  R3: [____] || [____] || [____] || [____]
+[P:Heading 1] Compromisos
+[P:Normal] Estudiante: realizar las actividades y aportar evidencias con los apoyos acordados; comunicar dificultades y detenerse ante riesgos. Compromiso personal 1: [conducta, situaci�n y seguimiento]. Compromiso personal 2: [conducta, situaci�n y seguimiento].
+[P:Normal] Centro educativo: proporcionar instrucciones, materiales, supervisi�n, apoyos y trato digno; proteger la confidencialidad y documentar ajustes. Familia, cuando corresponda: apoyar la organizaci�n y comunicar dificultades, sin sustituir la autor�a del estudiante. Estos compromisos no implican renuncia a recursos ni admisi�n de hechos.
+[P:Normal] Firma estudiante: __________________  Fecha: __________
+Firma encargado legal, si corresponde: __________________
+Firma responsable del Comit�: __________________
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 1 de 3
+[P:Normal] Seis indicadores de 0 a 5 puntos, con igual peso. En cada indicador se verifican cinco componentes observables A a E. Se asigna el nivel que corresponde al n�mero exacto de componentes demostrados; no se exige orden entre ellos. El apoyo acordado puede utilizarse en cualquier nivel. No se punt�a la actuaci�n material de terceras personas.
+[P:Heading 2] Indicador 1 Diagn�stico visual de bienes comunes
+[P:Normal] A. Identifica el bien o caso observado.
+B. Describe su funci�n para la comunidad.
+C. Registra una necesidad de cuidado.
+D. Diferencia observaci�n de suposici�n.
+E. Explica el efecto de la necesidad en el uso compartido.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 2 Sentido del aprendizaje servicio
+[P:Normal] A. Identifica la necesidad que atiende.
+B. Identifica a los beneficiarios sin datos personales.
+C. Explica el beneficio del servicio documental.
+D. Relaciona el servicio con una habilidad propia.
+E. Delimita un resultado alcanzable sin mantenimiento real.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 2 de 3
+[P:Heading 2] Indicador 3 Distribuci�n segura de roles
+[P:Normal] A. Asigna al estudiante una tarea documental.
+B. Reserva el lijado real a adultos competentes.
+C. Reserva el barnizado real a adultos competentes.
+D. Reserva la pintura real a adultos competentes.
+E. Indica detenerse y avisar ante una zona de riesgo.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 4 Plan y boceto de conservaci�n
+[P:Normal] A. Incluye un boceto en papel legible.
+B. Relaciona el boceto con la necesidad.
+C. Ordena los pasos documentales.
+D. Identifica recursos escolares disponibles.
+E. Define un responsable de recepci�n del servicio.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] 2 3 Instrumento de evaluaci�n
+[P:Normal] 2 3 1 R�brica anal�tica espec�fica | Parte 3 de 3
+[P:Heading 2] Indicador 5 Paquete de servicio y revisi�n
+[P:Normal] A. Entrega inventario visual.
+B. Entrega tarjetas de cuidado.
+C. Entrega gu�a de conservaci�n.
+D. Registra una observaci�n del supervisor.
+E. Presenta un ajuste relacionado con esa observaci�n.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 2] Indicador 6 Reflexi�n sobre servicio y seguridad
+[P:Normal] A. Explica un aprendizaje del servicio.
+B. Explica por qu� se excluye una tarea peligrosa.
+C. Relaciona cuidado de bienes con convivencia.
+D. Formula un compromiso con momento de aplicaci�n.
+E. Formula otro compromiso con forma de seguimiento.
+[TABLE 7x2]
+  R1: Nivel || Descriptor verificable
+  R2: 0 puntos || No responde o no demuestra ning�n componente del indicador.
+  R3: 1 puntos || Demuestra un componente; los otros cuatro no se evidencian.
+  R4: 2 puntos || Demuestra dos componentes; los otros tres no se evidencian.
+  R5: 3 puntos || Demuestra tres componentes; los otros dos no se evidencian.
+  R6: 4 puntos || Demuestra cuatro componentes; uno no se evidencia.
+  R7: 5 puntos || Demuestra los cinco componentes A, B, C, D y E.
+[P:Normal] Componentes demostrados [A / B / C / D / E]: [____]  Puntaje: [__]/5
+Referencia de evidencia y observaci�n del Comit�: [________________]
+[P:Heading 1] Resultado de la valoraci�n
+[P:Normal] La persona estudiante deber� adjuntar las evidencias correspondientes a las actividades realizadas. El Comit� utiliza la r�brica y las evidencias aportadas y recabadas para verificar el cumplimiento.
+[TABLE 9x2]
+  R1: Indicador || Puntaje
+  R2: 1 Diagn�stico visual de bienes comunes || [__] / 5
+  R3: 2 Sentido del aprendizaje servicio || [__] / 5
+  R4: 3 Distribuci�n segura de roles || [__] / 5
+  R5: 4 Plan y boceto de conservaci�n || [__] / 5
+  R6: 5 Paquete de servicio y revisi�n || [__] / 5
+  R7: 6 Reflexi�n sobre servicio y seguridad || [__] / 5
+  R8: Puntuaci�n obtenida || [__] / 30
+  R9: Calificaci�n TES || (Puntaje obtenido � 30) � 100 = [____]
+[P:Normal] Umbrales: 65 para I, II y III Ciclos de Educaci�n General B�sica; 70 para Educaci�n Diversificada. En secundaria, seleccionar III Ciclo o Diversificada. Con esta escala entera de 30 puntos, 20 puntos equivalen a 66,67 y superan 65; 21 puntos equivalen a 70. Comparar el resultado sin redondeo previo; los decimales mostrados son informativos.
+[P:Normal] Nivel aplicable: [____]. Umbral: [____]. Resultado del TES: [aprobado / reprobado]. Motivaci�n y evidencias: [________________________________________________].
+[P:Normal] La calificaci�n del TES se distingue de la nota final de conducta. Si aprueba, se registra como nota final de conducta la m�nima de aprobaci�n, 65 o 70 seg�n nivel; si no aprueba, se mantiene la nota de conducta obtenida y se consigna la condici�n de reprobado. Corresponde al Comit� comunicar el resultado mediante Anexo 3 y la condici�n a la persona docente mediante Anexo 4; estos documentos de cierre se emiten al finalizar la verificaci�n.
+[P:Heading 1] Recursos y firmas de recibido
+[P:Normal] Contra la asignaci�n y contra el resultado proceden revocatoria ante el Comit� de Evaluaci�n de los Aprendizajes y apelaci�n ante la direcci�n, dentro de los tres d�as h�biles siguientes a la comunicaci�n respectiva, por aplicaci�n anal�gica del art�culo 171. El Comit� resuelve revocatoria en tres d�as h�biles y la direcci�n apelaci�n en ocho d�as h�biles desde su recepci�n o remisi�n. Si se presentan juntos y la revocatoria se declara sin lugar, el Comit� remite inmediatamente la apelaci�n.
+[P:Normal] Firma de recibido de estudiante: __________________________
+Firma de recibido de encargado legal, si corresponde: __________________
+Firma de integrante del Comit�: __________________  Fecha: __________
+[P:Normal] Dise�o: equipo del art�culo 141, con consulta a Orientaci�n cuando exista. Supervisi�n y verificaci�n: Comit�. Si el docente gu�a, a cargo o designado integra el Comit�, se abstiene de supervisar y verificar el TES del estudiantado a su cargo.
+[P:Normal] Referencia institucional: MEP, Lineamiento para el trabajo con enfoque socioeducativo y la promoci�n de la conducta, apartados 5 a 12 y 13.3; Anexo 1, p�ginas 25 y 26; Anexo 2, p�ginas 27 y 28. Las actividades, componentes y r�brica de este documento son concreciones pedag�gicas institucionales sujetas a individualizaci�n.
+[P:Heading 1] Anexo 2
+[P:Normal] Constancia de comunicaci�n y entrega del TES dirigida a la persona representante legal de la persona estudiante menor de edad o a la persona estudiante mayor de edad
+[P:Normal] Liceo de Calle Fallas
+Fecha: [________________]
+Se�or o se�ora: [________________________________]
+Persona encargada legal / Persona estudiante mayor de edad
+[P:Normal] Asunto: Comunicaci�n y entrega del Trabajo con Enfoque Socioeducativo (TES)
+[P:Normal] El Comit� de Evaluaci�n de los Aprendizajes comunica formalmente que la persona estudiante [________________________________], de la secci�n [________], se encuentra en condici�n de aplazada en conducta y, de conformidad con el art�culo 146 del Reglamento de Evaluaci�n de los Aprendizajes y de la Conducta (REAC), debe realizar un Trabajo con Enfoque Socioeducativo (TES).
+[P:Normal] Modalidad asignada: Proyecto de aprendizaje servicio.
+[P:Normal] Para tal efecto, se hace entrega del documento correspondiente (adjunto a esta constancia), en el cual se establecen:
+[P:Normal] � La justificaci�n.
+[P:Normal] � Los objetivos formativos del TES.
+[P:Normal] � Las habilidades que se pretenden fortalecer.
+[P:Normal] � Los apoyos educativos que correspondan.
+[P:Normal] � Las actividades que deber� realizar la persona estudiante.
+[P:Normal] � El cronograma de ejecuci�n con las fechas, horarios, lugares de ejecuci�n, entre otros.
+[P:Normal] � El instrumento, criterios e indicadores para la verificaci�n.
+[P:Normal] � Las evidencias requeridas.
+[P:Normal] � Los compromisos establecidos para el fortalecimiento de la convivencia y la prevenci�n de nuevas situaciones relacionadas con la conducta.
+[P:Normal] La persona estudiante deber� realizar las actividades establecidas en el TES y aportar las evidencias requeridas, conforme al cronograma y las condiciones se�aladas en el documento entregado.
+[P:Normal] De conformidad con el art�culo 146 del REAC, el cambio de condici�n de la persona estudiante respecto de la conducta estar� sujeto a la verificaci�n del cumplimiento del TES. Para que la persona estudiante tenga la condici�n de aprobada y pueda matricular el siguiente nivel, deber� aprobar dicho trabajo.
+[P:Heading 1] Anexo 2 continuaci�n
+[P:Normal] En caso de que la persona estudiante no apruebe el TES con la nota m�nima (65 en I, II y III Ciclos de la Educaci�n General B�sica y 70 en Educaci�n Diversificada), tendr� la condici�n de reprobada en conducta y deber� repetir integralmente el curso o periodo lectivo, conforme a lo dispuesto en el art�culo 146 del REAC.
+[P:Normal] Cuando se presente una ausencia justificada a una actividad del TES, esta ser� reprogramada dentro del per�odo establecido, de conformidad con las disposiciones del lineamiento t�cnico.
+[P:Normal] Contra la comunicaci�n y asignaci�n del TES proceden los recursos de revocatoria ante el Comit� de Evaluaci�n de los Aprendizajes y de apelaci�n ante la persona directora del centro educativo, los cuales deber�n interponerse dentro de los tres d�as h�biles siguientes a su comunicaci�n, conforme al r�gimen establecido en el lineamiento mediante aplicaci�n anal�gica del art�culo 171 del REAC.
+[P:Heading 1] Constancia de recibido
+[P:Normal] Por medio de la presente, se deja constancia de que la persona encargada legal de la persona estudiante menor de edad o la persona estudiante mayor de edad recibe la comunicaci�n y el documento correspondiente al TES y conoce su contenido.
+[P:Normal] La firma de esta constancia acredita �nicamente la recepci�n de la comunicaci�n y del TES y no implica aceptaci�n de su contenido.
+[TABLE 8x2]
+  R1: Dato || Informaci�n
+  R2: Nombre de la persona estudiante || [________________________________]
+  R3: N�mero de identificaci�n de la persona estudiante || [________________________________]
+  R4: Nombre de la persona encargada legal || [________________________________]
+  R5: N�mero de identificaci�n de la persona encargada legal || [________________________________]
+  R6: Firma || ________________________________
+  R7: Fecha de recepci�n || [________________________________]
+  R8: Nombre y firma de la persona representante del Comit� de Evaluaci�n de los Aprendizajes || [________________________________]
+________________________________
+[P:Normal] Sello del centro educativo
+
+Observaciones: __________________________________________________
+________________________________________________________________
+________________________________________________________________
+[P:Normal] Control de entrega institucional: [medio de comunicaci�n] | [fecha y hora] | [referencia del acta]. Documento entregado: Anexo 1 completo con r�brica de esta modalidad. Si se recibe y no se firma, documentar la entrega y la negativa por el mecanismo de constancia correspondiente; no constituye renuncia a derechos.
+
+====================================================================================================
+07_Carta_accion_correctiva_pendiente.docx
+====================================================================================================
+[FOOTER 1] Liceo de Calle Fallas  |  TES  |
+[P:Title] Liceo de Calle Fallas
+[P:Normal] Oficio n.� [________]                              Fecha: [________________]
+[P:Normal] Se�or o se�ora [nombre del encargado legal o estudiante mayor de edad]
+[P:Normal] Asunto: Incumplimiento del requisito previo para realizar el TES
+[P:Normal] Estudiante: [nombre completo]   Identificaci�n: [________________]
+Secci�n: [______]   Curso lectivo: [______]
+Expediente del estudiante: [______]   Procedimiento: [______]
+[P:Normal] Por este medio, quien suscribe, [nombre del docente gu�a], docente gu�a de la secci�n [____], comunica la siguiente resoluci�n motivada sobre el requisito previo para realizar el Trabajo con Enfoque Socioeducativo (TES).
+[P:Normal] Al revisar el expediente, se verific� que mediante resoluci�n n.� [____], de fecha [____], notificada el [____], se impuso la acci�n correctiva consistente en [describir]. El plazo para cumplirla era [____]. Al corte del [fecha], permanece pendiente [describir concretamente lo no realizado]. Esta conclusi�n se sustenta en [documentos, fechas y folios].
+[P:Normal] Se verific� la observancia del debido proceso y que se brindaron las siguientes condiciones y apoyos para cumplir la acci�n: [____]. Las razones del incumplimiento y su valoraci�n son: [____]. No se acreditan causas no imputables a la persona estudiante que requieran aplicar la previsi�n especial del apartado 5 del lineamiento; respaldo de esta valoraci�n: [____].
+[P:Normal] El apartado 5 del Lineamiento para el trabajo con enfoque socioeducativo y la promoci�n de la conducta exige finalizar y cumplir satisfactoriamente las acciones correctivas previamente asignadas para acceder al TES.
+[P:Normal] Por lo tanto, se determina que, al corte indicado, la persona estudiante no cumple ese requisito y no puede iniciar el TES mientras permanezca pendiente la acci�n correctiva se�alada. Esta resoluci�n no constituye una calificaci�n del TES.
+[P:Normal] Contra esta resoluci�n proceden los recursos de revocatoria ante la persona docente que la emite y de apelaci�n ante la direcci�n del centro educativo, dentro de los tres d�as h�biles siguientes a su comunicaci�n, conforme al art�culo 171 del REAC. Se comunica dentro del plazo m�ximo de tres d�as h�biles desde su emisi�n previsto en el apartado 5 del lineamiento.
+[P:Normal] Atentamente,
+Nombre del docente gu�a: [_______________________________________]
+Identificaci�n: [________________]   Secci�n a cargo: [________________]
+Firma: __________________________
+[P:Normal] Recibido por: [________________]   Fecha y hora: [________________]
+Firma de recibido: ________________   Medio de comunicaci�n: [________]
+La firma acredita �nicamente recepci�n, no aceptaci�n.
+Copia: expediente y Comit� de Evaluaci�n de los Aprendizajes.
+
+====================================================================================================
+09_Informe_docente_guia_inasistencia_TES.docx
+====================================================================================================
+[FOOTER 1] Liceo de Calle Fallas  |  TES  |
+[P:Title] Liceo de Calle Fallas
+[P:Normal] Oficio n.� [________]                              Fecha: [________________]
+[P:Normal] Se�ores
+Comit� de Evaluaci�n de los Aprendizajes
+Liceo de Calle Fallas
+[P:Normal] Asunto: Informe de inasistencia a la actividad programada del TES
+[P:Normal] Yo, [nombre completo], docente gu�a de la secci�n [____], informo que, seg�n [registro de asistencia o informe de la persona supervisora], la persona estudiante [nombre completo], identificaci�n [____], expediente n.� [____], no se present� a la siguiente actividad del Trabajo con Enfoque Socioeducativo (TES):
+[TABLE 6x2]
+  R1: Dato || Informaci�n
+  R2: TES asignado || [Nombre del proyecto]
+  R3: Actividad programada || [Descripci�n]
+  R4: Fecha, horario y lugar || [Fecha] | [Inicio y fin] | [Lugar]
+  R5: Comunicaci�n previa del TES || [Fecha / medio / constancia de entrega]
+  R6: Persona supervisora y fuente del reporte || [Nombre / cargo / documento y fecha]
+[P:Normal] Gestiones realizadas para conocer el motivo de la ausencia: [fecha, medio, persona contactada y resultado].
+[P:Normal] Estado de la justificaci�n a la fecha de este informe (marcar):
+[  ] No se ha recibido justificaci�n.
+[  ] Se recibi� justificaci�n el [____], pendiente de valoraci�n por el Comit�.
+[  ] El Comit� ya resolvi� sobre la justificaci�n: [referencia y resultado].
+[P:Normal] Remito este informe y los documentos [identificar anexos] para que el Comit�, en el �mbito de sus competencias, valore la justificaci�n, determine las actuaciones procedentes y documente el seguimiento. Si la ausencia es justificada conforme al art�culo 36 del REAC, corresponde reprogramar la actividad dentro del per�odo establecido para el TES, sin que constituya un nuevo trabajo.
+[P:Normal] Este informe deja constancia de la inasistencia reportada y no determina por s� solo incumplimiento definitivo, reprobaci�n ni p�rdida del derecho a realizar el TES. La supervisi�n, verificaci�n y comunicaci�n del resultado corresponden al Comit�, conforme a los apartados 12.5 y 12.6 del lineamiento.
+[P:Normal] Atentamente,
+Nombre del docente gu�a: [_______________________________________]
+Identificaci�n: [________________]   Secci�n a cargo: [________________]
+Firma: __________________________   Fecha del informe: [____________]
+[P:Normal] Recibido por el Comit�: [________________________________________]
+Fecha: [________________]   Firma: _______________________________
+Copia: expediente de la persona estudiante.
+
+====================================================================================================
+08_Carta_condicion_academica_y_ampliacion.docx
+====================================================================================================
+[FOOTER 1] Liceo de Calle Fallas  |  TES  |
+[P:Title] Liceo de Calle Fallas
+[P:Normal] Oficio n.� [________]                              Fecha: [________________]
+[P:Normal] Se�or o se�ora [nombre del encargado legal o estudiante mayor de edad]
+[P:Normal] Asunto: Condici�n acad�mica y acceso a pruebas de ampliaci�n
+[P:Normal] Estudiante: [nombre completo]   Identificaci�n: [________________]
+Secci�n: [______]   Curso lectivo: [______]   Expediente: [____________]
+Oferta y modalidad educativa: [___________________________________]
+[P:Normal] Por este medio, [nombre del docente gu�a], docente gu�a de la secci�n [____], comunica el resultado de la revisi�n de las calificaciones del respectivo plan de estudios que cursa la persona estudiante:
+[TABLE 6x2]
+  R1: Dato verificado || Resultado
+  R2: Total de asignaturas, sub�reas o figuras afines que cursa || [____]
+  R3: Cantidad con condici�n de aplazada || [____]
+  R4: Porcentaje aplazado || ([Cantidad aplazada] � [Total que cursa]) � 100 = [____] %
+  R5: Asignaturas aplazadas || [Listado o referencia del informe adjunto]
+  R6: Documento que sustenta la revisi�n || [Informe de notas / fecha / folios]
+[P:Normal] El art�culo 53 del REAC establece que, en los ciclos y modalidades sujetos a esa regla, aplazar el 60 % o m�s del plan de estudios cursado implica reprobar y repetir integralmente el a�o. Con menos del 60 %, se tiene acceso a ampliaci�n en las asignaturas aplazadas. La regla incluye una excepci�n para CONED y otras modalidades de Educaci�n de Personas J�venes y Adultas, excepto Educaci�n Abierta.
+[P:Normal] Verificada la aplicabilidad de la regla a la oferta indicada y un porcentaje de [____] %, igual o superior al 60 %, se comunica la condici�n acad�mica de reprobaci�n y la improcedencia de presentar pruebas de ampliaci�n por esta causal. Documento o resoluci�n de respaldo: [____].
+[P:Normal] Esta situaci�n acad�mica no impide por s� sola realizar el TES: el art�culo 146 lo exige a quien est� aplazado en conducta con independencia del rendimiento acad�mico. El Comit� atender� el TES conforme al lineamiento y a sus requisitos propios.
+[P:Normal] Los recursos contra los actos de evaluaci�n se presentan ante las personas docentes que los emitieron y, en apelaci�n, ante la direcci�n, dentro de los tres d�as h�biles siguientes a su comunicaci�n, conforme al art�culo 171. Referencias de los actos y personas docentes concernidas: [____].
+[P:Normal] Atentamente,
+Nombre del docente gu�a: [_______________________________________]
+Identificaci�n: [________________]   Secci�n a cargo: [________________]
+Firma: __________________________
+[P:Normal] Recibido por: [________________]   Fecha y hora: [________________]
+Firma: ____________________   Medio de comunicaci�n: [____________]
+La firma acredita �nicamente recepci�n, no aceptaci�n.
+Copia: expediente, direcci�n y Comit� de Evaluaci�n de los Aprendizajes.
+[P:Normal] Referencia: REAC, Decreto Ejecutivo n.� 45509-MEP, art�culos 53, 146 y 171. Completar �nicamente con resultados documentados y tras verificar que no aplica la excepci�n de modalidad.

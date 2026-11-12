@@ -1,0 +1,21 @@
+ACTUALIZACIÓN: CIRCULARES Y LISTADO DE EXPEDIENTES DE CONDUCTA
+Fecha: 11 de noviembre de 2026
+
+1. Se agregó el consecutivo independiente "Circular" para Secretaría y el
+   Comité de Evaluación / Comité Técnico Asesor, con los mismos campos
+   administrativos del consecutivo de oficio.
+
+2. En Expedientes de Conducta se agregó el botón "Imprimir listado".
+   El informe PDF muestra:
+   - consecutivo del expediente;
+   - cédula, estudiante y sección;
+   - estado actual;
+   - funcionario que inició el expediente;
+   - funcionario de la última gestión o cierre;
+   - fecha de la última gestión.
+
+3. El filtro de sección visible para administración y el comité también se
+   respeta al imprimir. El listado incluye únicamente expedientes de conducta
+   que ya tienen consecutivo asignado; no incluye candidatos sin expediente.
+
+4. No se agregó ningún listado nuevo al módulo de Matrícula.

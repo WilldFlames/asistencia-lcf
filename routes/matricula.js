@@ -114,26 +114,6 @@ router.get("/estudiante/:id", canAccess, async (req, res) => {
   res.json(r.rows[0] || null);
 });
 
-// Listado institucional de expedientes de matrícula. Conserva también los
-// anulados para que el informe explique el estado real y quién lo tramitó.
-router.get('/listado-expedientes/:anio', canAccess, async (req,res)=>{
-  const anio=parseInt(req.params.anio);
-  if(!anio) return res.status(400).json({error:'Año inválido.'});
-  const r=await pool.query(`SELECT m.id,m.anio,m.estado,m.completada,m.created_at,
-      m.convocatoria,m.convocatoria_estado,m.seccion_nombre,m.seccion_origen_nombre,
-      e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.activo,
-      COALESCE(NULLIF(m.seccion_nombre,''),s.nombre,'Sin sección') AS seccion_reporte,
-      u.nombre AS responsable_nombre,u.primer_apellido AS responsable_ap1,
-      u.segundo_apellido AS responsable_ap2,u.rol AS responsable_rol
-    FROM matricula m
-    JOIN estudiantes e ON e.id=m.estudiante_id
-    LEFT JOIN secciones s ON s.id=m.seccion_id
-    LEFT JOIN usuarios u ON u.id=m.confirmado_por
-    WHERE m.anio=$1
-    ORDER BY e.primer_apellido,e.segundo_apellido,e.nombre,m.id`,[anio]);
-  res.json({anio,total:r.rows.length,expedientes:r.rows});
-});
-
 // ── CARGAR POR CÉDULA (busca en estudiantes y prematrícula) ──────────
 router.get("/cedula/:cedula", canAccess, async (req, res) => {
   const cedula = req.params.cedula.trim();
