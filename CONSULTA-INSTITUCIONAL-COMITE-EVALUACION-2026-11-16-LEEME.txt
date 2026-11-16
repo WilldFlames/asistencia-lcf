@@ -1,0 +1,12 @@
+CONSULTA INSTITUCIONAL PARA EL COMITÉ DE EVALUACIÓN
+Fecha: 16 de noviembre de 2026
+
+- Los integrantes activos asignados a Comité de Evaluación o al nombre
+  histórico Comité Técnico Asesor pueden buscar cualquier estudiante desde
+  el módulo Consulta.
+- La búsqueda funciona por cédula, nombre o apellidos.
+- El acceso es exclusivamente de lectura dentro de Consulta.
+- La pertenencia al comité no habilita editar estudiantes, consultar fotos por
+  otras rutas ni ampliar permisos en expedientes u otros módulos.
+- El permiso se comprueba contra la asignación activa en la base de datos, por
+  lo que se pierde inmediatamente al retirar al funcionario del comité.

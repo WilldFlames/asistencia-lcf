@@ -11,6 +11,22 @@ function accesoTotal(usuario){
   ));
 }
 
+// Permiso institucional acotado al buscador de Consulta. Se valida contra la
+// base de datos para que una sesión antigua no conserve el acceso después de
+// retirar a la persona del comité. No se incorpora a accesoTotal(): pertenecer
+// al comité no habilita edición, fotos, expedientes ni otros módulos.
+async function perteneceComiteEvaluacion(usuario, db=pool){
+  if(!Number(usuario?.id)) return false;
+  const r=await db.query(`SELECT 1
+    FROM funciones_institucionales fi
+    JOIN usuarios u ON u.id=fi.usuario_id
+    WHERE fi.usuario_id=$1
+      AND fi.tipo IN ('comite_evaluacion','comite_tecnico_asesor')
+      AND u.activo=true AND COALESCE(u.eliminado,false)=false
+    LIMIT 1`,[usuario.id]);
+  return Boolean(r.rows.length);
+}
+
 async function seccionesPermitidas(usuario, db=pool){
   if(accesoTotal(usuario)) return null;
   const funciones=new Set(usuario?.funciones_extra||[]);
@@ -61,4 +77,4 @@ function exigirAccesoEstudiante(obtenerId){
   };
 }
 
-module.exports={accesoTotal,seccionesPermitidas,puedeAccederEstudiante,exigirAccesoEstudiante};
+module.exports={accesoTotal,perteneceComiteEvaluacion,seccionesPermitidas,puedeAccederEstudiante,exigirAccesoEstudiante};

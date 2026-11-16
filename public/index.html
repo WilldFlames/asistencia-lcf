@@ -8791,7 +8791,7 @@ async function buscarEstudianteConsulta(){
     try { d = await api(`/api/estudiantes/consulta/${encodeURIComponent(q)}`); } catch(_){ d = null; }
     if(!d){
       // 2) No matchea como cédula exacta → buscar por texto en cédula/apellido/nombre
-      const rows=await api(`/api/estudiantes?q=${encodeURIComponent(q)}`)||[];
+      const rows=await api(`/api/estudiantes?alcance=consulta&q=${encodeURIComponent(q)}`)||[];
       if(!rows.length){div.innerHTML='<div style="color:var(--muted);font-size:13px;">No se encontraron estudiantes.</div>';return;}
       if(rows.length===1){
         // Un solo resultado — cargar su detalle directamente (sin recursión)

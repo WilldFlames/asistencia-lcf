@@ -3,7 +3,7 @@ const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const cldHelper = require("./cloudinary-helper");
 const { notificarEstudiante } = require("../utils/push-familias");
-const { seccionesPermitidas, puedeAccederEstudiante, exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
+const { seccionesPermitidas, puedeAccederEstudiante, perteneceComiteEvaluacion, exigirAccesoEstudiante } = require("../utils/acceso-estudiantes");
 const { obtenerAnioActivo } = require("../utils/lectivo");
 const { archivarConductaDetallada } = require("../utils/archivo-conducta");
 const { calcularPromedioEstudianteArchivado } = require("./calificaciones");
@@ -319,7 +319,11 @@ router.get("/", requireAuth, async (req, res) => {
     // continúen respetando las secciones habituales del docente.
     const rolesProcesos=new Set(["admin","auxiliar","administrativo","secretaria","profesor","profesor_guia","orientador"]);
     const alcanceInstitucional=alcance==='procesos'&&rolesProcesos.has(req.session.usuario?.rol);
-    const permitidas=alcanceInstitucional?null:await seccionesPermitidas(req.session.usuario);
+    // Consulta permite al Comité de Evaluación buscar cualquier estudiante,
+    // pero solo cuando esta pantalla pide expresamente ese alcance. El resto
+    // de rutas y listados conserva las secciones ordinarias del usuario.
+    const alcanceConsultaComite=alcance==='consulta'&&await perteneceComiteEvaluacion(req.session.usuario);
+    const permitidas=(alcanceInstitucional||alcanceConsultaComite)?null:await seccionesPermitidas(req.session.usuario);
     if(permitidas!==null){ params.push(permitidas); sql += ` AND e.seccion_id=ANY($${params.length}::int[])`; }
     if (seccion_id) { params.push(seccion_id); sql += ` AND e.seccion_id=$${params.length}`; }
     if (q) { params.push(`%${q}%`); sql += ` AND (e.cedula ILIKE $${params.length} OR e.primer_apellido ILIKE $${params.length} OR e.segundo_apellido ILIKE $${params.length} OR e.nombre ILIKE $${params.length})`; }
@@ -375,7 +379,9 @@ router.get("/consulta/:cedula", requireAuth, async (req, res) => {
   `, [req.params.cedula.trim()]);
   if (!r.rows.length) return res.status(404).json({ error: "Estudiante no encontrado" });
   const est = r.rows[0];
-  if(!await puedeAccederEstudiante(req.session.usuario,est.id)) return res.status(403).json({error:"No tiene permiso para consultar este estudiante."});
+  const accesoSeccion=await puedeAccederEstudiante(req.session.usuario,est.id);
+  const accesoComite=!accesoSeccion&&await perteneceComiteEvaluacion(req.session.usuario);
+  if(!accesoSeccion&&!accesoComite) return res.status(403).json({error:"No tiene permiso para consultar este estudiante."});
   const enc = await pool.query("SELECT * FROM encargados WHERE estudiante_id=$1 ORDER BY es_principal DESC", [est.id]);
   res.json({ ...est, encargados: enc.rows });
 });
