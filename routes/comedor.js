@@ -58,11 +58,13 @@ router.get("/estudiantes", requireAuth, async (req, res) => {
   const u = req.session.usuario;
   const fecha = req.query.fecha || fechaCR();
   const seccionId = req.query.seccion_id || null;
+  const activo=await obtenerAnioActivo();
+  const anio=parseInt(req.query.anio)||activo;
 
   // Si es orientador → solo sus secciones asignadas
   const esOrientador = u.rol === 'orientador' || u.rol === 'profesor_guia';
   let whereSeccion = '';
-  let params = [fecha];
+  let params = [fecha,anio,activo];
 
   if (esOrientador) {
     // Obtener secciones donde este usuario es orientador (tabla seccion_orientador)
@@ -80,10 +82,13 @@ router.get("/estudiantes", requireAuth, async (req, res) => {
 
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
-      e.becado, s.nombre AS seccion_nombre,
+      CASE WHEN $2=$3 THEN COALESCE(bca.estado='aprobado',e.becado)
+        ELSE COALESCE(bca.estado='aprobado',false) END AS becado,
+      bca.estado AS beca_estado,s.nombre AS seccion_nombre,
       ca.id AS asistencia_id, ca.registrado_por
     FROM estudiantes e
     LEFT JOIN secciones s ON s.id=e.seccion_id
+    LEFT JOIN becas_comedor_anio bca ON bca.estudiante_id=e.id AND bca.anio=$2
     LEFT JOIN comedor_asistencia ca ON ca.estudiante_id=e.id AND ca.fecha=$1
     WHERE e.activo=true AND (e.archivado=false OR e.archivado IS NULL) ${whereSeccion}
     ORDER BY e.primer_apellido, e.segundo_apellido, e.nombre
@@ -259,16 +264,24 @@ router.post("/actualizar-becas", requireAuth, async (req, res) => {
   if(!puede) return res.status(403).json({ error:"Sin permisos" });
 
   const { ids_con_beca, ids_sin_beca } = req.body;
+  const activo=await obtenerAnioActivo();
+  const anio=parseInt(req.body.anio)||activo;
   if(!Array.isArray(ids_con_beca)||!Array.isArray(ids_sin_beca))
     return res.status(400).json({ error:"Datos inválidos" });
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    if(ids_con_beca.length)
-      await client.query("UPDATE estudiantes SET becado=true WHERE id=ANY($1::int[])", [ids_con_beca]);
-    if(ids_sin_beca.length)
-      await client.query("UPDATE estudiantes SET becado=false WHERE id=ANY($1::int[])", [ids_sin_beca]);
+    if(ids_con_beca.length) await client.query(`INSERT INTO becas_comedor_anio(estudiante_id,anio,estado,actualizado_por)
+      SELECT UNNEST($1::int[]),$2,'aprobado',$3 ON CONFLICT(estudiante_id,anio) DO UPDATE SET
+      estado='aprobado',actualizado_por=$3,updated_at=NOW()`,[ids_con_beca,anio,u.id]);
+    if(ids_sin_beca.length) await client.query(`INSERT INTO becas_comedor_anio(estudiante_id,anio,estado,actualizado_por)
+      SELECT UNNEST($1::int[]),$2,'rechazado',$3 ON CONFLICT(estudiante_id,anio) DO UPDATE SET
+      estado='rechazado',actualizado_por=$3,updated_at=NOW()`,[ids_sin_beca,anio,u.id]);
+    if(anio===activo){
+      if(ids_con_beca.length) await client.query("UPDATE estudiantes SET becado=true WHERE id=ANY($1::int[])",[ids_con_beca]);
+      if(ids_sin_beca.length) await client.query("UPDATE estudiantes SET becado=false WHERE id=ANY($1::int[])",[ids_sin_beca]);
+    }
     await client.query("COMMIT");
     res.json({ ok:true, con_beca: ids_con_beca.length, sin_beca: ids_sin_beca.length });
   } catch(e) {

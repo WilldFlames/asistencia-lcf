@@ -628,6 +628,19 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    await client.query(`ALTER TABLE solicitud_beca_comedor ADD COLUMN IF NOT EXISTS anio_destino INTEGER DEFAULT NULL`);
+    await client.query(`UPDATE solicitud_beca_comedor SET anio_destino=2027 WHERE anio_destino IS NULL`);
+    // Padrón anual: evita que una solicitud para 2027 modifique la beca
+    // vigente de 2026 y permite preparar el comedor antes del cambio de año.
+    await client.query(`CREATE TABLE IF NOT EXISTS becas_comedor_anio (
+      estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+      anio INTEGER NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'pendiente' CHECK(estado IN ('pendiente','aprobado','rechazado')),
+      solicitud_id INTEGER REFERENCES solicitud_beca_comedor(id) ON DELETE SET NULL,
+      actualizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      updated_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY(estudiante_id,anio)
+    )`);
 
     // ── SOLICITUD ADECUACIÓN CURRICULAR ──────────────────────────────
     await client.query(`
@@ -1054,17 +1067,20 @@ async function initDB() {
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS pendiente_desde TIMESTAMP DEFAULT NULL`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS matricula_tardia_at TIMESTAMP DEFAULT NULL`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS matricula_tardia_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL`);
+    // Identifica a la persona repitente dentro de la reserva anual. El cupo
+    // general sigue siendo 26, pero cada sección admite como máximo 6.
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS repitente BOOLEAN NOT NULL DEFAULT false`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_matricula_pendiente_anio
       ON matricula(anio, estado) WHERE estado='pendiente_matricula'`);
     // Normalizar reservas ya existentes: la letra se deriva siempre de la
     // tecnología, para que matrículas antiguas también cuenten en el 13/13.
     await client.query(`UPDATE matricula SET subgrupo=CASE
-      WHEN tecnologia='Inglés Conversacional' THEN 'A'
+      WHEN tecnologia='Inglés Conversacional' AND UPPER(COALESCE(subgrupo,'')) NOT IN ('A','B') THEN 'A'
       WHEN tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
       ELSE subgrupo END
       WHERE tecnologia IN ('Inglés Conversacional','Diseño Publicitario','Matem/AMPROSA')`);
     await client.query(`UPDATE matricula m SET idioma=e.idioma,tecnologia=e.tecnologia,
-      subgrupo=CASE WHEN e.tecnologia='Inglés Conversacional' THEN 'A'
+      subgrupo=CASE WHEN e.tecnologia='Inglés Conversacional' AND UPPER(COALESCE(m.subgrupo,e.subgrupo,'')) NOT IN ('A','B') THEN 'A'
         WHEN e.tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B' ELSE m.subgrupo END
       FROM estudiantes e
       WHERE m.estudiante_id=e.id AND e.idioma IS NOT NULL AND e.tecnologia IS NOT NULL

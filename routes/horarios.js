@@ -63,6 +63,19 @@ function enteroRango(valor,min,max){
   return Number.isInteger(n)&&n>=min&&n<=max?n:null;
 }
 
+function diaHorario(valor){
+  const t=textoComparable(valor);
+  const mapa={lunes:1,martes:2,miercoles:3,jueves:4,viernes:5};
+  return mapa[t]||enteroRango(valor,1,5);
+}
+
+function periodoHorario(valor){
+  const t=textoComparable(valor).replace(/\s+/g,' ');
+  if(!t||t==='i'||t==='1'||t.includes('primer')) return 'I Período';
+  if(t==='ii'||t==='2'||t.includes('segundo')) return 'II Período';
+  return String(valor||'').trim();
+}
+
 const TIPOS_BLOQUE={
   club:'Club',
   coordinacion:'C. Departamento',
@@ -270,8 +283,8 @@ router.delete("/bloques/:id", requireRol("admin"), asyncRoute(async (req,res)=>{
 }));
 
 // ── ASIGNACIONES DE UNA SECCIÓN (para llenar el editor — solo admin) ──────
-// Aplica herencia I → II Período: muestra la asignación del período actual
-// si existe una versión específica (ej. talleres), si no, la del I Período.
+// Se muestran AMBOS períodos. Ocultar el I cuando existía el II cruzaba los
+// grupos de Hogar/Industriales en el editor y hacía imposible armar 2027.
 router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) => {
   const anio = parseInt(req.query.anio) || await obtenerAnioActivo();
   const r = await pool.query(`
@@ -283,19 +296,83 @@ router.get("/asignaciones/:seccion_id", requireRol("admin"), async (req, res) =>
     JOIN usuarios u ON u.id = a.profesor_id
     WHERE a.seccion_id = $1
       AND a.anio = $2
-      AND NOT (
-        COALESCE(a.periodo,'I Período') = 'I Período'
-        AND EXISTS (
-          SELECT 1 FROM asignaciones a2
-          WHERE a2.seccion_id = a.seccion_id AND a2.materia_id = a.materia_id
-            AND a2.profesor_id = a.profesor_id AND a2.periodo = 'II Período'
-            AND a2.anio = $2
-        )
-      )
-    ORDER BY m.nombre, u.nombre, u.primer_apellido, u.segundo_apellido
+    ORDER BY COALESCE(a.periodo,'I Período'), m.nombre, COALESCE(a.subgrupo,''),
+      u.nombre, u.primer_apellido, u.segundo_apellido
   `, [req.params.seccion_id, anio]);
   res.json(r.rows);
 });
+
+// Catálogo para construir una plantilla Excel sin adivinar nombres.
+router.get('/importar/catalogo',requireRol('admin'),asyncRoute(async(req,res)=>{
+  const anio=enteroRango(req.query.anio,2000,2200)||await obtenerAnioActivo();
+  const r=await pool.query(`SELECT s.nombre AS seccion,m.nombre AS materia,
+    COALESCE(a.subgrupo,'') AS subgrupo,COALESCE(a.periodo,'I Período') AS periodo,
+    TRIM(CONCAT_WS(' ',u.nombre,u.primer_apellido,u.segundo_apellido)) AS docente
+    FROM asignaciones a JOIN secciones s ON s.id=a.seccion_id
+    JOIN materias m ON m.id=a.materia_id JOIN usuarios u ON u.id=a.profesor_id
+    JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=a.anio AND sa.activa=true
+    WHERE a.anio=$1 AND COALESCE(a.activa,true)=true
+    ORDER BY s.nivel,s.nombre,m.nombre,a.periodo,a.subgrupo,docente`,[anio]);
+  res.json({anio,asignaciones:r.rows});
+}));
+
+// Importación masiva transaccional. Sustituye únicamente las secciones que
+// aparecen en el archivo; si una fila es inválida no modifica ningún horario.
+router.post('/importar',requireRol('admin'),asyncRoute(async(req,res)=>{
+  const anio=enteroRango(req.body?.anio,2000,2200);
+  const filas=Array.isArray(req.body?.filas)?req.body.filas:[];
+  if(!anio) return res.status(400).json({error:'Año lectivo inválido.'});
+  if(!filas.length||filas.length>3000) return res.status(400).json({error:'El archivo debe contener entre 1 y 3000 filas.'});
+  const catalogo=await pool.query(`SELECT a.id,a.profesor_id,s.id AS seccion_id,s.nombre AS seccion,
+    m.nombre AS materia,COALESCE(a.subgrupo,'') AS subgrupo,
+    COALESCE(a.periodo,'I Período') AS periodo,
+    TRIM(CONCAT_WS(' ',u.nombre,u.primer_apellido,u.segundo_apellido)) AS docente
+    FROM asignaciones a JOIN secciones s ON s.id=a.seccion_id
+    JOIN materias m ON m.id=a.materia_id JOIN usuarios u ON u.id=a.profesor_id
+    JOIN secciones_anio sa ON sa.seccion_id=s.id AND sa.anio=a.anio AND sa.activa=true
+    WHERE a.anio=$1 AND COALESCE(a.activa,true)=true`,[anio]);
+  const errores=[],normalizadas=[],vistas=new Set();
+  filas.forEach((f,i)=>{
+    const n=i+2,seccion=String(f.seccion||'').trim(),materia=String(f.materia||'').trim();
+    const dia=diaHorario(f.dia),leccion=enteroRango(f.leccion,1,12);
+    const subgrupo=String(f.subgrupo||'').trim().toUpperCase();
+    const periodo=periodoHorario(f.periodo),docente=textoComparable(f.docente),aula=nombreAula(f.aula);
+    if(!seccion||!dia||!leccion||!materia){errores.push(`Fila ${n}: complete Sección, Día, Lección y Materia.`);return;}
+    let candidatas=catalogo.rows.filter(a=>textoComparable(a.seccion)===textoComparable(seccion)
+      &&textoComparable(a.materia)===textoComparable(materia)
+      &&(!subgrupo||textoComparable(a.subgrupo)===textoComparable(subgrupo))
+      &&(!f.periodo||textoComparable(a.periodo)===textoComparable(periodo))
+      &&(!docente||textoComparable(a.docente)===docente));
+    if(candidatas.length!==1){errores.push(`Fila ${n}: ${candidatas.length?'la asignación es ambigua':'no existe esa asignación'} (${seccion}, ${materia}${subgrupo?`, grupo ${subgrupo}`:''}${f.periodo?`, ${periodo}`:''}).`);return;}
+    const a=candidatas[0],clave=`${a.seccion_id}|${dia}|${leccion}|${a.id}`;
+    if(vistas.has(clave)){errores.push(`Fila ${n}: asignación duplicada.`);return;}
+    if(aula.length>80){errores.push(`Fila ${n}: el aula supera 80 caracteres.`);return;}
+    vistas.add(clave);normalizadas.push({seccion_id:a.seccion_id,asignacion_id:a.id,profesor_id:a.profesor_id,dia,leccion,aula:aula||null,periodo:a.periodo});
+  });
+  const conflictos=new Map();
+  normalizadas.forEach(x=>{
+    const k=`${x.profesor_id}|${x.dia}|${x.leccion}|${x.periodo}`;
+    if(conflictos.has(k)&&conflictos.get(k)!==x.seccion_id) errores.push(`Un docente aparece en dos secciones el día ${x.dia}, lección ${x.leccion}, ${x.periodo}.`);
+    conflictos.set(k,x.seccion_id);
+  });
+  if(errores.length) return res.status(400).json({error:`No se importó nada. ${errores.slice(0,12).join(' ')}`,errores});
+  const secciones=[...new Set(normalizadas.map(x=>x.seccion_id))];
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1,$2)',[HORARIO_LOCK_NAMESPACE,anio]);
+    const bloques=await client.query(`SELECT b.dia,b.leccion,b.profesor_id FROM horario_bloques_docente b
+      WHERE b.anio=$1 AND EXISTS(SELECT 1 FROM jsonb_to_recordset($2::jsonb) x(profesor_id int,dia int,leccion int)
+        WHERE x.profesor_id=b.profesor_id AND x.dia=b.dia AND x.leccion=b.leccion) LIMIT 1`,[anio,JSON.stringify(normalizadas)]);
+    if(bloques.rows.length){await client.query('ROLLBACK');return res.status(409).json({error:'Una fila coincide con un bloque adicional del docente. Corrija el archivo o el bloque.'});}
+    await client.query('DELETE FROM horarios WHERE anio=$1 AND seccion_id=ANY($2::int[])',[anio,secciones]);
+    await client.query(`INSERT INTO horarios(anio,seccion_id,dia,leccion,asignacion_id,aula)
+      SELECT $1,x.seccion_id,x.dia,x.leccion,x.asignacion_id,x.aula
+      FROM jsonb_to_recordset($2::jsonb) x(seccion_id int,dia int,leccion int,asignacion_id int,aula text)`,[anio,JSON.stringify(normalizadas)]);
+    await client.query('COMMIT');
+    res.json({ok:true,filas:normalizadas.length,secciones:secciones.length});
+  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
+}));
 
 // ── VACIAR TODO EL HORARIO DE UN CURSO LECTIVO (solo admin) ─────────────
 // Incluye la grilla de secciones y los bloques adicionales de docentes. No

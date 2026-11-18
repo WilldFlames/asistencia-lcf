@@ -2437,6 +2437,7 @@ tr:hover td{background:#f8fafc;}
           <div style="font-size:12px;color:var(--muted);margin-top:3px;">Marcá los estudiantes que tienen beca de comedor</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="comedor-becas-anio" onchange="cargarListaComedor()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;"></select>
           <select id="comedor-filtro-seccion" onchange="filtrarSeccionComedor()" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;">
             <option value="">— Todas mis secciones —</option>
           </select>
@@ -2594,7 +2595,7 @@ tr:hover td{background:#f8fafc;}
 
     <!-- TECNOLOGÍA 10°-11° -->
     <div id="ca-cont-tecnologia" style="display:none;">
-      <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Para cada sección de 10° y 11°, elegí qué tecnología B ofrece: <strong>Diseño Publicitario</strong> o <strong>Matem/AMPROSA</strong>. El Grupo A siempre es <strong>Inglés Conversacional</strong>. En matrícula, solo se podrá asignar la B correspondiente a la sección.</p>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Para cada sección de 10° y 11°, elegí qué ofrece el Grupo B: <strong>Inglés Conversacional</strong>, <strong>Diseño Publicitario</strong> o <strong>Matem/AMPROSA</strong>. El Grupo A es Inglés Conversacional; cuando B también lo sea, matrícula distribuye los estudiantes entre A y B, con máximo 13 por grupo.</p>
       <div class="table-wrap"><table style="font-size:12.5px;">
         <thead><tr><th>Sección</th><th>Grupo A</th><th>Grupo B</th><th>Estado</th></tr></thead>
         <tbody id="ca-tec-tbody"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
@@ -2647,6 +2648,9 @@ tr:hover td{background:#f8fafc;}
         <button class="btn btn-outline btn-sm" id="hor-btn-secciones" onclick="horVolverSecciones()" style="display:none;">← Horarios de secciones</button>
         <button class="btn btn-success btn-sm" onclick="horImprimir()" id="hor-btn-imprimir" style="display:none;">🖨️ Imprimir</button>
         <button class="btn btn-primary btn-sm" onclick="horGuardar()" id="hor-btn-guardar" style="display:none;">💾 Guardar Horario</button>
+        <button class="btn btn-outline btn-sm" onclick="horDescargarPlantilla()" id="hor-btn-plantilla" style="display:none;">📥 Plantilla Excel</button>
+        <button class="btn btn-info btn-sm" onclick="document.getElementById('hor-archivo-importar').click()" id="hor-btn-importar" style="display:none;">📤 Importar Excel</button>
+        <input id="hor-archivo-importar" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="horImportarExcel(this)"/>
         <button class="btn btn-danger btn-sm" onclick="horBorrarHorarioAnio()" id="hor-btn-borrar-anio" style="display:none;">🗑️ Borrar horario del año</button>
       </div>
     </div>
@@ -3589,6 +3593,12 @@ tr:hover td{background:#f8fafc;}
               <span><strong>Convocatoria</strong><br/><small style="font-weight:normal;line-height:1.35;">El estudiante queda en espera y sin sección hasta conocer el resultado en febrero.</small></span>
             </label>
           </div>
+          <div class="fg" style="grid-column:1/-1;">
+            <label style="cursor:pointer;display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border:1px solid #60a5fa;border-radius:8px;background:#eff6ff;color:#1e3a8a;">
+              <input type="checkbox" id="mat-repitente" style="width:18px;height:18px;margin-top:1px;flex:0 0 auto;"/>
+              <span><strong>Estudiante repitente</strong><br/><small style="font-weight:normal;line-height:1.35;">Se contabiliza dentro del cupo de 26. El sistema permite como máximo 6 repitentes por sección.</small></span>
+            </label>
+          </div>
         </div>
 
         <!-- Dirección -->
@@ -3817,7 +3827,7 @@ tr:hover td{background:#f8fafc;}
 </div></div>
 
 <div class="page" id="page-epi"><div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">🧠 EPI</h2><p style="margin:4px 0;color:var(--muted)">Recomendaciones y seguimiento institucional sobre alertas tempranas abiertas.</p></div><select id="epi-nivel" onchange="giCargarEPI()"><option value="">Todos los niveles</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option></select></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">🧠 EPI — desde 2027</h2><p style="margin:4px 0;color:var(--muted)">Acceso exclusivo del integrante asignado a cada nivel; recomendaciones y seguimiento sobre alertas tempranas abiertas.</p></div><select id="epi-nivel" onchange="giCargarEPI()"><option value="">Todos los niveles</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option></select></div>
   <div id="alert-epi" class="alert"></div><div id="epi-config" style="display:none;margin:14px 0;padding:12px;background:#f8fafc;border:1px solid var(--border);border-radius:8px"></div><div id="epi-lista" class="table-wrap"><div class="empty">Cargando…</div></div>
 </div></div>
 <div class="modal-overlay" id="modal-epi"><div class="modal" style="max-width:760px;max-height:90vh;overflow:auto"><div class="modal-title">🧠 Seguimiento EPI</div><div id="epi-detalle"></div><div id="epi-form-edicion"><div class="form-grid" style="margin-top:12px"><div class="fg"><label>Tipo</label><select id="epi-tipo"><option value="recomendacion">Recomendación</option><option value="seguimiento">Seguimiento</option></select></div><div class="fg full"><label>Contenido</label><textarea id="epi-contenido" rows="4"></textarea></div></div><div id="alert-epi-modal" class="alert"></div><div class="modal-actions"><button class="btn btn-outline" onclick="cerrarModal('modal-epi')">Cerrar</button><button class="btn btn-primary" onclick="giGuardarSeguimientoEPI()">Guardar seguimiento</button></div></div></div></div>
@@ -6572,6 +6582,8 @@ async function iniciarApp(){
     document.getElementById("nav-matricula").style.display="";
   }
   if(esOrientador){
+    const anioB=document.getElementById('comedor-becas-anio');
+    if(anioB&&!anioB.options.length){anioB.innerHTML=`<option value="${ANIO_LECTIVO_ACTIVO}">${ANIO_LECTIVO_ACTIVO} (actual)</option><option value="${ANIO_LECTIVO_ACTIVO+1}">${ANIO_LECTIVO_ACTIVO+1} (próximo)</option>`;anioB.value=String(ANIO_LECTIVO_ACTIVO+1);}
     document.getElementById('nav-bloqueos-orientacion').style.display='';
     document.getElementById('sec-gestion').style.display='';
   }
@@ -11994,6 +12006,7 @@ function asignarCuposInfo(){
       : `<div style="font-size:11px;margin-top:3px;color:#dc2626;">⚠️ Esta sección no tiene tecnología B configurada. Configurala en Configurar Año.</div>`;
     info.innerHTML = `
       <div style="font-weight:bold;margin-bottom:4px;">Cupos ${c.nombre}: <span style="font-weight:normal;">${c.ocupados}/${c.max} · ${c.disponibles} campo${c.disponibles===1?'':'s'} libre${c.disponibles===1?'':'s'}</span></div>
+      <div style="font-size:11px;margin-top:3px;">🔁 <strong>Repitentes:</strong> ${Number(c.repitentes)||0}/${c.max_repitentes} · ${c.repitentes_disponibles} espacio${c.repitentes_disponibles===1?'':'s'} disponible${c.repitentes_disponibles===1?'':'s'}</div>
       ${tecInfo}
       <div style="display:flex;gap:6px;margin-top:6px;">
         <div style="flex:1;background:${a.bg};border:1px solid ${a.bd};color:${a.txt};padding:4px 6px;border-radius:5px;text-align:center;">
@@ -12007,7 +12020,7 @@ function asignarCuposInfo(){
     info.style.background = total.bg;
     info.style.border = `1px solid ${total.bd}`;
     info.style.color = total.txt;
-    info.innerHTML = `<strong>Cupos ${c.nombre}:</strong> ${c.ocupados}/${c.max} · <strong>${c.disponibles} campo${c.disponibles===1?'':'s'} libre${c.disponibles===1?'':'s'}</strong>`;
+    info.innerHTML = `<strong>Cupos ${c.nombre}:</strong> ${c.ocupados}/${c.max} · <strong>${c.disponibles} campo${c.disponibles===1?'':'s'} libre${c.disponibles===1?'':'s'}</strong><br><span style="font-size:11px">🔁 Repitentes: ${Number(c.repitentes)||0}/${c.max_repitentes} · ${c.repitentes_disponibles} disponible${c.repitentes_disponibles===1?'':'s'}</span>`;
   }
 }
 
@@ -12339,6 +12352,7 @@ function abrirNuevaMatricula(){
   if(rb) rb.style.display="";
   const conv = document.getElementById("mat-convocatoria");
   if(conv){ conv.checked=false; conv.disabled=false; }
+  const rep=document.getElementById('mat-repitente');if(rep)rep.checked=false;
   document.querySelector('input[name="mat-tipo"][value="regular"]').checked = true;
   matTipoChange();
   matPaso(1);
@@ -17523,7 +17537,8 @@ async function iniciarComedor(){
 
 async function cargarListaComedor(){
   try{
-    const rows = ordenarEstudiantes(await api('/api/comedor/estudiantes'));
+    const anio=Number(document.getElementById('comedor-becas-anio')?.value)||ANIO_LECTIVO_ACTIVO;
+    const rows = ordenarEstudiantes(await api(`/api/comedor/estudiantes?anio=${anio}`));
     comedorData = rows;
     const becados  = rows.filter(e=>e.becado);
     const regulares= rows.filter(e=>!e.becado);
@@ -17538,7 +17553,7 @@ async function cargarListaComedor(){
     const rowBecado = (e,i) => `<tr style="background:#f0fdf4;">
       <td><input type="checkbox" id="cd-${e.id}" checked onchange="actualizarStatsBeca()"/></td>
       <td style="color:var(--muted);font-size:11px;">${i+1}</td>
-      <td><strong>${nombreEstudianteLista(e)}</strong></td>
+      <td><strong>${nombreEstudianteLista(e)}</strong>${e.beca_estado==='pendiente'?'<br><small style="color:#b45309">⏳ Solicitud pendiente</small>':''}</td>
       <td style="font-size:12px;color:var(--muted);">${e.cedula}</td>
       <td style="font-size:12px;">${e.seccion_nombre||'—'}</td>
     </tr>`;
@@ -17623,7 +17638,8 @@ async function guardarBecasComedor(){
   const ids_con_beca  = comedorData.filter(e=>document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
   const ids_sin_beca  = comedorData.filter(e=>!document.getElementById(`cd-${e.id}`)?.checked).map(e=>e.id);
   try{
-    await api('/api/comedor/actualizar-becas','POST',{ids_con_beca, ids_sin_beca});
+    const anio=Number(document.getElementById('comedor-becas-anio')?.value)||ANIO_LECTIVO_ACTIVO;
+    await api('/api/comedor/actualizar-becas','POST',{ids_con_beca, ids_sin_beca,anio});
     alertComedor(`✅ Becas actualizadas — ${ids_con_beca.length} con beca, ${ids_sin_beca.length} sin beca.`,'success');
     await cargarListaComedor();
   }catch(e){ alertComedor(e.message,'danger'); }
@@ -18943,6 +18959,7 @@ function caRenderTecnologia(){
   if(!rows.length){ tbody.innerHTML = '<tr><td colspan="4" class="empty">No hay secciones de 10°-11°.</td></tr>'; return; }
   const OPTS = [
     ['','— Seleccionar —'],
+    ['Inglés Conversacional','Inglés Conversacional'],
     ['Diseño Publicitario','Diseño Publicitario'],
     ['Matem/AMPROSA','Matem/AMPROSA'],
   ];
@@ -19161,6 +19178,8 @@ function horControlesModo(modo){
   document.getElementById('hor-btn-docentes').style.display=institucional&&modo!=='docente-admin'?'':'none';
   document.getElementById('hor-btn-secciones').style.display=ME.rol==='admin'&&!seccion?'':'none';
   document.getElementById('hor-btn-borrar-anio').style.display=ME.rol==='admin'?'':'none';
+  document.getElementById('hor-btn-plantilla').style.display=ME.rol==='admin'?'':'none';
+  document.getElementById('hor-btn-importar').style.display=ME.rol==='admin'?'':'none';
   if(!docenteAdmin) document.getElementById('modal-hor-bloque')?.classList.remove('show');
 }
 
@@ -19313,7 +19332,65 @@ async function horCargarSeccion(){
 
 function horEtiquetaAsig(a){
   const sub = a.subgrupo ? ` [${a.subgrupo}]` : '';
-  return `${a.materia_nombre}${sub} — ${nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2)}`;
+  const periodo=a.periodo?` · ${a.periodo}`:'';
+  return `${a.materia_nombre}${sub}${periodo} — ${nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2)}`;
+}
+
+async function horDescargarPlantilla(){
+  if(typeof XLSX==='undefined') return sa('alert-horario','No se pudo cargar el generador de Excel. Recargue la página.','danger');
+  const anio=Number(document.getElementById('hor-anio').value)||ANIO_LECTIVO_ACTIVO;
+  try{
+    const cat=await api(`/api/horarios/importar/catalogo?anio=${anio}`);
+    const wb=XLSX.utils.book_new();
+    const ejemplo=(cat.asignaciones||[]).slice(0,1).map(a=>({
+      'Sección':a.seccion,'Día':'Lunes','Lección':1,'Materia':a.materia,
+      'Subgrupo':a.subgrupo,'Período':a.periodo,'Docente':a.docente,'Aula':'Aula 1'
+    }));
+    const ws=XLSX.utils.json_to_sheet(ejemplo.length?ejemplo:[{'Sección':'','Día':'','Lección':'','Materia':'','Subgrupo':'','Período':'','Docente':'','Aula':''}],
+      {header:['Sección','Día','Lección','Materia','Subgrupo','Período','Docente','Aula']});
+    ws['!cols']=[12,13,10,30,11,14,32,20].map(wch=>({wch}));
+    XLSX.utils.book_append_sheet(wb,ws,'Horario');
+    const wc=XLSX.utils.json_to_sheet(cat.asignaciones||[]);
+    wc['!cols']=[12,30,11,14,32].map(wch=>({wch}));
+    XLSX.utils.book_append_sheet(wb,wc,'Asignaciones válidas');
+    const ayuda=XLSX.utils.aoa_to_sheet([
+      [`Plantilla de horario ${anio}`],
+      ['Cada fila representa una materia de una sección en una lección.'],
+      ['Día admite Lunes, Martes, Miércoles, Jueves o Viernes. Lección admite 1 a 12.'],
+      ['Copie los nombres exactamente desde la hoja “Asignaciones válidas”.'],
+      ['Subgrupo, período y docente eliminan ambigüedades; no los borre en talleres o tecnologías.'],
+      ['Al importar se reemplazan solamente las secciones presentes en el archivo. Las demás no cambian.']
+    ]);
+    ayuda['!cols']=[{wch:110}];XLSX.utils.book_append_sheet(wb,ayuda,'Ayuda');
+    XLSX.writeFile(wb,`Plantilla-horario-secciones-${anio}.xlsx`);
+  }catch(e){sa('alert-horario',e.message,'danger');}
+}
+
+function horValorFila(fila,nombres){
+  const clave=Object.keys(fila).find(k=>nombres.includes(String(k).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()));
+  return clave===undefined?'':fila[clave];
+}
+
+async function horImportarExcel(input){
+  const archivo=input.files?.[0];input.value='';
+  if(!archivo) return;
+  if(typeof XLSX==='undefined') return sa('alert-horario','No se pudo cargar el lector de Excel. Recargue la página.','danger');
+  const anio=Number(document.getElementById('hor-anio').value)||ANIO_LECTIVO_ACTIVO;
+  try{
+    const data=await archivo.arrayBuffer(),wb=XLSX.read(data,{type:'array'});
+    const hoja=wb.Sheets['Horario']||wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(hoja,{defval:''});
+    const filas=raw.map(f=>({
+      seccion:horValorFila(f,['seccion']),dia:horValorFila(f,['dia']),leccion:horValorFila(f,['leccion']),
+      materia:horValorFila(f,['materia']),subgrupo:horValorFila(f,['subgrupo','grupo']),
+      periodo:horValorFila(f,['periodo']),docente:horValorFila(f,['docente','profesor']),aula:horValorFila(f,['aula'])
+    })).filter(f=>f.seccion||f.materia||f.dia||f.leccion);
+    if(!filas.length) throw new Error('La hoja Horario no contiene filas para importar.');
+    if(!confirm(`Se importarán ${filas.length} filas para ${anio}. Se reemplazará únicamente el horario de las secciones incluidas. ¿Continuar?`)) return;
+    const r=await api('/api/horarios/importar','POST',{anio,filas});
+    sa('alert-horario',`✅ Se importaron ${r.filas} filas de ${r.secciones} secciones. Las demás secciones quedaron intactas.`,'success');
+    await horCargarSeccion();
+  }catch(e){sa('alert-horario',e.message||'No se pudo importar el archivo.','danger');}
 }
 
 function horAulaEtiqueta(valor){
@@ -21151,6 +21228,7 @@ async function cargarDatosMatricula(){
       document.getElementById("mat-tels-emergencia").value = data.telefonos_emergencia||"";
       const conv = document.getElementById("mat-convocatoria");
       if(conv) conv.checked = !!data.convocatoria && data.convocatoria_estado === 'pendiente';
+      const rep=document.getElementById('mat-repitente');if(rep)rep.checked=!!data.repitente;
       if(data.fuente==="prematricula"){
         document.getElementById("mat-nivel").value = 7;
         document.getElementById("mat-procedencia").value = data.centro_procedencia||"";
@@ -21179,6 +21257,7 @@ async function cargarDatosMatricula(){
       document.getElementById("mat-nivel").value="";
       const conv = document.getElementById("mat-convocatoria");
       if(conv) conv.checked=false;
+      const rep=document.getElementById('mat-repitente');if(rep)rep.checked=false;
       agregarEncargadoMat();
       const r=document.querySelector('input[name="mat-tipo"][value="nuevo"]');
       if(r){r.checked=true;matTipoChange();}
@@ -21322,6 +21401,7 @@ async function guardarMat1(){
     adecuacion:document.getElementById("mat-adecuacion").value,
     tipo_ingreso:tipo, nivel_matricula:nivel,
     convocatoria:!!document.getElementById("mat-convocatoria")?.checked,
+    repitente:!!document.getElementById("mat-repitente")?.checked,
     enfermedad:document.getElementById("mat-enfermedad").value,
     medicamento:document.getElementById("mat-medicamento").value,
     telefonos_emergencia:document.getElementById("mat-tels-emergencia").value,
@@ -21548,7 +21628,7 @@ async function guardarBecaMatricula(){
     vive_con:document.getElementById("beca-vive-con").value,ingreso_mensual:ingreso,
     recibe_avancemos:document.getElementById("beca-avancemos").value==="si",
     monto_avancemos:parseFloat(document.getElementById("beca-monto-avancemos")?.value)||0,
-    otros_ingresos:document.getElementById("beca-otros").value,motivos};
+    otros_ingresos:document.getElementById("beca-otros").value,motivos,anio:matAnio};
   const textoBtn=btn?.textContent;
   if(btn){btn.disabled=true;btn.textContent="⏳ Guardando...";}
   let resultado=null;
@@ -22471,8 +22551,13 @@ async function ectRevertirPaso2(){
   if(motivo===null)return;
   if(motivo.trim().length<5)return sa("alert-ect-detalle","Escriba un motivo breve para dejar constancia de la corrección.","warning");
   if(!confirm("¿Revertir el cierre del Paso 2 y habilitar nuevamente el expediente?\n\nEl motivo quedará registrado y la información ya escrita no se borrará."))return;
+  let confirmarPosteriores=false;
+  if(ectActual.es_admin){
+    confirmarPosteriores=confirm("Si existen pasos posteriores marcados, también se reabrirán y sus aprobaciones quedarán invalidadas. Los textos se conservarán como borrador.\n\n¿Confirmar la corrección administrativa?");
+    if(!confirmarPosteriores)return;
+  }
   try{
-    await api(`/api/expedientes-conducta/${ectActual.expediente.id}/revertir-paso-2`,"POST",{motivo:motivo.trim()});
+    await api(`/api/expedientes-conducta/${ectActual.expediente.id}/revertir-paso-2`,"POST",{motivo:motivo.trim(),confirmar_posteriores:confirmarPosteriores});
     await ectAbrirDetalle(ectActual.expediente.id);
     sa("alert-ect-detalle","La revisión del Paso 2 fue revertida. Ya puede corregirse y continuar el TES.","success");
   }catch(e){sa("alert-ect-detalle",e.message,"danger");}

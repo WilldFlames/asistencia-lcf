@@ -399,17 +399,27 @@ router.post("/:id/revertir-paso-2", requireAuth, async (req,res)=>{
     if(motivo.length<5) throw Object.assign(new Error("Indique el motivo de la corrección."),{status:400});
     const posteriores=await client.query(`SELECT paso FROM expedientes_conducta_pasos
       WHERE expediente_id=$1 AND paso>=3 AND completado=true ORDER BY paso`,[ec.id]);
-    if(posteriores.rowCount)
+    const confirmarPosteriores=req.body.confirmar_posteriores===true;
+    if(posteriores.rowCount&&!esAdmin(u))
       throw Object.assign(new Error("Hay pasos posteriores completados. Administración debe revisar el expediente antes de revertir el Paso 2."),{status:409});
+    if(posteriores.rowCount&&esAdmin(u)&&!confirmarPosteriores)
+      throw Object.assign(new Error(`Hay pasos posteriores completados (${posteriores.rows.map(x=>x.paso).join(', ')}). Confirme que desea reabrirlos conservando sus borradores.`),{status:409});
     await client.query(`UPDATE expedientes_conducta_tes SET estado='en_curso',
       reabierto_por=$1,reabierto_en=NOW(),motivo_reapertura=$2,
       cerrado_por=NULL,cerrado_en=NULL,updated_at=NOW()
       WHERE id=$3 AND estado='cerrado_accion_pendiente'`,[u.id,`Corrección del Paso 2: ${motivo}`,ec.id]);
+    // Compatibilidad del flujo anterior: antes se reabría únicamente con
+    // WHERE expediente_id=$1 AND paso=2. Ahora también se invalidan los pasos
+    // posteriores, conservando intacto su contenido como borrador.
     await client.query(`UPDATE expedientes_conducta_pasos SET completado=false,
       completado_por=NULL,completado_en=NULL,updated_at=NOW()
-      WHERE expediente_id=$1 AND paso=2`,[ec.id]);
+      WHERE expediente_id=$1 AND paso>=2`,[ec.id]);
+    // Las aprobaciones dependían de una revisión que se está corrigiendo.
+    // Se invalidan, pero los contenidos de todos los pasos permanecen como
+    // borradores para no perder el trabajo ya redactado.
+    if(posteriores.rowCount) await client.query("DELETE FROM expedientes_conducta_aprobaciones WHERE expediente_id=$1",[ec.id]);
     await client.query("COMMIT");
-    res.json({ok:true,mensaje:"La revisión del Paso 2 fue revertida y el expediente quedó habilitado."});
+    res.json({ok:true,pasos_reabiertos:posteriores.rows.map(x=>x.paso),mensaje:"La revisión del Paso 2 fue revertida y el expediente quedó habilitado."});
   }catch(e){
     await client.query("ROLLBACK");
     console.error("revertir paso 2 TES",e);

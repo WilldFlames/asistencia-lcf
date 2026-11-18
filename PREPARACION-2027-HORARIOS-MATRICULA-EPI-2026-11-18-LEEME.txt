@@ -1,0 +1,48 @@
+PREPARACIÓN 2027 — HORARIOS, MATRÍCULA, CONDUCTA, BECAS Y EPI
+Fecha: 18 de noviembre de 2026
+
+1. HORARIOS POR EXCEL
+- Administración puede descargar una plantilla Excel desde Horario.
+- La plantilla incluye una hoja con todas las asignaciones válidas del año.
+- Cada fila representa sección, día, lección, materia, subgrupo, período,
+  docente y aula.
+- La importación valida el archivo completo antes de guardar.
+- Solo reemplaza las secciones presentes en el archivo; las demás se conservan.
+- Si existe una fila inválida o un choque con un bloque docente, no guarda nada.
+
+2. REPITENTES EN MATRÍCULA
+- Paso 1 incorpora la casilla “Estudiante repitente”.
+- Cupo total por sección: 26.
+- Máximo de repitentes dentro de esos 26: 6.
+- El contador aparece al seleccionar sección y el límite también se aplica al
+  resolver una convocatoria pendiente.
+
+3. EXPEDIENTE DE CONDUCTA
+- Administración puede revertir un cierre equivocado del Paso 2 incluso si
+  quedaron pasos posteriores marcados.
+- Se reabren los pasos 2 en adelante y se invalidan aprobaciones dependientes.
+- Los textos ya escritos se conservan como borradores.
+
+4. BECAS DE COMEDOR 2027
+- La solicitud de matrícula alimenta un padrón de becas por curso lectivo.
+- Una solicitud 2027 no altera el estado vigente de 2026.
+- El listado permite consultar el año actual o el siguiente y conserva los
+  estados pendiente, aprobado y rechazado.
+
+5. EPI
+- El módulo aparece únicamente a integrantes activos del comité EPI.
+- Cada integrante conserva el alcance de su nivel.
+- EPI trabaja con alertas del curso lectivo 2027 en adelante.
+
+6. COHERENCIA HORARIO / ASIGNACIONES / CONFIGURAR AÑO
+- El editor ya no oculta el I Período cuando existe una asignación del II.
+- Las opciones muestran materia, grupo, período y docente para evitar cruces.
+
+7. DOS GRUPOS DE INGLÉS CONVERSACIONAL
+- Configurar Año permite seleccionar Inglés Conversacional como Grupo B.
+- Matrícula distribuye los estudiantes entre A y B y mantiene máximo 13 por
+  grupo, conservando la letra ya asignada.
+
+VERIFICACIÓN
+- 378 pruebas automatizadas aprobadas.
+- Archivos JavaScript del servidor y de la interfaz validados sintácticamente.

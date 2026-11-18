@@ -153,8 +153,8 @@ router.put("/config/:seccion_id", onlyAdmin, async (req, res) => {
   const a = parseInt(anio);
   if(!seccionId || !a) return res.status(400).json({ error: "seccion_id y anio requeridos" });
   // Validar valores
-  if(tec_b && !["Diseño Publicitario","Matem/AMPROSA"].includes(tec_b))
-    return res.status(400).json({ error: "tec_b inválido (Diseño Publicitario o Matem/AMPROSA)" });
+  if(tec_b && !["Inglés Conversacional","Diseño Publicitario","Matem/AMPROSA"].includes(tec_b))
+    return res.status(400).json({ error: "tec_b inválido (Inglés Conversacional, Diseño Publicitario o Matem/AMPROSA)" });
   const tallerValido = t => !t || ["Educación para el Hogar","Artes Industriales"].includes(t);
   if(!tallerValido(taller_a) || !tallerValido(taller_b))
     return res.status(400).json({ error: "Taller inválido (Educación para el Hogar o Artes Industriales)" });

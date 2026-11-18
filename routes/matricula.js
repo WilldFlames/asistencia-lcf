@@ -60,6 +60,7 @@ router.get("/", canAccess, async (req, res) => {
       COALESCE(ma.estado, CASE WHEN $2 AND e.matricula_completada THEN 'completa' ELSE 'pendiente' END) AS matricula_estado,
       ma.seccion_origen_nombre, ma.pendiente_desde, ma.matricula_tardia_at,
       COALESCE(ma.convocatoria,false) AS convocatoria,
+      COALESCE(ma.repitente,false) AS repitente,
       ma.convocatoria_estado, ma.nivel_solicitado, ma.nivel_origen,
       ma.convocatoria_resuelta_at,
       ma.seccion_id AS matricula_seccion_id,
@@ -95,6 +96,7 @@ router.get("/estudiante/:id", canAccess, async (req, res) => {
       COALESCE(ma.estado, CASE WHEN $3 AND e.matricula_completada THEN 'completa' ELSE 'pendiente' END) AS matricula_estado,
       ma.seccion_origen_nombre, ma.pendiente_desde, ma.matricula_tardia_at,
       COALESCE(ma.convocatoria,false) AS convocatoria,
+      COALESCE(ma.repitente,false) AS repitente,
       ma.convocatoria_estado, ma.nivel_solicitado, ma.nivel_origen,
       ma.convocatoria_resuelta_at,
       ma.seccion_id AS matricula_seccion_id,
@@ -123,6 +125,7 @@ router.get("/cedula/:cedula", canAccess, async (req, res) => {
   const r = await pool.query(`
     SELECT e.*, s.nombre AS seccion_nombre,
       COALESCE(ma.convocatoria,false) AS convocatoria,
+      COALESCE(ma.repitente,false) AS repitente,
       ma.convocatoria_estado, ma.nivel_solicitado, ma.nivel_origen,
       ma.estado AS matricula_estado_anual,
       ma.idioma AS matricula_idioma, ma.tecnologia AS matricula_tecnologia,
@@ -167,7 +170,7 @@ router.post("/guardar", canAccess, async (req, res) => {
     sexo, nacionalidad, correo, institucion_procedencia,
     provincia, canton, distrito, direccion_exacta,
     habita_con, habita_con_otro, adecuacion, tipo_ingreso, nivel_matricula,
-    enfermedad, medicamento, telefonos_emergencia, encargados, anio
+    enfermedad, medicamento, telefonos_emergencia, encargados, anio, repitente
   } = req.body;
 
   if(!cedula||!nombre||!primer_apellido)
@@ -264,11 +267,11 @@ router.post("/guardar", canAccess, async (req, res) => {
 
   // Crear o reactivar el borrador anual. Guardar el paso 1 no equivale a
   // finalizar: la bandera completada solo cambia en /completar.
-  await pool.query(`INSERT INTO matricula(estudiante_id,anio,completada,estado,confirmado_por)
-    VALUES($1,$2,false,'pendiente',$3)
+  await pool.query(`INSERT INTO matricula(estudiante_id,anio,completada,estado,confirmado_por,repitente)
+    VALUES($1,$2,false,'pendiente',$3,$4)
     ON CONFLICT(estudiante_id,anio) DO UPDATE SET
       estado=CASE WHEN matricula.estado='eliminada' THEN 'pendiente' ELSE matricula.estado END,
-      confirmado_por=$3`, [estId,anioDestino,uid]);
+      confirmado_por=$3,repitente=$4`, [estId,anioDestino,uid,repitente===true]);
 
   res.json({ ok:true, estudiante_id: estId });
   } catch(err) {
@@ -282,6 +285,7 @@ router.post("/beca-comedor", canAccess, async (req, res) => {
   const { estudiante_id, cedula_estudiante, personas_hogar, tipo_vivienda,
           vive_con, ingreso_mensual, recibe_avancemos, monto_avancemos,
           otros_ingresos, motivos } = req.body;
+  const anioDestino=parseInt(req.body.anio)||await obtenerAnioActivo();
 
   const ingreso   = parseFloat(ingreso_mensual)||0;
   const personas  = parseInt(personas_hogar)||1;
@@ -299,16 +303,21 @@ router.post("/beca-comedor", canAccess, async (req, res) => {
   }
 
   try {
-    await pool.query(`
+    const guardada=await pool.query(`
       INSERT INTO solicitud_beca_comedor
         (estudiante_id, cedula_estudiante, personas_hogar, tipo_vivienda, vive_con,
          ingreso_mensual, recibe_avancemos, monto_avancemos, otros_ingresos, motivos,
-         ingreso_percapita, clasificacion, resolucion, registrado_por)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         ingreso_percapita, clasificacion, resolucion, registrado_por,anio_destino)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id
     `, [estudiante_id||null, cedula_estudiante||null, personas, tipo_vivienda||null,
         vive_con||null, ingreso, recibe_avancemos||false, monto_avancemos||0,
         otros_ingresos||null, motivos||null, percapita, clasificacion,
-        resolucion, req.session.usuario.id]);
+        resolucion, req.session.usuario.id,anioDestino]);
+    if(estudiante_id) await pool.query(`INSERT INTO becas_comedor_anio
+      (estudiante_id,anio,estado,solicitud_id,actualizado_por) VALUES($1,$2,$3,$4,$5)
+      ON CONFLICT(estudiante_id,anio) DO UPDATE SET estado=EXCLUDED.estado,
+      solicitud_id=EXCLUDED.solicitud_id,actualizado_por=EXCLUDED.actualizado_por,updated_at=NOW()`,
+      [estudiante_id,anioDestino,resolucion,guardada.rows[0].id,req.session.usuario.id]);
   } catch(e) {
     console.error('beca-comedor INSERT error:', e.message);
     return res.status(500).json({ error: "No se pudo guardar la solicitud: " + e.message });
@@ -319,7 +328,7 @@ router.post("/beca-comedor", canAccess, async (req, res) => {
   // (antes solo marcaba a true; si la situación cambiaba, la beca quedaba pegada)
   if(estudiante_id){
     try {
-      await pool.query("UPDATE estudiantes SET becado=$1 WHERE id=$2",
+      if(anioDestino===await obtenerAnioActivo()) await pool.query("UPDATE estudiantes SET becado=$1 WHERE id=$2",
         [resolucion === "aprobado", estudiante_id]);
     } catch(e){ console.error('beca-comedor UPDATE estudiante:', e.message); }
   }
@@ -523,6 +532,7 @@ router.delete("/:id", canAccess, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MAX_CUPO = 26; // máximo de estudiantes por sección
+const MAX_REPITENTES = 6; // incluidos dentro de los 26
 
 // Fecha/año actual en Costa Rica (UTC-6)
 function fechaCR(){
@@ -769,7 +779,9 @@ router.get("/cupos/:anio", canAccess, async (req, res) => {
   const q = esActual ? `
     SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, sc.tec_b,
       COUNT(e.id)::int AS ocupados,
+      COUNT(e.id) FILTER (WHERE COALESCE(mr.repitente,false)=true)::int AS repitentes,
       COUNT(*) FILTER (WHERE CASE
+        WHEN UPPER(COALESCE(e.subgrupo,'')) IN ('A','B') THEN UPPER(e.subgrupo)
         WHEN e.tecnologia='Inglés Conversacional' THEN 'A'
         WHEN e.tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
         ELSE UPPER(COALESCE(e.subgrupo,'')) END = 'A')::int AS ocupados_a,
@@ -783,11 +795,14 @@ router.get("/cupos/:anio", canAccess, async (req, res) => {
     LEFT JOIN secciones_config sc ON sc.seccion_id = s.id AND sc.anio = $1
     LEFT JOIN estudiantes e ON e.seccion_id = s.id
       AND e.activo = true AND (e.archivado = false OR e.archivado IS NULL)
+    LEFT JOIN matricula mr ON mr.estudiante_id=e.id AND mr.anio=$1 AND COALESCE(mr.estado,'')<>'eliminada'
     GROUP BY s.id, si.idioma, sc.tec_b ORDER BY s.nivel, s.nombre
   ` : `
     SELECT s.id AS seccion_id, s.nombre, s.nivel, si.idioma, sc.tec_b,
       COUNT(m.id)::int AS ocupados,
+      COUNT(m.id) FILTER (WHERE COALESCE(m.repitente,false)=true)::int AS repitentes,
       COUNT(*) FILTER (WHERE CASE
+        WHEN UPPER(COALESCE(m.subgrupo,'')) IN ('A','B') THEN UPPER(m.subgrupo)
         WHEN m.tecnologia='Inglés Conversacional' THEN 'A'
         WHEN m.tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
         ELSE UPPER(COALESCE(m.subgrupo,'')) END = 'A')::int AS ocupados_a,
@@ -810,10 +825,12 @@ router.get("/cupos/:anio", canAccess, async (req, res) => {
   res.json(r.rows.map(x => ({
     ...x,
     max: MAX_CUPO,
+    max_repitentes: MAX_REPITENTES,
     max_subgrupo: MAX_SUB,
     disponibles: Math.max(0, MAX_CUPO - x.ocupados),
     disponibles_a: Math.max(0, MAX_SUB - x.ocupados_a),
     disponibles_b: Math.max(0, MAX_SUB - x.ocupados_b),
+    repitentes_disponibles: Math.max(0, MAX_REPITENTES - x.repitentes),
   })));
 });
 
@@ -881,7 +898,8 @@ router.post("/asignar", canAccess, async (req, res) => {
     }
   }
   const historial=await pool.query(`SELECT e.idioma AS est_idioma,e.tecnologia AS est_tecnologia,
-      m.idioma AS mat_idioma,m.tecnologia AS mat_tecnologia
+      m.idioma AS mat_idioma,m.tecnologia AS mat_tecnologia,m.subgrupo AS mat_subgrupo,
+      COALESCE(m.repitente,false) AS repitente
     FROM estudiantes e LEFT JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$2
     WHERE e.id=$1`,[estudiante_id,a]);
   // La elección registrada en Idioma/Tecnología pertenece al estudiante y es
@@ -892,13 +910,32 @@ router.post("/asignar", canAccess, async (req, res) => {
     ? (historial.rows[0]?.est_tecnologia || historial.rows[0]?.mat_tecnologia || tecnologia || null) : null;
   if(nivelDestino>=10 && (!idiomaEf || !tecnologiaEf))
     return res.status(400).json({ error:`Para ${nivelDestino}° deben quedar registrados el idioma y la tecnología. En 11° se conservan automáticamente los de 10°.` });
-  const sub = nivelDestino>=10 ? subgrupoDeTecnologia(tecnologiaEf) : null;
+  const secCfgR = await pool.query(
+    "SELECT tec_b FROM secciones_config WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
+  const secTecB = secCfgR.rows[0] ? secCfgR.rows[0].tec_b : null;
+  let sub = nivelDestino>=10 ? subgrupoDeTecnologia(tecnologiaEf) : null;
+  const subPrevio=String(historial.rows[0]?.mat_subgrupo||'').toUpperCase();
+  if(nivelDestino>=10 && tecnologiaEf==='Inglés Conversacional' && secTecB==='Inglés Conversacional'){
+    if(['A','B'].includes(subPrevio)) sub=subPrevio;
+    else {
+      const balance=esActual
+        ? await pool.query(`SELECT COUNT(*) FILTER(WHERE UPPER(COALESCE(e.subgrupo,''))='A')::int AS a,
+            COUNT(*) FILTER(WHERE UPPER(COALESCE(e.subgrupo,''))='B')::int AS b FROM estudiantes e
+            WHERE e.seccion_id=$1 AND e.id<>$2 AND e.activo=true AND COALESCE(e.archivado,false)=false`,[seccion_id,estudiante_id])
+        : await pool.query(`SELECT COUNT(*) FILTER(WHERE UPPER(COALESCE(m.subgrupo,''))='A')::int AS a,
+            COUNT(*) FILTER(WHERE UPPER(COALESCE(m.subgrupo,''))='B')::int AS b FROM matricula m
+            JOIN estudiantes e ON e.id=m.estudiante_id WHERE m.seccion_id=$1 AND m.anio=$2 AND m.estudiante_id<>$3
+            AND COALESCE(m.estado,'')<>'eliminada' AND e.activo=true AND COALESCE(e.archivado,false)=false`,[seccion_id,a,estudiante_id]);
+      sub=Number(balance.rows[0]?.a||0)<=Number(balance.rows[0]?.b||0)?'A':'B';
+    }
+  }
   let ocupados, ocupadosSub = 0;
   if(esActual){
     const c = await pool.query(`
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE CASE
+          WHEN UPPER(COALESCE(subgrupo,'')) IN ('A','B') THEN UPPER(subgrupo)
           WHEN tecnologia='Inglés Conversacional' THEN 'A'
           WHEN tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
           ELSE UPPER(COALESCE(subgrupo,'')) END = $3)::int AS sub_c
@@ -912,6 +949,7 @@ router.post("/asignar", canAccess, async (req, res) => {
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE CASE
+          WHEN UPPER(COALESCE(m.subgrupo,'')) IN ('A','B') THEN UPPER(m.subgrupo)
           WHEN m.tecnologia='Inglés Conversacional' THEN 'A'
           WHEN m.tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
           ELSE UPPER(COALESCE(m.subgrupo,'')) END = $4)::int AS sub_c
@@ -929,6 +967,18 @@ router.post("/asignar", canAccess, async (req, res) => {
       llena: true
     });
   }
+  if(historial.rows[0]?.repitente){
+    const rc=esActual
+      ? await pool.query(`SELECT COUNT(*)::int AS c FROM estudiantes e JOIN matricula m ON m.estudiante_id=e.id AND m.anio=$3
+          WHERE e.seccion_id=$1 AND e.id<>$2 AND e.activo=true AND COALESCE(e.archivado,false)=false AND m.repitente=true`,[seccion_id,estudiante_id,a])
+      : await pool.query(`SELECT COUNT(*)::int AS c FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
+          WHERE m.seccion_id=$1 AND m.anio=$2 AND m.estudiante_id<>$3 AND m.repitente=true
+          AND COALESCE(m.estado,'')<>'eliminada' AND e.activo=true AND COALESCE(e.archivado,false)=false`,[seccion_id,a,estudiante_id]);
+    if(Number(rc.rows[0]?.c||0)>=MAX_REPITENTES) return res.status(409).json({
+      error:`La sección ${secNombre} ya tiene ${MAX_REPITENTES} estudiantes repitentes. Seleccione otra sección para distribuirlos equitativamente.`,
+      repitentes_lleno:true
+    });
+  }
   // El máximo 13/13 es pedagógico, no un cupo administrativo forzable.
   if(sub && ocupadosSub >= MAX_SUB){
     return res.status(409).json({
@@ -942,10 +992,6 @@ router.post("/asignar", canAccess, async (req, res) => {
     "SELECT idioma FROM secciones_idioma WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
   const secIdioma = secIdR.rows[0] ? secIdR.rows[0].idioma : null;
   // Config A/B de la sección para ese año (qué tecnología B ofrece, qué talleres)
-  const secCfgR = await pool.query(
-    "SELECT tec_b FROM secciones_config WHERE seccion_id=$1 AND anio=$2", [seccion_id, a]);
-  const secTecB = secCfgR.rows[0] ? secCfgR.rows[0].tec_b : null;
-
   // Si la sección tiene configurada su tecnología B, la del estudiante debe coincidir
   // (Inglés Conversacional siempre pasa porque es A y no aplica esta validación)
   if(nivelDestino>=10 && tecnologiaEf && sub === 'B' && secTecB && tecnologiaEf !== secTecB && !(forzar && u.rol === "admin")){
@@ -972,9 +1018,10 @@ router.post("/asignar", canAccess, async (req, res) => {
     await pool.query(`
       UPDATE estudiantes SET seccion_id=$1, matricula_completada=true,
         idioma = COALESCE($2, idioma),
-        tecnologia = COALESCE($3, tecnologia)
-      WHERE id=$4
-    `, [seccion_id, idiomaEf, tecnologiaEf, estudiante_id]);
+        tecnologia = COALESCE($3, tecnologia),
+        subgrupo = COALESCE($4, subgrupo)
+      WHERE id=$5
+    `, [seccion_id, idiomaEf, tecnologiaEf, sub, estudiante_id]);
   }
   // En ambos casos queda registrado en la tabla matricula (historial por año)
   await pool.query(`
@@ -1012,7 +1059,7 @@ router.get("/asignaciones/:anio", canAccess, async (req, res) => {
   const anio = parseInt(req.params.anio);
   const r = await pool.query(`
     SELECT m.estudiante_id, m.seccion_id, m.seccion_nombre, m.idioma, m.tecnologia, m.subgrupo,
-      m.convocatoria, m.convocatoria_estado, m.nivel_solicitado, m.nivel_origen
+      m.convocatoria, m.convocatoria_estado, m.nivel_solicitado, m.nivel_origen,m.repitente
     FROM matricula m JOIN estudiantes e ON e.id=m.estudiante_id
     WHERE m.anio=$1 AND COALESCE(m.estado,'') <> 'eliminada'
       AND e.activo=true AND COALESCE(e.archivado,false)=false
@@ -1589,18 +1636,31 @@ router.post("/convocatoria/:id/resolver", canAccess, async (req, res) => {
     }
     const idiomaEf = m.est_idioma || m.idioma || null;
     const tecnologiaEf = m.est_tecnologia || m.tecnologia || null;
-    const subgrupoEf = subgrupoDeTecnologia(tecnologiaEf) || m.subgrupo || m.est_subgrupo || null;
+    const cfgSecPre=await client.query("SELECT tec_b FROM secciones_config WHERE seccion_id=$1 AND anio=$2",[seccionId,anio]);
+    const tecB=cfgSecPre.rows[0]?.tec_b||null;
+    let subgrupoEf = m.subgrupo || m.est_subgrupo || subgrupoDeTecnologia(tecnologiaEf) || null;
+    if(tecnologiaEf==='Inglés Conversacional'&&tecB==='Inglés Conversacional'&&!['A','B'].includes(String(subgrupoEf||'').toUpperCase())){
+      const balance=await client.query(`SELECT COUNT(*) FILTER(WHERE UPPER(COALESCE(subgrupo,''))='A')::int AS a,
+        COUNT(*) FILTER(WHERE UPPER(COALESCE(subgrupo,''))='B')::int AS b FROM matricula
+        WHERE seccion_id=$1 AND anio=$2 AND estudiante_id<>$3 AND COALESCE(estado,'')<>'eliminada'`,[seccionId,anio,estudianteId]);
+      subgrupoEf=Number(balance.rows[0]?.a||0)<=Number(balance.rows[0]?.b||0)?'A':'B';
+    }
     const cupo = esActual
       ? await client.query(`SELECT COUNT(*)::int AS c,
+          COUNT(*) FILTER(WHERE COALESCE(mx.repitente,false)=true)::int AS rep_c,
           COUNT(*) FILTER (WHERE CASE
-            WHEN tecnologia='Inglés Conversacional' THEN 'A'
-            WHEN tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
-            ELSE UPPER(COALESCE(subgrupo,'')) END=$3)::int AS sub_c
-          FROM estudiantes WHERE seccion_id=$1 AND activo=true
-          AND COALESCE(archivado,false)=false AND id<>$2`,
-          [seccionId,estudianteId,String(subgrupoEf||'').toUpperCase()])
+            WHEN UPPER(COALESCE(e.subgrupo,'')) IN ('A','B') THEN UPPER(e.subgrupo)
+            WHEN e.tecnologia='Inglés Conversacional' THEN 'A'
+            WHEN e.tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
+            ELSE '' END=$3)::int AS sub_c
+          FROM estudiantes e LEFT JOIN matricula mx ON mx.estudiante_id=e.id AND mx.anio=$4
+          WHERE e.seccion_id=$1 AND e.activo=true
+          AND COALESCE(e.archivado,false)=false AND e.id<>$2`,
+          [seccionId,estudianteId,String(subgrupoEf||'').toUpperCase(),anio])
       : await client.query(`SELECT COUNT(*)::int AS c,
+          COUNT(*) FILTER(WHERE COALESCE(m.repitente,false)=true)::int AS rep_c,
           COUNT(*) FILTER (WHERE CASE
+            WHEN UPPER(COALESCE(m.subgrupo,'')) IN ('A','B') THEN UPPER(m.subgrupo)
             WHEN m.tecnologia='Inglés Conversacional' THEN 'A'
             WHEN m.tecnologia IN ('Diseño Publicitario','Matem/AMPROSA') THEN 'B'
             ELSE UPPER(COALESCE(m.subgrupo,'')) END=$4)::int AS sub_c
@@ -1613,14 +1673,15 @@ router.post("/convocatoria/:id/resolver", canAccess, async (req, res) => {
       await client.query("ROLLBACK");
       return res.status(409).json({ error:`La sección está llena (${cupo.rows[0].c}/${MAX_CUPO}). Seleccione otra sección.`, llena:true });
     }
+    if(m.repitente&&Number(cupo.rows[0].rep_c||0)>=MAX_REPITENTES){
+      await client.query('ROLLBACK');
+      return res.status(409).json({error:`La sección ya tiene ${MAX_REPITENTES} estudiantes repitentes. Seleccione otra sección.`,repitentes_lleno:true});
+    }
     if(subgrupoEf && cupo.rows[0].sub_c >= 13){
       await client.query("ROLLBACK");
       return res.status(409).json({ error:`El Grupo ${subgrupoEf} de esa sección alcanzó el máximo obligatorio (${cupo.rows[0].sub_c}/13). Seleccione otra sección para conservar el balance 13 A / 13 B.`, subgrupo_lleno:true });
     }
-    const [idiomaSec,cfgSec] = await Promise.all([
-      client.query("SELECT idioma FROM secciones_idioma WHERE seccion_id=$1 AND anio=$2",[seccionId,anio]),
-      client.query("SELECT tec_b FROM secciones_config WHERE seccion_id=$1 AND anio=$2",[seccionId,anio])
-    ]);
+    const idiomaSec=await client.query("SELECT idioma FROM secciones_idioma WHERE seccion_id=$1 AND anio=$2",[seccionId,anio]);
     const secEsFrances = idiomaSec.rows[0]?.idioma === "Francés";
     const estEsFrances = idiomaEf === "Francés";
     if(secEsFrances !== estEsFrances && !forzar){
@@ -1630,7 +1691,6 @@ router.post("/convocatoria/:id/resolver", canAccess, async (req, res) => {
         : `El estudiante lleva Francés y la sección ${sr.rows[0].nombre} no es de Francés.`;
       return res.status(409).json({ error:detalle+" Seleccione otra sección.",idioma_conflicto:true });
     }
-    const tecB=cfgSec.rows[0]?.tec_b||null;
     if(subgrupoEf === 'B' && tecB && tecnologiaEf && tecnologiaEf !== tecB && !forzar){
       await client.query("ROLLBACK");
       return res.status(409).json({ error:`La sección ${sr.rows[0].nombre} ofrece “${tecB}” para el Grupo B, pero el estudiante tiene “${tecnologiaEf}”. Seleccione otra sección.`,tec_conflicto:true });
