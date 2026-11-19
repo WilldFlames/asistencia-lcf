@@ -12,7 +12,10 @@ test('el aula acepta espacios institucionales y conserva los números existentes
   assert.match(db,/ALTER COLUMN aula TYPE TEXT USING aula::text/);
   assert.match(db,/idx_horarios_aula_anio/);
   assert.match(ruta,/function nombreAula/);
-  assert.match(ruta,/"Gimnasio A"/);
+  assert.match(ruta,/"Gimnasio"/);
+  assert.doesNotMatch(ruta,/"Gimnasio A"/);
+  assert.doesNotMatch(ruta,/"Gimnasio B"/);
+  assert.match(db,/UPDATE horarios SET aula='Gimnasio'/);
   assert.match(ruta,/"Lab Diseño Publicitario"/);
   assert.match(ui,/list="hor-aulas-opciones"/);
   assert.doesNotMatch(ui,/class="hor-aula hor-editor-room"[^>]+type="number"/);

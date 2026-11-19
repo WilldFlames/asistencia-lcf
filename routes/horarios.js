@@ -37,7 +37,7 @@ const AULAS_BASE = [
   "Aula 1",
   ...Array.from({length:22},(_,i)=>`Aula ${i+4}`),
   "Aula 2 (Industriales)", "Aula 3 (Hogar)",
-  "Gimnasio A", "Gimnasio B", "Artes Plásticas", "Música",
+  "Gimnasio", "Artes Plásticas", "Música",
   "Lab Informática", "Lab Diseño Publicitario",
   "Lab Inglés Conversacional", "Biblioteca", "Audiovisuales"
 ];
@@ -50,6 +50,9 @@ function nombreAula(valor){
   const texto=String(valor??'').trim();
   if(!texto) return '';
   if(/^\d+$/.test(texto)) return `Aula ${Number(texto)}`;
+  // Las versiones anteriores ofrecían por error Gimnasio A y B, aunque la
+  // institución dispone de un único gimnasio.
+  if(/^gimnasio(?:\s+[ab])?$/i.test(texto)) return 'Gimnasio';
   const canon=AULAS_BASE.find(a=>textoComparable(a)===textoComparable(texto));
   return canon||texto;
 }

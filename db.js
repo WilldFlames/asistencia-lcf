@@ -2382,6 +2382,8 @@ async function initDB() {
           EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
         END LOOP;
       END $$`);
+    await client.query(`UPDATE horarios SET aula='Gimnasio'
+      WHERE LOWER(BTRIM(COALESCE(aula,''))) IN ('gimnasio a','gimnasio b','gimnasio')`);
     // Migración aditiva por si la tabla ya existía sin la columna
     await client.query(`ALTER TABLE horarios ADD COLUMN IF NOT EXISTS aula TEXT DEFAULT NULL`);
     // Las primeras versiones admitían únicamente números de aula. Se amplía a
@@ -2421,6 +2423,8 @@ async function initDB() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_horario_bloques_docente_anio
       ON horario_bloques_docente(profesor_id,anio,dia,leccion)`);
+    await client.query(`UPDATE horario_bloques_docente SET lugar='Gimnasio'
+      WHERE LOWER(BTRIM(COALESCE(lugar,''))) IN ('gimnasio a','gimnasio b','gimnasio')`);
     // Amplía los tipos sin modificar los bloques ya guardados. El valor
     // histórico "coordinacion" se muestra ahora como C. Departamento.
     await client.query(`ALTER TABLE horario_bloques_docente

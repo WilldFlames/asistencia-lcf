@@ -9,6 +9,8 @@ Fecha: 18 de noviembre de 2026
 - La importación valida el archivo completo antes de guardar.
 - Solo reemplaza las secciones presentes en el archivo; las demás se conservan.
 - Si existe una fila inválida o un choque con un bloque docente, no guarda nada.
+- El catálogo de aulas utiliza un único espacio llamado “Gimnasio”. Los valores
+  antiguos “Gimnasio A” y “Gimnasio B” se normalizan automáticamente.
 
 2. REPITENTES EN MATRÍCULA
 - Paso 1 incorpora la casilla “Estudiante repitente”.
