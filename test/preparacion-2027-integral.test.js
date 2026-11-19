@@ -20,7 +20,8 @@ test('el editor de horario expone I y II período sin ocultar la primera asignac
   const r=read('routes/horarios.js'),h=read('public/index.html');
   const tramo=r.slice(r.indexOf('router.get("/asignaciones/:seccion_id"'),r.indexOf('// ── VACIAR'));
   assert.doesNotMatch(tramo,/NOT\s*\([\s\S]*a2\.periodo/);
-  assert.match(h,/const periodo=a\.periodo/);
+  assert.match(h,/const periodo=esTallerRotativo && a\.periodo/);
+  assert.match(h,/\['Educación para el Hogar','Artes Industriales'\]\.includes\(a\.materia_nombre\)/);
 });
 
 test('matrícula limita repitentes a seis dentro del cupo general de 26',()=>{

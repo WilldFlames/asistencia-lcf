@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const admin = fs.readFileSync(path.join(root, 'routes', 'admin.js'), 'utf8');
@@ -24,6 +25,11 @@ test('la lista administrativa identifica el período solo en Hogar e Industriale
   assert.match(html, /distintivoPeriodoTaller/);
   assert.match(html, /htmlSeguro\(a\.periodo\|\|'I Período'\)/);
   assert.match(html, /\$\{distintivoPeriodoTaller\}<\/td>/);
+});
+
+test('el editor de horario muestra el período solo en Hogar e Industriales', () => {
+  assert.match(html, /const esTallerRotativo=\['Educación para el Hogar','Artes Industriales'\]\.includes\(a\.materia_nombre\)/);
+  assert.match(html, /const periodo=esTallerRotativo && a\.periodo \? ` · \$\{a\.periodo\}` : ''/);
 });
 
 test('la configuración de talleres no modifica el subgrupo del estudiante', () => {
@@ -67,4 +73,30 @@ test('las evaluaciones creadas con asignaciones manuales anteriores siguen consu
   assert.match(calificaciones,/\(COUNT\(\*\) FILTER \(WHERE ev\.periodo='I Período'\)\)::int AS evaluaciones_i/);
   assert.doesNotMatch(calificaciones,/COUNT\(\*\)::int FILTER/);
   assert.match(html,/Asignación manual 2026 recuperada — podés continuar editándola/);
+});
+
+test('familias y carta de matrícula agrupan Hogar e Industriales sin exponer A/B ni períodos',()=>{
+  assert.match(html,/function horarioFamiliarAgruparTalleres\(celdas=\[\]\)/);
+  assert.match(html,/materia_nombre:'Hogar \/ Industriales'/);
+  assert.match(html,/Hogar: \$\{hogar\} · Industriales: \$\{industriales\}/);
+  assert.match(html,/const celdasFamilia=horarioFamiliarAgruparTalleres\(r\.celdas\|\|\[\]\)/);
+  assert.match(html,/const celdas=horarioFamiliarAgruparTalleres\(r\.celdas\|\|\[\]\)/);
+  assert.match(html,/c\.es_taller_familiar\?'':`Aula `/);
+});
+
+test('el agrupador familiar produce una sola tarjeta con las dos aulas',()=>{
+  const inicio=html.indexOf('function horarioFamiliarAgruparTalleres');
+  const fin=html.indexOf('// Generar los documentos',inicio);
+  const contexto={horAulaEtiqueta:v=>/^\d+$/.test(String(v||''))?`Aula ${Number(v)}`:String(v||'').trim()};
+  vm.runInNewContext(`${html.slice(inicio,fin)};resultado=horarioFamiliarAgruparTalleres([
+    {dia:3,leccion:1,materia_nombre:'Artes Industriales',subgrupo:'B',periodo:'I Período',aula:'Aula 2'},
+    {dia:3,leccion:1,materia_nombre:'Educación para el Hogar',subgrupo:'A',periodo:'I Período',aula:'Biblioteca'},
+    {dia:3,leccion:1,materia_nombre:'Artes Industriales',subgrupo:'A',periodo:'II Período',aula:'Aula 2'},
+    {dia:3,leccion:1,materia_nombre:'Educación para el Hogar',subgrupo:'B',periodo:'II Período',aula:'Biblioteca'},
+    {dia:3,leccion:2,materia_nombre:'Matemática',aula:'21'}
+  ]);`,contexto);
+  assert.equal(contexto.resultado.length,2);
+  assert.equal(contexto.resultado[0].materia_nombre,'Hogar / Industriales');
+  assert.equal(contexto.resultado[0].aula,'Hogar: Biblioteca · Industriales: Aula 2');
+  assert.equal(contexto.resultado[1].materia_nombre,'Matemática');
 });

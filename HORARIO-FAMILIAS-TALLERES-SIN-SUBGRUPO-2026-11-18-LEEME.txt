@@ -1,0 +1,15 @@
+HORARIO DE FAMILIAS Y CARTA DE MATRÍCULA
+Fecha: 18/11/2026
+
+CAMBIO REALIZADO
+- En la aplicación de familias, Educación para el Hogar y Artes Industriales se muestran como un solo bloque: "Hogar / Industriales".
+- El bloque indica por separado el aula de Hogar y el aula de Industriales.
+- En la carta de matrícula impresa se utiliza la misma presentación.
+- No se muestran a las familias el subgrupo A/B ni el período de rotación.
+
+IMPORTANTE
+- Las asignaciones internas A/B y por período NO fueron eliminadas ni modificadas.
+- Docentes, administración, asistencia y calificaciones continúan utilizando el detalle institucional completo.
+
+VERIFICACIÓN
+- Pruebas completas del sistema: 380 aprobadas, 0 fallidas.

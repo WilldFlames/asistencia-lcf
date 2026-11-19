@@ -1,0 +1,10 @@
+CORRECCIÓN DE ETIQUETAS EN EL EDITOR DE HORARIO
+Fecha: 18/11/2026
+
+- La indicación "I Período" o "II Período" se muestra únicamente en
+  Educación para el Hogar y Artes Industriales.
+- Matemática, Español, Inglés, Guía, Informática y las demás materias vuelven
+  a mostrarse como materias regulares, sin una etiqueta semestral.
+- No se modificaron asignaciones, docentes, aulas ni celdas guardadas.
+
+Verificación completa: 381 pruebas aprobadas, 0 fallidas.

@@ -18325,12 +18325,13 @@ async function ppCargarHorario(){
     horLecciones = r.lecciones || [];
     horLeccionesAnio = parseInt(r.anio)||ANIO_LECTIVO_ACTIVO;
     const mapa = {};
-    (r.celdas||[]).forEach(c => {
+    const celdasFamilia=horarioFamiliarAgruparTalleres(r.celdas||[]);
+    celdasFamilia.forEach(c => {
       const k = `${c.dia}-${c.leccion}`;
       if(!mapa[k]) mapa[k] = [];
       mapa[k].push(c);
     });
-    document.getElementById('pp-horario').innerHTML = (r.celdas||[]).length
+    document.getElementById('pp-horario').innerHTML = celdasFamilia.length
       ? horRenderGrid(mapa, false)
       : '<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">El horario de la sección aún no ha sido cargado por la institución.</div>';
   }catch(e){ document.getElementById('pp-horario').innerHTML = `<div style="color:#dc2626;">${e.message}</div>`; }
@@ -19332,7 +19333,11 @@ async function horCargarSeccion(){
 
 function horEtiquetaAsig(a){
   const sub = a.subgrupo ? ` [${a.subgrupo}]` : '';
-  const periodo=a.periodo?` · ${a.periodo}`:'';
+  // El período distingue la rotación semestral únicamente en Hogar e
+  // Industriales. Las demás materias también tienen un período interno para
+  // asistencia y calificaciones, pero no son materias semestrales.
+  const esTallerRotativo=['Educación para el Hogar','Artes Industriales'].includes(a.materia_nombre);
+  const periodo=esTallerRotativo && a.periodo ? ` · ${a.periodo}` : '';
   return `${a.materia_nombre}${sub}${periodo} — ${nombreDesdeCampos(a.prof_nombre,a.prof_ap1,a.prof_ap2)}`;
 }
 
@@ -21045,6 +21050,39 @@ function pdfTexto(valor, vacio="—"){
     .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
 
+// Las familias no necesitan conocer la rotación institucional A/B ni ver
+// cuatro filas del mismo bloque (dos talleres por cada período). Para ellas
+// se presenta una sola materia y se conservan, claramente identificadas, las
+// aulas de Hogar y de Industriales. Los datos internos permanecen intactos.
+function horarioFamiliarAgruparTalleres(celdas=[]){
+  const talleres=new Set(['Educación para el Hogar','Artes Industriales']);
+  const salida=[],agrupados=new Map();
+  (celdas||[]).forEach(c=>{
+    if(!talleres.has(c.materia_nombre)){ salida.push(c); return; }
+    const clave=`${c.dia}-${c.leccion}`;
+    let grupo=agrupados.get(clave);
+    if(!grupo){
+      grupo={
+        dia:c.dia,leccion:c.leccion,materia_nombre:'Hogar / Industriales',
+        materia_texto:'Hogar / Industriales',detalle_secundario:'',
+        es_taller_familiar:true,aulas_hogar:new Set(),aulas_industriales:new Set()
+      };
+      agrupados.set(clave,grupo);salida.push(grupo);
+    }
+    const aula=horAulaEtiqueta(c.aula);
+    if(!aula) return;
+    if(c.materia_nombre==='Educación para el Hogar') grupo.aulas_hogar.add(aula);
+    else grupo.aulas_industriales.add(aula);
+  });
+  return salida.map(c=>{
+    if(!c.es_taller_familiar) return c;
+    const hogar=[...c.aulas_hogar].join(' / ')||'Sin indicar';
+    const industriales=[...c.aulas_industriales].join(' / ')||'Sin indicar';
+    return {...c,aula:`Hogar: ${hogar} · Industriales: ${industriales}`,
+      aulas_hogar:undefined,aulas_industriales:undefined};
+  });
+}
+
 // Generar los documentos sin cerrar el asistente de matrícula. El PDF se
 // abre en otra pestaña, por lo que los datos y el paso actual permanecen
 // visibles aunque el usuario vuelva a la ventana del sistema.
@@ -21071,13 +21109,14 @@ async function imprimirCartaHorarioMatricula(estudianteId, anio=matAnio){
     const subgrupo=estudiante.subgrupo||null;
     const dias=['','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES'];
     const tiposSeparador={2:'RECREO',4:'RECREO',6:'ALMUERZO',8:'RECREO',10:'RECREO'};
-    const celdas=(r.celdas||[]).filter(c=>!c.subgrupo || !subgrupo || c.subgrupo===subgrupo);
+    const celdas=horarioFamiliarAgruparTalleres(r.celdas||[])
+      .filter(c=>c.es_taller_familiar || !c.subgrupo || !subgrupo || c.subgrupo===subgrupo);
     const contenidoCelda=(dia,leccion)=>{
       const items=celdas.filter(c=>Number(c.dia)===dia && Number(c.leccion)===Number(leccion));
       if(!items.length) return '&nbsp;';
       return items.map(c=>{
         const materia=pdfTexto(c.materia_nombre||c.materia_texto,'');
-        const aula=c.aula?`<div style="font-size:7.3px;color:#475569;">Aula ${pdfTexto(c.aula)}</div>`:'';
+        const aula=c.aula?`<div style="font-size:7.3px;color:#475569;">${c.es_taller_familiar?'':`Aula `}${pdfTexto(c.aula)}</div>`:'';
         return `<div style="line-height:1.05;"><strong>${materia}</strong>${aula}</div>`;
       }).join('<div style="border-top:1px dotted #cbd5e1;margin:1px 0;"></div>');
     };
