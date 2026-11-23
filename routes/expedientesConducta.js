@@ -125,7 +125,11 @@ router.get("/listado", requireAuth, async (req,res)=>{
       ) ult ON true
       LEFT JOIN usuarios uf ON uf.id=COALESCE(ec.cerrado_por,ult.completado_por)
       WHERE (e.activo=true OR ec.id IS NOT NULL) ${filtro}
-        AND (ROUND((n.nota_i+n.nota_ii)/2.0,1) < CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END OR ec.id IS NOT NULL)
+        -- Este es el listado ACTIVO de estudiantes aplazados, no el archivo
+        -- histórico de expedientes. Un expediente concluido se conserva para
+        -- auditoría, pero no obliga a seguir mostrando como aplazada a una
+        -- estudiante cuya nota vigente ya alcanza el mínimo.
+        AND ROUND((n.nota_i+n.nota_ii)/2.0,1) < CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END
       ORDER BY s.nivel,s.nombre,e.primer_apellido,e.segundo_apellido,e.nombre`,params);
     const tipoComite=await tipoComiteActivo();
     const mc=await pool.query(`SELECT COUNT(*)::int AS n FROM funciones_institucionales fi

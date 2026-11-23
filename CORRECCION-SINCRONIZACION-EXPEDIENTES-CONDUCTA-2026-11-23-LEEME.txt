@@ -1,0 +1,15 @@
+CORRECCIÓN DE SINCRONIZACIÓN DE EXPEDIENTES DE CONDUCTA
+Fecha: 23/11/2026
+
+- Al entrar a Expedientes de Conducta se consulta nuevamente la nota vigente;
+  no se reutiliza una lista anterior que pueda haber quedado desactualizada.
+- El listado activo muestra únicamente estudiantes cuya nota anual actual está
+  por debajo del mínimo correspondiente a su nivel.
+- Si se eliminan o corrigen boletas y la nota vuelve a alcanzar el mínimo, la
+  estudiante deja de aparecer como aplazada.
+- Un expediente abierto cuya nota cambió conserva una copia de auditoría, se
+  retira del flujo activo y libera el consecutivo.
+- Los expedientes concluidos se conservan como historial institucional, pero no
+  hacen aparecer como aplazada a una estudiante que actualmente está aprobada.
+
+Verificación completa: 382 pruebas aprobadas, 0 fallidas.

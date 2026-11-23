@@ -22388,7 +22388,10 @@ function iniciarExpedientesConducta(){
   document.getElementById("ect-detalle-vista").style.display="none";
   const anio=document.getElementById("ect-anio");
   if(!anio.value) anio.value=ANIO_LECTIVO_ACTIVO;
-  ectCargarListado(false);
+  // Al entrar siempre se consulta la nota vigente. Una boleta puede haber sido
+  // retirada o corregida desde Conducta, Asistencia o un debido proceso y la
+  // caché anterior no debe seguir mostrando al estudiante como aplazado.
+  ectCargarListado(true);
 }
 
 function ectRenderListado(d){

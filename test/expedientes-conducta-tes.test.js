@@ -186,6 +186,12 @@ test("cualquier cambio de nota invalida solo el expediente abierto y libera su c
   assert.doesNotMatch(routes,/COALESCE\(MAX\(numero\),0\)\+1 AS numero/);
 });
 
+test("el listado activo se refresca al entrar y no confunde expedientes históricos con aplazados vigentes",()=>{
+  assert.match(front,/function iniciarExpedientesConducta\(\)[\s\S]*ectCargarListado\(true\)/);
+  assert.match(routes,/AND ROUND\(\(n\.nota_i\+n\.nota_ii\)\/2\.0,1\) < CASE WHEN s\.nivel<=9 THEN 65 ELSE 70 END/);
+  assert.doesNotMatch(routes,/nota_ii\)\/2\.0,1\) < CASE WHEN s\.nivel<=9 THEN 65 ELSE 70 END OR ec\.id IS NOT NULL/);
+});
+
 test("agregar o retirar una boleta revalida inmediatamente el expediente en curso",()=>{
   assert.match(conducta,/sincronizarExpedienteConductaAbierto\(estudiante_id,anioBoleta\)/);
   assert.match(conducta,/DELETE FROM boletas_conducta WHERE id=\$1 RETURNING estudiante_id,fecha::text/);
