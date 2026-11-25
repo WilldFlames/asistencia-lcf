@@ -45,6 +45,8 @@ router.get("/estudiante/:id", requireAuth, exigirAccesoEstudiante(req=>req.param
     LEFT JOIN usuarios ap ON ap.id = b.usuario_apoyo_id
     LEFT JOIN debidos_procesos dp ON dp.id = b.debido_proceso_id
     WHERE b.estudiante_id = $1
+      AND (b.debido_proceso_id IS NULL OR dp.estado='resuelto'
+        OR (dp.estado IN ('pendiente_archivo','archivado') AND dp.estado_previo_archivo='resuelto'))
   `;
   const params = [req.params.id];
   if (desde) { params.push(desde); sql += ` AND b.fecha >= $${params.length}`; }

@@ -36,6 +36,7 @@ const { pool } = require("../db");
 const { requireAuth, requireRol } = require("../middleware/auth");
 const { asignarConsecutivoInterno } = require("./consecutivos");
 const { obtenerAnioActivo, obtenerRangoPeriodo } = require("../utils/lectivo");
+const { sincronizarExpedienteConductaAbierto } = require("../utils/sincronizar-expediente-conducta");
 
 // Roles que pueden iniciar un acta de apertura (cualquier docente/admin)
 const ROLES_INICIAR = ["admin","auxiliar","profesor","profesor_guia","orientador","secretaria","administrativo"];
@@ -1327,7 +1328,7 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
     return res.status(400).json({ error: "Debe completarse el acta sesión antes de cerrar." });
   }
   const client=await pool.connect();
-  let efectos={rebajo_creado:false,suspension_creada:false};
+  let efectos={rebajo_creado:false,rebajo_eliminado:false,suspension_creada:false};
   try{
     await client.query("BEGIN");
     if(nuevoEstado==="resuelto"){
@@ -1357,6 +1358,12 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
             fecha=EXCLUDED.fecha,observacion=EXCLUDED.observacion,periodo_conducta=EXCLUDED.periodo_conducta RETURNING id`,
           [dp.estudiante_id,inf.rows[0].id,u.id,fecha,`Rebajo automático por resolución del debido proceso N°${dp.numero}-${dp.anio}.`,dp.id,periodo]);
         efectos.rebajo_creado=!!boleta.rows.length;
+      }else{
+        // Si una apelación o corrección deja el rebajo en cero, no puede
+        // sobrevivir la boleta automática que produjo la resolución anterior.
+        const retirada=await client.query(`DELETE FROM boletas_conducta
+          WHERE debido_proceso_id=$1 RETURNING id`,[dp.id]);
+        efectos.rebajo_eliminado=retirada.rowCount>0;
       }
 
       const accion=String(c.desc_accion||'');
@@ -1376,6 +1383,12 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
           [dp.estudiante_id,inicio,dias,`Suspensión automática de ${dias} días naturales. ${accion}`,u.id,dp.id,periodo]);
         efectos.suspension_creada=!!medida.rows.length;
       }
+    }else{
+      // Un proceso desestimado no genera rebajo. Esto también sanea procesos
+      // reabiertos que sí habían creado una boleta en su cierre anterior.
+      const retirada=await client.query(`DELETE FROM boletas_conducta
+        WHERE debido_proceso_id=$1 RETURNING id`,[dp.id]);
+      efectos.rebajo_eliminado=retirada.rowCount>0;
     }
     await client.query("UPDATE debidos_procesos SET estado=$1, finalizado_por=$2, finalizado_en=NOW(), updated_at=NOW() WHERE id=$3", [nuevoEstado,u.id,req.params.id]);
     await client.query("COMMIT");
@@ -1383,6 +1396,12 @@ router.post("/:id/cerrar", requireAuth, requireProcesoAccess, async (req, res) =
     await client.query("ROLLBACK");
     return res.status(400).json({error:e.message});
   }finally{client.release();}
+
+  // El cambio de validez o puntaje de la boleta debe reflejarse de inmediato
+  // en el expediente TES y liberar el consecutivo si la nota dejó de ser
+  // aplazada. Un fallo secundario se registra, pero no revierte el DP ya cerrado.
+  await sincronizarExpedienteConductaAbierto(dp.estudiante_id,dp.anio).catch(e=>
+    console.error("sincronizar expediente conducta tras cerrar DP:",e.message));
 
   // Notificaciones: iniciador, orientador, guía original y sustituto si lo hay.
   const etiqueta = nuevoEstado === "resuelto" ? "✅ resuelto" : "❌ desestimado";

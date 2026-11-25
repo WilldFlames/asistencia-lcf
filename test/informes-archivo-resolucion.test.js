@@ -12,6 +12,36 @@ const pautas=read('routes/protocolos.js');
 const porteria=read('routes/porteria.js');
 const db=read('db.js');
 
+test('la lista general respeta la asignación A/B o imprime la sección completa',async()=>{
+  const vm=require('node:vm');
+  const campos={'fle-tipo':{value:'general'},'fle-materia':{value:'12'},'filtro-seccion-est':{value:'3'}};
+  const a={id:12,seccion_id:3,subgrupo:'B'};
+  const filas=[
+    {id:1,seccion_id:3,subgrupo:'A'},
+    {id:2,seccion_id:3,subgrupo:' b '},
+    {id:3,seccion_id:3,subgrupo:null},
+    {id:4,seccion_id:4,subgrupo:'B'}
+  ];
+  const impresiones=[];
+  const entorno={
+    document:{getElementById:id=>campos[id]},formatosListaAsignaciones:[a],
+    api:async ruta=>{assert.equal(ruta,'/api/estudiantes?seccion_id=3');return filas;},
+    ordenarEstudiantes:lista=>lista,cerrarModal:()=>{},
+    imprimirListaEstudiantes:(lista,asignacion)=>impresiones.push({lista,asignacion})
+  };
+  for(const nombre of ['generarFormatoListaEstudiantes','cargarFilasListaImpresion']){
+    vm.runInNewContext(html.match(new RegExp(`async function ${nombre}\\([^\\n]*\\n[\\s\\S]*?\\n\\}`))[0],entorno);
+  }
+  await entorno.generarFormatoListaEstudiantes();
+  assert.equal(Array.from(impresiones[0].lista,e=>e.id).join(','),'2');
+  a.subgrupo='A';
+  await entorno.generarFormatoListaEstudiantes();
+  assert.equal(Array.from(impresiones[1].lista,e=>e.id).join(','),'1');
+  campos['fle-materia'].value='';
+  await entorno.generarFormatoListaEstudiantes();
+  assert.equal(Array.from(impresiones[2].lista,e=>e.id).join(','),'1,2,3');
+});
+
 test('Archivo identifica los debidos procesos del estudiante retirado',()=>{
   assert.match(estudiantes,/debidos_procesos_total/);
   assert.match(estudiantes,/debidos_procesos_resumen/);

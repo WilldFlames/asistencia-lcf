@@ -19,7 +19,7 @@ test("expedientes de conducta conserva consecutivo, siete pasos y cierre auditab
 
 test("el profesor guía ve aplazados y una aprobación del comité habilita el TES",()=>{
   assert.match(routes,/seccion_guia_anio/);
-  assert.match(routes,/ROUND\(\(n\.nota_i\+n\.nota_ii\)\/2\.0,1\)/);
+  assert.match(routes,/ROUND\(\(n\.nota_i\+n\.nota_ii\)\/2\.0\)/);
   assert.match(routes,/tipoComiteActivo/);
   assert.match(routes,/"comite_evaluacion" : "comite_tecnico_asesor"/);
   assert.match(db,/UNIQUE\(expediente_id,usuario_id\)/);
@@ -169,34 +169,82 @@ test("inasistencia y condición académica se remiten sin reprobar automáticame
 test("Conducta usa la nota definitiva del TES sin borrar boletas ni períodos",()=>{
   assert.match(front,/resultado-tes\?anio=/);
   assert.match(front,/Resultado definitivo por TES/);
-  assert.match(routes,/nota_final_conducta=CASE WHEN \$2='aprobado'/);
+  assert.match(routes,/notaFinal=resultado==="aprobado"\?notaVigente.minimo:notaVigente.nota_anual_redondeada/);
   assert.match(read("routes/conducta.js"),/resultado-tes/);
 });
 
-test("cualquier cambio de nota invalida solo el expediente abierto y libera su consecutivo",()=>{
+test("solo alcanzar el mínimo retira el expediente abierto y libera su consecutivo",async ()=>{
   assert.match(db,/CREATE TABLE IF NOT EXISTS expedientes_conducta_cancelados/);
   assert.match(db,/expediente_snapshot JSONB/);
   assert.match(sincronizacion,/WHERE estudiante_id=\$1 AND anio=\$2 AND estado='en_curso'/);
   assert.match(sincronizacion,/INSERT INTO expedientes_conducta_cancelados/);
-  assert.match(sincronizacion,/Math\.abs\(notaExpediente - nota\.nota_anual\)/);
-  assert.match(sincronizacion,/la nota anual cambió de/);
   assert.match(sincronizacion,/DELETE FROM expedientes_conducta_tes\s+WHERE id=\$1 AND estado='en_curso'/);
   assert.match(routes,/sincronizarExpedientesConductaAbiertos\(anio\)/);
   assert.match(routes,/generate_series\(1,/);
   assert.doesNotMatch(routes,/COALESCE\(MAX\(numero\),0\)\+1 AS numero/);
+  const vm=require("node:vm");
+  const scope={module:{exports:{}},require:name=>name==="../db"?{pool:{}}:{obtenerCalendario:async()=>({})}};
+  vm.runInNewContext(sincronizacion,scope);
+  const {sincronizarExpedienteConductaAbierto}=scope.module.exports;
+  for(const [nivel,puntosII,nota,retira] of [[8,85,58,false],[8,72,64,false],[8,71,65,true],[10,61,70,true]]){
+    const cambios=[];
+    const stub={query:async (sql,params)=>{
+      if(sql.includes("AS puntos_i"))return {rows:[{estudiante_id:1,seccion_id:2,nivel,puntos_i:0,puntos_ii:puntosII}]};
+      if(sql.includes("SELECT * FROM expedientes_conducta_tes"))return {rows:[{id:12,numero:7,nota_anual:62}]};
+      cambios.push({sql,params});
+      return {rows:[{expediente_id_original:12}]};
+    }};
+    const resultado=await sincronizarExpedienteConductaAbierto(1,2026,stub);
+    assert.equal(resultado.nota_anual_redondeada,nota);
+    assert.equal(resultado.expediente_id,12);
+    assert.equal(resultado.eliminado,retira);
+    assert.equal(cambios.length,retira?1:0);
+  }
 });
 
 test("el listado activo se refresca al entrar y no confunde expedientes históricos con aplazados vigentes",()=>{
   assert.match(front,/function iniciarExpedientesConducta\(\)[\s\S]*ectCargarListado\(true\)/);
-  assert.match(routes,/AND ROUND\(\(n\.nota_i\+n\.nota_ii\)\/2\.0,1\) < CASE WHEN s\.nivel<=9 THEN 65 ELSE 70 END/);
+  assert.match(routes,/ec\.estado='cerrado_aprobado'\s+OR ROUND\(\(n\.nota_i\+n\.nota_ii\)\/2\.0\) < CASE WHEN s\.nivel<=9 THEN 65 ELSE 70 END/);
   assert.doesNotMatch(routes,/nota_ii\)\/2\.0,1\) < CASE WHEN s\.nivel<=9 THEN 65 ELSE 70 END OR ec\.id IS NOT NULL/);
+});
+
+test("un TES aprobado se consulta como antecedente con su nota definitiva",()=>{
+  const vm=require("node:vm");
+  const funcion=front.match(/function ectMostrarNotaAnual\(e\)\{[\s\S]*?\n\}/)[0];
+  const mostrar=vm.runInNewContext(`(${funcion})`);
+  const celda=mostrar({estado:"cerrado_aprobado",nota_anual:60,nota_final_conducta:65,minimo:65});
+  assert.match(celda,/<strong>65\.0<\/strong>/);
+  assert.match(celda,/Original: 60\.0/);
+  assert.doesNotMatch(celda,/--rojo/);
+  assert.doesNotMatch(front,/ect-incluir-aprobados/);
+});
+
+test("la constancia de TES no realizado toma el exceso del mismo curso de Convocatoria",()=>{
+  assert.match(routes,/ec\.estado==="en_curso" && !ec\.resultado_tes/);
+  assert.match(routes,/WHERE estudiante_id=\$1 AND anio=\$2 AND total_aplazadas>limite_institucional/);
+  const funcion=front.match(/async function ectImprimirCartaExcesoMaterias\(\)\{[\s\S]*?\n\}/)[0];
+  assert.match(funcion,/modo_informativo/);
+  assert.match(funcion,/if\(!confirm/);
+  assert.match(funcion,/condición académica comunicada/);
+  assert.match(funcion,/await imprimirPDFMEP/);
+  assert.doesNotMatch(funcion,/"POST"|"PUT"/);
 });
 
 test("agregar o retirar una boleta revalida inmediatamente el expediente en curso",()=>{
   assert.match(conducta,/sincronizarExpedienteConductaAbierto\(estudiante_id,anioBoleta\)/);
   assert.match(conducta,/DELETE FROM boletas_conducta WHERE id=\$1 RETURNING estudiante_id,fecha::text/);
   assert.match(conducta,/sincronizarExpedienteConductaAbierto\(x\.estudiante_id,anioBoleta\)/);
-  assert.match(routes,/notaActual\.nota_anual>=notaActual\.minimo/);
+  assert.match(routes,/notaActual\.nota_anual_redondeada>=notaActual\.minimo/);
+});
+
+test("los rebajos anulados o desestimados dejan de contar aunque sobreviva un registro anterior",()=>{
+  assert.match(sincronizacion,/b\.debido_proceso_id IS NULL OR dp\.estado='resuelto'/);
+  assert.match(sincronizacion,/dp\.estado IN \('pendiente_archivo','archivado'\) AND dp\.estado_previo_archivo='resuelto'/);
+  assert.match(routes,/b\.debido_proceso_id IS NULL OR dp\.estado='resuelto'/);
+  assert.match(conducta,/b\.debido_proceso_id IS NULL OR dp\.estado='resuelto'/);
+  assert.match(dp,/rebajo_eliminado:false/);
+  assert.match(dp,/DELETE FROM boletas_conducta\s+WHERE debido_proceso_id=\$1 RETURNING id/);
+  assert.match(dp,/sincronizarExpedienteConductaAbierto\(dp\.estudiante_id,dp\.anio\)/);
 });
 
 test("desestimar cierra, imprime y permite reimprimir la carta independiente",()=>{

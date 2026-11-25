@@ -98,14 +98,19 @@ router.get("/listado", requireAuth, async (req,res)=>{
     const r=await pool.query(`
       WITH notas AS (
         SELECT e.id,
-          GREATEST(0,100-COALESCE(SUM(i.puntos) FILTER(WHERE b.fecha BETWEEN $2 AND $3),0)) AS nota_i,
-          GREATEST(0,100-COALESCE(SUM(i.puntos) FILTER(WHERE b.fecha BETWEEN $4 AND $5),0)) AS nota_ii
+          GREATEST(0,100-COALESCE(SUM(i.puntos) FILTER(WHERE b.fecha BETWEEN $2 AND $3
+            AND (b.debido_proceso_id IS NULL OR dp.estado='resuelto'
+              OR (dp.estado IN ('pendiente_archivo','archivado') AND dp.estado_previo_archivo='resuelto'))),0)) AS nota_i,
+          GREATEST(0,100-COALESCE(SUM(i.puntos) FILTER(WHERE b.fecha BETWEEN $4 AND $5
+            AND (b.debido_proceso_id IS NULL OR dp.estado='resuelto'
+              OR (dp.estado IN ('pendiente_archivo','archivado') AND dp.estado_previo_archivo='resuelto'))),0)) AS nota_ii
         FROM estudiantes e LEFT JOIN boletas_conducta b ON b.estudiante_id=e.id
+        LEFT JOIN debidos_procesos dp ON dp.id=b.debido_proceso_id
         LEFT JOIN infracciones i ON i.id=b.infraccion_id GROUP BY e.id
       )
       SELECT e.id AS estudiante_id,e.cedula,e.nombre,e.primer_apellido,e.segundo_apellido,e.activo,
         s.id AS seccion_id,s.nombre AS seccion_nombre,s.nivel,n.nota_i,n.nota_ii,
-        ROUND((n.nota_i+n.nota_ii)/2.0,1) AS nota_anual,
+        ROUND((n.nota_i+n.nota_ii)/2.0) AS nota_anual,
         CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END AS minimo,
         ec.id AS expediente_id,ec.numero,ec.estado,ec.proyecto,ec.nota_final_conducta,
         ec.created_at AS expediente_creado_en,ec.cerrado_en,
@@ -125,11 +130,10 @@ router.get("/listado", requireAuth, async (req,res)=>{
       ) ult ON true
       LEFT JOIN usuarios uf ON uf.id=COALESCE(ec.cerrado_por,ult.completado_por)
       WHERE (e.activo=true OR ec.id IS NOT NULL) ${filtro}
-        -- Este es el listado ACTIVO de estudiantes aplazados, no el archivo
-        -- histórico de expedientes. Un expediente concluido se conserva para
-        -- auditoría, pero no obliga a seguir mostrando como aplazada a una
-        -- estudiante cuya nota vigente ya alcanza el mínimo.
-        AND ROUND((n.nota_i+n.nota_ii)/2.0,1) < CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END
+        AND (
+          ec.estado='cerrado_aprobado'
+          OR ROUND((n.nota_i+n.nota_ii)/2.0) < CASE WHEN s.nivel<=9 THEN 65 ELSE 70 END
+        )
       ORDER BY s.nivel,s.nombre,e.primer_apellido,e.segundo_apellido,e.nombre`,params);
     const tipoComite=await tipoComiteActivo();
     const mc=await pool.query(`SELECT COUNT(*)::int AS n FROM funciones_institucionales fi
@@ -165,7 +169,7 @@ router.post("/abrir", requireAuth, async (req,res)=>{
     const guia=await client.query(`SELECT profesor_id FROM seccion_guia_anio WHERE seccion_id=$1 AND anio=$2
       UNION ALL SELECT profesor_id FROM seccion_guia WHERE seccion_id=$1 LIMIT 1`,[sec.seccion_id,anio]);
     const notaActual=await calcularNotaAnualConducta(estudianteId,anio,client);
-    if(!notaActual || notaActual.nota_anual>=notaActual.minimo)
+    if(!notaActual || notaActual.nota_anual_redondeada>=notaActual.minimo)
       throw new Error("El estudiante ya alcanza la nota mínima de conducta y no requiere abrir un expediente.");
     const notaAnual=notaActual.nota_anual;
     const r=await client.query(`INSERT INTO expedientes_conducta_tes(numero,anio,estudiante_id,seccion_id,guia_id,creado_por,estado,nota_anual)
@@ -185,10 +189,11 @@ router.get("/:id", requireAuth, async (req,res)=>{
     if(!await puedeVer(req.session.usuario,ec)) return res.status(403).json({error:"No tiene acceso a este expediente."});
     const sincronizado=await sincronizarExpedienteConductaAbierto(ec.estudiante_id,ec.anio);
     if(sincronizado.eliminado) return res.status(409).json({
-      error:`El expediente se canceló automáticamente porque la nota anual cambió. La nota actual es ${sincronizado.nota_anual} y el consecutivo N.° ${sincronizado.numero} quedó disponible nuevamente.`,
+      error:`La nota anual alcanzó el mínimo de aprobación (${sincronizado.nota_anual_redondeada}). El consecutivo N.° ${sincronizado.numero} quedó disponible nuevamente.`,
       cancelado_por_nota:true,
     });
     ec=await cargarExpediente(req.params.id);
+    if(!ec) return res.status(404).json({error:"El expediente ya no está activo. Actualice el listado."});
     const pasos=await pool.query(`SELECT p.*,u.nombre AS completado_nombre,u.primer_apellido AS completado_ap1,u.segundo_apellido AS completado_ap2
       FROM expedientes_conducta_pasos p LEFT JOIN usuarios u ON u.id=p.completado_por WHERE p.expediente_id=$1 ORDER BY paso`,[ec.id]);
     const tipoComite=await tipoComiteActivo();
@@ -224,8 +229,17 @@ router.get("/:id", requireAuth, async (req,res)=>{
       ORDER BY es_principal DESC,primer_apellido,segundo_apellido,nombre,id`,[ec.estudiante_id]);
     const u=req.session.usuario;
     const puedeRevertirPaso2=esAdmin(u)||Number(ec.guia_id)===Number(u.id);
-    res.json({expediente:ec,pasos:pasos.rows,aprobaciones:aprobaciones.rows,miembros:miembros.rows,
+    // Convocatoria ya calcula el límite por nivel y excluye Conducta del conteo.
+    const exceso=ec.estado==="en_curso" && !ec.resultado_tes
+      ? (await pool.query(`SELECT total_aplazadas,limite_institucional,modo_informativo
+          FROM convocatoria_expedientes
+          WHERE estudiante_id=$1 AND anio=$2 AND total_aplazadas>limite_institucional`,
+        [ec.estudiante_id,ec.anio])).rows[0] || null
+      : null;
+    res.json({expediente:ec,nota_anual_vigente:sincronizado.nota_anual_redondeada,
+      pasos:pasos.rows,aprobaciones:aprobaciones.rows,miembros:miembros.rows,
       procedimientos_debidos:procedimientos.rows,acciones_correctivas:acciones,encargados:encargados.rows,
+      exceso_materias:exceso,
       es_admin:esAdmin(u),es_comite:await esComite(u.id),puede_revertir_paso2:puedeRevertirPaso2});
   }catch(e){console.error("detalle expediente conducta",e);res.status(500).json({error:e.message});}
 });
@@ -447,15 +461,18 @@ router.post("/:id/concluir", requireAuth, async (req,res)=>{
     if(ap.rows[0].n<1) throw new Error("Falta la aprobación de al menos un miembro del Comité de Evaluación.");
     const resultado=String(req.body.resultado||"");
     if(!["aprobado","no_aprobado"].includes(resultado)) throw new Error("Indique el resultado final del TES.");
-    const minimo=Number(ec.nivel)<=9?65:70;
+    const notaVigente=await calcularNotaAnualConducta(ec.estudiante_id,ec.anio,client);
+    if(!notaVigente || notaVigente.nota_anual_redondeada>=notaVigente.minimo)
+      throw new Error("La nota vigente ya no requiere concluir el TES. Actualice el expediente.");
+    const notaFinal=resultado==="aprobado"?notaVigente.minimo:notaVigente.nota_anual_redondeada;
     const contenido={...(req.body.contenido||{}),resultado,calificacion:Number(req.body.calificacion)||0};
     await client.query(`UPDATE expedientes_conducta_pasos SET contenido=$1,completado=true,completado_por=$2,completado_en=NOW(),updated_at=NOW()
       WHERE expediente_id=$3 AND paso=7`,[contenido,req.session.usuario.id,ec.id]);
     await client.query(`UPDATE expedientes_conducta_tes SET estado=$1,resultado_tes=$2,calificacion_tes=$3,
-      nota_final_conducta=CASE WHEN $2='aprobado' THEN $4 ELSE nota_anual END,
+      nota_final_conducta=$4,
       cerrado_por=$5,cerrado_en=NOW(),updated_at=NOW() WHERE id=$6`,
-      [resultado==='aprobado'?'cerrado_aprobado':'cerrado_no_aprobado',resultado,contenido.calificacion,minimo,req.session.usuario.id,ec.id]);
-    await client.query("COMMIT");res.json({ok:true,nota_final:resultado==='aprobado'?minimo:Number(ec.nota_anual)});
+      [resultado==='aprobado'?'cerrado_aprobado':'cerrado_no_aprobado',resultado,contenido.calificacion,notaFinal,req.session.usuario.id,ec.id]);
+    await client.query("COMMIT");res.json({ok:true,nota_final:notaFinal});
   }catch(e){await client.query("ROLLBACK");res.status(e.status||400).json({error:e.message});}
   finally{client.release();}
 });

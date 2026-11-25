@@ -1,0 +1,17 @@
+CORRECCIÓN DE REBAJOS ANULADOS EN CONDUCTA
+Fecha: 23/11/2026
+
+Se corrigió el caso en que una boleta automática generada por un debido
+proceso continuaba rebajando puntos después de que el proceso fuera corregido,
+desestimado o su resolución quedara sin puntos.
+
+- Los cálculos de Conducta y Expedientes de Conducta cuentan una boleta ligada
+  a un debido proceso solamente cuando su resolución está vigente.
+- Se respetan también los procesos resueltos que luego fueron archivados.
+- Al cerrar una corrección con cero puntos o desestimar el proceso se elimina
+  la boleta automática anterior.
+- El expediente de conducta abierto se sincroniza inmediatamente y libera su
+  consecutivo cuando la nota vuelve a alcanzar el mínimo.
+- Las actuaciones anteriores siguen disponibles en su historial institucional.
+
+Verificación completa: 383 pruebas aprobadas, 0 fallidas.
