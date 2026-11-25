@@ -63,11 +63,52 @@ test("el panel cuenta solo asignaciones vigentes de personal activo",()=>{
 });
 
 test("beca acepta montos completos y autorización completa fecha y funcionario",()=>{
-  assert.match(frontend,/id="beca-ingreso" maxlength="12"/);
+  assert.match(frontend,/id="beca-ingreso" readonly/);
+  assert.match(frontend,/data-beca="ingreso" type="number"/);
   assert.match(frontend,/id="beca-monto-avancemos" maxlength="12"/);
   assert.match(frontend,/const fechaDocumento=fmtF\(fechaHoyCR\(\)\)/);
   assert.match(frontend,/Tramitado por:<\/strong> \$\{funcionario\}/);
   assert.match(frontend,/iPad, etc\.\), debido a que no son solicitados/);
+});
+
+test("la matrícula serializa el cierre por año y alterna talleres respetando los grupos ocupados",async()=>{
+  const vm=require("node:vm");
+  const fuente=matricula.match(/async function balancearSubgrupos\([\s\S]*?\n\}/)[0];
+  const balancear=vm.runInNewContext(`(${fuente})`);
+  const secuencia=[];
+  let a=0,b=0;
+  const cliente={query:async (sql,params)=>{
+    assert.match(sql,/m\.estudiante_id<>\$3/);
+    assert.equal(params[1],2027);
+    return {rows:[{a,b}]};
+  }};
+  for(let i=0;i<6;i++){
+    const g=await balancear(cliente,false,2,i+1,2027);
+    secuencia.push(g);
+    if(g==="A")a++;else b++;
+  }
+  assert.deepEqual(secuencia,["A","B","A","B","A","B"]);
+  assert.match(matricula,/async function asignarMatricula[\s\S]*?pg_advisory_xact_lock\(\$1\)[\s\S]*?ocupadosSub/);
+  assert.match(frontend,/imprimirCartaHorarioMatricula\(matEstId,matAnio,true\)/);
+});
+
+test("la beca calcula los ingresos de cada persona incluso cuando alguno es cero",async()=>{
+  const vm=require("node:vm");
+  const ruta=matricula.match(/router\.post\("\/beca-comedor", canAccess, ([\s\S]*?)\n\}\);/)[1]+"\n}";
+  const consultas=[];
+  const beca=vm.runInNewContext(`(${ruta})`,{
+    obtenerAnioActivo:async()=>2026,
+    pool:{query:async (sql,params)=>{consultas.push({sql,params});return {rows:[{id:7}]};}},
+  });
+  let resultado;
+  await beca({session:{usuario:{id:1}},body:{
+    estudiante_id:2,anio:2027,personas_hogar:2,ingreso_mensual:1,
+    integrantes:[{nombre:"Persona A",parentesco:"Madre",ingreso:"140000.75"},{nombre:"Persona B",parentesco:"Estudiante",ingreso:"0"}]
+  }},{json:r=>{resultado=r;}});
+  assert.equal(resultado.ingreso_mensual,140000.75);
+  assert.equal(resultado.percapita,70000.375);
+  assert.equal(JSON.parse(consultas[0].params[15]).length,2);
+  assert.match(consultas[1].sql,/INSERT INTO becas_comedor_anio/);
 });
 
 test("solicitud de matrícula llega pendiente al Comité de Apoyo al aplicar el año",()=>{

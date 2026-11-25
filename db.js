@@ -629,6 +629,7 @@ async function initDB() {
       )
     `);
     await client.query(`ALTER TABLE solicitud_beca_comedor ADD COLUMN IF NOT EXISTS anio_destino INTEGER DEFAULT NULL`);
+    await client.query(`ALTER TABLE solicitud_beca_comedor ADD COLUMN IF NOT EXISTS integrantes JSONB NOT NULL DEFAULT '[]'::jsonb`);
     await client.query(`UPDATE solicitud_beca_comedor SET anio_destino=2027 WHERE anio_destino IS NULL`);
     // Padrón anual: evita que una solicitud para 2027 modifique la beca
     // vigente de 2026 y permite preparar el comedor antes del cambio de año.
@@ -1070,6 +1071,7 @@ async function initDB() {
     // Identifica a la persona repitente dentro de la reserva anual. El cupo
     // general sigue siendo 26, pero cada sección admite como máximo 6.
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS repitente BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS destino_borrador JSONB`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_matricula_pendiente_anio
       ON matricula(anio, estado) WHERE estado='pendiente_matricula'`);
     // Normalizar reservas ya existentes: la letra se deriva siempre de la

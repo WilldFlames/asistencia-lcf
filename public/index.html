@@ -3344,7 +3344,7 @@ tr:hover td{background:#f8fafc;}
       </select>
     </div>
     <div class="fg" id="asignar-fg-tec" style="display:none;">
-      <label>Tecnología (Décimo)</label>
+      <label>Tecnología (Décimo y Undécimo)</label>
       <select id="asignar-sec-tec">
         <option value="">— Seleccionar —</option>
         <option value="Inglés Conversacional">Inglés Conversacional — Grupo A</option>
@@ -3581,16 +3581,27 @@ tr:hover td{background:#f8fafc;}
           </div>
           <div class="fg"><label>Correo personal</label><input type="email" id="mat-correo"/></div>
           <div class="fg" id="mat-procedencia-wrap"><label>Institución de procedencia</label><input type="text" id="mat-procedencia"/></div>
-          <div class="fg"><label>Nivel a cursar 2027 *</label>
-            <select id="mat-nivel">
+          <div class="fg"><label for="mat-nivel" id="mat-nivel-label">Nivel a cursar *</label>
+            <select id="mat-nivel" onchange="matActualizarDestino(true)">
               <option value="">—</option>
               <option value="7">Sétimo</option><option value="8">Octavo</option><option value="9">Noveno</option>
               <option value="10">Décimo</option><option value="11">Undécimo</option>
             </select>
           </div>
+          <div class="fg" id="mat-destino-wrap" style="display:none;">
+            <label for="mat-destino">Sección *</label>
+            <select id="mat-destino" onchange="matMostrarDestino()"></select>
+          </div>
+          <div class="fg" id="mat-destino-idioma-wrap" style="display:none;">
+            <label for="mat-destino-idioma">Idioma de la sección</label><input id="mat-destino-idioma" readonly/>
+          </div>
+          <div class="fg" id="mat-destino-tec-wrap" style="display:none;">
+            <label for="mat-destino-tec">Tecnología *</label><select id="mat-destino-tec"></select>
+          </div>
+          <div id="mat-destino-info" aria-live="polite" style="grid-column:1/-1;font-size:12px;"></div>
           <div class="fg" style="grid-column:1/-1;">
             <label style="cursor:pointer;display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#78350f;">
-              <input type="checkbox" id="mat-convocatoria" style="width:18px;height:18px;margin-top:1px;flex:0 0 auto;"/>
+              <input type="checkbox" id="mat-convocatoria" onchange="matActualizarDestino()" style="width:18px;height:18px;margin-top:1px;flex:0 0 auto;"/>
               <span><strong>Convocatoria</strong><br/><small style="font-weight:normal;line-height:1.35;">El estudiante queda en espera y sin sección hasta conocer el resultado en febrero.</small></span>
             </label>
           </div>
@@ -3705,12 +3716,13 @@ tr:hover td{background:#f8fafc;}
       </div>
       <div id="mat-form-beca" style="display:none;">
         <div class="form-grid">
-          <div class="fg"><label>Personas en el hogar *</label><input type="number" id="beca-personas" min="1" max="20"/></div>
+          <div class="fg"><label for="beca-personas">Personas en el hogar *</label><input type="number" id="beca-personas" min="1" max="20" oninput="becaActualizarIntegrantes()"/></div>
           <div class="fg"><label>Tipo de vivienda *</label>
             <select id="beca-vivienda"><option value="">—</option><option>Propia</option><option>Alquilada</option><option>Prestada</option></select>
           </div>
           <div class="fg"><label>¿Con quién vive?</label><input type="text" id="beca-vive-con"/></div>
-          <div class="fg"><label>Ingreso mensual total (₡) *</label><input type="text" inputmode="numeric" autocomplete="off" id="beca-ingreso" maxlength="12" placeholder="Ej. 300000" oninput="this.value=this.value.replace(/\D/g,'').slice(0,12)"/></div>
+          <div class="fg"><label for="beca-ingreso">Ingreso mensual total (₡)</label><input type="text" id="beca-ingreso" readonly/></div>
+          <div id="beca-integrantes" style="grid-column:1/-1;" oninput="becaActualizarTotal()"></div>
           <div class="fg"><label>¿Recibe Avancemos?</label>
             <select id="beca-avancemos" onchange="document.getElementById('beca-monto-av').style.display=this.value==='si'?'':'none'">
               <option value="no">No</option><option value="si">Sí</option>
@@ -11404,6 +11416,20 @@ const MAT_CACHE_MS = 60000;
 // ── Estado de matrícula por año ──────────────────────────────────
 let matAnio = null;          // año de matrícula seleccionado
 let matCupos = [];           // cupos por sección para matAnio
+let matConsultaCuposActiva=false;
+setInterval(async ()=>{
+  if(matConsultaCuposActiva||document.hidden||!matAnio||!document.getElementById('page-matricula')?.classList.contains('active'))return;
+  const anio=matAnio;
+  matConsultaCuposActiva=true;
+  try{
+    const cupos=await api(`/api/matricula/cupos/${anio}`);
+    if(anio!==matAnio||!Array.isArray(cupos)||JSON.stringify(cupos)===JSON.stringify(matCupos))return;
+    matCupos=cupos;
+    renderCuposWidget();
+    if(document.getElementById('modal-matricula')?.classList.contains('show'))matActualizarDestino();
+    if(document.getElementById('modal-asignar-seccion')?.classList.contains('show'))asignarCuposInfo();
+  }catch{}finally{matConsultaCuposActiva=false;}
+},1000);
 let matAsigFuturas = {};     // estudiante_id → asignación futura (si matAnio > actual)
 let matRestricciones = [];   // parejas que no pueden compartir sección en matAnio
 let rmEstudiantes = [];      // lista institucional completa para restricciones
@@ -11526,7 +11552,7 @@ function renderCuposWidget(){
   const sorted = [...matCupos].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{numeric:true}));
   cont.innerHTML = sorted.map(c=>{
     const nivel = parseInt(c.nombre.split('-')[0]) || c.nivel;
-    const conSubgrupo = nivel >= 10; // 10° y 11° tienen subgrupos por tecnología
+    const conSubgrupo = nivel >= 10 || (matAnio>=2027 && nivel>=7);
     const total = colorDisponibles(c.disponibles, c.max);
     const frances = c.idioma==='Francés' ? '<span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:3px;margin-left:4px;">🇫🇷</span>' : '';
 
@@ -11977,10 +12003,23 @@ function asignarCuposInfo(){
   const sel = document.getElementById("asignar-sec-select");
   const info = document.getElementById("asignar-cupos-info");
   if(!sel || !info) return;
+  const porId=new Map(matCupos.map(c=>[String(c.seccion_id),c]));
+  for(const opt of sel.options){
+    const cupo=porId.get(opt.value);
+    if(!cupo)continue;
+    const usados=Math.max(0,cupo.ocupados-(opt.dataset.yaAhi==="1"?1:0));
+    const libres=Math.max(0,cupo.max-usados);
+    opt.dataset.llena=libres===0?"1":"0";
+    opt.dataset.frances=cupo.idioma==="Francés"?"1":"0";
+    opt.disabled=libres===0&&ME.rol!=="admin"&&opt.value!==sel.value;
+    opt.textContent=`${cupo.nombre}${cupo.idioma==="Francés"?" · Francés":""} — ${usados}/${cupo.max} · ${libres} libres${opt.dataset.restrTexto||""}`;
+  }
   const sid = sel.value;
   if(!sid){ info.style.display = "none"; return; }
   const c = (matCupos||[]).find(x => String(x.seccion_id) === String(sid));
   if(!c){ info.style.display = "none"; return; }
+  const idiomaSel=document.getElementById("asignar-sec-idioma");
+  if(idiomaSel && !idiomaSel.disabled)idiomaSel.value=c.idioma||"Inglés";
   const nivel = parseInt(document.getElementById("asignar-sec-nivel").value) || 0;
   const conSubgrupo = nivel >= 10;
   // Filtrar opciones de tecnología B según config de la sección
@@ -12082,7 +12121,7 @@ async function abrirAsignarSeccion(id, nombre, nivel){
       const restrTxt=bloqueada?` · 🚫 RESTRICCIÓN: ${restringidos.map(r=>r.nombre).join(', ')}`:'';
       const label = c ? `${s.nombre}${fr} — ${ocupados}/${c.max}${llena?' · LLENA':` · ${c.max-ocupados} campos`}${restrTxt}` : s.nombre+restrTxt;
       const dis = (llena && !esAdminM) ? 'disabled' : '';
-      return `<option value="${s.id}" data-llena="${llena?1:0}" data-frances="${c&&c.idioma==='Francés'?1:0}" data-restriccion="${bloqueada?1:0}" ${dis}>${htmlSeguro(label)}</option>`;
+      return `<option value="${s.id}" data-ya-ahi="${yaAhi?1:0}" data-restr-texto="${htmlSeguro(restrTxt)}" data-llena="${llena?1:0}" data-frances="${c&&c.idioma==='Francés'?1:0}" data-restriccion="${bloqueada?1:0}" ${dis}>${htmlSeguro(label)}</option>`;
     }).join("");
   if(fut.seccion_id) sel.value = String(fut.seccion_id);
   // Mostrar/ocultar panel de cupos según la selección inicial
@@ -12106,25 +12145,26 @@ async function abrirAsignarSeccion(id, nombre, nivel){
   idiomaSel.value = est.idioma || fut.idioma || "";
   tecnologiaSel.value = est.tecnologia || fut.tecnologia || "";
   const eleccionRegistrada=!!((est.idioma||fut.idioma)&&(est.tecnologia||fut.tecnologia));
-  idiomaSel.disabled=eleccionRegistrada;
-  tecnologiaSel.disabled=eleccionRegistrada;
+  idiomaSel.disabled=!!idiomaSel.value;
+  tecnologiaSel.disabled=!!tecnologiaSel.value;
   if(parseInt(nivel) === 10){
     fgTec.style.display = "";
     her.style.display = eleccionRegistrada ? "" : "none";
     if(eleccionRegistrada) her.innerHTML=`🔒 <strong>Elección registrada en Idioma/Tecnología:</strong> ${htmlSeguro(idiomaSel.value)} · ${htmlSeguro(tecnologiaSel.value)} (Grupo ${subgrupoDeTec(tecnologiaSel.value)}). Se conserva automáticamente; elegí una sección con cupo en ese grupo.`;
   } else if(parseInt(nivel) === 11){
-    fgTec.style.display = "none";
+    fgTec.style.display = "";
     const tec = fut.tecnologia || est.tecnologia;
     const idiomaHeredado = fut.idioma || est.idioma;
     her.style.display = "";
     her.innerHTML = tec && idiomaHeredado
       ? `♻️ <strong>Undécimo conserva la elección de décimo:</strong> ${idiomaHeredado} · ${tec}${subgrupoDeTec(tec)?` (Grupo ${subgrupoDeTec(tec)})`:''}`
-      : `⚠️ Falta el idioma o la tecnología de décimo. Registralos antes de asignar la sección de undécimo.`;
+      : "Elegí una sección y completá la tecnología si aún no está registrada.";
   } else {
     fgTec.style.display = "none";
     her.style.display = "none";
   }
 
+  asignarCuposInfo();
   document.getElementById("modal-asignar-seccion").classList.add("show");
 }
 
@@ -12356,6 +12396,8 @@ function abrirNuevaMatricula(){
     const el=document.getElementById(id); if(el) el.value="";
   });
   const av=document.getElementById("beca-avancemos"); if(av) av.value="no";
+  document.getElementById("beca-integrantes").replaceChildren();
+  document.getElementById("beca-monto-av").style.display="none";
   const br=document.getElementById("beca-resultado"); if(br) br.style.display="none";
   [1,2,3,4].forEach(i=>{const x=document.getElementById(`beca-m${i}`);if(x)x.checked=false;});
   const rb = document.getElementById("mat-btn-sin-beca");
@@ -21049,6 +21091,71 @@ const CICLO_MAT = {7:"III Ciclo de la Educación General Básica",
                    9:"III Ciclo de la Educación General Básica",
                    10:"Educación Diversificada",11:"Educación Diversificada"};
 let matEstId = null, matEncIdx = 0, matDatosGuardados = null;
+let matFichaDestino=null;
+
+function matConfigurarNiveles(ficha){
+  matFichaDestino=ficha;
+  const borrador=ficha?.destino_borrador;
+  if(borrador){
+    document.getElementById('mat-convocatoria').checked=!!borrador.convocatoria;
+    document.getElementById('mat-repitente').checked=!!borrador.repitente;
+  }
+  const actual=Number(ficha?.nivel_actual);
+  const regular=ficha?.fuente==='estudiante' && actual>=7 && actual<=11;
+  const niveles=regular
+    ? (matAnio>matAnioActual() && actual<11?[actual,actual+1]:[actual])
+    : ficha?.fuente==='prematricula'?[7]:[7,8,9,10,11];
+  const sel=document.getElementById('mat-nivel');
+  document.getElementById('mat-nivel-label').textContent=`Nivel a cursar ${matAnio} *`;
+  sel.innerHTML='<option value="">—</option>'+niveles.map(n=>`<option value="${n}">${NIVELES_MAT[n]}</option>`).join('');
+  const guardado=Number(borrador?.nivel||ficha?.nivel_solicitado||ficha?.nivel_matricula);
+  sel.value=(borrador||ficha?.matricula_seccion_id) && niveles.includes(guardado)?guardado
+    : ficha?.repitente && niveles.includes(actual)?actual
+    : ficha?.fuente==='prematricula'?7:regular?niveles.at(-1):niveles.includes(guardado)?guardado:'';
+  document.getElementById('mat-destino').innerHTML='';
+  document.getElementById('mat-destino-tec').innerHTML='';
+  matActualizarDestino(false,borrador?borrador.seccion_id:ficha?.matricula_seccion_id);
+  const tec=document.getElementById('mat-destino-tec');
+  if(!tec.disabled && borrador?.tecnologia && Array.from(tec.options).some(o=>o.value===borrador.tecnologia))
+    tec.value=borrador.tecnologia;
+}
+
+function matActualizarDestino(cambioNivel=false,seccionInicial){
+  const nivel=Number(document.getElementById('mat-nivel').value);
+  const sel=document.getElementById('mat-destino');
+  const pendiente=document.getElementById('mat-convocatoria').checked;
+  const actual=Number(matFichaDestino?.nivel_actual);
+  if(cambioNivel && matAnio>matAnioActual() && actual)
+    document.getElementById('mat-repitente').checked=nivel===actual;
+  document.getElementById('mat-destino-wrap').style.display=nivel&&!pendiente?'':'none';
+  const anterior=String(seccionInicial||sel.value||'');
+  const secciones=pendiente?[]:matCupos.filter(c=>Number(c.nivel)===nivel);
+  sel.innerHTML='<option value="">— Elegir sección —</option>'+secciones.map(c=>
+    `<option value="${c.seccion_id}">${htmlSeguro(c.nombre)} · ${c.disponibles} libres${nivel>=10&&c.idioma==='Francés'?' · Francés':''}</option>`).join('');
+  if(secciones.some(c=>String(c.seccion_id)===anterior))sel.value=anterior;
+  matMostrarDestino();
+}
+
+function matMostrarDestino(){
+  const sid=document.getElementById('mat-destino').value;
+  const c=matCupos.find(x=>String(x.seccion_id)===sid);
+  const superior=!!c&&Number(c.nivel)>=10;
+  for(const id of ['mat-destino-idioma-wrap','mat-destino-tec-wrap'])
+    document.getElementById(id).style.display=superior?'':'none';
+  const idioma=matFichaDestino?.idioma||matFichaDestino?.matricula_idioma;
+  const heredada=matFichaDestino?.tecnologia||matFichaDestino?.matricula_tecnologia;
+  const sel=document.getElementById('mat-destino-tec');
+  const anterior=sel.value;
+  const opciones=superior?[...new Set(['Inglés Conversacional',c.tec_b,heredada].filter(Boolean))]:[];
+  sel.innerHTML='<option value="">— Elegir tecnología —</option>'+opciones.map(t=>
+    `<option value="${htmlSeguro(t)}">${htmlSeguro(t)}</option>`).join('');
+  sel.disabled=!!heredada;
+  if(opciones.includes(heredada||anterior))sel.value=heredada||anterior;
+  document.getElementById('mat-destino-idioma').value=superior?(idioma||c.idioma||'Inglés'):'';
+  document.getElementById('mat-destino-info').textContent=c
+    ? `${c.disponibles} campos libres · ${c.repitentes_disponibles} para repitentes${superior || matAnio>=2027?` · A: ${c.disponibles_a} libres · B: ${c.disponibles_b} libres`:''}${!superior&&matAnio>=2027?' · Grupo de talleres asignado automáticamente':''}`
+    : '';
+}
 let matPasoHabilitado = 1;
 
 // Los datos escritos por las personas se insertan dentro del documento PDF.
@@ -21110,10 +21217,10 @@ async function imprimirAutorizacionImagenFuera(){
   await imprimirAutorizacionImagen();
 }
 
-async function imprimirCartaHorarioMatricula(estudianteId, anio=matAnio){
+async function imprimirCartaHorarioMatricula(estudianteId, anio=matAnio, automatica=false){
   try{
     const r=await api(`/api/matricula/carta-horario/${estudianteId}/${anio}`);
-    if(!(r.celdas||[]).length && !confirm("El horario de esta sección todavía está vacío. ¿Deseás imprimir de todos modos la carta con la plantilla de horario en blanco?")) return;
+    if(!(r.celdas||[]).length && !automatica && !confirm("El horario de esta sección todavía está vacío. ¿Deseás imprimir de todos modos la carta con la plantilla de horario en blanco?")) return;
 
     const estudiante=r.estudiante||{};
     const subgrupo=estudiante.subgrupo||null;
@@ -21168,8 +21275,10 @@ async function imprimirCartaHorarioMatricula(estudianteId, anio=matAnio){
       <p style="margin:3px 0;">Por este medio le informamos que el estudiante:</p>
       <div style="display:grid;grid-template-columns:2.2fr 1fr;gap:6px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;padding:4px 7px;margin:4px 0;">
         <div><strong>Nombre:</strong> ${nombreEst}</div><div><strong>Sección asignada:</strong> ${seccion}</div>
+        ${Number(estudiante.nivel)>=10?`<div><strong>Idioma:</strong> ${pdfTexto(estudiante.idioma)}</div><div><strong>Tecnología:</strong> ${pdfTexto(estudiante.tecnologia)}</div>`:''}
       </div>
       <p style="margin:3px 0;text-align:justify;">tendrá el horario de clases que se adjunta a esta comunicación y se detalla a continuación. Le recomendamos conservar este documento y revisar junto con el estudiante los días, horarios y asignaturas correspondientes, con el fin de facilitar su organización desde el inicio del curso lectivo.</p>
+      ${!(r.celdas||[]).length?'<p><strong>Horario pendiente de publicación.</strong></p>':''}
 
       <div style="display:flex;justify-content:space-between;gap:10px;margin:5px 0 3px;font-size:8.5px;">
         <div><strong>SECCIÓN:</strong> ${seccion}</div><div><strong>PROFESOR(A) GUÍA:</strong> ${guia}</div>
@@ -21312,6 +21421,7 @@ async function cargarDatosMatricula(){
       if(r){r.checked=true;matTipoChange();}
       sa("alert-mat-modal","Estudiante nuevo — completá todos los campos.","warning");
     }
+    matConfigurarNiveles(data);
   }catch(e){ sa("alert-mat-modal","Error: "+e.message,"danger"); }
 }
 
@@ -21425,6 +21535,12 @@ async function guardarMat1(){
   const ap1=document.getElementById("mat-ap1").value.trim();
   const nivel=parseInt(document.getElementById("mat-nivel").value)||0;
   if(!cedula||!nombre||!ap1||!nivel){ sa("alert-mat-modal","Cédula, nombre, apellido y nivel son obligatorios.","danger"); return; }
+  const convocatoria=document.getElementById("mat-convocatoria").checked;
+  const seccionId=Number(document.getElementById("mat-destino").value);
+  const tecnologia=nivel>=10?document.getElementById("mat-destino-tec").value:null;
+  if(!convocatoria && (!seccionId||nivel>=10&&!tecnologia)){
+    sa("alert-mat-modal","Elegí la sección y, en décimo u undécimo, la tecnología.","danger");return;
+  }
   const encargados=getEncargados();
   const principales=encargados.filter(e=>e.es_principal);
   if(!encargados.length){ sa("alert-mat-modal","Debés registrar al menos un encargado.","danger"); return; }
@@ -21449,7 +21565,7 @@ async function guardarMat1(){
     habita_con_otro:document.getElementById("mat-habita-otro")?.value||null,
     adecuacion:document.getElementById("mat-adecuacion").value,
     tipo_ingreso:tipo, nivel_matricula:nivel,
-    convocatoria:!!document.getElementById("mat-convocatoria")?.checked,
+    convocatoria, seccion_id:convocatoria?null:seccionId, tecnologia,
     repitente:!!document.getElementById("mat-repitente")?.checked,
     enfermedad:document.getElementById("mat-enfermedad").value,
     medicamento:document.getElementById("mat-medicamento").value,
@@ -21665,16 +21781,49 @@ function mostrarFormBeca(){
 function saltarBeca(){ matPaso(4); }
 function mostrarFormAdecuacion(){ const fa=document.getElementById("mat-form-adecuacion"); if(fa) fa.style.display=""; }
 
+function becaActualizarIntegrantes(){
+  const cantidad=Number(document.getElementById("beca-personas").value);
+  const cont=document.getElementById("beca-integrantes");
+  const filas=Number.isInteger(cantidad)&&cantidad>=1&&cantidad<=20?cantidad:0;
+  for(let i=cont.children.length;i<filas;i++){
+    const ficha=document.createElement("fieldset");
+    ficha.style.cssText="padding:10px;border:1px solid var(--border);border-radius:8px;margin:0 0 8px;";
+    ficha.innerHTML=`<legend>Persona ${i+1}</legend><div class="form-grid">
+      <label class="fg">Nombre completo *<input data-beca="nombre" maxlength="180"></label>
+      <label class="fg">Identificación<input data-beca="identificacion" maxlength="35"></label>
+      <label class="fg">Parentesco con el estudiante *<input data-beca="parentesco" maxlength="80"></label>
+      <label class="fg">Edad<input data-beca="edad" type="number" min="0" max="130"></label>
+      <label class="fg">Ocupación<input data-beca="ocupacion" maxlength="120"></label>
+      <label class="fg">Ingreso mensual (₡) *<input data-beca="ingreso" type="number" min="0" max="9999999999" step="0.01" placeholder="0 si no recibe ingresos"></label>
+    </div>`;
+    cont.appendChild(ficha);
+  }
+  [...cont.children].forEach((f,i)=>{f.hidden=i>=filas;});
+  becaActualizarTotal();
+}
+
+function becaLeerIntegrantes(){
+  return [...document.querySelectorAll('#beca-integrantes > fieldset:not([hidden])')].map(f=>
+    Object.fromEntries([...f.querySelectorAll('[data-beca]')].map(c=>[c.dataset.beca,c.value.trim()])));
+}
+
+function becaActualizarTotal(){
+  const centimos=becaLeerIntegrantes().reduce((total,p)=>total+Math.round((Number(p.ingreso)||0)*100),0);
+  document.getElementById("beca-ingreso").value=(centimos/100).toLocaleString('es-CR',{maximumFractionDigits:2});
+}
+
 async function guardarBecaMatricula(){
   const btn=document.querySelector('#mat-form-beca .btn-success');
   if(btn?.disabled) return;
   const personas=parseInt(document.getElementById("beca-personas").value)||0;
-  const ingreso=parseFloat(document.getElementById("beca-ingreso").value)||0;
-  if(!personas||!ingreso){ sa("alert-mat-modal","Ingresá personas e ingreso mensual.","danger"); matPaso(3); return; }
+  const integrantes=becaLeerIntegrantes();
+  if(!personas||integrantes.length!==personas||integrantes.some(p=>!p.nombre||!p.parentesco||p.ingreso===''||!Number.isFinite(Number(p.ingreso))||Number(p.ingreso)<0)){
+    sa("alert-mat-modal","Completá el nombre, parentesco e ingreso de cada persona. Usá 0 cuando no tenga ingresos.","danger"); matPaso(3); return;
+  }
   const motivos=["Situación económica","Desempleo","Enfermedad","Distancia"].filter((_,i)=>document.getElementById(`beca-m${i+1}`)?.checked).join(", ");
   const body={estudiante_id:matEstId,cedula_estudiante:document.getElementById("mat-cedula").value,
     personas_hogar:personas,tipo_vivienda:document.getElementById("beca-vivienda").value,
-    vive_con:document.getElementById("beca-vive-con").value,ingreso_mensual:ingreso,
+    vive_con:document.getElementById("beca-vive-con").value,integrantes,
     recibe_avancemos:document.getElementById("beca-avancemos").value==="si",
     monto_avancemos:parseFloat(document.getElementById("beca-monto-avancemos")?.value)||0,
     otros_ingresos:document.getElementById("beca-otros").value,motivos,anio:matAnio};
@@ -21691,7 +21840,7 @@ async function guardarBecaMatricula(){
     sa("alert-mat-modal","✅ Solicitud de beca guardada.","success");
   }catch(e){ sa("alert-mat-modal","No se pudo guardar la solicitud de beca: "+e.message,"danger"); matPaso(3); return; }
   finally{if(btn){btn.disabled=false;btn.textContent=textoBtn;}}
-  try{await imprimirFormBeca(resultado,body);}
+  try{await imprimirFormBeca(resultado,{...body,ingreso_mensual:resultado.ingreso_mensual,integrantes:resultado.integrantes});}
   catch(e){sa("alert-mat-modal","La solicitud sí quedó guardada, pero no se pudo generar el PDF: "+e.message,"warning");}
 }
 
@@ -21705,13 +21854,17 @@ async function imprimirFormBeca(resultado,datos){
   const nivelNom=NIVELES_MAT[parseInt(document.getElementById("mat-nivel").value)||7]||"";
   const encs=getEncargados(); const enc1=encs[0]||{};
   const auxNom=pdfTexto(nombrePersona(ME));
+  const anio=Number(datos.anio)||matAnio;
+  const formatoIngreso=valor=>Number(valor||0).toLocaleString('es-CR',{maximumFractionDigits:2});
+  const integrantes=(datos.integrantes||[]).map((p,i)=>`<tr><td>${i+1}</td><td>${pdfTexto(p.nombre)}</td><td>${pdfTexto(p.identificacion)}</td><td>${pdfTexto(p.parentesco)}</td><td>${pdfTexto(p.edad)}</td><td>${pdfTexto(p.ocupacion)}</td><td>₡${formatoIngreso(p.ingreso)}</td></tr>`).join('');
   const contenidoHTML=`
   <div style="font-size:12px;line-height:1.7;">
-    <h3 style="text-align:center;font-size:13px;margin:10px 0;">SOLICITUD DE BENEFICIO DE COMEDOR – 2027 · Liceo de Calle Fallas</h3>
+    <h3 style="text-align:center;font-size:13px;margin:10px 0;">SOLICITUD DE BENEFICIO DE COMEDOR – ${anio} · Liceo de Calle Fallas</h3>
     <p><strong>ESTUDIANTE:</strong> ${nombre} &nbsp; Cédula: ${cedEst} &nbsp; Nivel: ${pdfTexto(nivelNom)}</p>
     <p><strong>ENCARGADO:</strong> ${pdfTexto(nombrePersona(enc1)," ")} — Cédula: ${pdfTexto(enc1.cedula)} — Tel: ${pdfTexto(enc1.telefono)} — ${pdfTexto(enc1.parentesco," ")}</p>
     <p><strong>FAMILIA:</strong> Personas: ${pdfTexto(datos.personas_hogar)} &nbsp; Vivienda: ${pdfTexto(datos.tipo_vivienda)} &nbsp; Vive con: ${pdfTexto(datos.vive_con)}</p>
-    <p><strong>ECONÓMICO:</strong> Ingreso: ₡${Math.round(datos.ingreso_mensual).toLocaleString()} &nbsp; Avancemos: ${datos.recibe_avancemos?"Sí":"No"} &nbsp; Otros: ${pdfTexto(datos.otros_ingresos)}</p>
+    ${integrantes?`<table class="tabla-reporte"><thead><tr><th>#</th><th>Nombre completo</th><th>Identificación</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th><th>Ingreso mensual</th></tr></thead><tbody>${integrantes}</tbody></table>`:''}
+    <p><strong>ECONÓMICO:</strong> Ingreso total: ₡${formatoIngreso(datos.ingreso_mensual)} &nbsp; Avancemos: ${datos.recibe_avancemos?`Sí · ₡${formatoIngreso(datos.monto_avancemos)}`:"No"} &nbsp; Otros: ${pdfTexto(datos.otros_ingresos)}</p>
     <p><strong>MOTIVO:</strong> ${pdfTexto(datos.motivos)}</p>
     <p>Declaro bajo juramento que la información es verídica.</p>
     <div style="margin-top:16px;border-top:2px solid #374151;padding-top:10px;background:#f8fafc;padding:10px;border-radius:4px;">
@@ -21722,7 +21875,7 @@ async function imprimirFormBeca(resultado,datos){
       <div style="border-top:1px solid #374151;padding-top:8px;text-align:center;"><div>${auxNom}</div><div>Sello: ___________</div></div>
     </div>
   </div>`;
-  await imprimirPDFMEP("FORMULARIO PARA SOLICITUD DE BECA DE COMEDOR 2027", contenidoHTML, `solicitud_beca_comedor_${document.getElementById("mat-cedula").value||"estudiante"}.pdf`);
+  await imprimirPDFMEP(`FORMULARIO PARA SOLICITUD DE BECA DE COMEDOR ${anio}`, contenidoHTML, `solicitud_beca_comedor_${document.getElementById("mat-cedula").value||"estudiante"}.pdf`);
 }
 
 async function guardarAdecuacion(){
@@ -21770,25 +21923,41 @@ async function imprimirAdecuacion(motivo){
   await imprimirPDFMEP("SOLICITUD DE VALORACIÓN DE ADECUACIÓN CURRICULAR", contenidoHTML, `solicitud_valoracion_${document.getElementById("mat-cedula").value||"estudiante"}.pdf`);
 }
 
+let matFinalizando=false;
 async function finalizarMatricula(){
+  if(matFinalizando)return;
   if(!matDatosGuardados){ sa("alert-mat-modal","Error: no hay datos para guardar.","danger"); return; }
+  matFinalizando=true;
   try{
     // Se vuelve a guardar por si la persona regresó al paso 1 e hizo cambios.
     const r=await api("/api/matricula/guardar","POST",{...matDatosGuardados,anio:matAnio});
     matEstId=r.estudiante_id;
-    await api(`/api/matricula/completar/${matEstId}`,"POST",{
+    const cierre=await api(`/api/matricula/completar/${matEstId}`,"POST",{
       anio:matAnio,
       convocatoria:!!matDatosGuardados.convocatoria,
-      nivel_solicitado:matDatosGuardados.nivel_matricula
+      nivel_solicitado:matDatosGuardados.nivel_matricula,
+      seccion_id:matDatosGuardados.seccion_id,tecnologia:matDatosGuardados.tecnologia,
+      repitente:matDatosGuardados.repitente,requiere_seccion:true
     });
     cerrarModal("modal-matricula");
-    sa("alert-mat",matDatosGuardados.convocatoria
+    sa("alert-mat",cierre.convocatoria
       ? "📝 Matrícula guardada en espera por convocatoria. El estudiante queda sin sección hasta resolverla en febrero."
       : "✅ Matrícula finalizada y guardada exitosamente.","success");
-    await matRefrescarEstudiante(matEstId);
+    if(!cierre.convocatoria)await imprimirCartaHorarioMatricula(matEstId,matAnio,true);
+    await matRefrescarEstudiante(matEstId).catch(()=>sa("alert-mat","La matrícula quedó guardada. No se pudo refrescar el listado.","warning"));
   }catch(e){
     sa("alert-mat-modal","Error al guardar: "+e.message,"danger");
-  }
+    if(e.requiere_excepcion){
+      const motivo=prompt("Indique el motivo para solicitar a Dirección una excepción para esta sección.");
+      if(motivo?.trim()){
+        try{
+          await api('/api/matricula/restricciones-excepciones','POST',{estudiante_id:matEstId,anio:matAnio,seccion_id:matDatosGuardados.seccion_id,motivo});
+          sa("alert-mat-modal","Solicitud enviada a Dirección.","warning");
+        }catch(ex){sa("alert-mat-modal",ex.message,"danger");}
+      }
+    }
+    matPaso(1);
+  }finally{matFinalizando=false;}
 }
 
 // ════════════════════════════════════
