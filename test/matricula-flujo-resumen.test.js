@@ -71,6 +71,30 @@ test("beca acepta montos completos y autorización completa fecha y funcionario"
   assert.match(frontend,/iPad, etc\.\), debido a que no son solicitados/);
 });
 
+test("Idioma y Tecnología conserva las elecciones y aplica la condición al año destino",async()=>{
+  const vm=require("node:vm");
+  const fuente=matricula.match(/async function condicionIdiomaTec\([\s\S]*?\n\}/)[0];
+  const consultar=vm.runInNewContext(`(${fuente})`);
+  for(const [condicion,resultado,espera,voca] of [
+    ["regular",null,false,false],["voca",null,false,true],["convo",null,true,false],
+    ["aplazado",null,true,false],["convo","aprobado",false,false],["convo","reprobado",false,false]
+  ]){
+    const valor=await consultar(42,2027,{query:async(sql,params)=>{
+      assert.match(sql,/t\.anio=\$2/);
+      assert.equal(params[1],2027);
+      return {rows:[{condicion,convocatoria_estado:resultado}]};
+    }});
+    assert.equal(valor.enEspera,espera);
+    assert.equal(valor.voca,voca);
+  }
+  assert.match(frontend,/lista\.filter\(e=>\(e\.condicion\|\|"regular"\)==="regular"\)/);
+  assert.match(matricula,/if\(transicion\.enEspera\)convocatoria=true/);
+  assert.match(matricula,/AND it\.condicion IS DISTINCT FROM 'voca'/);
+  const guardar=matricula.slice(matricula.indexOf('router.put("/idioma-tecnologia/:id/condicion"'),
+    matricula.indexOf('// Guardar idioma/tecnología'));
+  assert.doesNotMatch(guardar,/UPDATE estudiantes|UPDATE matricula/);
+});
+
 test("la matrícula serializa el cierre por año y alterna talleres respetando los grupos ocupados",async()=>{
   const vm=require("node:vm");
   const fuente=matricula.match(/async function balancearSubgrupos\([\s\S]*?\n\}/)[0];

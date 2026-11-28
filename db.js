@@ -1071,6 +1071,14 @@ async function initDB() {
     // Identifica a la persona repitente dentro de la reserva anual. El cupo
     // general sigue siendo 26, pero cada sección admite como máximo 6.
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS repitente BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`CREATE TABLE IF NOT EXISTS idioma_tecnologia_transicion (
+      estudiante_id INTEGER NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+      anio INTEGER NOT NULL,
+      condicion TEXT NOT NULL CHECK(condicion IN ('regular','voca','convo','aplazado')),
+      actualizado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY(estudiante_id,anio)
+    )`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS destino_borrador JSONB`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_matricula_pendiente_anio
       ON matricula(anio, estado) WHERE estado='pendiente_matricula'`);

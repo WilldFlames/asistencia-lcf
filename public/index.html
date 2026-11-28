@@ -2631,8 +2631,8 @@ tr:hover td{background:#f8fafc;}
       <div class="stat it-choice-card" style="--it-color:#dc4c5b;"><div class="num" id="it-matem-amprosa">0</div><div class="lbl">➗ Matem/AMPROSA</div><span class="it-group">Grupo B</span></div>
     </div>
     <div class="table-wrap"><table style="font-size:12.5px;">
-      <thead><tr><th>#</th><th>Estudiante</th><th>Cédula</th><th>Sección</th><th>Idioma</th><th>Tecnología</th><th style="text-align:center;" title="Marcar cuando el estudiante entregue la boleta">📄 Boleta</th></tr></thead>
-      <tbody id="it-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+      <thead><tr><th>#</th><th>Estudiante</th><th>Cédula</th><th>Sección</th><th>Condición <span id="it-anio-destino"></span></th><th>Idioma</th><th>Tecnología</th><th style="text-align:center;" title="Marcar cuando el estudiante entregue la boleta">📄 Boleta</th></tr></thead>
+      <tbody id="it-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -11981,6 +11981,8 @@ async function matRefrescarEstudiante(estudianteId,{eliminado=false}={}){
 }
 
 function matEstadoHTML(e){
+  if(matEsperaIdiomaTec(e) && e.convocatoria_estado!=='pendiente')
+    return `<span class="badge" style="background:#ffedd5;color:#9a3412;">${IT_CONDICIONES[e.condicion_idioma_tecnologia]} · En espera</span>`;
   if(e.matricula_estado === 'pendiente_matricula'){
     return `<span class="badge" style="background:#fef3c7;color:#92400e;">⏳ Pendiente de matrícula ${matAnio}</span>`+
       (e.seccion_origen_nombre?`<div style="font-size:10.5px;color:var(--muted);margin-top:3px;">Procedía de ${htmlSeguro(e.seccion_origen_nombre)}</div>`:'');
@@ -12179,7 +12181,7 @@ function subgrupoDeTec(tec){
 // Celda de sección en la tabla de matrícula (actual + asignación futura)
 function matSeccionCelda(e){
   const esFuturo = matAnio > matAnioActual();
-  if(e.convocatoria && e.convocatoria_estado === 'pendiente'){
+  if(matEsperaIdiomaTec(e) || (e.convocatoria && e.convocatoria_estado === 'pendiente')){
     return '<span class="badge" style="background:#ffedd5;color:#9a3412;">Sin sección · espera convocatoria</span>';
   }
   const esc = nombrePersona(e).replace(/'/g,"\\'");
@@ -19052,11 +19054,15 @@ async function caGuardarTecB(seccionId, sel){
 // ════════════════════════════════════
 let itData = [];
 let itPuedeEditar = true;
+let itAnioDestino=null;
+const IT_CONDICIONES={regular:"Regular",voca:"VOCA",convo:"Convo",aplazado:"Aplazado"};
 
 async function iniciarIdiomaTec(){
   try{
     const r = await api("/api/matricula/idioma-tecnologia")||{};
     itData = r.estudiantes || [];
+    itAnioDestino=r.anio_destino;
+    document.getElementById("it-anio-destino").textContent=itAnioDestino||"";
     itPuedeEditar = r.puede_editar !== false;
     // Aviso visual si es solo lectura
     const alertEl = document.getElementById("alert-idiomatec");
@@ -19081,6 +19087,7 @@ function itListaVisible(){
 }
 
 function itStats(lista=itListaVisible()){
+  lista=lista.filter(e=>(e.condicion||"regular")==="regular");
   const completos = lista.filter(e=>e.idioma && e.tecnologia).length;
   document.getElementById("it-total").textContent = lista.length;
   document.getElementById("it-completos").textContent = completos;
@@ -19099,13 +19106,16 @@ function itRender(){
   const lista = itListaVisible();
   itStats(lista);
   const tbody = document.getElementById("it-tbody");
-  if(!lista.length){ tbody.innerHTML = '<tr><td colspan="7" class="empty">No hay estudiantes de noveno en tus secciones.</td></tr>'; return; }
+  if(!lista.length){ tbody.innerHTML = '<tr><td colspan="8" class="empty">No hay estudiantes de noveno en tus secciones.</td></tr>'; return; }
   const dis = itPuedeEditar ? '' : 'disabled';
   tbody.innerHTML = lista.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
       <td><strong>${nombreEstudianteLista(e)}</strong></td>
     <td><code>${e.cedula}</code></td>
     <td>${e.seccion_nombre}</td>
+    <td>${itPuedeEditar?`<select aria-label="Condición para matrícula" onchange="itGuardarCondicion(${e.id},this)">
+      ${Object.entries(IT_CONDICIONES).map(([valor,label])=>`<option value="${valor}" ${(e.condicion||"regular")===valor?"selected":""}>${label}</option>`).join("")}
+    </select>`:(IT_CONDICIONES[e.condicion]||"Regular")}</td>
     <td>${itPuedeEditar ? `
       <select onchange="itGuardar(${e.id}, this, 'idioma')" style="padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
         <option value="">—</option>
@@ -19129,6 +19139,21 @@ function itRender(){
       </label>` : `<span style="color:${e.boleta_entregada?'var(--verde)':'#ea580c'};font-weight:bold;font-size:11.5px;">${e.boleta_entregada?'✅ Entregada':'⏳ Pendiente'}</span>`}
     </td>
   </tr>`).join("");
+}
+
+async function itGuardarCondicion(id,select){
+  const est=itData.find(e=>e.id===id);
+  if(!est)return;
+  select.disabled=true;
+  try{
+    const r=await api(`/api/matricula/idioma-tecnologia/${id}/condicion`,"PUT",{anio:itAnioDestino,condicion:select.value});
+    est.condicion=r.condicion;
+    matUltimaCargaAt=0;
+    itStats();
+  }catch(e){
+    select.value=est.condicion||"regular";
+    sa("alert-idiomatec",e.message,"danger");
+  }finally{select.disabled=false;}
 }
 
 async function itBoleta(id, chk){
@@ -21093,6 +21118,11 @@ const CICLO_MAT = {7:"III Ciclo de la Educación General Básica",
 let matEstId = null, matEncIdx = 0, matDatosGuardados = null;
 let matFichaDestino=null;
 
+function matEsperaIdiomaTec(ficha){
+  return ["convo","aplazado"].includes(ficha?.condicion_idioma_tecnologia)
+    && !["aprobado","reprobado"].includes(ficha?.convocatoria_estado);
+}
+
 function matConfigurarNiveles(ficha){
   matFichaDestino=ficha;
   const borrador=ficha?.destino_borrador;
@@ -21100,6 +21130,9 @@ function matConfigurarNiveles(ficha){
     document.getElementById('mat-convocatoria').checked=!!borrador.convocatoria;
     document.getElementById('mat-repitente').checked=!!borrador.repitente;
   }
+  const check=document.getElementById("mat-convocatoria");
+  check.disabled=matEsperaIdiomaTec(ficha);
+  if(check.disabled)check.checked=true;
   const actual=Number(ficha?.nivel_actual);
   const regular=ficha?.fuente==='estudiante' && actual>=7 && actual<=11;
   const niveles=regular
@@ -21111,7 +21144,7 @@ function matConfigurarNiveles(ficha){
   const guardado=Number(borrador?.nivel||ficha?.nivel_solicitado||ficha?.nivel_matricula);
   sel.value=(borrador||ficha?.matricula_seccion_id) && niveles.includes(guardado)?guardado
     : ficha?.repitente && niveles.includes(actual)?actual
-    : ficha?.fuente==='prematricula'?7:regular?niveles.at(-1):niveles.includes(guardado)?guardado:'';
+    : ficha?.fuente==='prematricula'?7:regular?niveles.at(-1):matEsperaIdiomaTec(ficha)?10:niveles.includes(guardado)?guardado:'';
   document.getElementById('mat-destino').innerHTML='';
   document.getElementById('mat-destino-tec').innerHTML='';
   matActualizarDestino(false,borrador?borrador.seccion_id:ficha?.matricula_seccion_id);
