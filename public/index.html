@@ -2631,8 +2631,8 @@ tr:hover td{background:#f8fafc;}
       <div class="stat it-choice-card" style="--it-color:#dc4c5b;"><div class="num" id="it-matem-amprosa">0</div><div class="lbl">➗ Matem/AMPROSA</div><span class="it-group">Grupo B</span></div>
     </div>
     <div class="table-wrap"><table style="font-size:12.5px;">
-      <thead><tr><th>#</th><th>Estudiante</th><th>Cédula</th><th>Sección</th><th>Condición <span id="it-anio-destino"></span></th><th>Idioma</th><th>Tecnología</th><th style="text-align:center;" title="Marcar cuando el estudiante entregue la boleta">📄 Boleta</th></tr></thead>
-      <tbody id="it-tbody"><tr><td colspan="8" class="empty">Cargando...</td></tr></tbody>
+      <thead><tr><th>#</th><th>Estudiante</th><th>Cédula</th><th>Sección</th><th>Idioma</th><th>Tecnología</th><th style="text-align:center;" title="Marcar cuando el estudiante entregue la boleta">📄 Boleta</th><th>Número de boleta</th><th>Condición <span id="it-anio-destino"></span></th></tr></thead>
+      <tbody id="it-tbody"><tr><td colspan="9" class="empty">Cargando...</td></tr></tbody>
     </table></div>
   </div>
 </div>
@@ -19106,16 +19106,12 @@ function itRender(){
   const lista = itListaVisible();
   itStats(lista);
   const tbody = document.getElementById("it-tbody");
-  if(!lista.length){ tbody.innerHTML = '<tr><td colspan="8" class="empty">No hay estudiantes de noveno en tus secciones.</td></tr>'; return; }
-  const dis = itPuedeEditar ? '' : 'disabled';
+  if(!lista.length){ tbody.innerHTML = '<tr><td colspan="9" class="empty">No hay estudiantes de noveno en tus secciones.</td></tr>'; return; }
   tbody.innerHTML = lista.map((e,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
       <td><strong>${nombreEstudianteLista(e)}</strong></td>
     <td><code>${e.cedula}</code></td>
     <td>${e.seccion_nombre}</td>
-    <td>${itPuedeEditar?`<select aria-label="Condición para matrícula" onchange="itGuardarCondicion(${e.id},this)">
-      ${Object.entries(IT_CONDICIONES).map(([valor,label])=>`<option value="${valor}" ${(e.condicion||"regular")===valor?"selected":""}>${label}</option>`).join("")}
-    </select>`:(IT_CONDICIONES[e.condicion]||"Regular")}</td>
     <td>${itPuedeEditar ? `
       <select onchange="itGuardar(${e.id}, this, 'idioma')" style="padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
         <option value="">—</option>
@@ -19138,7 +19134,31 @@ function itRender(){
         <span style="color:${e.boleta_entregada?'var(--verde)':'var(--muted)'};font-weight:bold;">${e.boleta_entregada?'✅ Entregada':'Pendiente'}</span>
       </label>` : `<span style="color:${e.boleta_entregada?'var(--verde)':'#ea580c'};font-weight:bold;font-size:11.5px;">${e.boleta_entregada?'✅ Entregada':'⏳ Pendiente'}</span>`}
     </td>
+    <td>${itPuedeEditar?`<input type="text" aria-label="Número de boleta"
+      maxlength="40" autocomplete="off" value="${htmlSeguro(e.numero_boleta)}"
+      style="width:10em;" onchange="itGuardarNumeroBoleta(${e.id},this)"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`
+      :htmlSeguro(e.numero_boleta||"—")}</td>
+    <td>${itPuedeEditar?`<select aria-label="Condición para matrícula" onchange="itGuardarCondicion(${e.id},this)">
+      ${Object.entries(IT_CONDICIONES).map(([valor,label])=>`<option value="${valor}" ${(e.condicion||"regular")===valor?"selected":""}>${label}</option>`).join("")}
+    </select>`:(IT_CONDICIONES[e.condicion]||"Regular")}</td>
   </tr>`).join("");
+}
+
+async function itGuardarNumeroBoleta(id,campo){
+  const est=itData.find(e=>e.id===id);
+  if(!est)return;
+  campo.disabled=true;
+  try{
+    const r=await api(`/api/matricula/idioma-tecnologia/${id}/numero-boleta`,"PUT",{
+      anio:itAnioDestino,numero_boleta:campo.value
+    });
+    est.numero_boleta=r.numero_boleta;
+    campo.value=est.numero_boleta||"";
+  }catch(e){
+    campo.value=est.numero_boleta||"";
+    sa("alert-idiomatec",e.message,"danger");
+  }finally{campo.disabled=false;}
 }
 
 async function itGuardarCondicion(id,select){

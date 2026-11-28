@@ -90,9 +90,12 @@ test("Idioma y Tecnología conserva las elecciones y aplica la condición al añ
   assert.match(frontend,/lista\.filter\(e=>\(e\.condicion\|\|"regular"\)==="regular"\)/);
   assert.match(matricula,/if\(transicion\.enEspera\)convocatoria=true/);
   assert.match(matricula,/AND it\.condicion IS DISTINCT FROM 'voca'/);
-  const guardar=matricula.slice(matricula.indexOf('router.put("/idioma-tecnologia/:id/condicion"'),
+  const guardar=matricula.slice(matricula.indexOf('async function guardarDatoTransicion'),
     matricula.indexOf('// Guardar idioma/tecnología'));
   assert.doesNotMatch(guardar,/UPDATE estudiantes|UPDATE matricula/);
+  assert.match(guardar,/numero_boleta=EXCLUDED\.numero_boleta,actualizado_por=/);
+  assert.match(frontend,/Boleta<\/th><th>Número de boleta<\/th><th>Condición/);
+  assert.match(frontend,/value="\$\{htmlSeguro\(e\.numero_boleta\)\}"/);
 });
 
 test("la matrícula serializa el cierre por año y alterna talleres respetando los grupos ocupados",async()=>{

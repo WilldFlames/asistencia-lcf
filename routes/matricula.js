@@ -1956,7 +1956,7 @@ router.get("/idioma-tecnologia", canIdiomaTec, async (req, res) => {
   const r = await pool.query(`
     SELECT e.id, e.cedula, e.nombre, e.primer_apellido, e.segundo_apellido,
       e.idioma, e.tecnologia, e.boleta_entregada, s.nombre AS seccion_nombre,
-      COALESCE(it.condicion,'regular') AS condicion
+      COALESCE(it.condicion,'regular') AS condicion,it.numero_boleta
     FROM estudiantes e
     JOIN secciones s ON s.id = e.seccion_id
     LEFT JOIN idioma_tecnologia_transicion it ON it.estudiante_id=e.id AND it.anio=$1
@@ -1967,10 +1967,16 @@ router.get("/idioma-tecnologia", canIdiomaTec, async (req, res) => {
   res.json({ puede_editar: puedeEditar, anio_destino:anioDestino, estudiantes: r.rows });
 });
 
-router.put("/idioma-tecnologia/:id/condicion", canEditarIdiomaTec, async(req,res)=>{
+async function guardarDatoTransicion(req,res,campo){
   const id=Number(req.params.id), condicion=req.body?.condicion;
-  if(!Number.isSafeInteger(id)||id<1||!['regular','voca','convo','aplazado'].includes(condicion))
+  const cambiaCondicion=campo==="condicion";
+  const numero=typeof req.body?.numero_boleta==="string"?req.body.numero_boleta.trim():null;
+  if(!Number.isSafeInteger(id)||id<1)
+    return res.status(400).json({error:"Estudiante inválido."});
+  if(cambiaCondicion&&!['regular','voca','convo','aplazado'].includes(condicion))
     return res.status(400).json({error:"Seleccione una condición válida."});
+  if(!cambiaCondicion&&(numero===null||numero.length>40))
+    return res.status(400).json({error:"El número de boleta admite hasta 40 caracteres."});
   const client=await pool.connect();
   try{
     await client.query("BEGIN");
@@ -1988,22 +1994,32 @@ router.put("/idioma-tecnologia/:id/condicion", canEditarIdiomaTec, async(req,res
       WHERE e.id=$1 AND e.activo=true AND COALESCE(e.archivado,false)=false AND s.nivel=9
         AND ($3::boolean OR EXISTS(SELECT 1 FROM seccion_orientador so
           WHERE so.seccion_id=e.seccion_id AND so.orientador_id=$4))`,[id,anio,accesoInstitucional,u.id]);
-    if(!est.rows.length || (est.rows[0].reserva && condicion!=='regular')){
+    if(!est.rows.length || (cambiaCondicion && est.rows[0].reserva && condicion!=='regular')){
       await client.query("ROLLBACK");
       return res.status(409).json({error:est.rows.length
         ?"La matrícula ya tiene una sección asignada. Revisá esa asignación antes de cambiar la condición."
         :"La persona estudiante no está en las secciones de noveno que podés editar."});
     }
-    await client.query(`INSERT INTO idioma_tecnologia_transicion(estudiante_id,anio,condicion,actualizado_por)
-      VALUES($1,$2,$3,$4) ON CONFLICT(estudiante_id,anio) DO UPDATE SET
-      condicion=EXCLUDED.condicion,actualizado_por=EXCLUDED.actualizado_por,actualizado_en=NOW()`,[id,anio,condicion,u.id]);
+    if(cambiaCondicion){
+      await client.query(`INSERT INTO idioma_tecnologia_transicion(estudiante_id,anio,condicion,actualizado_por)
+        VALUES($1,$2,$3,$4) ON CONFLICT(estudiante_id,anio) DO UPDATE SET
+        condicion=EXCLUDED.condicion,actualizado_por=EXCLUDED.actualizado_por,actualizado_en=NOW()`,[id,anio,condicion,u.id]);
+    }else{
+      await client.query(`INSERT INTO idioma_tecnologia_transicion(estudiante_id,anio,condicion,numero_boleta,actualizado_por)
+        VALUES($1,$2,'regular',$3,$4) ON CONFLICT(estudiante_id,anio) DO UPDATE SET
+        numero_boleta=EXCLUDED.numero_boleta,actualizado_por=EXCLUDED.actualizado_por,actualizado_en=NOW()`,
+      [id,anio,numero||null,u.id]);
+    }
     await client.query("COMMIT");
-    res.json({condicion});
+    res.json(cambiaCondicion?{condicion}:{numero_boleta:numero||null});
   }catch(e){
     await client.query("ROLLBACK");
-    res.status(500).json({error:"No se pudo actualizar la condición."});
+    res.status(500).json({error:cambiaCondicion?"No se pudo actualizar la condición.":"No se pudo guardar el número de boleta."});
   }finally{client.release();}
-});
+}
+
+router.put("/idioma-tecnologia/:id/condicion",canEditarIdiomaTec,(req,res)=>guardarDatoTransicion(req,res,"condicion"));
+router.put("/idioma-tecnologia/:id/numero-boleta",canEditarIdiomaTec,(req,res)=>guardarDatoTransicion(req,res,"numero_boleta"));
 // Guardar idioma/tecnología de un estudiante (autosave por fila) — solo editores
 router.put("/idioma-tecnologia/:id", canEditarIdiomaTec, async (req, res) => {
   const { idioma, tecnologia } = req.body;

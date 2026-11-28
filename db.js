@@ -1079,6 +1079,7 @@ async function initDB() {
       actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY(estudiante_id,anio)
     )`);
+    await client.query(`ALTER TABLE idioma_tecnologia_transicion ADD COLUMN IF NOT EXISTS numero_boleta VARCHAR(40)`);
     await client.query(`ALTER TABLE matricula ADD COLUMN IF NOT EXISTS destino_borrador JSONB`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_matricula_pendiente_anio
       ON matricula(anio, estado) WHERE estado='pendiente_matricula'`);
